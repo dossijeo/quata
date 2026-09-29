@@ -49,13 +49,21 @@ class CreatePostViewModel(
                 lastFailedSubmitType = null,
                 successMessage = null
             )
-            is CreatePostUiEvent.ImageSelected -> _uiState.value = _uiState.value.copy(
-                imageUri = event.uri,
-                error = null,
-                mediaError = null,
-                lastFailedSubmitType = null,
-                successMessage = null
-            )
+            is CreatePostUiEvent.ImageSelected -> {
+                val current = _uiState.value
+                val keepLocation = event.preserveLocation && !event.uri.isNullOrBlank()
+                _uiState.value = current.copy(
+                    imageUri = event.uri,
+                    locationLabel = current.locationLabel.takeIf { keepLocation },
+                    latitude = current.latitude.takeIf { keepLocation },
+                    longitude = current.longitude.takeIf { keepLocation },
+                    locationOrigin = current.locationOrigin.takeIf { keepLocation },
+                    error = null,
+                    mediaError = null,
+                    lastFailedSubmitType = null,
+                    successMessage = null,
+                )
+            }
             is CreatePostUiEvent.VideoSelected -> _uiState.value = _uiState.value.copy(
                 videoUri = event.uri,
                 error = null,
@@ -69,19 +77,13 @@ class CreatePostViewModel(
                 lastFailedSubmitType = null,
                 successMessage = null,
             )
-            is CreatePostUiEvent.LocationResolved -> _uiState.value = _uiState.value.copy(
-                locationLabel = event.label,
-                latitude = event.latitude,
-                longitude = event.longitude,
-                error = null,
-                lastFailedSubmitType = null,
-                successMessage = null
-            )
+            is CreatePostUiEvent.LocationResolved -> applyResolvedLocation(event)
             is CreatePostUiEvent.LocationLabelChanged -> _uiState.value = _uiState.value.copy(
                 locationLabel = event.value.takeIf { it.isNotBlank() },
+                locationOrigin = CreatePostLocationOrigin.Manual,
                 error = null,
                 lastFailedSubmitType = null,
-                successMessage = null
+                successMessage = null,
             )
             CreatePostUiEvent.ReloadDestinations -> loadDestinations()
             CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState(
@@ -100,6 +102,27 @@ class CreatePostViewModel(
                 lastFailedSubmitType = null,
             )
         }
+    }
+
+    private fun applyResolvedLocation(event: CreatePostUiEvent.LocationResolved) {
+        val current = _uiState.value
+        if (event.imageUri != null) {
+            if (current.imageUri != event.imageUri) return
+            when (event.origin) {
+                CreatePostLocationOrigin.Device -> if (current.locationOrigin != null) return
+                CreatePostLocationOrigin.ImageMetadata -> if (current.locationOrigin == CreatePostLocationOrigin.Manual) return
+                CreatePostLocationOrigin.Manual -> Unit
+            }
+        }
+        _uiState.value = current.copy(
+            locationLabel = event.label,
+            latitude = event.latitude,
+            longitude = event.longitude,
+            locationOrigin = event.origin,
+            error = null,
+            lastFailedSubmitType = null,
+            successMessage = null,
+        )
     }
 
     fun loadDestinations() {

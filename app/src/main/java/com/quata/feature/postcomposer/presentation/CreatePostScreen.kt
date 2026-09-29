@@ -148,9 +148,7 @@ fun CreatePostScreen(
         editedVideoTempUri = null
     }
 
-    fun resolveLocation(deliver: (String, Double?, Double?) -> Unit = { label, latitude, longitude ->
-        viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, latitude, longitude))
-    }) {
+    fun resolveLocation(deliver: (String, Double?, Double?) -> Unit) {
         scope.launch {
             if (permissionService.status(PlatformPermission.Location) != PermissionStatus.Granted &&
                 permissionService.request(PlatformPermission.Location) != PermissionStatus.Granted
@@ -175,12 +173,21 @@ fun CreatePostScreen(
             editedImageTempUri?.let(context::deleteComposerOwnedImage)
             preparedImageTempUri = prepared
             editedImageTempUri = null
-            viewModel.onEvent(CreatePostUiEvent.ImageSelected(prepared.toString()))
             val exif = withContext(Dispatchers.IO) { context.exifLocationFromUri(prepared) }
+            val exifLabel = exif?.let { withContext(Dispatchers.IO) { context.locationLabel(it) } }
+            val imageReference = prepared.toString()
+            viewModel.onEvent(CreatePostUiEvent.ImageSelected(imageReference))
             if (exif != null) {
-                val label = withContext(Dispatchers.IO) { context.locationLabel(exif) }
-                viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, exif.latitude, exif.longitude))
-            } else resolveLocation()
+                viewModel.onEvent(
+                    CreatePostUiEvent.LocationResolved(
+                        label = requireNotNull(exifLabel),
+                        latitude = exif.latitude,
+                        longitude = exif.longitude,
+                        origin = CreatePostLocationOrigin.ImageMetadata,
+                        imageUri = imageReference,
+                    ),
+                )
+            }
             imageEditorUri = prepared
         }
     }
@@ -292,7 +299,7 @@ fun CreatePostScreen(
                 if (preparedImageTempUri != edited) preparedImageTempUri?.let(context::deleteComposerOwnedImage)
                 preparedImageTempUri = null
                 editedImageTempUri = edited
-                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited.toString()))
+                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited.toString(), preserveLocation = true))
                 imageEditorUri = null
             },
         )

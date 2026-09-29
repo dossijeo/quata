@@ -109,6 +109,99 @@ class CreatePostRootContractTest {
     }
 
     @Test
+    fun selectingAnotherImageInvalidatesLocationAndRejectsStaleResolution() {
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>(null)
+        })
+        viewModel.onEvent(CreatePostUiEvent.ImageSelected("file:///first.jpg"))
+        viewModel.onEvent(
+            CreatePostUiEvent.LocationResolved(
+                label = "EXIF first",
+                latitude = 3.75,
+                longitude = 8.78,
+                origin = CreatePostLocationOrigin.ImageMetadata,
+                imageUri = "file:///first.jpg",
+            ),
+        )
+
+        viewModel.onEvent(CreatePostUiEvent.ImageSelected("file:///second.jpg"))
+        viewModel.onEvent(
+            CreatePostUiEvent.LocationResolved(
+                label = "stale device result",
+                latitude = 1.0,
+                longitude = 2.0,
+                origin = CreatePostLocationOrigin.Device,
+                imageUri = "file:///first.jpg",
+            ),
+        )
+
+        assertEquals("file:///second.jpg", viewModel.uiState.value.imageUri)
+        assertNull(viewModel.uiState.value.locationLabel)
+        assertNull(viewModel.uiState.value.locationOrigin)
+        viewModel.close()
+    }
+
+    @Test
+    fun metadataCanReplaceDeviceResolutionButNeverManualInput() {
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>(null)
+        })
+        val image = "file:///photo.jpg"
+        viewModel.onEvent(CreatePostUiEvent.ImageSelected(image))
+        viewModel.onEvent(
+            CreatePostUiEvent.LocationResolved(
+                label = "Device",
+                origin = CreatePostLocationOrigin.Device,
+                imageUri = image,
+            ),
+        )
+        viewModel.onEvent(
+            CreatePostUiEvent.LocationResolved(
+                label = "EXIF",
+                origin = CreatePostLocationOrigin.ImageMetadata,
+                imageUri = image,
+            ),
+        )
+        assertEquals("EXIF", viewModel.uiState.value.locationLabel)
+        assertEquals(CreatePostLocationOrigin.ImageMetadata, viewModel.uiState.value.locationOrigin)
+
+        viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged("Manual"))
+        viewModel.onEvent(
+            CreatePostUiEvent.LocationResolved(
+                label = "late EXIF",
+                origin = CreatePostLocationOrigin.ImageMetadata,
+                imageUri = image,
+            ),
+        )
+        viewModel.onEvent(
+            CreatePostUiEvent.LocationResolved(
+                label = "late device",
+                origin = CreatePostLocationOrigin.Device,
+                imageUri = image,
+            ),
+        )
+
+        assertEquals("Manual", viewModel.uiState.value.locationLabel)
+        assertEquals(CreatePostLocationOrigin.Manual, viewModel.uiState.value.locationOrigin)
+        viewModel.close()
+    }
+
+    @Test
+    fun editingTheSelectedImagePreservesItsLocationProvenance() {
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>(null)
+        })
+        viewModel.onEvent(CreatePostUiEvent.ImageSelected("file:///source.jpg"))
+        viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged("Malabo"))
+        viewModel.onEvent(CreatePostUiEvent.ImageSelected("file:///edited.jpg", preserveLocation = true))
+
+        assertEquals("file:///edited.jpg", viewModel.uiState.value.imageUri)
+        assertEquals("Malabo", viewModel.uiState.value.locationLabel)
+        assertEquals(CreatePostLocationOrigin.Manual, viewModel.uiState.value.locationOrigin)
+        viewModel.close()
+    }
+
+    @Test
     fun clearDraftPreservesLoadedDestinationSelection() = runTest {
         val viewModel = CreatePostViewModel(object : PostComposerRepository {
             override suspend fun loadDestinations() = Result.success(

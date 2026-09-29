@@ -104,6 +104,7 @@ class CreatePostRootInteractionTest {
             assertEquals("40.4168, -3.7038", viewModel.uiState.value.locationLabel)
             assertEquals(40.4168, viewModel.uiState.value.latitude)
             assertEquals(-3.7038, viewModel.uiState.value.longitude)
+            assertEquals(com.quata.feature.postcomposer.presentation.CreatePostLocationOrigin.Device, viewModel.uiState.value.locationOrigin)
         }
     }
 }

@@ -222,6 +222,13 @@ test("post location uses common anchors and the shared remote metadata codec", (
   assert.match(commonLocationSection, /contentDescription = "\$title: \$locationText"/);
   assert.match(commonLocationEditor, /ComposerLocationInputTestTag = "composer-location-input"/);
   assert.match(commonComposerRepository, /PostComposerType\.Image -> buildPostBodyWithMeta\(imageLocation = locationLabel, channel = "feed"\)/);
+  assert.match(commonCreatePostViewModel, /locationOrigin = current\.locationOrigin\.takeIf \{ keepLocation \}/);
+  assert.match(commonCreatePostViewModel, /CreatePostLocationOrigin\.Device -> if \(current\.locationOrigin != null\) return/);
+  assert.match(commonCreatePostViewModel, /CreatePostLocationOrigin\.ImageMetadata -> if \(current\.locationOrigin == CreatePostLocationOrigin\.Manual\) return/);
+  assert.match(commonCreatePostRoot, /imageUri = selectedImage/);
+  assert.match(androidCreatePostScreen, /origin = CreatePostLocationOrigin\.ImageMetadata/);
+  assert.doesNotMatch(androidCreatePostScreen, /else resolveLocation\(\)/);
+  assert.match(webPostComposerRoute, /platformServices\.location\.currentLocation\(\)/);
   assert.match(iosComposerHost, /val location: LocationService/);
   assert.match(iosComposerHost, /val permissions: PermissionService/);
   assert.match(iosComposerHost, /requestLocation = \{ resolved ->/);

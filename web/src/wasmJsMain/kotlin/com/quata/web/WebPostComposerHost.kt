@@ -127,7 +127,11 @@ fun WebPostComposerHost(
                 })
                 mediaSlots.editImage != null -> ({
                     val edit = mediaSlots.editImage
-                    scope.launch { stateUri(viewModel, true)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } }
+                    scope.launch {
+                        stateUri(viewModel, true)?.let { current ->
+                            edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it, preserveLocation = true)) }
+                        }
+                    }
                 })
                 else -> null
             },
@@ -156,7 +160,7 @@ fun WebPostComposerHost(
             { imageEditorReference = null },
             { edited ->
                 imageEditorReference = null
-                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited))
+                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited, preserveLocation = true))
             },
         )
     }

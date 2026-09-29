@@ -180,10 +180,10 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     val copy = createPostRootCopyForLanguageTag(dependencies.languageTag)
     val viewModel = remember(dependencies.repository, copy) {
         CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages()).also { model ->
-            dependencies.initialLocationLabel?.takeIf(String::isNotBlank)
-                ?.let { model.onEvent(CreatePostUiEvent.LocationLabelChanged(it)) }
             dependencies.initialImageReference?.takeIf(String::isNotBlank)
                 ?.let { model.onEvent(CreatePostUiEvent.ImageSelected(it)) }
+            dependencies.initialLocationLabel?.takeIf(String::isNotBlank)
+                ?.let { model.onEvent(CreatePostUiEvent.LocationLabelChanged(it)) }
         }
     }
     val scope = rememberCoroutineScope()
@@ -297,7 +297,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             onEdited = { edited ->
                 imageEditorFile = null
                 imageFile = edited
-                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited.reference))
+                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited.reference, preserveLocation = true))
             },
         )
     }

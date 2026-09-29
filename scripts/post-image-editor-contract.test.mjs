@@ -56,7 +56,7 @@ test("post image editor owns a common transform, geometry and shared control sur
 test("Web composer opens the real Compose/Wasm post image editor and exports a JPEG blob", () => {
   assert.match(webHost, /imageEditorReference/);
   assert.match(webHost, /mediaSlots\.imageEditor/);
-  assert.match(webHost, /CreatePostUiEvent\.ImageSelected\(edited\)/);
+  assert.match(webHost, /CreatePostUiEvent\.ImageSelected\(edited, preserveLocation = true\)/);
   assert.match(webEditor, /WebPostImageEditor/);
   assert.match(webEditor, /PostImageEditorDialogContent/);
   assert.match(webEditor, /rememberBrowserCanvasImage\(sourceReference\)/);
