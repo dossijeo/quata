@@ -47,6 +47,8 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.match(docsBlock, /name: Documentation diff and contracts/);
   assert.match(docsBlock, /if: \$\{\{ github\.event_name == 'pull_request' && needs\.classify-impact\.outputs\.docs_only == 'true' \}\}/);
   assert.match(docsBlock, /uses: actions\/checkout@v6[\s\S]*?fetch-depth: 0/);
+  assert.match(docsBlock, /name: Install pinned contract dependencies[\s\S]*?npm ci --ignore-scripts/,
+    'the clean docs runner must install the dependencies imported by the fast contract suite');
   assert.match(docsBlock, /git diff --check "\$\{\{ github\.event\.pull_request\.base\.sha \}\}" HEAD/);
   assert.match(docsBlock, /npm run test:ci-fast-contracts/);
   const fastBlock = yaml.slice(fastStart, webStart);
