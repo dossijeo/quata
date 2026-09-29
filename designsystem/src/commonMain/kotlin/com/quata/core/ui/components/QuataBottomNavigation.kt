@@ -1,7 +1,7 @@
 package com.quata.core.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -69,8 +69,8 @@ private fun RowScope.QuataBottomNavigationItem(item: QuataNavigationItem, select
         border = BorderStroke(1.dp, if (selected) template.colors.selectedBorder else template.colors.divider),
         modifier = modifier
             .testTag(navigationTag)
-            .semantics { contentDescription = navigationTag }
-            .clickable(onClick = onClick),
+            .selectable(selected = selected, onClick = onClick)
+            .semantics { contentDescription = navigationTag },
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
             Icon(item.icon, item.label, tint = contentColor, modifier = Modifier.size(24.dp))
