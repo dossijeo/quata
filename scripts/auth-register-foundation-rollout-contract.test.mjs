@@ -12,6 +12,7 @@ const postconditions = await read("./sql/web-registration-release-postconditions
 const inventory = await read("../docs/SCREEN_MIGRATION_INVENTORY_V2.md");
 const registrationContract = await read("../docs/WEB_AUTH_REGISTRATION_CONTRACT.md");
 const androidProductEvidence = JSON.parse(await read("../docs/candidate-attestations/evidence/auth-register-product-android-14330005.json"));
+const iosProductEvidence = JSON.parse(await read("../docs/candidate-attestations/evidence/auth-register-product-ios-560ade21.json"));
 const functionReadme = await read("../supabase/functions/quata-register/README.md");
 const androidBuild = await read("../app/build.gradle.kts");
 const androidApi = await read("../app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
@@ -68,22 +69,49 @@ test("selective executor pins registration SQL and verifies its exact security b
   assert.match(postconditions, /has_function_privilege/);
 });
 
-test("operator documentation reports reversible backend plus Web and Android product UI acceptance", () => {
+test("operator documentation reports reversible backend plus three-platform product UI acceptance", () => {
   assert.match(inventory, /aceptación reversible del endpoint real/);
   assert.match(inventory, /restauró `503 registration_unavailable`/);
-  assert.match(inventory, /interfaz Web real/);
-  assert.match(inventory, /interfaz Android real/);
-  assert.match(inventory, /Turnstile en el WebView de producto/);
+  assert.match(inventory, /interfaz Web con custodia exacta/);
+  assert.match(inventory, /acredita Android mediante el formulario compartido/);
+  assert.match(inventory, /Turnstile en el WebView/);
   assert.match(inventory, /un único submit/);
-  assert.match(inventory, /interfaz iOS/);
-  assert.match(inventory, /no el envío desde su interfaz/);
+  assert.match(inventory, /GO focal de producto en Web, Android e iOS/);
+  assert.match(inventory, /#477.*acredita iOS desde el formulario real/);
   assert.match(inventory, /auth-register-product-android-14330005\.json/);
+  assert.match(inventory, /auth-register-product-ios-560ade21\.json/);
   assert.match(registrationContract, /Product SHA `14330005` cierra también Android/);
-  assert.match(registrationContract, /La interfaz iOS sigue pendiente/);
+  assert.match(registrationContract, /cerró también iOS desde el formulario real/);
   assert.match(functionReadme, /registration disabled/);
   assert.match(functionReadme, /registration_unavailable/);
   assert.match(functionReadme, /official Cloudflare always-fail or always-pass test secret/);
   assert.match(functionReadme, /must never remain installed after a trial/);
+});
+
+test("sanitized iOS product receipt preserves the merged XCTest and cleanup custody", () => {
+  assert.equal(iosProductEvidence.status, "passed");
+  assert.deepEqual(iosProductEvidence.git, {
+    head: "560ade21b747f2ccb168d31fd178aedd43bafb86",
+    workingTreeDirty: false,
+  });
+  assert.equal(iosProductEvidence.productUi.channel, "ios");
+  assert.equal(iosProductEvidence.productUi.exactSubmits, 1);
+  assert.equal(iosProductEvidence.productUi.authenticatedTransition, true);
+  assert.equal(iosProductEvidence.productUi.authenticatedRelaunch, true);
+  assert.equal(iosProductEvidence.xctest.result, "Passed");
+  assert.equal(iosProductEvidence.xctest.totalTestCount, 1);
+  assert.equal(iosProductEvidence.xctest.failedTests, 0);
+  assert.equal(iosProductEvidence.cleanup.verified, true);
+  assert.equal(iosProductEvidence.cleanup.profilesRemaining, 0);
+  assert.equal(iosProductEvidence.cleanup.registrationsRemaining, 0);
+  assert.equal(iosProductEvidence.cleanup.authUsersRemaining, 0);
+  assert.equal(iosProductEvidence.cleanup.rateLimitsRestored, true);
+  assert.equal(iosProductEvidence.provenance.pullRequest, 477);
+  assert.equal(iosProductEvidence.provenance.mergeCommit, "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3");
+  assert.match(iosProductEvidence.provenance.xcresultContentSha256, /^[0-9a-f]{64}$/);
+  assert.equal(iosProductEvidence.safety.privateValuesRecorded, false);
+  assert.equal(iosProductEvidence.safety.ownedResidueZero, true);
+  assert.doesNotMatch(JSON.stringify(iosProductEvidence), /deviceId|phone_local|password|secret_answer|databaseUrl/i);
 });
 
 test("Android preserves the dedicated public registration key through both HTTP layers", () => {

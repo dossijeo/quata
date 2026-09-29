@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "check": "AUTH-REGISTER-IOS-PRODUCT-REAL-001",
+  "status": "passed",
+  "platform": "ios",
+  "git": {
+    "head": "560ade21b747f2ccb168d31fd178aedd43bafb86",
+    "workingTreeDirty": false
+  },
+  "productUi": {
+    "channel": "ios",
+    "exactSubmits": 1,
+    "authenticatedTransition": true,
+    "authenticatedRelaunch": true,
+    "testCase": "QuataIosHostUITests/testRealAuthRegistrationSubmitsOnceAndRestoresAuthenticatedFeed()"
+  },
+  "xctest": {
+    "result": "Passed",
+    "totalTestCount": 1,
+    "passedTests": 1,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "durationSeconds": 585.7277679443359,
+    "platform": "iOS Simulator",
+    "model": "iPhone 16 Plus",
+    "osVersion": "18.3.1",
+    "architecture": "x86_64"
+  },
+  "steps": [
+    "ios_product_form_fields_observed",
+    "ios_product_exactly_one_submit_observed",
+    "ios_product_authenticated_transition_observed",
+    "ios_product_authenticated_relaunch_observed",
+    "server_disabled_after_trial",
+    "temporary_provider_secrets_removed",
+    "owned_profiles_registrations_and_auth_users_removed",
+    "owned_rate_limits_restored"
+  ],
+  "cleanup": {
+    "verified": true,
+    "serverRestored": true,
+    "profilesRemaining": 0,
+    "registrationsRemaining": 0,
+    "authUsersRemaining": 0,
+    "rateLimitsRestored": true,
+    "state": "completed",
+    "residueCounts": {
+      "profiles": 0,
+      "registrations": 0,
+      "authUsers": 0
+    }
+  },
+  "provenance": {
+    "pullRequest": 477,
+    "pullRequestHead": "2f7e70c6f9b8dd856de9412378a638e2b52874e5",
+    "mergeCommit": "2d6753153a0f77465f9d770dc9ca46a24a9e1dc3",
+    "mergedAt": "2026-09-29T10:22:43Z",
+    "pullRequestBodySha256": "9103b48cf1c62b730db85b8beca87efb999cdd9db2bb2ceb20e637b024d46792",
+    "xcresultContentSha256": "78da135722722d74b1a40af7494f62216c1078fea639825f66b6f2184003ccd5",
+    "rawPrivateReportRetained": false
+  },
+  "safety": {
+    "privateValuesRecorded": false,
+    "ownedResidueZero": true,
+    "temporaryProviderSecretsRemoved": true
+  },
+  "notes": [
+    "Sanitized durable projection of the independently reviewed and merged PR #477 acceptance. The private source report is not retained; the preserved xcresult content fingerprint, exact test result, merged PR receipt and final CI provide the durable custody chain.",
+    "No registration inputs, credentials, actor identifiers, phone numbers, database URLs, simulator identifiers, local paths or provider secrets are retained.",
+    "Three later closeout attempts on main did not reach the product UI: the first lost its preparation result after a successful build, and the subsequent two could not reproduce the durable registration key/pepper pair. Their guarded cleanup restored the disabled backend with zero owned database residue; the final attempt additionally required manual removal of its exactly identified disposable Simulator and generated untracked Xcode project after the macOS data volume filled."
+  ]
+}

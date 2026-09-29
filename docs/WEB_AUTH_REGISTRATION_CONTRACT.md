@@ -127,5 +127,10 @@ endpoint deshabilitado, cero filas propias y los scopes propios de rate limit.
 La proyección saneada está en
 [`auth-register-product-android-14330005.json`](candidate-attestations/evidence/auth-register-product-android-14330005.json).
 Durante la ventana cambió un scope de rate limit ajeno y un scope IP compartido;
-ambos se preservaron. La interfaz iOS sigue pendiente aunque su valor de canal
-ya esté acreditado por el backend compartido.
+ambos se preservaron. La [PR #477](https://github.com/dossijeo/quata/pull/477)
+cerró también iOS desde el formulario real: un único submit, transición
+autenticada y Feed restaurado después de relanzar la app. El XCTest focal pasó
+en un Simulator desechable y la ventana restauró el endpoint deshabilitado,
+retiró los secretos temporales y dejó cero perfiles, solicitudes y usuarios
+Auth propios. Su proyección saneada está en
+[`auth-register-product-ios-560ade21.json`](candidate-attestations/evidence/auth-register-product-ios-560ade21.json).
