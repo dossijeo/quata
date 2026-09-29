@@ -52,6 +52,7 @@ try {
   const destination = await selectPostPublishDestinationFixture({
     actorSession: { profileId: session.userId },
     withDatabase: (callback) => withPg(config, callback),
+    preferDefault: true,
   });
   fixture = createPostPublishFixture({
     actorSession: { profileId: session.userId },

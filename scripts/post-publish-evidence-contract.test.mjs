@@ -295,6 +295,7 @@ test("post publish ios runner delegates backend fixture ownership to shared help
   assert.match(iosRunner, /pollPostPublishFixture/);
   assert.match(iosRunner, /cleanupPostPublishFixture/);
   assert.match(iosRunner, /selectPostPublishDestinationFixture/);
+  assert.match(iosRunner, /preferDefault: true/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_MODE/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_LOCATION_LABEL/);

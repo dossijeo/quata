@@ -1362,6 +1362,7 @@ export function createPostPublishFixture({
 export async function selectPostPublishDestinationFixture({
   actorSession,
   withDatabase,
+  preferDefault = false,
 }) {
   if (!uuid.test(actorSession?.profileId ?? "")) throw new Error("post_publish_destination_invalid_actor");
   return await withDatabase(async (client) => {
@@ -1377,18 +1378,20 @@ export async function selectPostPublishDestinationFixture({
           where is_active = true
           order by sort_order asc, chat_last_at desc nulls last, created_at desc
        ), eligible as (
-         select walls.*, exists(select 1 from memberships where memberships.wall_id = walls.id) as is_member
+         select walls.*,
+                exists(select 1 from memberships where memberships.wall_id = walls.id) as is_member,
+                walls.id = (select wall_id from memberships limit 1) as is_default
            from walls
        )
-       select id, name, slug, city, description, is_member
+       select id, name, slug, city, description, is_member, is_default
          from eligible
         where is_member = true or not exists(select 1 from memberships)
-        order by is_member desc, name asc nulls last, slug asc nulls last
+        order by is_default desc, is_member desc, name asc nulls last, slug asc nulls last
         limit 3`,
       [actorSession.profileId],
     );
     const rows = result.rows.filter((row) => uuid.test(row.id ?? ""));
-    const selected = rows[1] ?? rows[0];
+    const selected = preferDefault ? rows.find((row) => row.is_default) ?? rows[0] : rows[1] ?? rows[0];
     if (!selected) throw new Error("post_publish_destination_unavailable");
     return {
       wallId: selected.id,
