@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+  "productSha": "411efbeecde17e33c3a90c9f70082c502b75dec9",
   "certification": "real-three-channel-backend-and-product-ui-acceptance-complete-independent-closeout-review-go",
   "evidence": {
     "harness": {
       "status": "passed",
-      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+      "sha": "411efbeecde17e33c3a90c9f70082c502b75dec9",
       "report": "docs/candidate-attestations/evidence/auth-register-real-d87411aa.json",
       "reportSha256": "ddddf0ea0b9a8f31e300a97460cef7a59a27deaac381a8d2931ab5c70ccbdc1a",
       "reportStatus": "passed",
@@ -38,7 +38,7 @@
     },
     "webProduct": {
       "status": "passed",
-      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+      "sha": "411efbeecde17e33c3a90c9f70082c502b75dec9",
       "report": "docs/candidate-attestations/evidence/auth-register-product-web-0a41aa08.json",
       "reportSha256": "c6d1013fb1f3177691fd10d5f5012fe2dd431ebe537717155814fd005e9808aa",
       "reportStatus": "passed",
@@ -69,7 +69,7 @@
     },
     "androidProduct": {
       "status": "passed",
-      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+      "sha": "411efbeecde17e33c3a90c9f70082c502b75dec9",
       "report": "docs/candidate-attestations/evidence/auth-register-product-android-14330005.json",
       "reportSha256": "a0508ece70344f15f27334c276d014304757aa8e98334a1c9b2a9ed7e8bdbb86",
       "reportStatus": "passed",
@@ -97,7 +97,7 @@
     },
     "iosProduct": {
       "status": "passed",
-      "sha": "c888419ffbf3d32f7372b88a0bd8902095cb7cf1",
+      "sha": "411efbeecde17e33c3a90c9f70082c502b75dec9",
       "report": "docs/candidate-attestations/evidence/auth-register-product-ios-560ade21.json",
       "reportSha256": "b78357b782954c66bb4bee960730c76f163e94f31095c5405bb1a10c0e7f1de5",
       "reportStatus": "passed",
@@ -176,7 +176,8 @@
     "PR #477 completed iOS product-form acceptance at clean evidence head 560ade21: the real shared form submitted exactly once, reached authenticated Feed and restored the authenticated session after relaunch. Its preserved xcresult contains one passing focal XCTest on iPhone 16 Plus Simulator/iOS 18.3.1; the merged PR records backend restoration, zero owned profile/registration/Auth residue and restored rate limits.",
     "The private source report from #477 is no longer retained. The durable iOS projection therefore binds the preserved xcresult content fingerprint to the immutable evidence head, merged PR head/commit, PR receipt hash and final successful CI without retaining private inputs or local paths.",
     "Three closeout attempts on main were rejected before product interaction: the first lost its preparation result after a successful build; the later two received registration_secret_propagation_timeout:http_401 because the removed private fixture could not reproduce the durable registration key/pepper pair. The guarded backend cleanup restored registration_unavailable with zero owned database residue. The final attempt filled the macOS data volume and required exact manual removal of its named disposable Simulator and untracked generated Xcode project; the checkout and temporary paths were then verified clean. These failures are retained as diagnostics and do not replace the accepted #477 run.",
-    "Independent exact-head closeout review returned GO without P0-P3 findings on c45fc879. It confirmed the merged #477 receipt, the sanitized projection hash and explicit absence of the private source report, preserved all three later fixture failures without treating them as product evidence, found no secrets or private paths, and reproduced 31/31 focal contracts, validator success and diff-check. The preserved xcresult fingerprint remains a declared custody fact and was not independently recalculated."
+    "Independent exact-head closeout review returned GO without P0-P3 findings on c45fc879. It confirmed the merged #477 receipt, the sanitized projection hash and explicit absence of the private source report, preserved all three later fixture failures without treating them as product evidence, found no secrets or private paths, and reproduced 31/31 focal contracts, validator success and diff-check. The preserved xcresult fingerprint remains a declared custody fact and was not independently recalculated.",
+    "Product SHA 411efbee reapplies the same documentary closeout on integrated main f8f45b02 after #480. The incoming change preserves post-location provenance and does not modify registration runtime, runners or accepted evidence, so the iOS product journey was not repeated solely for the base advance."
   ],
   "review": {
     "status": "GO",
