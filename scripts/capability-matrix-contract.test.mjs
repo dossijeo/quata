@@ -103,7 +103,7 @@ test('REPORT-RPC-001 Web and iOS use the deployed quata_ugc_report actor argumen
   const sources = [
     'web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt',
     'web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt',
-    'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosAuthenticatedFeedRepository.kt',
+    'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosFeedReadTransport.kt',
     'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt',
   ];
   for (const relativePath of sources) {
