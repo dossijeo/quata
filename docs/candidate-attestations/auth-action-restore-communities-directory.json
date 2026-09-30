@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-AUTH-REQUIRED"
+  ],
+  "status": "passed",
+  "productSha": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+  "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
+  "evidenceKind": "COMMUNITIES_DIRECTORY_AUTHENTICATION_ACTION_CONTINUATION",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+      "report": "docs/candidate-attestations/evidence/auth-action-restore-communities-directory-11077e62.json",
+      "reportSha256": "7d15238628b4916d8f99d959761ad50f7eb0b40a32e3381d3608f8b475a8dba2",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "communities_continuation_browser_tests_passed",
+        "android_debug_compilation_passed",
+        "web_wasm_compilation_passed",
+        "capability_matrix_contract_passed",
+        "ios_x64_tests_passed",
+        "ios_framework_link_passed",
+        "ios_simulator_signed_build_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-remote-fixture-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.presentation.NeighborhoodsAuthenticationContinuationTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.continuation does not invert an existing follow hidden by the anonymous directory\" --no-daemon",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon",
+    "node scripts/capability-matrix-contract.mjs",
+    "macOS: bash gradlew :feature:neighborhoods:iosX64Test --no-daemon",
+    "macOS: bash gradlew :ios-shared:linkDebugFrameworkIosX64 --no-daemon",
+    "macOS: xcodebuild SimulatorSigned build-for-testing"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+    "reviewedProductSha": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The app-scoped coordinator retains the exact Communities directory origin and target across successful authentication for community Chat, desired follow state and private Chat on Android, Web/Wasm and iOS.",
+    "Follow continuation records the requested state and avoids toggling an authenticated account away from a state that is already satisfied.",
+    "The authenticated relationship is loaded before the follow decision; the anonymous directory default is used only to capture the user's requested state.",
+    "Each continuation is claimed before dispatch; a continuation from another origin is ignored and an unresolved target waits for directory loading before it is cleared.",
+    "Cancellation, logout and rejected-session transitions keep the clearing behavior already certified by the Feed coordinator integration.",
+    "No backend fixture or remote mutation was required for this focal preflight. GitHub final jobs retain responsibility for clean-runner integrated certification.",
+    "The rebased Product SHA tree is byte-identical to reviewed and validated SHA 3129db826621ca7c9b4d02939ec340190ea8c045; only affected metadata contracts were repeated for the new commit identities.",
+    "Public-profile likes, comments, reports, blocking and actions outside the three listed Communities directory interactions remain separate inventory scope."
+  ]
+}
