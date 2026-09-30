@@ -56,3 +56,27 @@ test("portable repositories and launchers preserve the real SOS transaction", as
   assert.match(ios, /resumeAfterConfigurationSaved/);
   assert.match(profileHost, /onEmergencySettingsSaved\(\)/);
 });
+
+test("anonymous global SOS resumes once after authentication on every client", async () => {
+  const [continuation, android, web, webContinuation, ios, iosTests] = await Promise.all([
+    read("core/src/commonMain/kotlin/com/quata/core/navigation/AuthenticationContinuationCoordinator.kt"),
+    read("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
+    read("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
+    read("web/src/wasmJsMain/kotlin/com/quata/web/WebGlobalSosAuthenticationContinuation.kt"),
+    read("iosApp/iosApp/QuataIosApp.swift"),
+    read("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
+  ]);
+
+  assert.match(continuation, /GlobalSosDispatch/);
+  assert.match(android, /kind = AuthenticationContinuationKind\.GlobalSosDispatch/);
+  assert.match(android, /authenticationContinuationCoordinator\.claim\(pending\.requestId\)[\s\S]*startSos\(profile\)/);
+  assert.match(web, /kind = AuthenticationContinuationKind\.GlobalSosDispatch/);
+  assert.match(web, /scope\.resumeGlobalSosAfterAuthentication/);
+  assert.match(webContinuation, /coordinator\.claim\(pending\.requestId\)[\s\S]*launch \{ dispatch\(\) \}/);
+  assert.doesNotMatch(web, /else \{\s*requestAuthenticationFor\("profile"\)/);
+  assert.match(ios, /pendingSosDispatchAfterAuthentication = true[\s\S]*presentAuthRequiredPrompt\(\)/);
+  assert.match(ios, /pendingSosDispatchAfterAuthentication = false[\s\S]*DispatchQueue\.main\.async\(execute: action\)/);
+  assert.match(ios, /if clearPendingRoute \{[\s\S]*pendingSosDispatchAfterAuthentication = false/);
+  assert.match(iosTests, /testAnonymousGlobalSosDispatchResumesExactlyOnceAfterAuthentication/);
+  assert.match(iosTests, /testDismissingGlobalSosAuthenticationDoesNotReplayDispatch/);
+});

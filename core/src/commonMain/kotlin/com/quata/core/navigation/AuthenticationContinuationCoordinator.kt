@@ -8,6 +8,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /** Product actions that may begin on a public surface but require an authenticated actor. */
 enum class AuthenticationContinuationKind {
+    GlobalSosDispatch,
     FeedTogglePostLike,
     FeedReportPost,
     FeedOpenComposer,

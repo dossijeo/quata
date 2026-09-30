@@ -27,6 +27,7 @@ import com.quata.core.navigation.quataWebRouteAccess
 import com.quata.core.navigation.QuataShellRouteAccess
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.DocumentViewerState
@@ -277,6 +278,7 @@ private fun QuataWebApp(
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
     val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
+    val pendingAuthenticationContinuation by authenticationContinuationCoordinator.pending.collectAsState()
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
@@ -562,6 +564,24 @@ private fun QuataWebApp(
         if (navigation.state.requiresAuthentication) navigation.navigate("")
     }
     fun requestAuthenticationForCurrentRoute() = requestAuthenticationFor()
+    suspend fun dispatchGlobalSos() {
+        when (val outcome = sosCoordinator.dispatch()) {
+            is SosDispatchOutcome.NeedsConfiguration -> navigation.navigate("profile")
+            SosDispatchOutcome.IgnoredWhileSending -> Unit
+            else -> sosFeedback = outcome
+        }
+    }
+    LaunchedEffect(
+        hasAuthenticatedSession,
+        pendingAuthenticationContinuation?.requestId,
+    ) {
+        scope.resumeGlobalSosAfterAuthentication(
+            coordinator = authenticationContinuationCoordinator,
+            pending = pendingAuthenticationContinuation,
+            isAuthenticated = hasAuthenticatedSession,
+            dispatch = { dispatchGlobalSos() },
+        )
+    }
     fun openAuth(destination: AuthProductDestination) {
         privateRouteAccess.invalidateAuthentication()
         isAuthRequiredPromptOpen = false
@@ -695,15 +715,15 @@ private fun QuataWebApp(
                 onNotificationsClick = { navigation.navigate("notifications") },
                 onSosClick = {
                     if (hasAuthenticatedSession) {
-                        scope.launch {
-                            when (val outcome = sosCoordinator.dispatch()) {
-                                is SosDispatchOutcome.NeedsConfiguration -> navigation.navigate("profile")
-                                SosDispatchOutcome.IgnoredWhileSending -> Unit
-                                else -> sosFeedback = outcome
-                            }
-                        }
+                        scope.launch { dispatchGlobalSos() }
                     } else {
-                        requestAuthenticationFor("profile")
+                        requestAuthenticationFor(
+                            fragment = navigation.fragment,
+                            continuation = AuthenticationContinuationIntent(
+                                kind = AuthenticationContinuationKind.GlobalSosDispatch,
+                                originRoute = navigation.state.route.ifBlank { "feed" },
+                            ),
+                        )
                     }
                 },
                 isSosSending = sosState.isSending,

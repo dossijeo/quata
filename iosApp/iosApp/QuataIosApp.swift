@@ -2429,6 +2429,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         return false
     }
     private var hasAuthenticatedSession = false
+    private var pendingSosDispatchAfterAuthentication = false
     private var hasPublicFeed = false
     private var keyboardBackdropController: IosKeyboardBackdropController?
     private lazy var primaryNavigationHost = IosPrimaryNavigationHost(
@@ -2457,17 +2458,21 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func installSosAction(_ action: @escaping () -> Void) {
         sosAction = action
+        guard hasAuthenticatedSession, pendingSosDispatchAfterAuthentication else { return }
+        pendingSosDispatchAfterAuthentication = false
+        DispatchQueue.main.async(execute: action)
     }
 
     func updateSosSending(_ isSending: Bool) {
         authenticatedTopChromeHost.updateSosSending(sending: isSending)
     }
 
-    private func performSosAction() {
+    func performSosAction() {
         if let sosAction, hasAuthenticatedSession {
             sosAction()
         } else {
-            showProfileSos()
+            pendingSosDispatchAfterAuthentication = true
+            presentAuthRequiredPrompt()
         }
     }
 
@@ -2813,6 +2818,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     ) {
         if clearPendingRoute {
             pendingRoute = nil
+            pendingSosDispatchAfterAuthentication = false
             onAuthenticationContinuationAbandoned?()
         }
         authRequiredPromptVisible = false
@@ -2950,6 +2956,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
     @objc private func cancelAuthentication() {
         pendingRoute = nil
+        pendingSosDispatchAfterAuthentication = false
         onAuthenticationContinuationAbandoned?()
         dismiss(animated: authModalTransitionsAnimated) { [weak self] in
             guard let self, !self.hasAuthenticatedSession else { return }
@@ -3551,6 +3558,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         notificationsFactory = nil
         profileSosFactory = nil
         sosAction = nil
+        pendingSosDispatchAfterAuthentication = false
         authenticatedTopChromeHost.updateSosSending(sending: false)
         communitiesFactory = nil
         composerFactory = nil

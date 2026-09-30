@@ -84,6 +84,21 @@ class AuthenticationContinuationCoordinatorTest {
         assertNull(coordinator.marker())
     }
 
+    @Test
+    fun globalSosDispatchCanBeClaimedExactlyOnceAfterAuthentication() {
+        val coordinator = AuthenticationContinuationCoordinator()
+        val pending = coordinator.request(
+            AuthenticationContinuationIntent(
+                kind = AuthenticationContinuationKind.GlobalSosDispatch,
+                originRoute = "official",
+            ),
+        )
+
+        assertEquals(AuthenticationContinuationKind.GlobalSosDispatch, coordinator.pending.value?.intent?.kind)
+        assertEquals(pending.intent, coordinator.claim(pending.requestId))
+        assertNull(coordinator.claim(pending.requestId))
+    }
+
     private fun intent(kind: AuthenticationContinuationKind) = AuthenticationContinuationIntent(
         kind = kind,
         originRoute = "feed",

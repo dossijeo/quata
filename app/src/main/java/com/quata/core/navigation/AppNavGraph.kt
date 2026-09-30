@@ -679,7 +679,17 @@ fun AppNavGraph(
             GlobalSosButton(
                 container = container,
                 isAuthenticated = isAuthenticated,
-                onAuthRequired = { requestAuthentication() },
+                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                onAuthRequired = {
+                    val originRoute = currentRoute ?: AppDestinations.Feed.route
+                    requestAuthentication(
+                        route = originRoute,
+                        continuation = AuthenticationContinuationIntent(
+                            kind = AuthenticationContinuationKind.GlobalSosDispatch,
+                            originRoute = originRoute,
+                        ),
+                    )
+                },
                 layoutPadding = appContentPadding.toPaddingValues(),
                 renderButton = false,
                 onChromeChanged = { sending, pulse, click ->
@@ -1136,7 +1146,17 @@ fun AppNavGraph(
             GlobalSosButton(
                 container = container,
                 isAuthenticated = isAuthenticated,
-                onAuthRequired = { requestAuthentication() },
+                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                onAuthRequired = {
+                    val originRoute = currentRoute ?: AppDestinations.Feed.route
+                    requestAuthentication(
+                        route = originRoute,
+                        continuation = AuthenticationContinuationIntent(
+                            kind = AuthenticationContinuationKind.GlobalSosDispatch,
+                            originRoute = originRoute,
+                        ),
+                    )
+                },
                 layoutPadding = appContentPadding.toPaddingValues(),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -1953,6 +1973,7 @@ private fun QuataAppHeaderActions(
 private fun GlobalSosButton(
     container: AppContainer,
     isAuthenticated: Boolean,
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator,
     onAuthRequired: () -> Unit,
     layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
@@ -1969,6 +1990,7 @@ private fun GlobalSosButton(
 
     AuthenticatedGlobalSosButton(
         container = container,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         layoutPadding = layoutPadding,
         modifier = modifier,
         renderButton = renderButton,
@@ -1979,6 +2001,7 @@ private fun GlobalSosButton(
 @Composable
 private fun AuthenticatedGlobalSosButton(
     container: AppContainer,
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator,
     layoutPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     renderButton: Boolean = true,
@@ -1991,6 +2014,7 @@ private fun AuthenticatedGlobalSosButton(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by profileViewModel.uiState.collectAsState()
+    val pendingAuthenticationContinuation by authenticationContinuationCoordinator.pending.collectAsState()
     var isConfigOpen by rememberSaveable { mutableStateOf(false) }
     var configProfile by remember { mutableStateOf<UserProfile?>(null) }
     var configContactIds by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
@@ -2148,6 +2172,22 @@ private fun AuthenticatedGlobalSosButton(
                 return@launch
             }
             continueSos(latestProfile)
+        }
+    }
+
+    LaunchedEffect(
+        pendingAuthenticationContinuation?.requestId,
+        state.profile,
+        isSendingSos,
+    ) {
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        val profile = state.profile ?: return@LaunchedEffect
+        if (
+            pending.intent.kind == AuthenticationContinuationKind.GlobalSosDispatch &&
+            !isSendingSos &&
+            authenticationContinuationCoordinator.claim(pending.requestId) != null
+        ) {
+            startSos(profile)
         }
     }
 

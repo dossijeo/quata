@@ -811,6 +811,49 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === profile })
     }
 
+    func testAnonymousGlobalSosDispatchResumesExactlyOnceAfterAuthentication() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        router.installPublicFeed { _ in UIViewController() }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let promptPresented = expectation(description: "SOS auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        router.performSosAction()
+        wait(for: [promptPresented], timeout: 2)
+
+        router.installFeedFactory { _ in UIViewController() }
+        let dispatched = expectation(description: "Pending SOS dispatched after authentication")
+        var dispatchCount = 0
+        router.installSosAction {
+            dispatchCount += 1
+            dispatched.fulfill()
+        }
+        wait(for: [dispatched], timeout: 2)
+
+        router.installSosAction { dispatchCount += 1 }
+        XCTAssertEqual(dispatchCount, 1)
+    }
+
+    func testDismissingGlobalSosAuthenticationDoesNotReplayDispatch() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        router.installPublicFeed { _ in UIViewController() }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let promptPresented = expectation(description: "SOS auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        router.performSosAction()
+        wait(for: [promptPresented], timeout: 2)
+        router.dismissAuthRequiredPrompt()
+        waitUntil { router.presentedViewController == nil }
+
+        router.installFeedFactory { _ in UIViewController() }
+        var dispatchCount = 0
+        router.installSosAction { dispatchCount += 1 }
+        XCTAssertEqual(dispatchCount, 0)
+    }
+
     func testAuthCloseRemainsAboveLateMountedContentAndInvokesCancellation() throws {
         let content = UIViewController()
         var closed = false
