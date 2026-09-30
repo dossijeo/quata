@@ -3,6 +3,7 @@ package com.quata.web
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
@@ -18,6 +19,9 @@ import com.quata.feature.postcomposer.presentation.CreatePostPlatformSlots
 import com.quata.feature.postcomposer.presentation.CreatePostRoot
 import com.quata.feature.postcomposer.presentation.CreatePostUiEvent
 import com.quata.feature.postcomposer.presentation.CreatePostViewModel
+import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
+import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.createPostStepFor
 import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
 import com.quata.feature.postcomposer.presentation.viewModelMessages
 import kotlinx.coroutines.launch
@@ -49,10 +53,20 @@ fun WebPostComposerHost(
     onAuthRequired: () -> Unit,
     onPostCreated: (String?) -> Unit,
     canPublish: Boolean,
+    canPublishNow: () -> Boolean = { canPublish },
+    authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
+    pendingAuthenticationContinuation: PostComposerAuthenticationContinuation? = null,
+    onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
-    val viewModel = remember(repository, copy) { CreatePostViewModel(repository, messages = copy.viewModelMessages()) }
+    val retainedDraft = authenticationContinuationCoordinator?.retainedDraft?.value
+    val viewModel = remember(repository, copy, authenticationContinuationCoordinator) {
+        CreatePostViewModel(repository, messages = copy.viewModelMessages()).also { model ->
+            retainedDraft?.let(model::restore)
+        }
+    }
+    DisposableEffect(viewModel) { onDispose(viewModel::close) }
     val scope = rememberCoroutineScope()
     var imageEditorReference by remember { mutableStateOf<String?>(null) }
     var videoEditorReference by remember { mutableStateOf<String?>(null) }
@@ -65,6 +79,26 @@ fun WebPostComposerHost(
             }
             Unit
         }
+    }
+    fun requestOrSubmit(type: PostComposerType) {
+        if (canPublishNow()) {
+            viewModel.submit(type)
+        } else {
+            val coordinator = authenticationContinuationCoordinator
+            val callback = onAuthenticationContinuationRequired
+            if (coordinator != null && callback != null) {
+                callback(coordinator.request(viewModel.snapshot(createPostStepFor(type)), type))
+            } else {
+                onAuthRequired()
+            }
+        }
+    }
+    LaunchedEffect(pendingAuthenticationContinuation?.requestId, canPublish) {
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        if (!canPublishNow()) return@LaunchedEffect
+        val claimed = authenticationContinuationCoordinator?.claim(pending.requestId) ?: return@LaunchedEffect
+        viewModel.restore(claimed.draft)
+        viewModel.submit(claimed.submitType)
     }
     DisposableEffect(viewModel, canPublish, onAuthRequired) {
         val uninstall = installWebPostComposerE2eBridge(
@@ -79,8 +113,8 @@ fun WebPostComposerHost(
             setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
             editImage = { stateUri(viewModel, true)?.let { imageEditorReference = it } },
             editVideo = { stateUri(viewModel, false)?.let { videoEditorReference = it } },
-            submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
-            submitImage = { if (canPublish) viewModel.submit(PostComposerType.Image) else onAuthRequired() },
+            submitText = { requestOrSubmit(PostComposerType.Text) },
+            submitImage = { requestOrSubmit(PostComposerType.Image) },
             state = {
                 val state = viewModel.uiState.value
                 buildJsonObject {
@@ -115,8 +149,12 @@ fun WebPostComposerHost(
         isLandscapeLayout = isLandscapeLayout,
         onBack = onBack,
         onAuthRequired = onAuthRequired,
+        canPublishNow = canPublishNow,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
         onPostCreated = onPostCreated,
         canPublish = canPublish,
+        initialStep = retainedDraft?.step,
         copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },

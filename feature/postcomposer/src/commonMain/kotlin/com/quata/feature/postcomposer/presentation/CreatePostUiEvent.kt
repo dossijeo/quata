@@ -24,4 +24,5 @@ sealed class CreatePostUiEvent {
     data object Submit : CreatePostUiEvent()
     data object RetrySubmit : CreatePostUiEvent()
     data object ClearMessage : CreatePostUiEvent()
+    data object AuthenticationContinuationHandled : CreatePostUiEvent()
 }

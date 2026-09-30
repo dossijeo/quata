@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.presentation
 import com.quata.core.common.AppDispatchers
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
+import com.quata.feature.postcomposer.domain.PostComposerAuthenticationRequiredException
 import com.quata.feature.postcomposer.domain.PostComposerType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
@@ -101,6 +102,9 @@ class CreatePostViewModel(
                 mediaError = null,
                 lastFailedSubmitType = null,
             )
+            CreatePostUiEvent.AuthenticationContinuationHandled -> _uiState.value = _uiState.value.copy(
+                authenticationRequiredSubmitType = null,
+            )
         }
     }
 
@@ -154,6 +158,44 @@ class CreatePostViewModel(
         }
     }
 
+    fun snapshot(step: CreatePostStep): PostComposerDraftSnapshot = _uiState.value.let { state ->
+        PostComposerDraftSnapshot(
+            step = step,
+            text = state.text,
+            textPatternId = state.textPatternId,
+            imageUri = state.imageUri,
+            videoUri = state.videoUri,
+            locationLabel = state.locationLabel,
+            latitude = state.latitude,
+            longitude = state.longitude,
+            locationOrigin = state.locationOrigin,
+            selectedDestinationWallId = state.selectedDestinationWallId,
+        )
+    }
+
+    fun restore(snapshot: PostComposerDraftSnapshot) {
+        cancelSubmit()
+        val current = _uiState.value
+        _uiState.value = current.copy(
+            text = snapshot.text.take(CreatePostTextLimit),
+            textPatternId = snapshot.textPatternId,
+            imageUri = snapshot.imageUri,
+            videoUri = snapshot.videoUri,
+            locationLabel = snapshot.locationLabel,
+            latitude = snapshot.latitude,
+            longitude = snapshot.longitude,
+            locationOrigin = snapshot.locationOrigin,
+            selectedDestinationWallId = snapshot.selectedDestinationWallId,
+            mediaError = null,
+            isLoading = false,
+            error = null,
+            lastFailedSubmitType = null,
+            successMessage = null,
+            createdPostId = null,
+            authenticationRequiredSubmitType = null,
+        )
+    }
+
     fun submit(type: PostComposerType) {
         if (submitJob?.isActive == true) return
         val state = _uiState.value
@@ -168,7 +210,13 @@ class CreatePostViewModel(
             )
             return
         }
-        _uiState.value = state.copy(isLoading = true, error = null, mediaError = null, successMessage = null)
+        _uiState.value = state.copy(
+            isLoading = true,
+            error = null,
+            mediaError = null,
+            successMessage = null,
+            authenticationRequiredSubmitType = null,
+        )
         lateinit var runningJob: Job
         runningJob = scope.launch(start = CoroutineStart.LAZY) {
             try {
@@ -200,6 +248,13 @@ class CreatePostViewModel(
                     .onFailure { throwable ->
                         if (throwable is CancellationException) {
                             _uiState.value = state.copy(isLoading = false)
+                        } else if (throwable is PostComposerAuthenticationRequiredException) {
+                            _uiState.value = state.copy(
+                                isLoading = false,
+                                error = null,
+                                lastFailedSubmitType = null,
+                                authenticationRequiredSubmitType = type,
+                            )
                         } else {
                             _uiState.value = state.copy(
                                 isLoading = false,

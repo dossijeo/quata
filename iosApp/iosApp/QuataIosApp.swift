@@ -341,6 +341,7 @@ private final class IosAppCompositionRoot {
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private let authenticationContinuationCoordinator = AuthenticationContinuationCoordinator()
+    private let postComposerAuthenticationCoordinator = PostComposerAuthenticationContinuationCoordinator()
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
     private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
         IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap(
@@ -511,6 +512,7 @@ private final class IosAppCompositionRoot {
         window.rootViewController = authenticatedHost
         authenticatedHost.installAuthenticationContinuationCleanup { [weak self] in
             self?.authenticationContinuationCoordinator.clearAll()
+            self?.postComposerAuthenticationCoordinator.cancelAuthentication()
         }
         appearancePreferences.applyTheme(to: window)
         window.makeKeyAndVisible()
@@ -1662,10 +1664,11 @@ private final class IosAppCompositionRoot {
                 mode: destinationMode ?? ""
             )
             : composerRepository
+        let composerAuthCoordinator = postComposerAuthenticationCoordinator
         authenticatedHost.installComposerFactory { [weak self] in
             let evidenceDraft = IosPostPublishEvidenceComposerSeed.imageLocationDraft()
             return IosComposerHostKt.QuataComposerViewController(
-                dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithInitialDraftAndVideoEditor(
+                dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithAuthenticationContinuation(
                     repository: evidenceRepository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
@@ -1680,6 +1683,18 @@ private final class IosAppCompositionRoot {
                     initialImageReference: evidenceDraft?.imageReference,
                     initialLocationLabel: evidenceDraft?.locationLabel,
                     videoEditorNativeDriver: IosPostVideoEditorNativeDriverBridge.shared,
+                    canPublishNow: { [weak self] in
+                        KotlinBoolean(bool:
+                            self?.hasValidatedAuthenticatedSession == true &&
+                                self?.runtimeBootstrap?.authSessionForInteractiveLogin().restoredSession() != nil
+                        )
+                    },
+                    authenticationContinuationCoordinator: composerAuthCoordinator,
+                    onAuthenticationContinuationRequired: { [weak self] _ in
+                        guard let self else { return }
+                        self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    },
                 ),
             )
         }
@@ -1930,6 +1945,7 @@ private final class IosAppCompositionRoot {
                 // retained as an anonymous destination.
                 self?.setValidatedAuthenticatedSession(false)
                 self?.authenticationContinuationCoordinator.clearAll()
+                self?.postComposerAuthenticationCoordinator.clear()
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
@@ -3385,7 +3401,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return
         }
         switch visibleRoute {
-        case .feed, .official, .communities, .notifications, .settings, .about, .releaseHistory:
+        case .feed, .official, .communities, .notifications, .composer, .settings, .about, .releaseHistory:
             routeToRestoreAfterAuthenticationUpgrade = visibleRoute
             routeSelectionRevisionAtAuthenticationUpgrade = routeSelectionRevision
         default:
@@ -3430,6 +3446,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case .communities:
             guard let controller = communitiesFactory?() else { return }
             showRouteController(controller, route: .communities)
+        case .composer:
+            guard let controller = composerFactory?() else { return }
+            showRouteController(controller, route: .composer)
         default:
             break
         }

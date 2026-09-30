@@ -104,6 +104,10 @@ fun CreatePostScreen(
     cancelUploadToken: Int = 0,
     canPublish: Boolean,
     onAuthRequired: () -> Unit,
+    canPublishNow: () -> Boolean = { canPublish },
+    authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
+    pendingAuthenticationContinuation: PostComposerAuthenticationContinuation? = null,
+    onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
     onPostCreated: (String?) -> Unit,
     onBack: () -> Unit,
     onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
@@ -140,8 +144,10 @@ fun CreatePostScreen(
     }
 
     fun clearOwnedMedia() {
-        listOfNotNull(preparedImageTempUri, editedImageTempUri).distinct().forEach(context::deleteComposerOwnedImage)
-        listOfNotNull(preparedVideoTempUri, editedVideoTempUri).distinct().forEach(context::deleteComposerOwnedVideo)
+        val stateImageUri = state.imageUri?.let(Uri::parse)?.takeIf { it.scheme == "file" }
+        val stateVideoUri = state.videoUri?.let(Uri::parse)?.takeIf { it.scheme == "file" }
+        listOfNotNull(preparedImageTempUri, editedImageTempUri, stateImageUri).distinct().forEach(context::deleteComposerOwnedImage)
+        listOfNotNull(preparedVideoTempUri, editedVideoTempUri, stateVideoUri).distinct().forEach(context::deleteComposerOwnedVideo)
         preparedImageTempUri = null
         editedImageTempUri = null
         preparedVideoTempUri = null
@@ -232,7 +238,14 @@ fun CreatePostScreen(
 
     LaunchedEffect(state.isLoading) { onUploadStateChange(state.isLoading) }
     LaunchedEffect(imageEditorUri, videoEditorUri) { onVideoEditorVisibilityChange(imageEditorUri != null || videoEditorUri != null) }
-    DisposableEffect(Unit) { onDispose { onUploadStateChange(false); onVideoEditorVisibilityChange(false); clearOwnedMedia() } }
+    DisposableEffect(Unit) { onDispose { onUploadStateChange(false); onVideoEditorVisibilityChange(false) } }
+    LaunchedEffect(pendingAuthenticationContinuation?.requestId, canPublish) {
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        if (!canPublishNow()) return@LaunchedEffect
+        val claimed = authenticationContinuationCoordinator?.claim(pending.requestId) ?: return@LaunchedEffect
+        viewModel.commonViewModel.restore(claimed.draft)
+        viewModel.submit(claimed.submitType)
+    }
     BackHandler(state.isLoading) { cancelDialog = true }
 
     QuataScreen(padding) {
@@ -245,12 +258,16 @@ fun CreatePostScreen(
             isLandscapeLayout = rememberQuataWindowLayoutInfo().isLandscape,
             canPublish = canPublish,
             onAuthRequired = onAuthRequired,
+            canPublishNow = canPublishNow,
+            authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+            onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
             onPostCreated = onPostCreated,
             onBack = onBack,
             resetToken = resetToken,
             cancelUploadToken = cancelUploadToken,
             copy = rootCopy,
-            initialStep = if (evidenceImageUri != null) CreatePostStep.Image else null,
+            initialStep = authenticationContinuationCoordinator?.retainedDraft?.value?.step
+                ?: if (evidenceImageUri != null) CreatePostStep.Image else null,
             slots = CreatePostPlatformSlots(
                 pickImage = {
                     if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryImage, rootCopy, viewModel) {

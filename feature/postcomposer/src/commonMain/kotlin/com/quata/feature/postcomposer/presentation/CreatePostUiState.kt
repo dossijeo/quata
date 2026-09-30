@@ -20,6 +20,7 @@ data class CreatePostUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val lastFailedSubmitType: PostComposerType? = null,
+    val authenticationRequiredSubmitType: PostComposerType? = null,
     val successMessage: String? = null,
     val createdPostId: String? = null
 ) {

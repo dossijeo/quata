@@ -71,6 +71,7 @@ import com.quata.feature.auth.presentation.AuthProductDestination
 import com.quata.feature.profile.domain.SosActorProvider
 import com.quata.feature.profile.domain.SosDispatchCoordinator
 import com.quata.feature.profile.domain.SosDispatchOutcome
+import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
 import com.quata.feature.whatsnew.presentation.startupRouteKind
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
@@ -279,6 +280,8 @@ private fun QuataWebApp(
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
     val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
     val pendingAuthenticationContinuation by authenticationContinuationCoordinator.pending.collectAsState()
+    val postComposerAuthenticationCoordinator = remember { PostComposerAuthenticationContinuationCoordinator() }
+    val pendingPostComposerAuthentication by postComposerAuthenticationCoordinator.pending.collectAsState()
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
@@ -340,6 +343,7 @@ private fun QuataWebApp(
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
         authenticationContinuationCoordinator.clearAll()
+        postComposerAuthenticationCoordinator.clear()
         sosCoordinator.cancel()
         sosFeedback = null
         privateRouteAccess.invalidateAuthentication()
@@ -595,6 +599,7 @@ private fun QuataWebApp(
         pendingAuthenticationFragment = null
         authSurfaceCancellationArmed = false
         authenticationContinuationCoordinator.clearAll()
+        postComposerAuthenticationCoordinator.cancelAuthentication()
     }
     fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
@@ -652,6 +657,7 @@ private fun QuataWebApp(
                 isAuthRequiredPromptOpen = false
                 authInitialDestination = AuthProductDestination.Login
                 authenticationContinuationCoordinator.clearAll()
+                postComposerAuthenticationCoordinator.cancelAuthentication()
             }
         }
     }
@@ -861,6 +867,11 @@ private fun QuataWebApp(
                             authRepository = authRepository,
                             onBack = { navigation.navigate("") },
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                            authenticationContinuationCoordinator = postComposerAuthenticationCoordinator,
+                            pendingAuthenticationContinuation = pendingPostComposerAuthentication,
+                            onAuthenticationContinuationRequired = {
+                                requestAuthenticationFor("composer")
+                            },
                         )
                     }
                 } else if (navigation.route == "official-editor") {
