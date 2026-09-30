@@ -1197,6 +1197,12 @@ private final class IosAppCompositionRoot {
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
                         currentUserId: nil,
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                        onAuthenticationContinuationRequired: { [weak self] continuation in
+                            guard let self else { return }
+                            _ = self.authenticationContinuationCoordinator.request(intent: continuation)
+                            self.authenticatedHost.presentAuthRequiredPrompt()
+                        },
+                        authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
@@ -1217,6 +1223,12 @@ private final class IosAppCompositionRoot {
                     preferredLanguageTag: Locale.preferredLanguages.first,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+                    onAuthenticationContinuationRequired: { [weak self] continuation in
+                        guard let self else { return }
+                        _ = self.authenticationContinuationCoordinator.request(intent: continuation)
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    },
+                    authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                     onCreateOfficialPost: onCreateOfficialPost,
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,

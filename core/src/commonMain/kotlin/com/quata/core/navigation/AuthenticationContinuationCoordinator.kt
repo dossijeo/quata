@@ -13,6 +13,9 @@ enum class AuthenticationContinuationKind {
     FeedOpenComposer,
     FeedAddComment,
     FeedReportComment,
+    OfficialTogglePostLike,
+    OfficialAddComment,
+    OfficialReportComment,
 }
 
 /**
