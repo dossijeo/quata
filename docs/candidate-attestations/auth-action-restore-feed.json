@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-AUTH-REQUIRED"
+  ],
+  "status": "passed",
+  "productSha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+  "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
+  "evidenceKind": "FEED_AUTHENTICATION_ACTION_CONTINUATION",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+      "report": "docs/candidate-attestations/evidence/auth-action-restore-feed-01cc8125.json",
+      "reportSha256": "f770d6a85439b50d120fbca900a227507848f70c64af50f650e65a7cb3370771",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "feed_continuation_contracts_passed",
+        "web_ugc_payload_contract_passed",
+        "android_debug_compilation_passed",
+        "ios_x64_tests_passed",
+        "ios_framework_link_passed",
+        "ios_simulator_signed_build_and_guards_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-remote-fixture-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check origin/main...01cc81259b516f978e5d9091b9fed99f9cb514bb",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests FeedAuthenticationContinuationTest --tests FeedReportCommentResultTest --no-daemon",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebFeedUgcReportContractTest --no-daemon",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-daemon",
+    "macOS: bash gradlew :feature:feed:iosX64Test :ios-shared:linkDebugFrameworkIosX64 --no-daemon --console=plain",
+    "macOS: xcodebuild SimulatorSigned build-for-testing and signing/resource/provenance guards"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+    "reviewedProductSha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The shared coordinator retains the exact Feed origin and action across successful authentication for like, report post, open composer, add comment and report comment on Android, Web/Wasm and iOS.",
+    "Like continuation records the requested state and avoids toggling an authenticated account away from a state that is already satisfied.",
+    "Comment-report confirmation is emitted only after transport success and all pending confirmations remain available until consumed.",
+    "Cancellation, logout and rejected-session transitions clear pending continuations so stale actions cannot execute under a later identity.",
+    "No backend fixture or remote mutation was required for this focal preflight. GitHub final jobs retain responsibility for clean-runner integrated certification.",
+    "Official, Communities and actions outside the five listed Feed paths remain separate inventory scope."
+  ]
+}
