@@ -137,6 +137,13 @@ class FeedRepositoryImpl(
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        if (!AppConfig.USE_MOCK_BACKEND) {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            remote.reportComment(commentId, session.userId)
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
         forcedFeedOfficialCommentFailure("feed")?.let { error(it) }
         if (AppConfig.USE_MOCK_BACKEND) {

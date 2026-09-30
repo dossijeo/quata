@@ -25,6 +25,8 @@ import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.navigation.quataWebRouteAccess
 import com.quata.core.navigation.QuataShellRouteAccess
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.DocumentViewerState
@@ -274,6 +276,7 @@ private fun QuataWebApp(
     // Preserve the exact hash that led to the common login screen so a successful web_login
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
+    val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
@@ -328,6 +331,7 @@ private fun QuataWebApp(
         pendingAuthenticationFragment = null
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
+        authenticationContinuationCoordinator.clearAll()
         sosCoordinator.cancel()
         sosFeedback = null
         privateRouteAccess.invalidateAuthentication()
@@ -537,7 +541,12 @@ private fun QuataWebApp(
             runtimeConfiguration.isBackendConfigured.toString(),
         )
     }
-    fun requestAuthenticationFor(fragment: String = navigation.fragment) {
+    fun requestAuthenticationFor(
+        fragment: String = navigation.fragment,
+        continuation: AuthenticationContinuationIntent? = null,
+    ) {
+        if (continuation == null) authenticationContinuationCoordinator.clearAll()
+        else authenticationContinuationCoordinator.request(continuation)
         pendingAuthenticationFragment = fragment
         isAuthRequiredPromptOpen = true
         // A copied private deep link must never leave an anonymous blank viewport or jump
@@ -559,6 +568,7 @@ private fun QuataWebApp(
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
         authSurfaceCancellationArmed = false
+        authenticationContinuationCoordinator.clearAll()
     }
     fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
@@ -615,6 +625,7 @@ private fun QuataWebApp(
                 pendingAuthenticationFragment = null
                 isAuthRequiredPromptOpen = false
                 authInitialDestination = AuthProductDestination.Login
+                authenticationContinuationCoordinator.clearAll()
             }
         }
     }
@@ -949,6 +960,13 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onAuthenticationContinuationRequired = { continuation ->
+                                    requestAuthenticationFor(
+                                        fragment = continuation.originRoute,
+                                        continuation = continuation,
+                                    )
+                                },
+                                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
                                 onCreatePost = { navigation.navigate("composer") },
                                 onBackFromFocusedPost = navigation.postId?.let { { navigation.replace("feed") } },
                                 onFocusedPostChanged = { postId -> navigation.replace(quataPostUrl(postId).substringAfter('#')) },

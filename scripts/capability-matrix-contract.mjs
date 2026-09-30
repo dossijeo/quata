@@ -24,7 +24,7 @@ const stateSemantics = {
 
 const catalog = {
   'feed.read': ['flow', ['observeFeed', 'getFeed', 'refreshFeed', 'loadOlderFeedPage', 'refreshCurrentUser', 'refreshAuthor', 'refreshPost'], ['implemented', 'implemented', 'implemented']],
-  'feed.mutate': ['mutation', ['toggleLike', 'reportPost', 'addComment', 'deletePost'], ['implemented', 'implemented', 'implemented']],
+  'feed.mutate': ['mutation', ['toggleLike', 'reportPost', 'reportComment', 'addComment', 'deletePost'], ['implemented', 'implemented', 'implemented']],
   'official.read': ['flow', ['observeOfficialFeed', 'getOfficialFeed', 'refreshOfficialFeed', 'loadOlderOfficialFeedPage', 'getOfficialPost', 'refreshCurrentUser'], ['implemented', 'implemented', 'implemented']],
   'official.interact': ['mutation', ['deletePost', 'toggleLike', 'addComment', 'reportComment'], ['implemented', 'implemented', 'implemented']],
   'official.publish': ['mutation', ['createPost', 'createPosts'], ['implemented', 'implemented', 'implemented']],

@@ -53,6 +53,10 @@ class FeedViewModel(
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
+            is FeedUiEvent.ReportComment -> reportComment(event.commentId)
+            is FeedUiEvent.ConfirmedCommentReportConsumed -> _uiState.update { state ->
+                state.copy(confirmedCommentReportIds = state.confirmedCommentReportIds - event.commentId)
+            }
             is FeedUiEvent.AddComment -> addComment(event.postId, event.comment)
             is FeedUiEvent.ConfirmedCommentConsumed -> _uiState.update { state ->
                 state.copy(confirmedCommentIds = state.confirmedCommentIds - event.commentId)
@@ -292,6 +296,20 @@ class FeedViewModel(
                     rollbackLocalPendingCommentFailure(postId, comment, message)
                 }
                 _uiState.update { state -> state.copy(error = message) }
+            }
+    }
+
+    private fun reportComment(commentId: String) = scope.launch {
+        repository.reportComment(commentId)
+            .onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        confirmedCommentReportIds = state.confirmedCommentReportIds + commentId,
+                    )
+                }
+            }
+            .onFailure { error ->
+                _uiState.update { state -> state.copy(error = error.message ?: state.error) }
             }
     }
 

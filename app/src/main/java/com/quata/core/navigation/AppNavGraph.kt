@@ -129,7 +129,6 @@ import com.quata.core.location.SosLocationRecoveryService
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.LegalDocuments
-import com.quata.core.moderation.ModerationTarget
 import com.quata.core.network.ForegroundConnectivityReconciler
 import com.quata.core.presence.LocalUserPresence
 import com.quata.core.platform.PermissionStatus
@@ -385,6 +384,7 @@ fun AppNavGraph(
     var pendingAuthenticationRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAuthenticationConversationId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAuthenticationFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
     LaunchedEffect(currentUserId, currentRoute) {
         if (!StartupPresentationPolicy.shouldEvaluateWhatsNew(
                 isSessionResolved = true,
@@ -426,7 +426,10 @@ fun AppNavGraph(
         route: String? = null,
         conversationId: String? = null,
         focusedMessageId: String? = null,
+        continuation: AuthenticationContinuationIntent? = null,
     ) {
+        if (continuation == null) authenticationContinuationCoordinator.clearAll()
+        else authenticationContinuationCoordinator.request(continuation)
         pendingAuthenticationRoute = route
         pendingAuthenticationConversationId = conversationId
         pendingAuthenticationFocusedMessageId = focusedMessageId
@@ -452,6 +455,7 @@ fun AppNavGraph(
                 currentRoute !in authenticationRoutes
         ) {
             clearPendingAuthenticationDestination()
+            authenticationContinuationCoordinator.clearAll()
         }
     }
 
@@ -821,15 +825,15 @@ fun AppNavGraph(
                         onBackFromFocusedPost = { feedFocusedPostId = null },
                         onFocusedPostChanged = { feedFocusedPostId = it },
                         onAuthRequired = { requestAuthentication() },
+                        onAuthenticationContinuationRequired = { continuation ->
+                            requestAuthentication(
+                                route = continuation.originRoute,
+                                continuation = continuation,
+                            )
+                        },
+                        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
                         onCreatePost = {
                             if (isAuthenticated) navigateBottomRoute(AppDestinations.CreatePost.route) else requestAuthentication()
-                        },
-                        onReportComment = { commentId ->
-                            appScope.launch {
-                                container.moderationRepository.report(ModerationTarget.CommunityComment, commentId)
-                                    .onSuccess { Toast.makeText(appContext, R.string.moderation_report_sent, Toast.LENGTH_SHORT).show() }
-                                    .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
-                            }
                         },
                         onLandscapeCommentsOverlayActiveChange = { isFeedCommentsOverlayVisible = it }
                     )
@@ -1209,6 +1213,7 @@ fun AppNavGraph(
                 onDismiss = {
                     isAuthRequiredPromptOpen = false
                     clearPendingAuthenticationDestination()
+                    authenticationContinuationCoordinator.clearAll()
                 },
                 onCreateAccount = {
                     isAuthRequiredPromptOpen = false

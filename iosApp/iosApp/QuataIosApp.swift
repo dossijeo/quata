@@ -340,6 +340,7 @@ private final class IosAppCompositionRoot {
         audioPlayerEngine: IosAvPlayerAudioEngine(),
     )
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
+    private let authenticationContinuationCoordinator = AuthenticationContinuationCoordinator()
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
     private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
         IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap(
@@ -508,6 +509,9 @@ private final class IosAppCompositionRoot {
             pendingStartupDeepLinkUrl = launchUrl
         }
         window.rootViewController = authenticatedHost
+        authenticatedHost.installAuthenticationContinuationCleanup { [weak self] in
+            self?.authenticationContinuationCoordinator.clearAll()
+        }
         appearancePreferences.applyTheme(to: window)
         window.makeKeyAndVisible()
         self.window = window
@@ -1007,6 +1011,12 @@ private final class IosAppCompositionRoot {
                     },
                     initialPostId: postId,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onAuthenticationContinuationRequired: { [weak self] continuation in
+                        guard let self else { return }
+                        _ = self.authenticationContinuationCoordinator.request(intent: continuation)
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    },
+                    authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                     onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markFeedDetailClosed() },
                     onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markFeedDetailChanged(postId: postId) },
@@ -1062,6 +1072,12 @@ private final class IosAppCompositionRoot {
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onAuthenticationContinuationRequired: { [weak self] continuation in
+                        guard let self else { return }
+                        _ = self.authenticationContinuationCoordinator.request(intent: continuation)
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    },
+                    authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                     onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markFeedDetailClosed() },
                     onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markFeedDetailChanged(postId: postId) },
@@ -1880,6 +1896,7 @@ private final class IosAppCompositionRoot {
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
                 self?.setValidatedAuthenticatedSession(false)
+                self?.authenticationContinuationCoordinator.clearAll()
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
@@ -2356,6 +2373,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var sosAction: (() -> Void)?
     private var onLoggedOut: (() -> Void)?
+    private var onAuthenticationContinuationAbandoned: (() -> Void)?
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
@@ -2679,6 +2697,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         self.onLoggedOut = onLoggedOut
     }
 
+    func installAuthenticationContinuationCleanup(_ action: @escaping () -> Void) {
+        onAuthenticationContinuationAbandoned = action
+    }
+
     /// Installs the authenticated entry point without granting a session. Keeping this UIKit
     /// factory boundary explicit lets a private deep link show login while retaining its route
     /// until the real authenticated Feed/factory composition is available.
@@ -2750,6 +2772,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     ) {
         if clearPendingRoute {
             pendingRoute = nil
+            onAuthenticationContinuationAbandoned?()
         }
         authRequiredPromptVisible = false
         guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-auth-required-dialog" else {
@@ -2886,6 +2909,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
     @objc private func cancelAuthentication() {
         pendingRoute = nil
+        onAuthenticationContinuationAbandoned?()
         dismiss(animated: authModalTransitionsAnimated) { [weak self] in
             guard let self, !self.hasAuthenticatedSession else { return }
             self.showFeed(postId: nil)
@@ -3484,6 +3508,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         whatsNewFactory = nil
         releaseHistoryFactory = nil
         pendingRoute = nil
+        onAuthenticationContinuationAbandoned?()
         persistPrimaryRoute("feed")
         logoutAction = nil
         onLoggedOut = nil

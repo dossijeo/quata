@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "unit": "OVR-AUTH-REQUIRED",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-30",
+  "productSha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+  "git": {
+    "head": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+    "workingTreeDirty": false
+  },
+  "scope": "Feed actions resumed after successful authentication",
+  "steps": [
+    "feed_continuation_contracts_passed",
+    "web_ugc_payload_contract_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_tests_passed",
+    "ios_framework_link_passed",
+    "ios_simulator_signed_build_and_guards_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "compileDebugKotlin"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "FeedAuthenticationContinuationTest",
+        "FeedReportCommentResultTest",
+        "WebFeedUgcReportContractTest"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "feature-feed-iosX64Test",
+        "ios-shared-linkDebugFrameworkIosX64",
+        "SimulatorSigned-build-for-testing",
+        "compose-resources-verified",
+        "deep-codesign-verified",
+        "restricted-entitlements-absent",
+        "product-provenance-verified"
+      ],
+      "resultBundle": "build/reports/ios/QuataIos-intel-signed-01cc8125.xcresult"
+    }
+  },
+  "assertions": [
+    "anonymous Feed remains readable",
+    "like resumes toward the originally requested state without inverting an already-satisfied authenticated state",
+    "post and comment reports retain the exact target",
+    "composer opening resumes once; comment continuation retains its exact submitted text",
+    "report-comment success is published only after transport success",
+    "five simultaneous report confirmations remain pending until individually consumed",
+    "authentication cancellation, logout and rejected sessions clear pending actions"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no remote fixtures or backend mutation used"
+  },
+  "limitations": [
+    "This focal evidence is deterministic contract, compilation and iOS Simulator build evidence; final integrated platform certification remains assigned to GitHub Actions.",
+    "It does not claim restoration for Official, Communities or actions outside the five Feed paths in scope."
+  ]
+}

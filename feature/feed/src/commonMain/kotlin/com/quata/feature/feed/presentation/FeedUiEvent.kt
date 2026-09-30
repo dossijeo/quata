@@ -11,6 +11,8 @@ sealed class FeedUiEvent {
     data class PostDisplayed(val postId: String, val nextPostId: String? = null) : FeedUiEvent()
     data class ToggleLike(val postId: String) : FeedUiEvent()
     data class ReportPost(val postId: String) : FeedUiEvent()
+    data class ReportComment(val commentId: String) : FeedUiEvent()
+    data class ConfirmedCommentReportConsumed(val commentId: String) : FeedUiEvent()
     data class AddComment(val postId: String, val comment: PostComment) : FeedUiEvent()
     data class ConfirmedCommentConsumed(val commentId: String) : FeedUiEvent()
     data class DeletePost(val postId: String) : FeedUiEvent()

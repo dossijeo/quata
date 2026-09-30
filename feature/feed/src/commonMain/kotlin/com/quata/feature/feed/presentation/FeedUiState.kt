@@ -18,5 +18,6 @@ data class FeedUiState(
     val commentErrorsByPostId: Map<String, String> = emptyMap(),
     val commentErrorsByCommentId: Map<String, String> = emptyMap(),
     val confirmedCommentIds: Set<String> = emptySet(),
+    val confirmedCommentReportIds: Set<String> = emptySet(),
     val focusedPostLoads: Map<String, FeedFocusedPostLoad> = emptyMap(),
 )

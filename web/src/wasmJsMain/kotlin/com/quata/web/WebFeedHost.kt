@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
@@ -30,6 +32,8 @@ fun WebFeedHost(
     currentUserId: String? = null,
     openingProfileUserId: String? = null,
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
@@ -89,6 +93,8 @@ fun WebFeedHost(
         onBackFromFocusedPost = onBackFromFocusedPost,
         onFocusedPostChanged = onFocusedPostChanged,
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         onCreatePost = onCreatePost,
         modifier = modifier,
     )

@@ -67,8 +67,12 @@ class WebFeedRepository(
     }
     override suspend fun reportPost(postId: String): Result<Post?> = runCatching {
         val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
-        client.rpc("quata_ugc_report", "{\"p_actor_profile_id\":\"$userId\",\"p_target_type\":\"community_post\",\"p_target_id\":\"$postId\",\"p_reason\":\"other\"}").requireWebSuccess()
+        client.rpc("quata_ugc_report", webFeedUgcReportBody(userId, WebFeedReportTarget.CommunityPost, postId)).requireWebSuccess()
         refreshPost(postId).getOrThrow()
+    }
+    override suspend fun reportComment(commentId: String): Result<Unit> = runCatching {
+        val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
+        client.rpc("quata_ugc_report", webFeedUgcReportBody(userId, WebFeedReportTarget.CommunityComment, commentId)).requireWebSuccess()
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
         webFeedOfficialCommentFailure("feed")?.let { error(it) }
@@ -98,6 +102,17 @@ class WebFeedRepository(
         const val ProfilePostLimit = 200
     }
 }
+
+internal enum class WebFeedReportTarget(val wireValue: String) {
+    CommunityPost("community_post"),
+    CommunityComment("community_comment"),
+}
+
+internal fun webFeedUgcReportBody(
+    actorProfileId: String,
+    target: WebFeedReportTarget,
+    targetId: String,
+): String = "{\"p_actor_profile_id\":\"$actorProfileId\",\"p_target_type\":\"${target.wireValue}\",\"p_target_id\":\"$targetId\",\"p_reason\":\"other\"}"
 
 private fun WebPostgrestResult.requireWebSuccess() {
     if (this is WebPostgrestResult.Failure) error("web_postgrest_${reason}")
