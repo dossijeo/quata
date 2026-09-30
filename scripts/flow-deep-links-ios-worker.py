@@ -229,7 +229,7 @@ class Worker:
                 self.native_rejection_absence['state'] = 'probing'
         self.stop()
         directory = self.root / 'build/reports/ios' / ('deep-link-session-' + step_id)
-        directory.mkdir(mode=0o700)
+        directory.mkdir(mode=0o700, parents=True)
         directory = directory.resolve(strict=True)
         if action == 'session':
             write_private(directory / 'input.json', json.dumps(data).encode())
@@ -354,7 +354,7 @@ class Worker:
         self.native_login = {'state': 'started', 'stepId': step,
                              'profileId': data['profileId'], 'authUserId': data['authUserId']}
         directory = self.root / 'build/reports/ios' / ('recovery-secret-' + step)
-        directory.mkdir(mode=0o700)
+        directory.mkdir(mode=0o700, parents=True)
         private_input = {key: value for key, value in data.items() if key not in ('messageId', 'variant')}
         private_input['stage'] = 'login'
         write_private(directory / 'input.json', json.dumps(private_input).encode())
@@ -468,7 +468,7 @@ class Worker:
             require(self.last_chat is not None and self.last_chat['target'] == target)
             require(self.state() == 'Booted' and self.app_pid() == self.last_chat['pid'])
         directory = self.root / 'build/reports/ios' / ('deep-link-chat-' + step)
-        directory.mkdir(mode=0o700)
+        directory.mkdir(mode=0o700, parents=True)
         plan = plistlib.loads(self.original.read_bytes())
         targets = [t for c in plan.get('TestConfigurations', []) for t in c.get('TestTargets', [])
                    if t.get('BlueprintName', t.get('TestTargetName')) == 'QuataIosUITests']

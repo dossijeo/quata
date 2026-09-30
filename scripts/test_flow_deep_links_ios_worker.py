@@ -70,7 +70,6 @@ class ExpiredCustodyTests(unittest.TestCase):
             worker.root = Path(folder)
             worker.products = worker.root / 'products'
             worker.products.mkdir()
-            (worker.root / 'build/reports/ios').mkdir(parents=True)
             worker.original = worker.products / 'original.xctestrun'
             worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
             worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
@@ -133,7 +132,6 @@ class RecoveryClearTests(unittest.TestCase):
             worker.root = Path(folder)
             worker.products = worker.root / 'products'
             worker.products.mkdir()
-            (worker.root / 'build/reports/ios').mkdir(parents=True)
             worker.original = worker.products / 'original.xctestrun'
             worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
             worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
@@ -184,7 +182,6 @@ class DeliveryOrderTests(unittest.TestCase):
             worker.root = Path(folder)
             worker.products = worker.root / 'products'
             worker.products.mkdir()
-            (worker.root / 'build/reports/ios').mkdir(parents=True)
             worker.original = worker.products / 'original.xctestrun'
             worker.original.write_bytes(plistlib.dumps({'QuataIosUITests': {}, 'QuataIosTests': {}}))
             worker.installed = {}
