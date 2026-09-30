@@ -912,6 +912,16 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0 === authenticatedFeed })
     }
 
+    func testLateRejectionGenerationCannotExpireAReplacementSession() {
+        let guardState = IosAuthenticatedSessionGenerationGuard()
+        let rejectedSessionGeneration = guardState.capture()
+
+        guardState.sessionChanged()
+
+        XCTAssertFalse(guardState.acceptsTerminalRejection(from: rejectedSessionGeneration))
+        XCTAssertTrue(guardState.acceptsTerminalRejection(from: guardState.capture()))
+    }
+
     func testAuthRequiredPromptCreateAccountOpensRegistrationFullScreenOutsideShell() {
         let mounted = mountRouter()
         let router = mounted.router

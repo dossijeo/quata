@@ -58,10 +58,15 @@ class IosRenewableAuthSession(
         manager.clearSession()
     }
 
-    private suspend fun resolveTerminalRejection(block: suspend () -> AuthSession?): AuthSession? = try {
-        block()
-    } catch (rejected: IosAuthSessionRejectedException) {
-        manager.clearSessionIfMatches(rejected.rejectedSession)
-        null
+    private suspend fun resolveTerminalRejection(block: suspend () -> AuthSession?): AuthSession? {
+        while (true) {
+            try {
+                return block()
+            } catch (rejected: IosAuthSessionRejectedException) {
+                if (manager.clearSessionIfMatches(rejected.rejectedSession)) return null
+                // A newer session won the race. Validate that session through the same policy
+                // instead of treating the stale rejection as either success or logout.
+            }
+        }
     }
 }
