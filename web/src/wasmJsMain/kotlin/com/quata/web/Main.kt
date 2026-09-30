@@ -1228,6 +1228,9 @@ private fun WebAuthRequiredDialog(
 internal class WebNavigationController(
     initialFragment: String,
     private val updateBrowserFragment: (String) -> Unit = ::setBrowserFragment,
+    private val readConversationReturn: (String) -> String? = ::readWebConversationReturn,
+    private val writeConversationReturn: (String, String) -> Unit = ::writeWebConversationReturn,
+    private val clearConversationReturn: () -> Unit = ::clearWebConversationReturn,
 ) {
     var accessRevision by mutableLongStateOf(0L)
         private set
@@ -1245,7 +1248,13 @@ internal class WebNavigationController(
     val fragment: String get() = currentFragment
 
     private var currentFragment = initialFragment
-    private var conversationReturn: ConversationReturn? = null
+    private var conversationReturn: ConversationReturn? = state.chatConversationId?.let { conversationId ->
+        readConversationReturn(conversationId)?.let { fragment -> ConversationReturn(conversationId, fragment) }
+    }
+
+    init {
+        if (conversationReturn == null) clearConversationReturn()
+    }
 
     /** Updates Compose first; browser hashchange remains responsible for external history changes. */
     fun navigate(fragment: String) {
@@ -1263,7 +1272,13 @@ internal class WebNavigationController(
         messageId: String? = null,
         returnFragment: String? = null,
     ) {
-        conversationReturn = returnFragment?.let { ConversationReturn(conversationId, it) }
+        conversationReturn = returnFragment
+            ?.takeIf { it == "communities" }
+            ?.let { fragment ->
+                writeConversationReturn(conversationId, fragment)
+                ConversationReturn(conversationId, fragment)
+            }
+        if (conversationReturn == null) clearConversationReturn()
         navigate(quataChatUrl(conversationId, messageId).substringAfter('#'))
     }
 
@@ -1273,6 +1288,7 @@ internal class WebNavigationController(
             ?.fragment
             ?: "chat"
         conversationReturn = null
+        clearConversationReturn()
         navigate(target)
     }
 
@@ -1284,6 +1300,14 @@ internal class WebNavigationController(
         state = fragment.toWebNavigationState()
         if (conversationReturn?.conversationId != state.chatConversationId) {
             conversationReturn = null
+            clearConversationReturn()
+        }
+        if (conversationReturn == null) {
+            conversationReturn = state.chatConversationId?.let { conversationId ->
+                readConversationReturn(conversationId)?.let { returnFragment ->
+                    ConversationReturn(conversationId, returnFragment)
+                }
+            }
         }
     }
 
@@ -1389,6 +1413,34 @@ private fun setBrowserFragment(fragment: String): Unit = js("globalThis.location
   }
 }""")
 private external fun replaceBrowserFragment(fragment: String)
+
+@JsFun("""(conversationId) => {
+  try {
+    const storedConversationId = globalThis.sessionStorage?.getItem('quata.web.chat-return.conversation');
+    const storedFragment = globalThis.sessionStorage?.getItem('quata.web.chat-return.fragment');
+    return storedConversationId === conversationId && storedFragment === 'communities' ? storedFragment : null;
+  } catch (_) {
+    return null;
+  }
+}""")
+private external fun readWebConversationReturn(conversationId: String): String?
+
+@JsFun("""(conversationId, fragment) => {
+  try {
+    if (fragment !== 'communities') return;
+    globalThis.sessionStorage?.setItem('quata.web.chat-return.conversation', conversationId);
+    globalThis.sessionStorage?.setItem('quata.web.chat-return.fragment', fragment);
+  } catch (_) {}
+}""")
+private external fun writeWebConversationReturn(conversationId: String, fragment: String)
+
+@JsFun("""() => {
+  try {
+    globalThis.sessionStorage?.removeItem('quata.web.chat-return.conversation');
+    globalThis.sessionStorage?.removeItem('quata.web.chat-return.fragment');
+  } catch (_) {}
+}""")
+private external fun clearWebConversationReturn()
 
 /** Browser-test semantic marker for the real Compose shell; it does not render a parallel UI. */
 @JsFun("""(route, selectedPrimaryRoute) => {

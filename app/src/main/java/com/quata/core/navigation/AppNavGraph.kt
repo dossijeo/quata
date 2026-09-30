@@ -380,7 +380,11 @@ fun AppNavGraph(
     var feedResetToken by rememberSaveable { mutableStateOf(0) }
     var feedFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
-    var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    var persistedChatFocusConversationId by rememberSaveable { mutableStateOf<String?>(null) }
+    var persistedChatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeChatFocusConversationId by remember { mutableStateOf(persistedChatFocusConversationId) }
+    var activeChatFocusedMessageId by remember { mutableStateOf(persistedChatFocusedMessageId) }
+    var lastObservedRoute by remember { mutableStateOf(currentRoute) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
     var pendingAuthenticationRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAuthenticationConversationId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -497,7 +501,10 @@ fun AppNavGraph(
             navigateToFeed()
             return
         }
-        chatFocusedMessageId = focusedMessageId
+        persistedChatFocusConversationId = conversationId.takeIf { focusedMessageId != null }
+        persistedChatFocusedMessageId = focusedMessageId
+        activeChatFocusConversationId = persistedChatFocusConversationId
+        activeChatFocusedMessageId = focusedMessageId
         navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
             launchSingleTop = true
         }
@@ -556,7 +563,10 @@ fun AppNavGraph(
         val pendingRoute = pendingAuthenticationRoute
         clearPendingAuthenticationDestination()
         if (pendingConversationId != null) {
-            chatFocusedMessageId = pendingFocusedMessageId
+            persistedChatFocusConversationId = pendingConversationId.takeIf { pendingFocusedMessageId != null }
+            persistedChatFocusedMessageId = pendingFocusedMessageId
+            activeChatFocusConversationId = persistedChatFocusConversationId
+            activeChatFocusedMessageId = pendingFocusedMessageId
             navController.navigate(AppDestinations.Chat.createRoute(pendingConversationId)) {
                 popUpTo(AppDestinations.Feed.route) { saveState = false }
                 launchSingleTop = true
@@ -615,6 +625,13 @@ fun AppNavGraph(
     }
 
     LaunchedEffect(currentRoute) {
+        if (lastObservedRoute == AppDestinations.Chat.route && currentRoute != AppDestinations.Chat.route) {
+            persistedChatFocusConversationId = null
+            persistedChatFocusedMessageId = null
+            activeChatFocusConversationId = null
+            activeChatFocusedMessageId = null
+        }
+        lastObservedRoute = currentRoute
         if (currentRoute != null && currentRoute in bottomRoutes) {
             lastPrimaryNavigationRoute = currentRoute
         }
@@ -643,7 +660,10 @@ fun AppNavGraph(
             globalProfileViewModel.closeUserProfile()
             feedFocusedPostId = null
             officialFocusedPostId = null
-            chatFocusedMessageId = null
+            persistedChatFocusConversationId = null
+            persistedChatFocusedMessageId = null
+            activeChatFocusConversationId = null
+            activeChatFocusedMessageId = null
             navigateToChat(chatDeepLink.conversationId, focusedMessageId = chatDeepLink.messageId)
             onIncomingLinkHandled()
             return@LaunchedEffect
@@ -654,7 +674,10 @@ fun AppNavGraph(
             officialFocusedPostId = officialPostId
             feedFocusedPostId = null
             globalProfileViewModel.closeUserProfile()
-            chatFocusedMessageId = null
+            persistedChatFocusConversationId = null
+            persistedChatFocusedMessageId = null
+            activeChatFocusConversationId = null
+            activeChatFocusedMessageId = null
             navController.navigate(AppDestinations.Official.route) {
                 popUpTo(AppDestinations.Feed.route) { inclusive = false }
                 launchSingleTop = true
@@ -667,7 +690,10 @@ fun AppNavGraph(
         feedFocusedPostId = postId
         officialFocusedPostId = null
         globalProfileViewModel.closeUserProfile()
-        chatFocusedMessageId = null
+        persistedChatFocusConversationId = null
+        persistedChatFocusedMessageId = null
+        activeChatFocusConversationId = null
+        activeChatFocusedMessageId = null
         navController.navigate(AppDestinations.Feed.route) {
             popUpTo(AppDestinations.Feed.route) { inclusive = false }
             launchSingleTop = true
@@ -1070,8 +1096,13 @@ fun AppNavGraph(
                             onOpenConversation = { id ->
                                 navigateToChat(id)
                             },
-                            focusedMessageId = chatFocusedMessageId,
-                            onFocusedMessageHandled = { chatFocusedMessageId = null },
+                            focusedMessageId = activeChatFocusedMessageId.takeIf {
+                                activeChatFocusConversationId == conversationId
+                            },
+                            onFocusedMessageHandled = {
+                                activeChatFocusConversationId = null
+                                activeChatFocusedMessageId = null
+                            },
                             onOpenMessageConversation = { targetConversationId, messageId ->
                                 navigateToChat(targetConversationId, focusedMessageId = messageId)
                             },
@@ -1254,7 +1285,10 @@ fun AppNavGraph(
                     } else {
                         globalProfileViewModel.openPrivateChat(userId) { conversationId ->
                             globalProfileViewModel.closeUserProfile()
-                            chatFocusedMessageId = null
+                            persistedChatFocusConversationId = null
+                            persistedChatFocusedMessageId = null
+                            activeChatFocusConversationId = null
+                            activeChatFocusedMessageId = null
                             if (currentRoute != AppDestinations.Chat.route || currentConversationId != conversationId) {
                                 navigateToChat(conversationId)
                             }

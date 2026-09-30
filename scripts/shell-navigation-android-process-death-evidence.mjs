@@ -21,6 +21,7 @@ const PRIMARY_ROOTS = [
 const options = parseArgs(process.argv.slice(2));
 const adb = process.env.ADB?.trim() || "adb";
 let appTouched = false;
+let exactChatSession = null;
 const report = {
   check: CHECK,
   status: "failed",
@@ -29,7 +30,13 @@ const report = {
   serialSha256: sha256(options.serial),
   steps: [],
   screenshots: [],
-  cleanup: { state: "pending", environmentAcquired: false, credentialsRemoved: false, appDataCleared: false },
+  cleanup: {
+    state: "pending",
+    environmentAcquired: false,
+    credentialsRemoved: false,
+    appDataCleared: false,
+    auxiliarySessionRevoked: false,
+  },
 };
 
 try {
@@ -74,55 +81,74 @@ try {
   }
   report.steps.push("real_authenticated_session_persisted");
 
-  await runAdb([
-    "shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`,
-    "--ez", "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", "true",
-    "--es", "com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "profile",
-  ]);
-  try {
+  if (options.exactChatOnly) {
+    const target = await findExactChatTarget(credentials);
+    const process = await verifyExactChatProcessDeath(target);
+    report.process = process;
+    report.status = "passed";
+  } else {
+
+    await runAdb([
+      "shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`,
+      "--ez", "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", "true",
+      "--es", "com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "profile",
+    ]);
+    try {
+      await waitForResource("profile.save");
+    } catch (error) {
+      await captureScreenshot("unexpected-initial-shell").catch(() => {});
+      throw error;
+    }
+    report.steps.push("authenticated_profile_root_visible_before_process_death");
+
+    await clickResource("profile.details.open");
+    await waitForResource("profile.details.root");
+    await captureScreenshot("profile-details-before-process-death");
+    report.steps.push("profile_details_nested_destination_visible_before_process_death");
+
+    const pidBefore = await currentPid();
+    if (!pidBefore) throw new Error("shell_process_death_pid_missing_before_kill");
+    await runAdb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
+    await delay(1_500);
+    await runAdb(["shell", "am", "kill", PACKAGE]);
+    await waitForPidAbsent();
+    report.steps.push("background_process_killed_by_android_activity_manager");
+
+    await runAdb(["shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`]);
+    await waitForResource("profile.details.root");
+    const pidAfter = await currentPid();
+    if (!pidAfter || pidAfter === pidBefore) throw new Error("shell_process_death_pid_not_replaced");
+    await captureScreenshot("profile-details-after-process-death");
+    report.steps.push("nested_profile_details_restored_in_new_process");
+
+    await runAdb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
     await waitForResource("profile.save");
-  } catch (error) {
-    await captureScreenshot("unexpected-initial-shell").catch(() => {});
-    throw error;
+    await waitForResourceAbsent("profile.details.root");
+    await captureScreenshot("profile-root-after-restored-back");
+    report.steps.push("restored_back_stack_returned_to_profile_root");
+
+    const restoredPrimaryRoots = [];
+    for (const primary of PRIMARY_ROOTS) {
+      await verifyPrimaryRootProcessDeath(primary);
+      restoredPrimaryRoots.push(primary.route);
+    }
+    report.process = { pidChanged: true, restoredPrimaryRoots };
+    report.status = "passed";
   }
-  report.steps.push("authenticated_profile_root_visible_before_process_death");
-
-  await clickResource("profile.details.open");
-  await waitForResource("profile.details.root");
-  await captureScreenshot("profile-details-before-process-death");
-  report.steps.push("profile_details_nested_destination_visible_before_process_death");
-
-  const pidBefore = await currentPid();
-  if (!pidBefore) throw new Error("shell_process_death_pid_missing_before_kill");
-  await runAdb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
-  await delay(1_500);
-  await runAdb(["shell", "am", "kill", PACKAGE]);
-  await waitForPidAbsent();
-  report.steps.push("background_process_killed_by_android_activity_manager");
-
-  await runAdb(["shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`]);
-  await waitForResource("profile.details.root");
-  const pidAfter = await currentPid();
-  if (!pidAfter || pidAfter === pidBefore) throw new Error("shell_process_death_pid_not_replaced");
-  await captureScreenshot("profile-details-after-process-death");
-  report.steps.push("nested_profile_details_restored_in_new_process");
-
-  await runAdb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
-  await waitForResource("profile.save");
-  await waitForResourceAbsent("profile.details.root");
-  await captureScreenshot("profile-root-after-restored-back");
-  report.steps.push("restored_back_stack_returned_to_profile_root");
-
-  const restoredPrimaryRoots = [];
-  for (const primary of PRIMARY_ROOTS) {
-    await verifyPrimaryRootProcessDeath(primary);
-    restoredPrimaryRoots.push(primary.route);
-  }
-  report.process = { pidChanged: true, restoredPrimaryRoots };
-  report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
 } finally {
+  if (exactChatSession) {
+    try {
+      await revokeExactChatSession(exactChatSession);
+      report.cleanup.auxiliarySessionRevoked = true;
+    } catch (error) {
+      report.error ??= safeFailure(error);
+      report.status = "failed";
+    }
+  } else {
+    report.cleanup.auxiliarySessionRevoked = true;
+  }
   if (appTouched) {
     await runAdb(["shell", "run-as", PACKAGE, "rm", "-f", DEVICE_CREDENTIAL]).catch(() => {});
     try {
@@ -136,7 +162,11 @@ try {
         && !(await deviceCredentialExists())
         && !(await currentPid());
     } catch {}
-    report.cleanup.state = report.cleanup.credentialsRemoved && report.cleanup.appDataCleared ? "completed" : "failed";
+    report.cleanup.state = report.cleanup.credentialsRemoved
+      && report.cleanup.appDataCleared
+      && report.cleanup.auxiliarySessionRevoked
+      ? "completed"
+      : "failed";
   } else {
     report.cleanup.state = "not-required";
   }
@@ -156,10 +186,12 @@ function parseArgs(args) {
     output: resolve("build-reports/android/shell-navigation-process-death-evidence.json"),
     screenshotDir: resolve("build-reports/android/shell-navigation-process-death"),
     skipBuild: false,
+    exactChatOnly: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     if (key === "--skip-build") { parsed.skipBuild = true; continue; }
+    if (key === "--exact-chat-only") { parsed.exactChatOnly = true; continue; }
     const value = args[++index];
     if (!value || value.startsWith("--")) throw new Error(`invalid_argument:${key}`);
     if (key === "--serial") parsed.serial = value;
@@ -180,6 +212,188 @@ async function loadCredentials(path) {
     if (!actor?.[field]) throw new Error(`credentials_missing:a.${field}`);
   }
   return { country_code: actor.country_code, phone: actor.phone, password: actor.password };
+}
+
+async function findExactChatTarget(credentials) {
+  const source = await readFile("core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt", "utf8");
+  const baseUrl = source.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1]?.replace(/\/+$/, "");
+  const key = source.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/)?.[1];
+  if (!baseUrl || !key || !key.startsWith("sb_publishable_")) throw new Error("public_backend_configuration_invalid");
+  exactChatSession = {
+    baseUrl,
+    key,
+    accessToken: null,
+    refreshToken: null,
+    webSessionToken: null,
+  };
+  const auth = await jsonRequest(`${baseUrl}/functions/v1/quata-auth-bridge`, {
+    method: "POST",
+    headers: { apikey: key, "content-type": "application/json" },
+    body: JSON.stringify({
+      action: "web_login",
+      country_code: credentials.country_code,
+      phone_local: credentials.phone,
+      password: credentials.password,
+      client_instance_id: `shell-process-death-${Date.now()}`,
+    }),
+  }, "exact_chat_auth");
+  const profileId = auth?.profile?.id;
+  const token = auth?.session?.access_token;
+  const refreshToken = auth?.session?.refresh_token;
+  const webSessionToken = auth?.web_session?.token;
+  exactChatSession = {
+    ...exactChatSession,
+    accessToken: token ?? null,
+    refreshToken: refreshToken ?? null,
+    webSessionToken: webSessionToken ?? null,
+  };
+  if (!profileId || !token || !refreshToken || !webSessionToken) throw new Error("exact_chat_auth_response_invalid");
+  const favorites = await jsonRequest(`${baseUrl}/rest/v1/rpc/quata_chat_get_favorites`, {
+    method: "POST",
+    headers: { apikey: key, authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ p_actor_profile_id: profileId, p_limit: 100 }),
+  }, "exact_chat_favorites");
+  const messages = Array.isArray(favorites)
+    ? favorites
+    : Array.isArray(favorites?.favorites)
+      ? favorites.favorites
+      : Array.isArray(favorites?.data?.favorites)
+        ? favorites.data.favorites
+        : Array.isArray(favorites?.messages)
+          ? favorites.messages
+          : [];
+  const target = messages
+    .map((message) => ({
+      messageId: String(message?.id ?? ""),
+      threadId: String(message?.thread_id ?? message?.conversation_id ?? ""),
+    }))
+    .find((candidate) =>
+      /^[1-9]\d{0,15}$/.test(candidate.messageId) &&
+      /^[1-9]\d{0,15}$/.test(candidate.threadId)
+    );
+  if (!target) throw new Error("exact_chat_favorite_target_missing");
+  return {
+    conversationId: `sb:${target.threadId}`,
+    messageId: target.messageId,
+  };
+}
+
+async function jsonRequest(url, init, failure) {
+  let response;
+  try {
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
+  } catch {
+    throw new Error(`${failure}_network_failed`);
+  }
+  if (!response.ok) throw new Error(`${failure}_http_${response.status}`);
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(`${failure}_invalid_json`);
+  }
+}
+
+async function revokeExactChatSession(session) {
+  const authCleanup = async () => {
+    let accessToken = session.accessToken;
+    let refreshToken = session.refreshToken;
+    if (!accessToken && refreshToken) {
+      const renewal = await jsonRequest(`${session.baseUrl}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { apikey: session.key, "content-type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }, "exact_chat_cleanup_refresh");
+      accessToken = renewal?.access_token;
+      refreshToken = renewal?.refresh_token ?? refreshToken;
+    }
+    if (!accessToken || !refreshToken) throw new Error("exact_chat_auth_session_custody_incomplete");
+    const logout = await fetch(`${session.baseUrl}/auth/v1/logout?scope=local`, {
+      method: "POST",
+      headers: {
+        apikey: session.key,
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!logout.ok) throw new Error(`exact_chat_auth_logout_http_${logout.status}`);
+    const verification = await fetch(`${session.baseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { apikey: session.key, "content-type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (![400, 401].includes(verification.status)) {
+      throw new Error(`exact_chat_session_still_refreshable_http_${verification.status}`);
+    }
+  };
+  const webCleanup = async () => {
+    if (!session.accessToken || !session.webSessionToken) {
+      throw new Error("exact_chat_web_session_custody_incomplete");
+    }
+    await jsonRequest(`${session.baseUrl}/functions/v1/quata-web-push`, {
+      method: "POST",
+      headers: {
+        apikey: session.key,
+        authorization: `Bearer ${session.accessToken}`,
+        "content-type": "application/json",
+        "x-quata-web-session": session.webSessionToken,
+      },
+      body: JSON.stringify({ action: "logout" }),
+    }, "exact_chat_web_session_logout");
+  };
+  const [webResult, authResult] = await Promise.allSettled([webCleanup(), authCleanup()]);
+  if (webResult.status === "rejected" || authResult.status === "rejected") {
+    throw new Error([
+      webResult.status === "rejected" ? "web" : null,
+      authResult.status === "rejected" ? "auth" : null,
+    ].filter(Boolean).join("+") + "_exact_chat_session_cleanup_failed");
+  }
+}
+
+async function verifyExactChatProcessDeath(target) {
+  const favoritesUrl = "https://egquata.com/#chat-__favorite_messages__";
+  const targetIntentMarker = `message=${encodeURIComponent(target.messageId)}`;
+  const favoriteResource = `chat.message.${target.messageId}`;
+  const selectedResource = `chat.message.${target.messageId}.selected`;
+  await runAdb(["shell", "am", "force-stop", PACKAGE]);
+  await runAdb(["shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", favoritesUrl, "-p", PACKAGE]);
+  await waitForResource(favoriteResource);
+  await clickResource(favoriteResource);
+  await waitForResource("chat.conversation.titlebar");
+  await waitForResource(selectedResource);
+  const activityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
+  const baseIntentLine = activityState.split(/\r?\n/).find((line) =>
+    line.includes("intent={") && line.includes(PACKAGE) && line.includes("chat-__favorite_messages__")
+  );
+  if (!baseIntentLine || baseIntentLine.includes(targetIntentMarker)) {
+    throw new Error("exact_chat_differential_base_intent_not_preserved");
+  }
+  await captureScreenshot("exact-chat-message-before-process-death");
+  report.steps.push("exact_chat_target_selected_after_distinct_task_base_intent");
+  const pidBefore = await currentPid();
+  if (!pidBefore) throw new Error("exact_chat_pid_missing_before_kill");
+  await runAdb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
+  await delay(1_500);
+  await runAdb(["shell", "am", "kill", PACKAGE]);
+  await waitForPidAbsent();
+  report.steps.push("exact_chat_background_process_killed_by_android_activity_manager");
+  await runAdb(["shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`]);
+  await waitForResource("chat.conversation.titlebar");
+  await waitForResource(selectedResource);
+  const pidAfter = await currentPid();
+  if (!pidAfter || pidAfter === pidBefore) throw new Error("exact_chat_process_not_replaced");
+  await captureScreenshot("exact-chat-message-after-process-death");
+  report.steps.push("exact_chat_conversation_and_message_restored_in_new_process");
+  return {
+    pidChanged: true,
+    exactConversationRestored: true,
+    exactMessageRestored: true,
+    differentialBaseIntentVerified: true,
+    conversationIdSha256: sha256(target.conversationId),
+    messageIdSha256: sha256(target.messageId),
+  };
 }
 
 async function writeDeviceCredential(credentials) {

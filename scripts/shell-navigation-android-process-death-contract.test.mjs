@@ -12,6 +12,10 @@ const conversations = await readFile(
   new URL("../feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt", import.meta.url),
   "utf8",
 );
+const appNavGraph = await readFile(
+  new URL("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt", import.meta.url),
+  "utf8",
+);
 
 test("Android shell process-death evidence is explicit, emulator-only and credential-safe", () => {
   assert.match(runner, /QUATA_SHELL_PROCESS_DEATH_EVIDENCE !== "1"/);
@@ -56,6 +60,29 @@ test("Android shell process-death evidence proves a new process and restored nes
   assert.match(runner, /clickResource\(`navigation\.primary\.\$\{route\}`\)/);
   assert.match(runner, /primary_root_selected_from_\$\{launchRoute\}_before_process_death/);
   assert.match(runner, /primary_root_restored_in_new_process/);
+});
+
+test("the focal mode proves exact Chat conversation and message restoration without rerunning the root matrix", () => {
+  assert.match(runner, /--exact-chat-only/);
+  assert.match(runner, /if \(options\.exactChatOnly\)/);
+  assert.match(runner, /quata_chat_get_favorites/);
+  assert.match(runner, /clickResource\(favoriteResource\)/);
+  assert.match(runner, /chat-__favorite_messages__/);
+  assert.match(runner, /chat\.message\.\$\{target\.messageId\}\.selected/);
+  assert.match(runner, /exact_chat_target_selected_after_distinct_task_base_intent/);
+  assert.match(runner, /exact_chat_differential_base_intent_not_preserved/);
+  assert.match(runner, /exact_chat_conversation_and_message_restored_in_new_process/);
+  assert.match(runner, /exact_chat_session_still_refreshable/);
+  assert.match(runner, /Promise\.allSettled\(\[webCleanup\(\), authCleanup\(\)\]\)/);
+  assert.match(runner, /conversationIdSha256: sha256\(target\.conversationId\)/);
+  assert.match(runner, /messageIdSha256: sha256\(target\.messageId\)/);
+  assert.match(appNavGraph, /var persistedChatFocusConversationId by rememberSaveable/);
+  assert.match(appNavGraph, /var persistedChatFocusedMessageId by rememberSaveable/);
+  assert.match(appNavGraph, /var activeChatFocusConversationId by remember \{ mutableStateOf\(persistedChatFocusConversationId\) \}/);
+  assert.match(appNavGraph, /var activeChatFocusedMessageId by remember \{ mutableStateOf\(persistedChatFocusedMessageId\) \}/);
+  assert.match(appNavGraph, /focusedMessageId = activeChatFocusedMessageId\.takeIf \{/);
+  assert.match(appNavGraph, /onFocusedMessageHandled = \{[\s\S]*activeChatFocusConversationId = null[\s\S]*activeChatFocusedMessageId = null/);
+  assert.doesNotMatch(appNavGraph, /onFocusedMessageHandled = \{ persistedChatFocusedMessageId = null \}/);
 });
 
 test("PID observation accepts only remote status 0 or the exact no-process status 1", () => {

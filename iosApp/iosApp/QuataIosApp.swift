@@ -2397,6 +2397,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private static var startupSplashDisabledForTesting = false
     private static let persistedPrimaryRouteKey = "quata.ios.shell.primary-route"
     private static let persistedSecondaryRouteKey = "quata.ios.shell.secondary-route"
+    private static let persistedChatRoutePrefix = "chat-v1:"
+    private struct PersistedChatRoute: Codable {
+        let conversationId: String
+        let messageId: String?
+    }
     private let platformServices: IosPlatformServiceComposition
     private let routeSelectionDefaults: UserDefaults
     private var displayedController: UIViewController?
@@ -3757,7 +3762,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private static func persistedPrimaryRoute(for route: PendingRoute) -> String? {
         switch route {
         case .communities: return "neighborhoods"
-        case .chat: return "conversations"
+        case let .chat(conversationId, messageId):
+            guard let conversationId, !conversationId.isEmpty else { return "conversations" }
+            let snapshot = PersistedChatRoute(conversationId: conversationId, messageId: messageId)
+            guard let data = try? JSONEncoder().encode(snapshot) else { return "conversations" }
+            return persistedChatRoutePrefix + data.base64EncodedString()
         case .official: return "official"
         case .feed: return "feed"
         case .profileSos: return "profile"
@@ -3766,6 +3775,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private static func primaryRoute(storedValue: String?) -> PendingRoute? {
+        if let storedValue,
+           storedValue.hasPrefix(persistedChatRoutePrefix),
+           let data = Data(base64Encoded: String(storedValue.dropFirst(persistedChatRoutePrefix.count))),
+           let snapshot = try? JSONDecoder().decode(PersistedChatRoute.self, from: data),
+           !snapshot.conversationId.isEmpty {
+            return .chat(conversationId: snapshot.conversationId, messageId: snapshot.messageId)
+        }
         switch storedValue {
         case "neighborhoods": return .communities
         case "conversations": return .chat(conversationId: nil, messageId: nil)
