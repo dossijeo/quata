@@ -24,6 +24,8 @@ class ExpiryWorkerTests(unittest.TestCase):
                 original = products / 'original.xctestrun'
                 original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
                 actor = worker.Worker.__new__(worker.Worker)
+                actor.native_rejection_absence = None
+                actor.suspended_rejection_pid = None
                 actor.root, actor.products, actor.original = root, products, original
                 data = {key: str(uuid.uuid4()) for key in ('runId', 'stepId', 'profileId', 'authUserId')}
                 data['stage'] = 'read-owned'
@@ -78,6 +80,8 @@ class ExpiryWorkerTests(unittest.TestCase):
             original = products / 'original.xctestrun'
             original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
             actor = worker.Worker.__new__(worker.Worker)
+            actor.native_rejection_absence = None
+            actor.suspended_rejection_pid = None
             actor.root, actor.products, actor.original = root, products, original
             actor.run_id, actor.installed, actor.pending_owned_read, actor.native_login = None, None, None, None
             actor.seen = set()

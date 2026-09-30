@@ -74,6 +74,7 @@ class ExpiredCustodyTests(unittest.TestCase):
             worker.original = worker.products / 'original.xctestrun'
             worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
             worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
+            worker.native_rejection_absence = None
             worker.seen = set()
             data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
                     'stage': stage, 'expiresAt': 1, 'originalExpiresAt': 2}
@@ -138,6 +139,7 @@ class RecoveryClearTests(unittest.TestCase):
             worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
             worker.last_chat = worker.native_gate = None
             worker.native_rejection_started = False
+            worker.native_rejection_absence = None
             worker.seen = set()
             data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()), 'stage': 'clear',
                     'profileId': str(uuid.uuid4()), 'authUserId': str(uuid.uuid4()),
@@ -165,6 +167,7 @@ class RecoveryClearTests(unittest.TestCase):
         worker.run_id = None
         worker.installed = worker.pending_owned_read = worker.last_chat = worker.native_gate = worker.native_login = None
         worker.native_rejection_started = False
+        worker.native_rejection_absence = None
         worker.seen = set()
         with self.assertRaises(RuntimeError):
             worker.execute({'action': 'recover-clear', 'input': {'stage': 'install'}})
@@ -183,15 +186,17 @@ class DeliveryOrderTests(unittest.TestCase):
             worker.products.mkdir()
             (worker.root / 'build/reports/ios').mkdir(parents=True)
             worker.original = worker.products / 'original.xctestrun'
-            worker.original.write_bytes(plistlib.dumps({'QuataIosUITests': {}}))
+            worker.original.write_bytes(plistlib.dumps({'QuataIosUITests': {}, 'QuataIosTests': {}}))
             worker.installed = {}
             worker.run_id = str(uuid.uuid4())
             worker.last_chat = None
             worker.seen = set()
             worker.native_rejection_started = False
+            worker.native_rejection_absence = None
             worker.suspended_rejection_pid = 412 if rejection and rejection_mode == 'warm' else None
             worker.native_gate = None
             worker.native_login = None
+            worker.pending_owned_read = None
             request = {'action': 'chat', 'runId': worker.run_id, 'stepId': str(uuid.uuid4()), 'mode': 'cold',
                        'threadId': '123', 'messageId': '456', 'body': 'Deep link ' + worker.run_id}
             if target_mode is not None:
@@ -290,6 +295,11 @@ class DeliveryOrderTests(unittest.TestCase):
                         self.assertLess(events.index('window-start'), events.index('openurl'))
                         if rejection_mode == 'warm':
                             self.assertLess(events.index('window-start'), events.index('spawn'))
+                            self.assertEqual(worker.native_rejection_absence, {
+                                'runId': worker.run_id,
+                                'observationStepId': request['stepId'],
+                                'state': 'observed',
+                            })
                     else:
                         self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
                         self.assertNotIn('http-witness', events)
@@ -314,6 +324,15 @@ class DeliveryOrderTests(unittest.TestCase):
                     self.assertEqual(set(post), {'stepId', 'phase', 'verified', 'reader'})
                 else:
                     self.assertFalse(post_file.exists())
+                if rejection and rejection_mode == 'warm' and not missing_http:
+                    probe_step = str(uuid.uuid4())
+                    self.assertEqual(worker.execute({'action': 'probe', 'runId': worker.run_id,
+                                                     'stepId': probe_step}),
+                                     {'runId': worker.run_id, 'stepId': probe_step,
+                                      'probe': True, 'verified': True})
+                    self.assertIsNone(worker.installed)
+                    self.assertEqual(worker.native_rejection_absence['state'], 'verified')
+                    self.assertEqual(worker.execute({'action': 'close'}), {'closed': True})
 
     def test_missing_thread_selects_its_own_method_and_receipt(self):
         self.trial(target_mode='missing-thread')
@@ -327,11 +346,51 @@ class DeliveryOrderTests(unittest.TestCase):
     def test_rejection_without_http_retains_unresolved_delivery_and_forbids_replay(self):
         self.trial(rejection=True, missing_http=True)
 
+    def test_failed_warm_rejection_probe_retains_custody_and_forbids_new_attempt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = module.Worker.__new__(module.Worker)
+            worker.root = Path(folder)
+            worker.products = worker.root / 'products'
+            worker.products.mkdir()
+            (worker.root / 'build/reports/ios').mkdir(parents=True)
+            worker.original = worker.products / 'original.xctestrun'
+            worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+            worker.run_id = str(uuid.uuid4())
+            worker.installed = {'runId': worker.run_id, 'accessToken': 'private-access'}
+            observation_step = str(uuid.uuid4())
+            worker.native_rejection_absence = {'runId': worker.run_id,
+                                                'observationStepId': observation_step,
+                                                'state': 'observed'}
+            worker.pending_owned_read = worker.native_login = None
+            worker.suspended_rejection_pid = None
+            worker.seen = {observation_step}
+            worker.stop = Mock()
+            calls = []
+            def fail_probe(arguments, **kwargs):
+                calls.append(arguments)
+                if 'scripts/run-ios-command-watchdog.py' in arguments:
+                    raise RuntimeError('unverified')
+            worker.call = fail_probe
+            failed_step = str(uuid.uuid4())
+            with patch.object(module, 'write_private', side_effect=lambda path, content: path.write_bytes(content)):
+                with self.assertRaises(RuntimeError):
+                    worker.execute({'action': 'probe', 'runId': worker.run_id, 'stepId': failed_step})
+                self.assertEqual(worker.native_rejection_absence['state'], 'probing')
+                self.assertIsNotNone(worker.installed)
+                call_count = len(calls)
+                with self.assertRaises(RuntimeError):
+                    worker.execute({'action': 'probe', 'runId': worker.run_id,
+                                    'stepId': str(uuid.uuid4())})
+                self.assertEqual(len(calls), call_count)
+                with self.assertRaises(RuntimeError):
+                    worker.execute({'action': 'close'})
+
     def test_rejection_refuses_mixed_or_reused_state(self):
         for variant in ('warm-without-chat', 'ordinary-install', 'no-install', 'gate', 'login', 'reused', 'negative', 'prelude'):
             with self.subTest(variant=variant):
                 worker = module.Worker.__new__(module.Worker)
                 worker.native_rejection_started = variant == 'reused'
+                worker.native_rejection_absence = None
                 worker.native_gate = {} if variant == 'gate' else None
                 worker.native_login = {} if variant == 'login' else None
                 worker.suspended_rejection_pid = None
@@ -354,6 +413,7 @@ class DeliveryOrderTests(unittest.TestCase):
         worker.native_gate = None
         worker.native_login = None
         worker.native_rejection_started = False
+        worker.native_rejection_absence = None
         worker.suspended_rejection_pid = None
         worker.seen = set()
         worker.state = lambda: 'Booted'
@@ -380,6 +440,7 @@ class DeliveryOrderTests(unittest.TestCase):
         worker.native_gate = None
         worker.native_login = None
         worker.native_rejection_started = False
+        worker.native_rejection_absence = None
         worker.suspended_rejection_pid = None
         worker.seen = set()
         worker.state = lambda: 'Booted'

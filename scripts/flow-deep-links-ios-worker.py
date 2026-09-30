@@ -92,6 +92,7 @@ class Worker:
         self.native_gate_started = False
         self.native_login = None
         self.native_rejection_started = False
+        self.native_rejection_absence = None
         self.suspended_rejection_pid = None
 
     def call(self, arguments, timeout=60):
@@ -131,7 +132,8 @@ class Worker:
         if action == 'recover-clear':
             require(set(request) == {'action', 'input'} and self.run_id is None and self.installed is None
                     and self.pending_owned_read is None and self.last_chat is None and self.native_gate is None
-                    and self.native_login is None and not self.native_rejection_started)
+                    and self.native_login is None and not self.native_rejection_started
+                    and self.native_rejection_absence is None)
             data = request['input']
             require(isinstance(data, dict) and data.get('stage') == 'clear'
                     and 'originalExpiresAt' not in data)
@@ -173,6 +175,8 @@ class Worker:
         if action == 'close':
             require(set(request) == {'action'} and self.installed is None and self.pending_owned_read is None)
             require(self.native_login is None or self.native_login['state'] == 'cleared')
+            require(self.native_rejection_absence is None
+                    or self.native_rejection_absence['state'] == 'verified')
             self.resume_suspended_rejection()
             self.stop()
             return {'closed': True}
@@ -213,7 +217,16 @@ class Worker:
                 require(self.installed is not None)
                 require({k: v for k, v in data.items() if k not in ('stage', 'stepId')} == self.installed)
         else:
-            require(self.installed is None)
+            if self.installed is None:
+                require(self.native_rejection_absence is None)
+            else:
+                absence = self.native_rejection_absence
+                require(isinstance(absence, dict)
+                        and set(absence) == {'runId', 'observationStepId', 'state'}
+                        and absence['runId'] == run_id
+                        and str(uuid.UUID(absence['observationStepId'])) == absence['observationStepId'].lower()
+                        and absence['state'] == 'observed')
+                self.native_rejection_absence['state'] = 'probing'
         self.stop()
         directory = self.root / 'build/reports/ios' / ('deep-link-session-' + step_id)
         directory.mkdir(mode=0o700)
@@ -281,6 +294,10 @@ class Worker:
         else:
             receipt = {'runId': run_id, 'stepId': step_id, 'probe': True, 'verified': True}
         patched.rename(directory / 'executed-plan.xctestrun')
+        if action == 'probe' and self.native_rejection_absence is not None:
+            require(self.native_rejection_absence['state'] == 'probing')
+            self.installed = None
+            self.native_rejection_absence['state'] = 'verified'
         return receipt
 
     def app_pid(self):
@@ -401,6 +418,7 @@ class Worker:
                     and request['mode'] in ('cold', 'warm') and self.installed is not None
                     and (('originalExpiresAt' in self.installed) == (request['mode'] == 'cold'))
                     and self.native_gate is None and self.native_login is None
+                    and self.native_rejection_absence is None
                     and ((request['mode'] == 'warm' and self.last_chat is not None
                           and self.suspended_rejection_pid == self.last_chat['pid'])
                          or (request['mode'] == 'cold' and self.suspended_rejection_pid is None)))
@@ -580,6 +598,12 @@ class Worker:
                       'pidUnchangedThroughObservation': True,
                       **({'publicPreludePid': prelude_pid} if renewal_prelude else {})}).encode())
         (directory / 'observer-plan.xctestrun').rename(directory / 'executed-plan.xctestrun')
+        if native_rejection and request['mode'] == 'warm':
+            self.native_rejection_absence = {
+                'runId': self.run_id,
+                'observationStepId': step,
+                'state': 'observed',
+            }
         return receipt
 
 

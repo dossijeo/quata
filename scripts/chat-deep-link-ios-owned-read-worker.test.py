@@ -66,6 +66,7 @@ class OwnedReadTests(unittest.TestCase):
             worker.write_private(directory / 'input.json', json.dumps(data).encode())
             worker.write_private(directory / 'private-response.json', json.dumps(receipt).encode())
             actor = worker.Worker.__new__(worker.Worker)
+            actor.native_rejection_absence = None
             actor.run_id = data['runId']
             actor.installed = {'runId': data['runId'], **receipt['privateSession']}
             actor.pending_owned_read = {'stepId': data['stepId'], 'directory': directory, 'input': data}
@@ -96,6 +97,7 @@ class OwnedReadTests(unittest.TestCase):
             changed['privateSession']['refreshToken'] = 'different-synthetic-refresh'
             worker.write_private(directory / 'private-response.json', json.dumps(changed).encode())
             actor = worker.Worker.__new__(worker.Worker)
+            actor.native_rejection_absence = None
             actor.run_id = data['runId']
             actor.installed = {'runId': data['runId'], **receipt['privateSession']}
             actor.pending_owned_read = {'stepId': data['stepId'], 'directory': directory, 'input': data}

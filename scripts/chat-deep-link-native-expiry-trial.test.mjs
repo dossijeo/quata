@@ -90,6 +90,7 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
     state.events.push('probe-empty');if(failure==='probe-empty')throw Error('synthetic-uncertain');
     assert.equal(platform,'ios');assert.equal(rejectionMode,'warm');
     assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.verified,true);
+    assert.ok(installed);
     installed=undefined;
     return {runId:input.runId,stepId:input.stepId,probe:true,verified:true};
   },observeChat:async input=>{
