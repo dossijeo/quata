@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "unit": "OVR-AUTH-REQUIRED",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-30",
+  "productSha": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+  "git": {
+    "head": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+    "workingTreeDirty": false
+  },
+  "validationProvenance": {
+    "runtimeSha": "d28893cfd679977ef85553e9c0d316be9b075e74",
+    "runtimeValidationReused": true,
+    "treeEquivalentRuntimeSha": "34e2d3d725145a4f25d702553a74cc6c658d2f08",
+    "treeEquivalentProductSha": "72b0d43bf72deb87354054b76cf2f2fb8edc0501",
+    "headOnlyChange": "capability source hashes",
+    "affectedGateRerunAtHead": "capability_matrix_contract_passed"
+  },
+  "scope": "Official interactions resumed after successful authentication",
+  "steps": [
+    "official_continuation_browser_tests_passed",
+    "android_debug_compilation_passed",
+    "web_wasm_compilation_passed",
+    "capability_matrix_contract_passed",
+    "ios_x64_tests_passed",
+    "ios_framework_link_passed",
+    "ios_simulator_signed_build_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "compileDebugKotlin"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "OfficialAuthenticationContinuationTest",
+        "compileKotlinWasmJs"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "feature-official-iosX64Test",
+        "ios-shared-linkDebugFrameworkIosX64",
+        "SimulatorSigned-build-for-testing"
+      ]
+    }
+  },
+  "assertions": [
+    "anonymous Official remains readable",
+    "like resumes toward the originally requested state without inverting an already-satisfied authenticated state",
+    "comment continuation retains its exact submitted text and reply target",
+    "comment report continuation retains the exact comment and parent post",
+    "each continuation is atomically claimed before dispatch and cannot repeat on recomposition",
+    "Official publication remains role-gated and is not resumed by this change",
+    "authentication cancellation, logout and rejected sessions continue clearing the app-scoped pending action"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no remote fixtures or backend mutation used"
+  },
+  "limitations": [
+    "This focal evidence is deterministic contract, compilation and iOS Simulator build evidence; final integrated platform certification remains assigned to GitHub Actions.",
+    "The product head differs from the runtime validation SHA only by capability source hashes; the affected capability contract was rerun on a clean 652ecbfe worktree and runtime platform checks were not repeated solely for that metadata commit.",
+    "It does not claim restoration for Official publication, Communities or actions outside the three Official interactions in scope."
+  ]
+}

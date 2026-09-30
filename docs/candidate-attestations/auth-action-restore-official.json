@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-AUTH-REQUIRED"
+  ],
+  "status": "passed",
+  "productSha": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+  "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
+  "evidenceKind": "OFFICIAL_AUTHENTICATION_ACTION_CONTINUATION",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+      "report": "docs/candidate-attestations/evidence/auth-action-restore-official-652ecbfe.json",
+      "reportSha256": "f89633bfc519cb71b4bf7ea42280efd18a8eac271df17893e2df3d0caa470390",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "official_continuation_browser_tests_passed",
+        "android_debug_compilation_passed",
+        "web_wasm_compilation_passed",
+        "capability_matrix_contract_passed",
+        "ios_x64_tests_passed",
+        "ios_framework_link_passed",
+        "ios_simulator_signed_build_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-remote-fixture-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialAuthenticationContinuationTest --no-daemon",
+    ".\\gradlew.bat :feature:official:compileKotlinWasmJs :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon",
+    "node scripts/capability-matrix-contract.mjs",
+    "macOS: bash gradlew :feature:official:iosX64Test --no-daemon",
+    "macOS: bash gradlew :ios-shared:linkDebugFrameworkIosX64 --no-daemon",
+    "macOS: xcodebuild SimulatorSigned build-for-testing"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+    "reviewedProductSha": "652ecbfe2c04028c621a6613f5925dcca85d01e0",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The app-scoped coordinator retains the exact Official origin and action across successful authentication for like, add comment and report comment on Android, Web/Wasm and iOS.",
+    "Like continuation records the requested state and avoids toggling an authenticated account away from a state that is already satisfied.",
+    "Comment continuation retains the submitted text and reply target; comment-report continuation retains both comment and parent post identifiers.",
+    "Official publication remains role-gated and is deliberately outside this continuation scope.",
+    "Cancellation, logout and rejected-session transitions keep the clearing behavior already certified by the Feed coordinator integration.",
+    "No backend fixture or remote mutation was required for this focal preflight. GitHub final jobs retain responsibility for clean-runner integrated certification.",
+    "Communities and actions outside the three listed Official interactions remain separate inventory scope."
+  ]
+}
