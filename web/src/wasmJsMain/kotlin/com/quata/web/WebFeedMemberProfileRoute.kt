@@ -3,6 +3,7 @@ package com.quata.web
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
 
 /**
  * Feed-local presentation state for the existing Communities member-profile surface.
@@ -42,6 +43,13 @@ internal class WebFeedMemberProfileRoute(
         profileId = profileStack.lastOrNull()
         setWebMemberProfileRouteMarker(profileId)
     }
+}
+
+internal fun restorePendingCommunityProfileAfterAuthentication(
+    coordinator: AuthenticationContinuationCoordinator,
+    profileRoute: WebFeedMemberProfileRoute,
+) {
+    coordinator.pendingIntent()?.contextId?.let(profileRoute::open)
 }
 
 @JsFun("""(profileId) => {

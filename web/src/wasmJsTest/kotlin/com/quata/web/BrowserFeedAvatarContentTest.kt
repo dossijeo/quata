@@ -1,11 +1,59 @@
 package com.quata.web
 
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class BrowserFeedAvatarContentTest {
+
+    @Test
+    fun loginFromCommunitiesDirectoryRestoresThePendingProfile() {
+        val route = WebFeedMemberProfileRoute { }
+        val coordinator = AuthenticationContinuationCoordinator().apply {
+            request(
+                AuthenticationContinuationIntent(
+                    kind = AuthenticationContinuationKind.CommunityProfileEnsureFollow,
+                    originRoute = "communities",
+                    targetId = "member-2",
+                    contextId = "member-2",
+                    desiredState = true,
+                ),
+            )
+        }
+
+        restorePendingCommunityProfileAfterAuthentication(coordinator, route)
+
+        assertEquals("member-2", route.profileId)
+    }
+
+    @Test
+    fun loginFromSecondaryProfileRestoresItWithoutDuplicatingTheProfileStack() {
+        val route = WebFeedMemberProfileRoute { }
+        route.open("member-1")
+        route.open("member-2")
+        val coordinator = AuthenticationContinuationCoordinator().apply {
+            request(
+                AuthenticationContinuationIntent(
+                    kind = AuthenticationContinuationKind.CommunityProfileAddComment,
+                    originRoute = "communities",
+                    targetId = "post-1",
+                    relatedId = "comment-1",
+                    contextId = "member-2",
+                    text = "respuesta",
+                ),
+            )
+        }
+
+        restorePendingCommunityProfileAfterAuthentication(coordinator, route)
+        route.close()
+
+        assertEquals("member-1", route.profileId)
+    }
     @Test
     fun only_http_avatar_urls_reach_the_native_browser_image_element() {
         assertTrue(isBrowserAvatarUrl("https://cdn.example.test/avatar?id=profile-1"))

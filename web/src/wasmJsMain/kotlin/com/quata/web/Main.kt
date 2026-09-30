@@ -327,6 +327,12 @@ private fun QuataWebApp(
         currentUserId = session?.userId
         currentUserIsOfficial = session?.isOfficial == true
         authSurfaceCancellationArmed = false
+        if (session != null) {
+            restorePendingCommunityProfileAfterAuthentication(
+                coordinator = authenticationContinuationCoordinator,
+                profileRoute = feedMemberProfileRoute,
+            )
+        }
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
     }
@@ -854,6 +860,7 @@ private fun QuataWebApp(
                     }
                 } else if (navigation.route == "communities") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Communities) {
+                        val memberProfileId = feedMemberProfileRoute.profileId
                         WebNeighborhoodsHost(
                             repository = neighborhoodsRepository,
                             currentUserId = currentUserId,
@@ -871,9 +878,10 @@ private fun QuataWebApp(
                             },
                             authenticationContinuationCoordinator = authenticationContinuationCoordinator,
                             authenticationContinuationOriginRoute = "communities",
-                            onOpenUserRoute = { navigation.navigate("communities") },
-                            initialMemberProfileId = null,
+                            onOpenUserRoute = feedMemberProfileRoute::open,
+                            initialMemberProfileId = memberProfileId,
                             requestedCommunityMembers = profileEntryCommunityMembersRequest,
+                            onInitialMemberProfileClosed = feedMemberProfileRoute::close,
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
