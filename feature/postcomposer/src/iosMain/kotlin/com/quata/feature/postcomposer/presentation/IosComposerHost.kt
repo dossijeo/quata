@@ -3,7 +3,9 @@ package com.quata.feature.postcomposer.presentation
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +45,41 @@ class IosComposerHostDependencies(
     val initialImageReference: String? = null,
     val initialLocationLabel: String? = null,
     val videoEditorNativeDriver: IosPostVideoEditorNativeDriver = UnsupportedIosPostVideoEditorNativeDriver,
+    val canPublishNow: () -> Boolean = { true },
+    val authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
+    val onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
+)
+
+fun createIosComposerHostDependenciesWithAuthenticationContinuation(
+    repository: PostComposerRepository,
+    filePicker: FilePickerService,
+    cameraCapture: CameraCaptureService,
+    videoThumbnails: VideoThumbnailService,
+    location: LocationService,
+    permissions: PermissionService,
+    languageTag: String?,
+    onClose: () -> Unit,
+    initialImageReference: String?,
+    initialLocationLabel: String?,
+    videoEditorNativeDriver: IosPostVideoEditorNativeDriver,
+    canPublishNow: () -> Boolean,
+    authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator,
+    onAuthenticationContinuationRequired: (PostComposerAuthenticationContinuation) -> Unit,
+): IosComposerHostDependencies = IosComposerHostDependencies(
+    repository = repository,
+    filePicker = filePicker,
+    cameraCapture = cameraCapture,
+    videoThumbnails = videoThumbnails,
+    location = location,
+    permissions = permissions,
+    languageTag = languageTag,
+    onClose = onClose,
+    initialImageReference = initialImageReference,
+    initialLocationLabel = initialLocationLabel,
+    videoEditorNativeDriver = videoEditorNativeDriver,
+    canPublishNow = canPublishNow,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
 )
 
 fun createIosComposerHostDependencies(
@@ -178,13 +215,28 @@ private fun String?.iosComposerMediaFailureMessage(copy: CreatePostRootCopy): St
 @Composable
 private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     val copy = createPostRootCopyForLanguageTag(dependencies.languageTag)
+    val pendingContinuation by dependencies.authenticationContinuationCoordinator
+        ?.pending
+        ?.collectAsState()
+        ?: remember { mutableStateOf(null) }
+    val retainedDraft = dependencies.authenticationContinuationCoordinator?.retainedDraft?.value
     val viewModel = remember(dependencies.repository, copy) {
         CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages()).also { model ->
+            retainedDraft?.let(model::restore)
             dependencies.initialImageReference?.takeIf(String::isNotBlank)
                 ?.let { model.onEvent(CreatePostUiEvent.ImageSelected(it)) }
             dependencies.initialLocationLabel?.takeIf(String::isNotBlank)
                 ?.let { model.onEvent(CreatePostUiEvent.LocationLabelChanged(it)) }
         }
+    }
+    DisposableEffect(viewModel) { onDispose(viewModel::close) }
+    LaunchedEffect(pendingContinuation?.requestId) {
+        val pending = pendingContinuation ?: return@LaunchedEffect
+        if (!dependencies.canPublishNow()) return@LaunchedEffect
+        val claimed = dependencies.authenticationContinuationCoordinator?.claim(pending.requestId)
+            ?: return@LaunchedEffect
+        viewModel.restore(claimed.draft)
+        viewModel.submit(claimed.submitType)
     }
     val scope = rememberCoroutineScope()
     val filePicker = remember(dependencies.filePicker) {
@@ -232,11 +284,22 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             viewModel = viewModel,
             accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag),
             isLandscapeLayout = currentIsLandscapeLayout,
-            onAuthRequired = dependencies.onClose,
-            onBack = dependencies.onClose,
-            onPostCreated = { dependencies.onClose() },
+            canPublish = dependencies.canPublishNow(),
+            canPublishNow = dependencies.canPublishNow,
+            onAuthRequired = {},
+            authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
+            onAuthenticationContinuationRequired = dependencies.onAuthenticationContinuationRequired,
+            onBack = {
+                dependencies.authenticationContinuationCoordinator?.clear()
+                dependencies.onClose()
+            },
+            onPostCreated = {
+                dependencies.authenticationContinuationCoordinator?.clear()
+                dependencies.onClose()
+            },
             copy = copy,
-            initialStep = if (dependencies.initialImageReference != null) CreatePostStep.Image else null,
+            initialStep = retainedDraft?.step
+                ?: if (dependencies.initialImageReference != null) CreatePostStep.Image else null,
             slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {

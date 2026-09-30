@@ -22,7 +22,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -223,6 +222,9 @@ fun CreatePostRoot(
     isLandscapeLayout: Boolean,
     canPublish: Boolean = true,
     onAuthRequired: () -> Unit,
+    canPublishNow: (() -> Boolean)? = null,
+    onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
+    authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
     onPostCreated: (String?) -> Unit,
     onBack: () -> Unit,
     resetToken: Int = 0,
@@ -241,7 +243,6 @@ fun CreatePostRoot(
     var lastCancelUploadToken by rememberSaveable { mutableStateOf(0) }
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
-    DisposableEffect(viewModel) { onDispose(viewModel::close) }
     LaunchedEffect(resetToken) {
         if (resetToken > 0 && resetToken != lastResetToken) {
             slots.clearOwnedMedia?.invoke()
@@ -289,6 +290,17 @@ fun CreatePostRoot(
             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
         }
     }
+    LaunchedEffect(state.authenticationRequiredSubmitType) {
+        val type = state.authenticationRequiredSubmitType ?: return@LaunchedEffect
+        viewModel.onEvent(CreatePostUiEvent.AuthenticationContinuationHandled)
+        val coordinator = authenticationContinuationCoordinator
+        val callback = onAuthenticationContinuationRequired
+        if (coordinator != null && callback != null) {
+            callback(coordinator.request(viewModel.snapshot(step), type))
+        } else {
+            onAuthRequired()
+        }
+    }
     fun select(next: CreatePostStep) {
         slots.clearOwnedMedia?.invoke()
         viewModel.onEvent(CreatePostUiEvent.ClearDraft)
@@ -297,7 +309,19 @@ fun CreatePostRoot(
         locationOpen = false
         step = next
     }
-    fun publish(type: PostComposerType) = dispatchCreatePostPublish(canPublish, { viewModel.submit(type) }, onAuthRequired)
+    fun publish(type: PostComposerType) {
+        if (canPublishNow?.invoke() ?: canPublish) {
+            viewModel.submit(type)
+        } else {
+            val coordinator = authenticationContinuationCoordinator
+            val callback = onAuthenticationContinuationRequired
+            if (coordinator != null && callback != null) {
+                callback(coordinator.request(viewModel.snapshot(step), type))
+            } else {
+                onAuthRequired()
+            }
+        }
+    }
     val title = when (step) {
         CreatePostStep.TypePicker -> copy.title
         CreatePostStep.Text -> copy.textTitle

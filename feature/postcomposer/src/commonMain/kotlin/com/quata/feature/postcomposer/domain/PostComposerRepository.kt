@@ -6,6 +6,10 @@ enum class PostComposerType {
     Video
 }
 
+class PostComposerAuthenticationRequiredException(
+    message: String = "composer_authentication_required",
+) : IllegalStateException(message)
+
 data class PostComposerDestination(
     val wallId: String,
     val label: String,

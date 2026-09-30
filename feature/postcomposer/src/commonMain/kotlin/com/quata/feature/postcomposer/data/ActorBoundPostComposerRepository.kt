@@ -4,6 +4,7 @@ import com.quata.core.text.buildPostBodyWithMeta
 import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
+import com.quata.feature.postcomposer.domain.PostComposerAuthenticationRequiredException
 import com.quata.feature.postcomposer.domain.PostComposerType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -50,8 +51,8 @@ interface ActorBoundComposerTransport {
 
 class ActorBoundPostComposerRepository(private val transport: ActorBoundComposerTransport) : PostComposerRepository {
     override suspend fun loadDestinations(): Result<List<PostComposerDestination>> = runCatching {
-        val actor = transport.renewableSession() ?: error("composer_authenticated_actor_missing")
-        require(actor.profileId.isNotBlank()) { "composer_authenticated_actor_missing" }
+        val actor = transport.renewableSession() ?: throw PostComposerAuthenticationRequiredException()
+        if (actor.profileId.isBlank()) throw PostComposerAuthenticationRequiredException()
         transport.loadDestinations(actor.profileId).getOrThrow()
             .filter { it.wallId.isNotBlank() && it.label.isNotBlank() }
             .distinctBy { it.wallId }
@@ -59,8 +60,8 @@ class ActorBoundPostComposerRepository(private val transport: ActorBoundComposer
 
     override suspend fun createPost(draft: PostComposerDraft): Result<String?> = try {
         validateComposerDraft(draft)
-        val actor = transport.renewableSession() ?: error("composer_authenticated_actor_missing")
-        require(actor.profileId.isNotBlank()) { "composer_authenticated_actor_missing" }
+        val actor = transport.renewableSession() ?: throw PostComposerAuthenticationRequiredException()
+        if (actor.profileId.isBlank()) throw PostComposerAuthenticationRequiredException()
         transport.moderate(actor, draft).getOrThrow()
         val wallId = draft.destinationWallId?.takeIf(String::isNotBlank)?.let { requested ->
             val destinations = transport.loadDestinations(actor.profileId).getOrThrow()

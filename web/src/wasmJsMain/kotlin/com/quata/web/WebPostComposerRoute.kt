@@ -23,6 +23,8 @@ import com.quata.core.platform.PermissionStatus
 import com.quata.feature.postcomposer.presentation.CreatePostMediaPermissionDeniedReason
 import com.quata.feature.postcomposer.presentation.CreatePostMediaPermissionRequest
 import com.quata.feature.postcomposer.presentation.ensureCreatePostMediaPermissions
+import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
+import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
 import com.quata.feature.postcomposer.data.DestinationEvidencePostComposerRepository
 import com.quata.feature.postcomposer.data.FailInsertAfterUploadComposerTransport
@@ -40,6 +42,9 @@ fun WebPostComposerRoute(
     authRepository: WebAuthRepository,
     onBack: () -> Unit,
     onAuthRequired: () -> Unit,
+    authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
+    pendingAuthenticationContinuation: PostComposerAuthenticationContinuation? = null,
+    onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val isLandscapeLayout = browserComposerIsLandscape()
@@ -148,10 +153,20 @@ fun WebPostComposerRoute(
             },
         ),
         isLandscapeLayout = isLandscapeLayout,
-        onBack = onBack,
+        onBack = {
+            authenticationContinuationCoordinator?.clear()
+            onBack()
+        },
         onAuthRequired = onAuthRequired,
-        onPostCreated = { onBack() },
+        onPostCreated = {
+            authenticationContinuationCoordinator?.clear()
+            onBack()
+        },
         canPublish = webComposerCanPublish(authRepository.activeProfileSessionOrNull()),
+        canPublishNow = { webComposerCanPublish(authRepository.activeProfileSessionOrNull()) },
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+        pendingAuthenticationContinuation = pendingAuthenticationContinuation,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
     )
 }
 

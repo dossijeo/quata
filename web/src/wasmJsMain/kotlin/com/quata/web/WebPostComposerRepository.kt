@@ -10,6 +10,7 @@ import com.quata.feature.postcomposer.data.ComposerUploadedMedia
 import com.quata.feature.postcomposer.data.composerModerationFields
 import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
+import com.quata.feature.postcomposer.domain.PostComposerAuthenticationRequiredException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -130,7 +131,16 @@ class WebPostComposerTransport(
     override suspend fun releasePreparedMedia(media: ComposerPreparedMedia): Result<Unit> = Result.success(Unit)
 }
 
-private fun WebPostgrestResult.webComposerBody(): String = when (this) { is WebPostgrestResult.Success -> body; is WebPostgrestResult.Failure -> error(reason) }
+private fun WebPostgrestResult.webComposerBody(): String = when (this) {
+    is WebPostgrestResult.Success -> body
+    is WebPostgrestResult.Failure -> if (
+        kind == WebPostgrestFailureKind.Unauthorized || kind == WebPostgrestFailureKind.Session
+    ) {
+        throw PostComposerAuthenticationRequiredException()
+    } else {
+        error(reason)
+    }
+}
 internal fun webPrepared(reference: String, fallbackMime: String, fallbackName: String): ComposerPreparedMedia {
     val rawName = reference.substringAfterLast('/').substringBefore('?').trim()
     val name = rawName.takeIf { "." in it } ?: fallbackName

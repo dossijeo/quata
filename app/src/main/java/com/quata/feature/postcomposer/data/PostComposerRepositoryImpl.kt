@@ -16,6 +16,7 @@ import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
+import com.quata.feature.postcomposer.domain.PostComposerAuthenticationRequiredException
 import com.quata.feature.postcomposer.domain.PostComposerType
 import com.quata.wordpress.QuataWordPressClient
 
@@ -27,7 +28,7 @@ class PostComposerRepositoryImpl(
     private val mediaUploadOptimizer: MediaUploadOptimizer
 ) : PostComposerRepository {
     override suspend fun loadDestinations(): Result<List<PostComposerDestination>> = runCatching {
-        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val session = sessionManager.currentSession() ?: throw PostComposerAuthenticationRequiredException()
         if (AppConfig.USE_MOCK_BACKEND) {
             return@runCatching listOf(PostComposerDestination("mock-feed", "Feed", isDefault = true))
         }
@@ -137,7 +138,18 @@ class PostComposerRepositoryImpl(
                     }
             }
         }.getOrThrow()
-    }.mapFailureToUserFacing(appContext, R.string.error_publish_post)
+    }.fold(
+        onSuccess = { Result.success(it) },
+        onFailure = { failure ->
+            if (failure is PostComposerAuthenticationRequiredException ||
+                (failure is SupabaseApiException && failure.statusCode == 401)
+            ) {
+                Result.failure(PostComposerAuthenticationRequiredException())
+            } else {
+                Result.failure<String?>(failure).mapFailureToUserFacing(appContext, R.string.error_publish_post)
+            }
+        },
+    )
 
     private suspend fun resolveWallId(profileId: String): String {
         supabaseApi.getMembers(profileId = profileId).firstOrNull()?.wall_id?.let { return it }

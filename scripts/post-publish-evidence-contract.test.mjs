@@ -145,8 +145,9 @@ test("web composer submit uses a localhost opt-in bridge without replacing commo
   assert.match(webPostComposerHost, /CreatePostUiEvent\.ImageSelected/);
   assert.match(webPostComposerHost, /CreatePostUiEvent\.VideoSelected/);
   assert.match(webPostComposerHost, /CreatePostUiEvent\.LocationLabelChanged/);
-  assert.match(webPostComposerHost, /viewModel\.submit\(PostComposerType\.Text\)/);
-  assert.match(webPostComposerHost, /viewModel\.submit\(PostComposerType\.Image\)/);
+  assert.match(webPostComposerHost, /submitText = \{ requestOrSubmit\(PostComposerType\.Text\) \}/);
+  assert.match(webPostComposerHost, /submitImage = \{ requestOrSubmit\(PostComposerType\.Image\) \}/);
+  assert.match(webPostComposerHost, /fun requestOrSubmit\(type: PostComposerType\)[\s\S]*?if \(canPublishNow\(\)\)[\s\S]*?viewModel\.submit\(type\)/);
   assert.match(webPostComposerHost, /textLength/);
   assert.match(webPostComposerHost, /locationLabel/);
   assert.match(webPostComposerHost, /selectedDestinationWallId/);
@@ -278,7 +279,7 @@ test("post publish android evidence uses common composer tags through the debug 
   assert.match(androidCreatePostScreen, /evidenceImageUri: String\? = null/);
   assert.match(androidCreatePostScreen, /initialEvidenceImageUri = evidenceImageUri/);
   assert.match(androidCreatePostScreen, /initialEvidenceLocationLabel = evidenceLocationLabel/);
-  assert.match(androidCreatePostScreen, /initialStep = if \(evidenceImageUri != null\) CreatePostStep\.Image else null/);
+  assert.match(androidCreatePostScreen, /initialStep = authenticationContinuationCoordinator\?\.retainedDraft\?\.value\?\.step\s*\?: if \(evidenceImageUri != null\) CreatePostStep\.Image else null/);
   assert.match(androidCreatePostViewModel, /CreatePostUiEvent\.ImageSelected\(initialEvidenceImageUri\)/);
   assert.match(androidCreatePostViewModel, /CreatePostUiEvent\.LocationLabelChanged\(initialEvidenceLocationLabel\)/);
   assert.doesNotMatch(androidPostPublishTest, /AndroidPostComposerEvidenceSeed/);

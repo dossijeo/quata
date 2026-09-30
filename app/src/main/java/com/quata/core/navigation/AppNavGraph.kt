@@ -187,6 +187,7 @@ import com.quata.feature.notifications.presentation.NotificationsScreen
 import com.quata.feature.official.presentation.OfficialFeedScreen
 import com.quata.feature.official.presentation.OfficialPostEditorRoute
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
+import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.UserProfile
 import com.quata.feature.profile.presentation.EmergencyContactsDialog
@@ -385,6 +386,9 @@ fun AppNavGraph(
     var pendingAuthenticationConversationId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAuthenticationFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
+    val postComposerAuthenticationCoordinator = remember { PostComposerAuthenticationContinuationCoordinator() }
+    val pendingPostComposerAuthentication by postComposerAuthenticationCoordinator.pending.collectAsState()
+    var postComposerAuthenticationSurfaceVisited by remember { mutableStateOf(false) }
     LaunchedEffect(currentUserId, currentRoute) {
         if (!StartupPresentationPolicy.shouldEvaluateWhatsNew(
                 isSessionResolved = true,
@@ -452,10 +456,22 @@ fun AppNavGraph(
                 !isAuthenticated &&
                 !isAuthRequiredPromptOpen &&
                 currentRoute != null &&
-                currentRoute !in authenticationRoutes
+                currentRoute !in authenticationRoutes &&
+                !(pendingAuthenticationRoute == AppDestinations.CreatePost.route && pendingPostComposerAuthentication != null)
         ) {
             clearPendingAuthenticationDestination()
             authenticationContinuationCoordinator.clearAll()
+        }
+    }
+
+    LaunchedEffect(currentRoute, pendingPostComposerAuthentication?.requestId, isAuthenticated, isAuthRequiredPromptOpen) {
+        when {
+            pendingPostComposerAuthentication == null -> postComposerAuthenticationSurfaceVisited = false
+            currentRoute in authenticationRoutes -> postComposerAuthenticationSurfaceVisited = true
+            postComposerAuthenticationSurfaceVisited && !isAuthenticated && !isAuthRequiredPromptOpen -> {
+                postComposerAuthenticationCoordinator.cancelAuthentication()
+                postComposerAuthenticationSurfaceVisited = false
+            }
         }
     }
 
@@ -545,6 +561,8 @@ fun AppNavGraph(
                 popUpTo(AppDestinations.Feed.route) { saveState = false }
                 launchSingleTop = true
             }
+        } else if (pendingRoute == AppDestinations.CreatePost.route && pendingPostComposerAuthentication != null) {
+            navController.popBackStack(AppDestinations.CreatePost.route, inclusive = false)
         } else {
             navigateAuthenticatedDestination(pendingRoute)
         }
@@ -957,8 +975,16 @@ fun AppNavGraph(
                         resetToken = createPostResetToken,
                         cancelUploadToken = createPostCancelUploadToken,
                         canPublish = isAuthenticated,
-                        onAuthRequired = { requestAuthentication() },
+                        canPublishNow = { container.sessionManager.currentSession() != null },
+                        authenticationContinuationCoordinator = postComposerAuthenticationCoordinator,
+                        pendingAuthenticationContinuation = pendingPostComposerAuthentication,
+                        onAuthenticationContinuationRequired = {
+                            postComposerAuthenticationSurfaceVisited = false
+                            requestAuthentication(route = AppDestinations.CreatePost.route)
+                        },
+                        onAuthRequired = { requestAuthentication(route = AppDestinations.CreatePost.route) },
                         onPostCreated = { postId ->
+                            postComposerAuthenticationCoordinator.clear()
                             isCreatePostUploadInProgress = false
                             isVideoEditorOpen = false
                             pendingCreatePostUploadRoute = null
@@ -979,6 +1005,7 @@ fun AppNavGraph(
                         evidencePickerOutcome = postComposerPickerEvidenceOutcome,
                         evidencePickerPath = postComposerPickerEvidencePath,
                         onBack = {
+                            postComposerAuthenticationCoordinator.clear()
                             navController.navigate(AppDestinations.Feed.route) {
                                 popUpTo(AppDestinations.Feed.route) { inclusive = false }
                                 launchSingleTop = true
@@ -1089,6 +1116,7 @@ fun AppNavGraph(
                                     withContext(Dispatchers.IO) {
                                         runCatching { container.authRepository.logout() }
                                     }
+                                        .onSuccess { postComposerAuthenticationCoordinator.clear() }
                                         .onFailure {
                                             Toast.makeText(appContext, R.string.error_backend_generic, Toast.LENGTH_LONG).show()
                                         }
@@ -1257,6 +1285,7 @@ fun AppNavGraph(
                     isAuthRequiredPromptOpen = false
                     clearPendingAuthenticationDestination()
                     authenticationContinuationCoordinator.clearAll()
+                    postComposerAuthenticationCoordinator.cancelAuthentication()
                 },
                 onCreateAccount = {
                     isAuthRequiredPromptOpen = false
@@ -1371,6 +1400,7 @@ fun AppNavGraph(
                         runCatching { container.authRepository.logout() }
                     }
                         .onSuccess {
+                            postComposerAuthenticationCoordinator.clear()
                             ugcTermsAccepted = null
                             if (currentRoute != AppDestinations.Profile.route) navigateToFeed()
                         }
