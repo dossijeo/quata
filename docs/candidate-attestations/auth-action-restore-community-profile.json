@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-AUTH-REQUIRED"
+  ],
+  "status": "passed",
+  "productSha": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+  "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
+  "evidenceKind": "COMMUNITY_PROFILE_AUTHENTICATION_ACTION_CONTINUATION",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+      "report": "docs/candidate-attestations/evidence/auth-action-restore-community-profile-039afcfb.json",
+      "reportSha256": "dc8e839afcec7e2d501feb7234f23c989083aaf2306758e6b2b8c4b41e572149",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "community_profile_continuation_browser_tests_passed",
+        "android_debug_compilation_passed",
+        "web_wasm_compilation_passed",
+        "ios_x64_focal_tests_passed",
+        "ios_framework_link_passed",
+        "ios_simulator_signed_build_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-remote-fixture-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.presentation.CommunityProfileAuthenticationContinuationTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.profile continuation*\" :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon --console=plain",
+    "macOS: bash gradlew :feature:neighborhoods:iosX64Test --tests com.quata.feature.neighborhoods.presentation.CommunityProfileAuthenticationContinuationTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.profile continuation*\" --no-daemon",
+    "macOS: QUATA_IOS_SIGNED_DERIVED_DATA_PATH=build/ios-auth-profile-signed QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=build/reports/ios/auth-profile-signed.xcresult bash scripts/build-ios-intel-simulator-signed.sh"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+    "reviewedProductSha": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Web now restores the pending profile context before returning from successful authentication; regressions cover the Communities directory and a nested secondary profile without duplicating the profile stack."
+    ]
+  },
+  "notes": [
+    "The app-scoped coordinator retains the exact public-profile context and protected action across successful authentication on Android, Web/Wasm and iOS.",
+    "Follow, like and report restoration refresh authenticated profile state before deciding whether a mutation remains necessary.",
+    "Comment restoration retains the exact post, trimmed draft and reply target; report and block restoration returns to confirmation UI.",
+    "Android and Web preserve the originating root route, while iOS dismisses the anonymous profile before authentication and reopens the exact authenticated profile.",
+    "No backend fixture or remote mutation was required for this focal preflight. GitHub final jobs retain responsibility for clean-runner integrated certification.",
+    "The rebased Product SHA tree is byte-identical to reviewed and validated SHA bfa8dc9d501cb59b481676c9be9e6f4a187b0ad5; only attestation identities were updated."
+  ]
+}
