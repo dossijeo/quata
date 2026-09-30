@@ -51,7 +51,7 @@
     "anonymous Feed remains readable",
     "like resumes toward the originally requested state without inverting an already-satisfied authenticated state",
     "post and comment reports retain the exact target",
-    "composer and comment drafts retain their exact text",
+    "composer opening resumes once; comment continuation retains its exact submitted text",
     "report-comment success is published only after transport success",
     "five simultaneous report confirmations remain pending until individually consumed",
     "authentication cancellation, logout and rejected sessions clear pending actions"

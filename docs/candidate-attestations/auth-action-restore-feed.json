@@ -4,15 +4,15 @@
     "OVR-AUTH-REQUIRED"
   ],
   "status": "passed",
-  "productSha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+  "productSha": "f6eb833e4934103ad288aee6cab6f416ee61538b",
   "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
   "evidenceKind": "FEED_AUTHENTICATION_ACTION_CONTINUATION",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
+      "sha": "f6eb833e4934103ad288aee6cab6f416ee61538b",
       "report": "docs/candidate-attestations/evidence/auth-action-restore-feed-01cc8125.json",
-      "reportSha256": "f770d6a85439b50d120fbca900a227507848f70c64af50f650e65a7cb3370771",
+      "reportSha256": "8fb2217486f4a8c1bbc84b909841b794a078b4498f322ed88ba2e3abf40cb1e9",
       "reportStatus": "passed-local-candidate",
       "reportGitHead": "01cc81259b516f978e5d9091b9fed99f9cb514bb",
       "reportWorkingTreeDirty": false,
@@ -51,6 +51,7 @@
     "Comment-report confirmation is emitted only after transport success and all pending confirmations remain available until consumed.",
     "Cancellation, logout and rejected-session transitions clear pending continuations so stale actions cannot execute under a later identity.",
     "No backend fixture or remote mutation was required for this focal preflight. GitHub final jobs retain responsibility for clean-runner integrated certification.",
+    "Product SHA f6eb833e adds only the reviewed capability catalogue operation, current source hashes and its REPORT-RPC contract adaptation on top of runtime SHA 01cc8125. The 22 capability assertions pass; platform runtime and the recorded focal evidence are unchanged, so platform matrices were not repeated solely for this metadata and contract reconciliation.",
     "Official, Communities and actions outside the five listed Feed paths remain separate inventory scope."
   ]
 }
