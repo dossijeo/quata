@@ -81,6 +81,10 @@ export async function openIosDeepLinkChannel({root,products,spawnImpl=spawn,time
       }
       return request({action:"session",input},{runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true});
     },
+    recoverSessionClear:input=>{
+      if(input?.stage!=="clear")return Promise.reject(failure());
+      return request({action:"recover-clear",input},{runId:input.runId,stepId:input.stepId,stage:"clear",verified:true});
+    },
     // Call only after the private response is durable in the owner's journal.
     acknowledgeOwnedRead:({runId,stepId})=>request({action:'read-ack',runId,stepId},{runId,stepId,acknowledged:true}),
     nativeGate:input=>request({action:'native-gate',...input},{runId:input.runId,stepId:input.stepId,mode:input.mode,passed:true}),

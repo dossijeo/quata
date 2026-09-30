@@ -125,6 +125,54 @@ class ExpiredCustodyTests(unittest.TestCase):
         self.trial(termination_fails=True)
 
 
+class RecoveryClearTests(unittest.TestCase):
+    def test_fresh_worker_clears_only_the_exact_journaled_session(self):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = module.Worker.__new__(module.Worker)
+            worker.root = Path(folder)
+            worker.products = worker.root / 'products'
+            worker.products.mkdir()
+            (worker.root / 'build/reports/ios').mkdir(parents=True)
+            worker.original = worker.products / 'original.xctestrun'
+            worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+            worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
+            worker.last_chat = worker.native_gate = None
+            worker.native_rejection_started = False
+            worker.seen = set()
+            data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()), 'stage': 'clear',
+                    'profileId': str(uuid.uuid4()), 'authUserId': str(uuid.uuid4()),
+                    'authSessionId': str(uuid.uuid4()), 'accessToken': 'private-access',
+                    'refreshToken': 'private-refresh', 'expiresAt': 2_000_000_000,
+                    'email': 'fixture@example.invalid', 'displayName': 'Fixture', 'isOfficial': False}
+            directory = worker.root / 'build/reports/ios' / ('deep-link-session-' + data['stepId'])
+            receipt = {key: data[key] for key in ('runId', 'stepId', 'stage')} | {'verified': True}
+            events = []
+            worker.stop = lambda: events.append('shutdown')
+
+            def call(arguments, **kwargs):
+                if 'scripts/run-ios-command-watchdog.py' in arguments:
+                    (directory / 'receipt.json').write_text(json.dumps(receipt))
+
+            worker.call = call
+            with patch.object(module, 'write_private', side_effect=lambda path, content: path.write_bytes(content)):
+                self.assertEqual(worker.execute({'action': 'recover-clear', 'input': data}), receipt)
+            self.assertEqual(events, ['shutdown', 'shutdown'])
+            self.assertIsNone(worker.installed)
+            self.assertFalse((directory / 'input.json').exists())
+
+    def test_recovery_clear_is_first_action_and_accepts_only_clear(self):
+        worker = module.Worker.__new__(module.Worker)
+        worker.run_id = None
+        worker.installed = worker.pending_owned_read = worker.last_chat = worker.native_gate = worker.native_login = None
+        worker.native_rejection_started = False
+        worker.seen = set()
+        with self.assertRaises(RuntimeError):
+            worker.execute({'action': 'recover-clear', 'input': {'stage': 'install'}})
+        worker.run_id = str(uuid.uuid4())
+        with self.assertRaises(RuntimeError):
+            worker.execute({'action': 'recover-clear', 'input': {'stage': 'clear'}})
+
+
 class DeliveryOrderTests(unittest.TestCase):
     def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False, rejection=False,
               rejection_mode='cold', missing_http=False):

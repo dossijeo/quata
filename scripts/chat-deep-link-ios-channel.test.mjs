@@ -133,6 +133,25 @@ test("private session travels only through stdin; settled requires close receipt
   await channel.close();assert.equal(channel.settled(),true);
 });
 
+test('recovery clear uses one explicit private command and an exact receipt',async()=>{
+  const input={...ownedReceipt().privateSession,runId:ownedInput.runId,stepId:ownedInput.stepId,stage:'clear'};
+  for(const outcome of ['complete','foreign']) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='recover-clear')send({runId:request.input.runId,
+        stepId:outcome==='foreign'?ownedInput.profileId:request.input.stepId,stage:'clear',verified:true});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    await assert.rejects(channel.recoverSessionClear({...input,stage:'install'}));
+    assert.equal(f.commands.length,0);
+    if(outcome==='complete'){
+      await channel.recoverSessionClear(input);await channel.close();
+    }else await assert.rejects(channel.recoverSessionClear(input));
+    assert.equal(f.commands.filter(value=>value.action==='recover-clear').length,1);
+    assert.equal(JSON.stringify(f.get().launch).includes(input.refreshToken),false);
+  }
+});
+
 test('native Login sends its private fields only through stdin and rejects extra receipt fields',async()=>{
  const input={runId:ownedInput.runId,stepId:ownedInput.stepId,ticketId:ownedInput.profileId,
   profileId:ownedInput.profileId,authUserId:ownedInput.authUserId,countryCode:'240',

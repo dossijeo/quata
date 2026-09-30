@@ -128,6 +128,20 @@ class Worker:
 
     def execute(self, request):
         action = request.get('action')
+        if action == 'recover-clear':
+            require(set(request) == {'action', 'input'} and self.run_id is None and self.installed is None
+                    and self.pending_owned_read is None and self.last_chat is None and self.native_gate is None
+                    and self.native_login is None and not self.native_rejection_started)
+            data = request['input']
+            require(isinstance(data, dict) and data.get('stage') == 'clear'
+                    and 'originalExpiresAt' not in data)
+            # Recovery starts after the original SSH worker has terminated. Bind
+            # the fresh worker to the journaled session, then reuse the normal
+            # XCTest clear path. The XCTest still compares every private field
+            # with Keychain before deleting anything.
+            self.run_id = data.get('runId')
+            self.installed = {key: value for key, value in data.items() if key not in ('stage', 'stepId')}
+            return self.execute({'action': 'session', 'input': data})
         if action == 'read-ack':
             require(set(request) == {'action', 'runId', 'stepId'} and self.pending_owned_read is not None)
             pending = self.pending_owned_read
@@ -521,6 +535,11 @@ class Worker:
                 diagnostic['observerExitCode'] = exit_code
             finally:
                 write_private(directory / 'delivery-diagnostic.json', json.dumps(diagnostic).encode())
+                # xcodebuild has already consumed the plan. Move it out of the
+                # shared Products directory even when the observer fails so a
+                # preserved NO-GO cannot block the next exact recovery worker.
+                if patched.exists():
+                    patched.rename(directory / 'observer-plan.xctestrun')
         post = {'stepId': step, 'phase': 'observer-exit', 'verified': False}
         try:
             require(exit_code == 0)
@@ -554,7 +573,7 @@ class Worker:
                       'observerReadyBeforeDelivery': True, 'coldHadNoAppPid': request['mode'] == 'cold',
                       'pidUnchangedThroughObservation': True,
                       **({'publicPreludePid': prelude_pid} if renewal_prelude else {})}).encode())
-        patched.rename(directory / 'executed-plan.xctestrun')
+        (directory / 'observer-plan.xctestrun').rename(directory / 'executed-plan.xctestrun')
         return receipt
 
 
