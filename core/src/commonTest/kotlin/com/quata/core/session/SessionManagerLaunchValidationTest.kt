@@ -97,6 +97,20 @@ class SessionManagerLaunchValidationTest {
         assertEquals(AuthState.LoggedOut, manager.authState.value)
     }
 
+    @Test
+    fun terminalRejectionClearsOnlyTheSessionThatProducedIt() {
+        val rejected = expiredSession()
+        val replacement = freshSession(token = "replacement-token")
+        val storage = MemorySessionStorage(rejected)
+        val manager = SessionManager(storage)
+
+        assertEquals(true, manager.clearSessionIfMatches(rejected))
+        assertNull(storage.storedSession)
+        manager.setSession(replacement)
+        assertEquals(false, manager.clearSessionIfMatches(rejected))
+        assertEquals(replacement, storage.storedSession)
+    }
+
     private fun freshSession(token: String = "fresh-token") = AuthSession(
         token = token,
         accessToken = token,

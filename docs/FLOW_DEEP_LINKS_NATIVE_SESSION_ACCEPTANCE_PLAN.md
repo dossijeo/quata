@@ -28,11 +28,15 @@ el refresh exclusivamente al enlace externo.
 la renovación falla o devuelve otra sesión próxima a vencer. Conserva el snapshot
 anterior. `IosFeedRuntimeBootstrap.validateRestoredSession` utiliza esa
 validación mediante `IosRenewableAuthSession.validatedRestoredSession()`.
-`IosSupabaseAuthSessionRefresher` transforma un fallo HTTP en resultado nulo;
-no demuestra por sí mismo revocación ni borrado de Keychain. El camino de peticiones
-`currentSession()` usa otra política (`ensureFreshSession`), que puede devolver
-la sesión anterior tras una renovación fallida. No transferir la aceptación del
-arranque frío a una app ya autenticada.
+`IosSupabaseAuthSessionRefresher` distingue el rechazo terminal HTTP 400/401 y
+transporta el snapshot exacto rechazado; los fallos transitorios conservan el
+resultado nulo. `IosRenewableAuthSession` sólo retira esa sesión si sigue siendo
+la generación activa y vuelve a resolver si otra sesión la reemplazó durante la
+petición. El camino de peticiones `currentSession()` mantiene la política de
+`ensureFreshSession`, pero ya no puede publicar como válida una sesión terminalmente
+rechazada ni borrar una sustitución concurrente. Esta composición no demuestra por
+sí sola revocación backend ni borrado de Keychain: el ensayo caliente debe observar
+el rechazo y la barrera sobre el recorrido de producto.
 
 En Android, `SupabaseHttpClient.refreshCurrentSession()` borra la sesión ante
 HTTP 400/401 y aplica un cooldown tras fallo. `QuataApp` también programa la
@@ -487,4 +491,16 @@ Android e iOS Simulator esperaron el `exp` real del JWT firmado con la app deten
 
 Android run `80eddb81-db69-457b-bc15-a6d89ed90d1f`; iOS run `3fe2b024-65c8-4462-8821-c27fb85d6a43`. Atestación saneada: [`native-session-cryptographic-expiry-20260929.json`](candidate-attestations/evidence/native-session-cryptographic-expiry-20260929.json).
 
-El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back mientras seguía montado el splash; fue reconciliado exactamente. El observador pasó después un control real y el ensayo definitivo al exigir mensaje pulsable y ausencia del splash. Android no se repitió por este cambio exclusivo de iOS. La atribución queda acotada al arranque frío causado por el enlace; no se afirma una traza HTTP a nivel de paquete. Siguen separados rechazo caliente, APNs y rutas no incluidas.
+El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back mientras seguía montado el splash; fue reconciliado exactamente. El observador pasó después un control real y el ensayo definitivo al exigir mensaje pulsable y ausencia del splash. Android no se repitió por este cambio exclusivo de iOS. La atribución queda acotada al arranque frío causado por el enlace; no se afirma una traza HTTP a nivel de paquete. En este corte histórico seguían separados el rechazo caliente, APNs y las rutas no incluidas; la candidata del 30/09 cierra después únicamente el rechazo caliente nativo.
+
+## Rechazo caliente de sesión nativa — candidata local del 30 de septiembre de 2026
+
+Android y iOS Simulator conservaron el mismo proceso mientras vencía criptográficamente el JWT firmado. Antes de entregar el enlace externo, Auth rechazó el token y la cadena propia de refresh permaneció sin rotaciones. La entrega reanudó el proceso existente, observó el rechazo terminal HTTP 400, desmontó la sesión autenticada exacta, mostró la barrera pública para el Chat pendiente y, tras cancelar, permaneció en Feed sin abrir el destino privado.
+
+Android usó el run `8b359154-8e36-4f54-90e6-9be6d08e65d6`, UI run `chat-warm-822565a7-d68b-4521-8444-a946126f89cd`, con el mismo PID. Su informe original conserva `failed_cleanup_pending`; no se reescribe como PASS. La recuperación posterior acreditó ausencia de sesión, retiró fixtures, cerró canales y dejó el directorio privado vacío. No se repitió Android por las correcciones posteriores exclusivas de iOS.
+
+iOS usó el run `af9ce066-58e6-4cf6-91d9-c01bb74f6d81`, paso `3bf717c7-9621-45ed-84ab-a882b92bd839`, Product SHA `4a2d54f97c20d54ffcd189b3cfc191548c10ad71` y PID `32717` antes y después de la entrega. El preflight quedó `verified`, XCTest observó el rechazo 400, la barrera y la cancelación; la sonda pasiva final acreditó ausencia de la sesión rechazada y la custodia terminó limpia. Las capturas de barrera y Feed cancelado fueron inspeccionadas visualmente.
+
+La corrección iOS transporta 400/401 terminal como resultado tipado ligado al snapshot y a la generación de sesión exactos. Sólo elimina esa sesión y vuelve a validar cualquier reemplazo concurrente. El observador abre la ventana de testimonio antes de reanudar el PID suspendido; la custodia sólo concluye después de la sonda pasiva de Keychain.
+
+Los seis intentos iOS anteriores permanecen como NO-GO con su causal y recuperación exacta. La [atestación saneada](candidate-attestations/evidence/native-session-hot-rejection-20260930.json) fija hashes de informes, diagnósticos, binarios, plan y capturas. Este cierre elimina únicamente el límite de rechazo caliente nativo: no afirma traza HTTP a nivel de paquete, APNs, dispositivo iOS físico, distribución ni rutas ajenas.

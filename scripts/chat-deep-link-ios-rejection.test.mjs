@@ -27,7 +27,7 @@ test('iOS rejection adapter accepts only its cold receipt and never runs ordinar
 });
 test('iOS rejection mode cannot mix with renewal or negative target configuration',()=>{
   const channel={observeChat(){},nativeRejection(){}};
-  for(const extra of [{nativeRejectionMode:'warm'},{nativeRejectionMode:'cold',nativeRenewalMode:'cold'},
+  for(const extra of [{nativeRejectionMode:'cold',nativeRenewalMode:'cold'},
     {nativeRejectionMode:'cold',targetMode:'missing-thread'},{nativeRejectionMode:'cold',channel:{observeChat(){}}}])
     assert.throws(()=>createIosDeepLinkUi({channel,...extra}));
 });
@@ -37,8 +37,20 @@ test('exact iOS rejection receipt preserves nanosecond boundaries and transport 
     assert.equal(validateIosNativeRejectionReceipt({input,receipt:{...receipt,rejection:{...receipt.rejection,status,timestampNs}}}).rejection.status,status);
 });
 test('rejects mixed or extended iOS inputs before channel delivery',()=>{
-  for(const extra of [{mode:'warm'},{body:'private'},{extra:true},{threadId:123},{runId:randomUUID()},{messageId:'0'}])
+  for(const extra of [{mode:'other'},{body:'private'},{extra:true},{threadId:123},{runId:randomUUID()},{messageId:'0'}])
     assert.throws(()=>validateIosNativeRejectionInput({...input,...extra}));
+});
+test('iOS warm rejection reuses the ordinary exact-chat prelude before its single native rejection delivery',async()=>{
+  const calls=[];
+  const channel={observeChat:async command=>{calls.push(['prelude',command]);return {runId:command.runId,stepId:command.stepId,mode:'cold',passed:true};},
+    suspendRejection:async command=>{calls.push(['suspend',command]);return {runId:command.runId,stepId:command.stepId,suspended:true,pidPreserved:true};},
+    nativeRejection:async command=>{calls.push(['rejection',command]);return {...receipt,runId:command.runId,stepId:command.stepId,mode:'warm'};}};
+  const ui=createIosDeepLinkUi({channel,nativeRejectionMode:'warm'}),args={target:{threadId:'123',messageId:'456'},body:input.body};
+  const prelude=await ui.prepareRejection(args);assert.equal(prelude.receipt.mode,'cold');
+  const result=await ui.run(args);assert.equal(result.receipts[0].mode,'warm');
+  assert.deepEqual(calls.map(([kind,value])=>[kind,value.mode,value.threadId,value.messageId]),
+    [['prelude','cold','123','456'],['suspend',undefined,undefined,undefined],['rejection','warm','123','456']]);
+  await ui.close();
 });
 test('rejects foreign receipt and nonexact rejection evidence',()=>{
   for(const extra of [{runId:randomUUID()},{stepId:randomUUID()},{passed:false},{cancelled:false},{extra:'private'},{mode:'warm'}])

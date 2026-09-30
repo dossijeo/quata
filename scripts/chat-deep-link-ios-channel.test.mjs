@@ -133,6 +133,25 @@ test("private session travels only through stdin; settled requires close receipt
   await channel.close();assert.equal(channel.settled(),true);
 });
 
+test('recovery clear uses one explicit private command and an exact receipt',async()=>{
+  const input={...ownedReceipt().privateSession,runId:ownedInput.runId,stepId:ownedInput.stepId,stage:'clear'};
+  for(const outcome of ['complete','foreign']) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='recover-clear')send({runId:request.input.runId,
+        stepId:outcome==='foreign'?ownedInput.profileId:request.input.stepId,stage:'clear',verified:true});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options);
+    await assert.rejects(channel.recoverSessionClear({...input,stage:'install'}));
+    assert.equal(f.commands.length,0);
+    if(outcome==='complete'){
+      await channel.recoverSessionClear(input);await channel.close();
+    }else await assert.rejects(channel.recoverSessionClear(input));
+    assert.equal(f.commands.filter(value=>value.action==='recover-clear').length,1);
+    assert.equal(JSON.stringify(f.get().launch).includes(input.refreshToken),false);
+  }
+});
+
 test('native Login sends its private fields only through stdin and rejects extra receipt fields',async()=>{
  const input={runId:ownedInput.runId,stepId:ownedInput.stepId,ticketId:ownedInput.profileId,
   profileId:ownedInput.profileId,authUserId:ownedInput.authUserId,countryCode:'240',
@@ -153,19 +172,19 @@ test('native Login sends its private fields only through stdin and rejects extra
 });
 
 test('native rejection requires its exact nested receipt and preserves uncertainty on failure',async()=>{
-  for(const outcome of ['complete','foreign-receipt','extra-secret','timeout']) {
-    const input={runId:ownedInput.runId,stepId:ownedInput.stepId,mode:'cold',threadId:'123',messageId:'456',body:`Deep link ${ownedInput.runId}`};
+  for(const outcome of ['complete','warm-complete','foreign-receipt','extra-secret','timeout']) {
+    const input={runId:ownedInput.runId,stepId:ownedInput.stepId,mode:outcome==='warm-complete'?'warm':'cold',threadId:'123',messageId:'456',body:`Deep link ${ownedInput.runId}`};
     const f=fixture((request,send,child)=>{
       if(request.action==='native-rejection'&&outcome!=='timeout')send({runId:request.runId,
-        stepId:outcome==='foreign-receipt'?ownedInput.profileId:request.stepId,mode:'cold',passed:true,cancelled:true,
+        stepId:outcome==='foreign-receipt'?ownedInput.profileId:request.stepId,mode:request.mode,passed:true,cancelled:true,
         rejection:{observed:true,pid:1234,status:400,timestampNs:'1800000000000000001',startedAtNs:'1800000000000000000',
           endedAtNs:'1800000000000000002',...(outcome==='extra-secret'?{private:'must-not-escape'}:{})}});
       if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
     });
     const channel=await openIosDeepLinkChannel({...f.options,timeoutMs:25});
-    assert.throws(()=>channel.nativeRejection({...input,mode:'warm'}));assert.equal(f.commands.length,0);
+    assert.throws(()=>channel.nativeRejection({...input,mode:'other'}));assert.equal(f.commands.length,0);
     const action=channel.nativeRejection(input);input.stepId=ownedInput.profileId;
-    if(outcome==='complete') {
+    if(outcome.endsWith('complete')) {
       assert.equal((await action).rejection.status,400);
       assert.equal(channel.settled(),false);await channel.close();assert.equal(channel.settled(),true);
     } else {
@@ -175,6 +194,23 @@ test('native rejection requires its exact nested receipt and preserves uncertain
     assert.equal(f.commands.filter(request=>request.action==='native-rejection').length,1);
     assert.equal(JSON.stringify(f.get().launch).includes('Deep link'),false);
   }
+});
+
+test('warm rejection suspension accepts only its exact bounded receipt',async()=>{
+  for(const outcome of ['complete','foreign','extra']) {
+    const f=fixture((request,send,child)=>{
+      if(request.action==='suspend-rejection')send({runId:outcome==='foreign'?ownedInput.profileId:request.runId,
+        stepId:request.stepId,suspended:true,pidPreserved:true,...(outcome==='extra'?{pid:1234}:{})});
+      if(request.action==='close'){send({closed:true});queueMicrotask(()=>child.emit('close',0));}
+    });
+    const channel=await openIosDeepLinkChannel(f.options),input={runId:ownedInput.runId,stepId:ownedInput.stepId};
+    if(outcome==='complete'){
+      assert.equal((await channel.suspendRejection(input)).suspended,true);await channel.close();
+    }else await assert.rejects(channel.suspendRejection(input),{message:'deep_link_ios_channel_unresolved'});
+  }
+  const f=fixture(()=>{}),channel=await openIosDeepLinkChannel(f.options);
+  await assert.rejects(channel.suspendRejection({runId:'bad',stepId:ownedInput.stepId}));assert.equal(f.commands.length,0);
+  channel.abort();
 });
 
 test('owned read returns a bounded private receipt and ACK contains only the read identity',async()=>{

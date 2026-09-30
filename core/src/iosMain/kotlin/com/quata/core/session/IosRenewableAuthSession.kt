@@ -15,6 +15,11 @@ fun interface IosAuthSessionRefresher {
     suspend fun refresh(session: AuthSession): AuthSession?
 }
 
+/** A 400/401 refresh response proves that this exact persisted session is no longer usable. */
+class IosAuthSessionRejectedException(
+    val rejectedSession: AuthSession,
+) : RuntimeException("ios_auth_session_rejected")
+
 /**
  * Reusable iOS-facing session owner that persists through [IosKeychainSessionStorage] and uses
  * [SessionManager] for expiration policy, refresh serialization, and auth-state updates.
@@ -34,8 +39,9 @@ class IosRenewableAuthSession(
     }
 
     /** Returns a valid persisted session or asks the injected host to renew it when required. */
-    suspend fun currentSession(forceRefresh: Boolean = false): AuthSession? =
+    suspend fun currentSession(forceRefresh: Boolean = false): AuthSession? = resolveTerminalRejection {
         manager.ensureFreshSession(force = forceRefresh, refresh = refresher::refresh)
+    }
 
     /**
      * Strict launch-time validation for public-first iOS composition.
@@ -44,10 +50,23 @@ class IosRenewableAuthSession(
      * session to authenticated factories. Runtime request paths continue to use [currentSession]
      * so their existing retry policy is unchanged.
      */
-    suspend fun validatedRestoredSession(): AuthSession? =
+    suspend fun validatedRestoredSession(): AuthSession? = resolveTerminalRejection {
         manager.validateFreshSession(refresh = refresher::refresh)
+    }
 
     fun clear() {
         manager.clearSession()
+    }
+
+    private suspend fun resolveTerminalRejection(block: suspend () -> AuthSession?): AuthSession? {
+        while (true) {
+            try {
+                return block()
+            } catch (rejected: IosAuthSessionRejectedException) {
+                if (manager.clearSessionIfMatches(rejected.rejectedSession)) return null
+                // A newer session won the race. Validate that session through the same policy
+                // instead of treating the stale rejection as either success or logout.
+            }
+        }
     }
 }

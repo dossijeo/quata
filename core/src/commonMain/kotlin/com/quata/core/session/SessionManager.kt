@@ -76,6 +76,13 @@ class SessionManager(
         withSessionMutationLock { clearSessionUnlocked() }
     }
 
+    /** Clears only the session that produced a terminal refresh rejection. */
+    fun clearSessionIfMatches(expected: AuthSession): Boolean = withSessionMutationLock {
+        if (currentSessionUnlocked() != expected) return@withSessionMutationLock false
+        clearSessionUnlocked()
+        true
+    }
+
     private fun readInitialState(): AuthState {
         val stored = preferences.getSession()
         val session = if (stored != null && !useMockBackend && !stored.isSupabaseAuthenticated()) {

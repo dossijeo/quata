@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
+import {awaitNativeWarmDeepLinkRejectionExpiry,prepareAndroidNativeDeepLinkRejection,
+  prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
-  androidNativeDeepLinkRejectionCustodySettled,observeIosNativeDeepLinkRejection,clearIosNativeDeepLinkRejection,
+  androidNativeDeepLinkRejectionCustodySettled,observeIosNativeDeepLinkRejection,
+  confirmIosNativeDeepLinkRejectionAbsence,clearIosNativeDeepLinkRejection,
   iosNativeDeepLinkRejectionCustodySettled} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
 
 function fixture() {
@@ -25,6 +27,7 @@ function fixture() {
     journal:{read:async()=>structuredClone(saved),checkpoint:async state=>{events.push('checkpoint');saved.state=structuredClone(state);}},
     client:{query:async(sql,params)=>{
       if(sql.includes('as owned'))return {rowCount:1,rows:[{owned:true,auth_count:auth?1:0,exact_auth:auth,web_count:web?1:0,exact_web:params[7]===!web}]};
+      if(sql.includes('from auth.refresh_tokens'))return {rowCount:1,rows:[{total:3,revoked:2,active:1}]};
       if(sql.startsWith('update public.web_client_sessions')) {
         assert.equal(saved.state.sessions[0].nativeSessionRejection.phase,'revocation-started');
         assert.deepEqual(saved.state.sessions[0].revocation,{started:true});
@@ -154,6 +157,104 @@ async function revokedFixture(platform='android') {
   };
   f.events.length=0;return f;
 }
+function warmExpiryFixture(platform='android') {
+  const f=fixture(),entry=f.saved.state.sessions[0],original=entry.nativeSessionRenewal.original,stepId=randomUUID();
+  delete entry.nativeSessionRenewal;
+  const custodyKey=platform==='android'?'androidSession':'iosSession';
+  entry[custodyKey]={install:{started:true,verified:true,input:{runId:f.args.record.runId,stepId,stage:'install',...original}}};
+  const target={threadId:'123',messageId:'456'};
+  const prelude=platform==='android'?{platform,mode:'warm',pidPreserved:true,suspended:true,target,receipt:{
+    runId:`chat-cold-${randomUUID()}`,mode:'cold',beforePid:null,afterPid:'1234',focusedMessageId:'456',passed:true}}:
+    {platform,mode:'warm',pidPreserved:true,suspended:true,target,receipt:{runId:f.args.record.runId,stepId:randomUUID(),mode:'cold',passed:true}};
+  return {f,entry,original,target,prelude,clock:{value:original.expiresAt-1}};
+}
+async function warmRevokedFixture(platform='android') {
+  const {f,original,target,prelude,clock}=warmExpiryFixture(platform);
+  await awaitNativeWarmDeepLinkRejectionExpiry({...f.args,platform,prelude,target,now:()=>clock.value,
+    sleep:async milliseconds=>{assert.equal(milliseconds,3000);clock.value=original.expiresAt+2;},
+    fetchImpl:async()=>({ok:false,status:401})});
+  await (platform==='ios'?prepareIosNativeDeepLinkRejection:prepareAndroidNativeDeepLinkRejection)({...f.args,mode:'warm',prelude,target});
+  f.args.target=target;
+  f.saved.state.threadReceipt=structuredClone(f.args.target);f.saved.state.threadStarted=true;
+  f.saved.state.threadPlan={runId:f.args.record.runId,ownerId:f.args.record.profileId};
+  f.result=platform==='android'?{passed:true,scope:'android_external_owned_message_warm_native_rejection_barrier_cancel_and_feed; visual review pending',
+    receipts:[{passed:true,runId:`chat-warm-${randomUUID()}`,mode:'warm',beforePid:'1234',afterPid:'1234',anonymousAction:'cancel',
+      targetThreadId:'123',targetMessageId:'456',rejection:{observed:true,pid:'1234',status:401,
+        timestamp:'1800000001.1',startedAt:'1800000000.1',endedAt:'1800000002.1'}}]}:
+    {passed:true,scope:'ios_external_owned_message_warm_native_rejection_barrier_cancel_and_feed',receipts:[{
+      runId:f.args.record.runId,stepId:randomUUID(),mode:'warm',passed:true,cancelled:true,rejection:{observed:true,pid:1234,status:401,
+        timestampNs:'1800000001000000000',startedAtNs:'1800000000000000000',endedAtNs:'1800000002000000000'}}]};
+  f.args.execute=async()=>structuredClone(f.result);f.events.length=0;return f;
+}
+for(const variant of ['wrong-target','invalid-baseline','accepted-jwt','rotated-chain','concurrent-journal','wait-too-long'])
+test(`warm expiry ${variant} cannot authorize owned revocation or replay`,async()=>{
+  const {f,original,target,prelude,clock}=warmExpiryFixture(),query=f.args.client.query;
+  let refreshReads=0;
+  f.args.client.query=async(sql,params)=>{
+    if(sql.includes('from auth.refresh_tokens')) {
+      refreshReads++;
+      if(variant==='invalid-baseline')return {rowCount:1,rows:[{total:3,revoked:1,active:2}]};
+      if(variant==='rotated-chain'&&refreshReads===2)return {rowCount:1,rows:[{total:4,revoked:3,active:1}]};
+    }
+    return query(sql,params);
+  };
+  const args={...f.args,platform:'android',prelude,target:variant==='wrong-target'?{...target,messageId:'999'}:target,
+    now:()=>clock.value,maxWaitSeconds:variant==='wait-too-long'?1:7200,
+    sleep:async()=>{
+      clock.value=original.expiresAt+2;
+      if(variant==='concurrent-journal')f.saved.state.concurrent=true;
+    },fetchImpl:async()=>({ok:variant==='accepted-jwt',status:variant==='accepted-jwt'?200:401})};
+  await assert.rejects(awaitNativeWarmDeepLinkRejectionExpiry(args),
+    {message:'deep_link_native_rejection_preparation_unresolved'});
+  assert.equal(f.saved.state.sessions[0].revocation,undefined);
+  if(['accepted-jwt','rotated-chain'].includes(variant)) {
+    assert.equal(f.saved.state.sessions[0].nativeSessionRejection.phase,'expiry-wait');
+    await assert.rejects(awaitNativeWarmDeepLinkRejectionExpiry(args));
+  }
+});
+for(const platform of ['android','ios'])test(`${platform} warm rejection stays in one authenticated product process and settles specialized custody`,async()=>{
+  const f=await warmRevokedFixture(platform);
+  await (platform==='android'?observeAndroidNativeDeepLinkRejection:observeIosNativeDeepLinkRejection)(f.args);
+  if(platform==='android')await confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),
+    execute:async input=>({...input,verified:true})});
+  else await confirmIosNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),
+    execute:async input=>({runId:input.runId,stepId:input.stepId,probe:true,verified:true})});
+  const entry=f.saved.state.sessions[0];
+  assert.equal(platform==='android'?androidDeepLinkCustodySettled(entry):iosDeepLinkCustodySettled(entry),true);
+  assert.equal(entry.nativeSessionRejection.mode,'warm');assert.equal(entry.nativeSessionRejection.prelude.receipt.mode,'cold');
+  if(platform==='ios')assert.equal(entry.iosSession.clear,undefined);
+});
+for(const variant of ['lost','foreign-receipt','live-operations','reused-step'])
+test(`warm iOS absence ${variant} preserves custody and blocks replay`,async()=>{
+  const f=await warmRevokedFixture('ios');await observeIosNativeDeepLinkRejection(f.args);let probes=0;
+  const args={...f.args,
+    stepId:variant==='reused-step'?f.saved.state.sessions[0].nativeSessionRejection.installStepId:randomUUID(),
+    operationsSettled:async()=>variant!=='live-operations',execute:async input=>{
+      probes++;if(variant==='lost')throw Error('private');
+      return {runId:variant==='foreign-receipt'?randomUUID():input.runId,stepId:input.stepId,probe:true,verified:true};
+    }};
+  await assert.rejects(confirmIosNativeDeepLinkRejectionAbsence(args),{message:'deep_link_native_rejection_absence_unresolved'});
+  assert.equal(probes,['live-operations','reused-step'].includes(variant)?0:1);
+  assert.equal(iosNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),false);
+  if(probes)await assert.rejects(confirmIosNativeDeepLinkRejectionAbsence({...args,stepId:randomUUID()}));
+});
+test('warm Android observation rejects a changed product PID after revocation',async()=>{
+  const f=await warmRevokedFixture('android');f.result.receipts[0].beforePid='9999';
+  await assert.rejects(observeAndroidNativeDeepLinkRejection(f.args),{message:'deep_link_native_rejection_observation_unresolved'});
+  assert.equal(androidDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
+});
+for(const platform of ['android','ios'])test(`${platform} legacy cold rejection journal remains exactly recoverable`,async()=>{
+  const f=await revokedFixture(platform),entry=f.saved.state.sessions[0],rejection=entry.nativeSessionRejection;
+  delete rejection.mode;delete rejection.custodyKind;
+  await (platform==='android'?observeAndroidNativeDeepLinkRejection:observeIosNativeDeepLinkRejection)(f.args);
+  delete f.saved.state.sessions[0].nativeSessionRejection.observation.mode;
+  if(platform==='android')await confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),
+    execute:async input=>({...input,verified:true})});
+  else await clearIosNativeDeepLinkRejection({...f.args,stepId:randomUUID(),execute:async input=>({
+    runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true})});
+  const settledEntry=f.saved.state.sessions[0];
+  assert.equal(platform==='android'?androidNativeDeepLinkRejectionCustodySettled(settledEntry):iosNativeDeepLinkRejectionCustodySettled(settledEntry),true);
+});
 test('iOS rejection closes only with the original expired snapshot and a new exact clear receipt',async()=>{
   const f=await revokedFixture('ios');await observeIosNativeDeepLinkRejection(f.args);
   assert.equal(iosDeepLinkCustodySettled(f.saved.state.sessions[0]),false);
@@ -213,7 +314,9 @@ test('native rejection closes only after exact observed result and a durable pas
   await assert.rejects(confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID()}));
   for(const corrupt of [e=>e.revocation.verified=false,e=>e.nativeSessionRejection.observation.verified=false,
     e=>e.nativeSessionRejection.absence.input.runId=randomUUID(),e=>e.nativeSessionRejection.installStepId=randomUUID(),
-    e=>e.nativeSessionRenewal.original.refreshToken='foreign',e=>e.nativeSessionRejection.observation.result.receipts[0].rejection.status=500]) {
+    e=>e.nativeSessionRenewal.original.refreshToken='foreign',e=>delete e.nativeSessionRejection.mode,
+    e=>delete e.nativeSessionRejection.custodyKind,e=>delete e.nativeSessionRejection.observation.mode,
+    e=>e.nativeSessionRejection.observation.result.receipts[0].rejection.status=500]) {
     const copy=structuredClone(f.saved.state.sessions[0]);corrupt(copy);
     assert.equal(androidNativeDeepLinkRejectionCustodySettled(copy),false);
     assert.equal(androidDeepLinkCustodySettled(copy),false);

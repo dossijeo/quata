@@ -70,10 +70,10 @@ class ExpiredCustodyTests(unittest.TestCase):
             worker.root = Path(folder)
             worker.products = worker.root / 'products'
             worker.products.mkdir()
-            (worker.root / 'build/reports/ios').mkdir(parents=True)
             worker.original = worker.products / 'original.xctestrun'
             worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
             worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
+            worker.native_rejection_absence = None
             worker.seen = set()
             data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
                     'stage': stage, 'expiresAt': 1, 'originalExpiresAt': 2}
@@ -125,23 +125,75 @@ class ExpiredCustodyTests(unittest.TestCase):
         self.trial(termination_fails=True)
 
 
-class DeliveryOrderTests(unittest.TestCase):
-    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False, rejection=False, missing_http=False):
+class RecoveryClearTests(unittest.TestCase):
+    def test_fresh_worker_clears_only_the_exact_journaled_session(self):
         with tempfile.TemporaryDirectory() as folder:
             worker = module.Worker.__new__(module.Worker)
             worker.root = Path(folder)
             worker.products = worker.root / 'products'
             worker.products.mkdir()
-            (worker.root / 'build/reports/ios').mkdir(parents=True)
             worker.original = worker.products / 'original.xctestrun'
-            worker.original.write_bytes(plistlib.dumps({'QuataIosUITests': {}}))
+            worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+            worker.pending_owned_read = worker.native_login = worker.installed = worker.run_id = None
+            worker.last_chat = worker.native_gate = None
+            worker.native_rejection_started = False
+            worker.native_rejection_absence = None
+            worker.seen = set()
+            data = {'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()), 'stage': 'clear',
+                    'profileId': str(uuid.uuid4()), 'authUserId': str(uuid.uuid4()),
+                    'authSessionId': str(uuid.uuid4()), 'accessToken': 'private-access',
+                    'refreshToken': 'private-refresh', 'expiresAt': 2_000_000_000,
+                    'email': 'fixture@example.invalid', 'displayName': 'Fixture', 'isOfficial': False}
+            directory = worker.root / 'build/reports/ios' / ('deep-link-session-' + data['stepId'])
+            receipt = {key: data[key] for key in ('runId', 'stepId', 'stage')} | {'verified': True}
+            events = []
+            worker.stop = lambda: events.append('shutdown')
+
+            def call(arguments, **kwargs):
+                if 'scripts/run-ios-command-watchdog.py' in arguments:
+                    (directory / 'receipt.json').write_text(json.dumps(receipt))
+
+            worker.call = call
+            with patch.object(module, 'write_private', side_effect=lambda path, content: path.write_bytes(content)):
+                self.assertEqual(worker.execute({'action': 'recover-clear', 'input': data}), receipt)
+            self.assertEqual(events, ['shutdown', 'shutdown'])
+            self.assertIsNone(worker.installed)
+            self.assertFalse((directory / 'input.json').exists())
+
+    def test_recovery_clear_is_first_action_and_accepts_only_clear(self):
+        worker = module.Worker.__new__(module.Worker)
+        worker.run_id = None
+        worker.installed = worker.pending_owned_read = worker.last_chat = worker.native_gate = worker.native_login = None
+        worker.native_rejection_started = False
+        worker.native_rejection_absence = None
+        worker.seen = set()
+        with self.assertRaises(RuntimeError):
+            worker.execute({'action': 'recover-clear', 'input': {'stage': 'install'}})
+        worker.run_id = str(uuid.uuid4())
+        with self.assertRaises(RuntimeError):
+            worker.execute({'action': 'recover-clear', 'input': {'stage': 'clear'}})
+
+
+class DeliveryOrderTests(unittest.TestCase):
+    def trial(self, pre_delivery_pid=None, ready=True, target_mode=None, renewal_prelude=False, rejection=False,
+              rejection_mode='cold', missing_http=False):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = module.Worker.__new__(module.Worker)
+            worker.root = Path(folder)
+            worker.products = worker.root / 'products'
+            worker.products.mkdir()
+            worker.original = worker.products / 'original.xctestrun'
+            worker.original.write_bytes(plistlib.dumps({'QuataIosUITests': {}, 'QuataIosTests': {}}))
             worker.installed = {}
             worker.run_id = str(uuid.uuid4())
             worker.last_chat = None
             worker.seen = set()
             worker.native_rejection_started = False
+            worker.native_rejection_absence = None
+            worker.suspended_rejection_pid = 412 if rejection and rejection_mode == 'warm' else None
             worker.native_gate = None
             worker.native_login = None
+            worker.pending_owned_read = None
             request = {'action': 'chat', 'runId': worker.run_id, 'stepId': str(uuid.uuid4()), 'mode': 'cold',
                        'threadId': '123', 'messageId': '456', 'body': 'Deep link ' + worker.run_id}
             if target_mode is not None:
@@ -153,14 +205,29 @@ class DeliveryOrderTests(unittest.TestCase):
                 worker.installed = {'originalExpiresAt': 2000000000}
             if rejection:
                 request['action'] = 'native-rejection'
-                worker.installed = {'originalExpiresAt': 2000000000}
+                request['mode'] = rejection_mode
+                if rejection_mode == 'cold':
+                    worker.installed = {'originalExpiresAt': 2000000000}
+                else:
+                    worker.installed = {}
+                    worker.last_chat = {'target': ('123', '456', None, None), 'pid': 412}
             events = []
             worker.stop = lambda: events.append('stop')
             worker.prepare_cold_app = lambda: (events.append('prepare-cold-app'), module.require(worker.app_pid() is None))
+            worker.state = lambda: 'Booted'
             worker.call = lambda args, **kwargs: events.append(args[2] if args[:2] == ['xcrun', 'simctl'] else 'check')
-            pids = iter([None, 412, 412, pre_delivery_pid if pre_delivery_pid is not None else 412, 412, 412]
-                        if renewal_prelude else [None, pre_delivery_pid, 412, 412])
-            worker.app_pid = lambda: next(pids)
+            if rejection and rejection_mode == 'warm':
+                pid_reads = 0
+                def warm_pid():
+                    nonlocal pid_reads
+                    pid_reads += 1
+                    return pre_delivery_pid if pid_reads == 3 and pre_delivery_pid is not None else 412
+                worker.app_pid = warm_pid
+            else:
+                pids = iter(
+                        [None, 412, 412, pre_delivery_pid if pre_delivery_pid is not None else 412, 412, 412]
+                         if renewal_prelude else [None, pre_delivery_pid, 412, 412])
+                worker.app_pid = lambda: next(pids)
 
             class Observer:
                 def poll(self):
@@ -186,7 +253,8 @@ class DeliveryOrderTests(unittest.TestCase):
                         'startedAtNs': str(started_at_ns), 'endedAtNs': str(started_at_ns + 2)}
 
             with patch.object(module.subprocess, 'Popen', side_effect=start), patch.object(module.subprocess, 'run') as run, \
-                    patch.object(module, 'read_ios_refresh_rejection', side_effect=read_rejection):
+                    patch.object(module, 'read_ios_refresh_rejection', side_effect=read_rejection), \
+                    patch.object(module.time, 'time_ns', side_effect=lambda: events.append('window-start') or 1_800_000_000_000_000_000):
                 run.return_value.returncode = 1
                 if pre_delivery_pid is not None or not ready or missing_http:
                     with self.assertRaises(RuntimeError):
@@ -221,6 +289,14 @@ class DeliveryOrderTests(unittest.TestCase):
                         self.assertNotIn('QUATA_IOS_EXTERNAL_CHAT_E2E', plan['EnvironmentVariables'])
                         self.assertTrue(receipt['cancelled'])
                         self.assertEqual(receipt['rejection']['status'], 400)
+                        self.assertLess(events.index('window-start'), events.index('openurl'))
+                        if rejection_mode == 'warm':
+                            self.assertLess(events.index('window-start'), events.index('spawn'))
+                            self.assertEqual(worker.native_rejection_absence, {
+                                'runId': worker.run_id,
+                                'observationStepId': request['stepId'],
+                                'state': 'observed',
+                            })
                     else:
                         self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
                         self.assertNotIn('http-witness', events)
@@ -245,6 +321,15 @@ class DeliveryOrderTests(unittest.TestCase):
                     self.assertEqual(set(post), {'stepId', 'phase', 'verified', 'reader'})
                 else:
                     self.assertFalse(post_file.exists())
+                if rejection and rejection_mode == 'warm' and not missing_http:
+                    probe_step = str(uuid.uuid4())
+                    self.assertEqual(worker.execute({'action': 'probe', 'runId': worker.run_id,
+                                                     'stepId': probe_step}),
+                                     {'runId': worker.run_id, 'stepId': probe_step,
+                                      'probe': True, 'verified': True})
+                    self.assertIsNone(worker.installed)
+                    self.assertEqual(worker.native_rejection_absence['state'], 'verified')
+                    self.assertEqual(worker.execute({'action': 'close'}), {'closed': True})
 
     def test_missing_thread_selects_its_own_method_and_receipt(self):
         self.trial(target_mode='missing-thread')
@@ -252,25 +337,121 @@ class DeliveryOrderTests(unittest.TestCase):
     def test_rejection_selects_cancel_observer_and_requires_http_witness_after_terminal(self):
         self.trial(rejection=True)
 
+    def test_warm_rejection_requires_prior_exact_chat_and_preserves_its_pid(self):
+        self.trial(rejection=True, rejection_mode='warm')
+
     def test_rejection_without_http_retains_unresolved_delivery_and_forbids_replay(self):
         self.trial(rejection=True, missing_http=True)
 
+    def test_failed_warm_rejection_probe_retains_custody_and_forbids_new_attempt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = module.Worker.__new__(module.Worker)
+            worker.root = Path(folder)
+            worker.products = worker.root / 'products'
+            worker.products.mkdir()
+            (worker.root / 'build/reports/ios').mkdir(parents=True)
+            worker.original = worker.products / 'original.xctestrun'
+            worker.original.write_bytes(plistlib.dumps({'QuataIosTests': {}}))
+            worker.run_id = str(uuid.uuid4())
+            worker.installed = {'runId': worker.run_id, 'accessToken': 'private-access'}
+            observation_step = str(uuid.uuid4())
+            worker.native_rejection_absence = {'runId': worker.run_id,
+                                                'observationStepId': observation_step,
+                                                'state': 'observed'}
+            worker.pending_owned_read = worker.native_login = None
+            worker.suspended_rejection_pid = None
+            worker.seen = {observation_step}
+            worker.stop = Mock()
+            calls = []
+            def fail_probe(arguments, **kwargs):
+                calls.append(arguments)
+                if 'scripts/run-ios-command-watchdog.py' in arguments:
+                    raise RuntimeError('unverified')
+            worker.call = fail_probe
+            failed_step = str(uuid.uuid4())
+            with patch.object(module, 'write_private', side_effect=lambda path, content: path.write_bytes(content)):
+                with self.assertRaises(RuntimeError):
+                    worker.execute({'action': 'probe', 'runId': worker.run_id, 'stepId': failed_step})
+                self.assertEqual(worker.native_rejection_absence['state'], 'probing')
+                self.assertIsNotNone(worker.installed)
+                call_count = len(calls)
+                with self.assertRaises(RuntimeError):
+                    worker.execute({'action': 'probe', 'runId': worker.run_id,
+                                    'stepId': str(uuid.uuid4())})
+                self.assertEqual(len(calls), call_count)
+                with self.assertRaises(RuntimeError):
+                    worker.execute({'action': 'close'})
+
     def test_rejection_refuses_mixed_or_reused_state(self):
-        for variant in ('warm', 'ordinary-install', 'no-install', 'gate', 'login', 'reused', 'negative', 'prelude'):
+        for variant in ('warm-without-chat', 'ordinary-install', 'no-install', 'gate', 'login', 'reused', 'negative', 'prelude'):
             with self.subTest(variant=variant):
                 worker = module.Worker.__new__(module.Worker)
                 worker.native_rejection_started = variant == 'reused'
+                worker.native_rejection_absence = None
                 worker.native_gate = {} if variant == 'gate' else None
                 worker.native_login = {} if variant == 'login' else None
+                worker.suspended_rejection_pid = None
+                worker.last_chat = None
                 worker.installed = None if variant == 'no-install' else {} if variant == 'ordinary-install' else {'originalExpiresAt': 2000000000}
                 request = {'action': 'native-rejection', 'runId': str(uuid.uuid4()), 'stepId': str(uuid.uuid4()),
-                           'mode': 'warm' if variant == 'warm' else 'cold', 'threadId': '123', 'messageId': '456', 'body': 'synthetic'}
+                           'mode': 'warm' if variant == 'warm-without-chat' else 'cold', 'threadId': '123', 'messageId': '456', 'body': 'synthetic'}
                 if variant == 'negative':
                     request['targetMode'] = 'missing-thread'
                 if variant == 'prelude':
                     request['renewalPrelude'] = True
                 with self.assertRaises(RuntimeError):
                     worker.observe_chat(request)
+
+    def test_suspension_binds_the_exact_normal_session_chat_and_pid(self):
+        worker = module.Worker.__new__(module.Worker)
+        worker.run_id = str(uuid.uuid4())
+        worker.installed = {'expiresAt': 2000000000}
+        worker.last_chat = {'target': ('123', '456', None, None), 'pid': 412}
+        worker.native_gate = None
+        worker.native_login = None
+        worker.native_rejection_started = False
+        worker.native_rejection_absence = None
+        worker.suspended_rejection_pid = None
+        worker.seen = set()
+        worker.state = lambda: 'Booted'
+        pids = iter([412, 412])
+        worker.app_pid = lambda: next(pids)
+        calls = []
+        worker.call = lambda args, **kwargs: calls.append(args)
+        step = str(uuid.uuid4())
+        self.assertEqual(worker.suspend_rejection({'action': 'suspend-rejection', 'runId': worker.run_id,
+            'stepId': step}), {'runId': worker.run_id, 'stepId': step, 'suspended': True, 'pidPreserved': True})
+        self.assertEqual(calls, [['xcrun', 'simctl', 'spawn', module.SIMULATOR, '/bin/kill', '-STOP', '412']])
+        self.assertEqual(worker.suspended_rejection_pid, 412)
+        pids = iter([412, 412])
+        worker.app_pid = lambda: next(pids)
+        worker.resume_suspended_rejection()
+        self.assertEqual(calls[-1], ['xcrun', 'simctl', 'spawn', module.SIMULATOR, '/bin/kill', '-CONT', '412'])
+        self.assertIsNone(worker.suspended_rejection_pid)
+
+    def test_lost_stop_response_retains_pid_for_compensating_resume(self):
+        worker = module.Worker.__new__(module.Worker)
+        worker.run_id = str(uuid.uuid4())
+        worker.installed = {'expiresAt': 2000000000}
+        worker.last_chat = {'target': ('123', '456', None, None), 'pid': 412}
+        worker.native_gate = None
+        worker.native_login = None
+        worker.native_rejection_started = False
+        worker.native_rejection_absence = None
+        worker.suspended_rejection_pid = None
+        worker.seen = set()
+        worker.state = lambda: 'Booted'
+        worker.app_pid = lambda: 412
+        worker.call = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError('lost'))
+        with self.assertRaises(RuntimeError):
+            worker.suspend_rejection({'action': 'suspend-rejection', 'runId': worker.run_id,
+                                      'stepId': str(uuid.uuid4())})
+        self.assertEqual(worker.suspended_rejection_pid, 412)
+        calls = []
+        worker.call = lambda args, **kwargs: calls.append(args)
+        worker.resume_suspended_rejection()
+        self.assertEqual(calls, [['xcrun', 'simctl', 'spawn', module.SIMULATOR, '/bin/kill', '-CONT', '412']])
+        self.assertIsNone(worker.suspended_rejection_pid)
 
     def test_renewal_public_prelude_precedes_warm_delivery_with_same_pid(self):
         self.trial(renewal_prelude=True)

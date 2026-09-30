@@ -5,10 +5,74 @@ import path from 'node:path';
 import {createAndroidDeepLinkUi} from './e2e-fixtures/chat-deep-link-android.mjs';
 const root=path.resolve('build-reports/android-external-sender/rejection-ui-contracts');
 const body='Deep link 00000000-0000-4000-8000-000000000001';
-test('rejection mode excludes renewal, warm and missing targets before device access',()=>{
-  for(const extra of [{nativeRejectionMode:'warm'},{nativeRejectionMode:'cold',nativeRenewalMode:'cold'},
+test('rejection mode excludes renewal and missing targets before device access',()=>{
+  for(const extra of [{nativeRejectionMode:'cold',nativeRenewalMode:'cold'},
     {nativeRejectionMode:'cold',targetMode:'missing-thread'}])
     assert.throws(()=>createAndroidDeepLinkUi({channel:{},adb:'synthetic',serial:'emulator-5560',evidenceDirectory:root,...extra}));
+});
+test('warm rejection first proves the exact chat in one cold delivery, then preserves its product PID through rejection',async()=>{
+  await mkdir(root,{recursive:true});const directory=await mkdtemp(path.join(root,'test-'));
+  let pidReads=0,instruments=0,pulls=0,clocks=0,lastRunId,lastUrl;const signals=[];
+  const pidValues=['','1234','1234','1234','1234','1234'];
+  const execute=async(_file,args)=>{
+    if(args.includes('pidof'))return {stdout:pidValues[pidReads++]??'1234'};
+    if(args.includes('date'))return {stdout:++clocks===1?'1800000000.1':'1800000002.1'};
+    if(args.includes('kill')){signals.push(args[args.indexOf('kill')+1]);return {stdout:'',stderr:''};}
+    if(args.includes('instrument')) {
+      instruments++;const value=key=>args.includes(key)?args[args.indexOf(key)+1]:undefined;lastRunId=value('runId');lastUrl=value('publicUrl');
+      assert.equal(value('expectedMessageId'),instruments===1?'456':undefined);
+      assert.equal(value('anonymousAction'),instruments===2?'cancel':undefined);
+      return {stdout:'OK (1 test)\nINSTRUMENTATION_CODE: -1',stderr:''};
+    }
+    if(args.includes('pull')) {
+      pulls++;const destination=args.at(-1);await mkdir(destination);
+      await writeFile(path.join(destination,'report.json'),JSON.stringify({runId:lastRunId,url:lastUrl,
+        status:pulls===1?'chat_passed_pending_visual_review':'anonymous_passed_pending_visual_review',
+        ...(pulls===1?{focusedMessageId:'456'}:{anonymousAction:'cancel'}),postExitObservationMs:2000,
+        senderPackage:'com.quata.deeplinksender',beforeForegroundPackage:pulls===1?null:'com.quata',
+        resolvedPackage:'com.quata',explicitPackage:null,explicitComponent:null}));return {stdout:'',stderr:''};
+    }
+    if(args.includes('logcat'))return {stdout:'1800000001.1 1234 1 W SupabaseHttpClient: Supabase session refresh failed with status=401'};
+    assert.fail('unexpected command');
+  };
+  try {
+    const ui=createAndroidDeepLinkUi({channel:{},adb:'synthetic',serial:'emulator-5560',evidenceDirectory:directory,nativeRejectionMode:'warm',execute});
+    const args={target:{threadId:'123',messageId:'456'},body};
+    const prelude=await ui.prepareRejection(args);
+    assert.equal(prelude.receipt.afterPid,'1234');assert.equal(prelude.receipt.focusedMessageId,'456');
+    const result=await ui.run(args),receipt=result.receipts[0];
+    assert.equal(receipt.mode,'warm');assert.equal(receipt.beforePid,'1234');assert.equal(receipt.afterPid,'1234');
+    assert.equal(receipt.rejection.status,401);assert.equal(instruments,2);assert.deepEqual(signals,['-STOP','-CONT']);await ui.close();
+  } finally {await rm(directory,{recursive:true,force:true});}
+});
+test('lost STOP response retains the PID so close issues the compensating CONT',async()=>{
+  await mkdir(root,{recursive:true});const directory=await mkdtemp(path.join(root,'test-'));
+  let pidReads=0,lastRunId,lastUrl;const signals=[];
+  const execute=async(_file,args)=>{
+    if(args.includes('pidof'))return {stdout:['','1234','1234'][pidReads++]??'1234'};
+    if(args.includes('instrument')) {
+      const value=key=>args[args.indexOf(key)+1];lastRunId=value('runId');lastUrl=value('publicUrl');
+      return {stdout:'OK (1 test)\nINSTRUMENTATION_CODE: -1',stderr:''};
+    }
+    if(args.includes('pull')) {
+      const destination=args.at(-1);await mkdir(destination);await writeFile(path.join(destination,'report.json'),JSON.stringify({
+        runId:lastRunId,url:lastUrl,status:'chat_passed_pending_visual_review',focusedMessageId:'456',
+        senderPackage:'com.quata.deeplinksender',beforeForegroundPackage:null,resolvedPackage:'com.quata',
+        explicitPackage:null,explicitComponent:null}));return {stdout:'',stderr:''};
+    }
+    if(args.includes('kill')) {
+      const signal=args[args.indexOf('kill')+1];signals.push(signal);
+      if(signal==='-STOP')throw Object.assign(Error('lost'),{code:1});
+      return {stdout:'',stderr:''};
+    }
+    assert.fail('unexpected command');
+  };
+  try {
+    const ui=createAndroidDeepLinkUi({channel:{},adb:'synthetic',serial:'emulator-5560',evidenceDirectory:directory,
+      nativeRejectionMode:'warm',execute});
+    await assert.rejects(ui.prepareRejection({target:{threadId:'123',messageId:'456'},body}));
+    await ui.close();assert.deepEqual(signals,['-STOP','-CONT']);
+  } finally {await rm(directory,{recursive:true,force:true});}
 });
 for(const outcome of ['complete','no-http','foreign-pid','wrong-run','wrong-action','wrong-url','focused-chat','warm-start','lost-delivery'])
 test(`native rejection UI ${outcome} binds external target, barrier and bounded HTTP witness`,async()=>{

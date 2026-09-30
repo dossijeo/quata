@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "unit": "FLOW-DEEP-LINKS",
+  "inventoryUnit": "SCR-AUTH-LOGIN",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-30",
+  "productSha": "4a2d54f97c20d54ffcd189b3cfc191548c10ad71",
+  "integration": {
+    "scope": "terminal refresh rejection during a warm native session",
+    "runtimeProductChanged": true,
+    "runtimeProductChangedPlatforms": [
+      "ios"
+    ]
+  },
+  "assertions": {
+    "signedJwtExpired": true,
+    "authRejectedBeforeExternalDelivery": true,
+    "refreshRotationsBeforeExternalDelivery": 0,
+    "sameProcessPreserved": true,
+    "publicAuthenticationBarrierObserved": true,
+    "pendingPrivateDestinationCancelled": true,
+    "rejectedSessionAbsentAfterObservation": true
+  },
+  "android": {
+    "productSha": "171032303fe478580bae41d95377a1ed24c0d90c",
+    "runId": "8b359154-8e36-4f54-90e6-9be6d08e65d6",
+    "uiRunId": "chat-warm-822565a7-d68b-4521-8444-a946126f89cd",
+    "productObservationPassed": true,
+    "samePid": true,
+    "rejectionStatus": 400,
+    "originalStatus": "failed_cleanup_pending",
+    "recoveredExactly": true,
+    "cleanupCompleteAfterRecovery": true,
+    "reportSha256": "59736e624550514aaa6187b4d95d3e72de151b117c62b9d538ddebc83af32719",
+    "manifestSha256": "76d7fb9553f8a15106267300a6383d6dd47bc30a8ea7a108a66006ae6ba969d6",
+    "recoverySha256": "42df72a974d92997e39733e098334056bb40b3ebbb488a109d44664251010e82",
+    "authGatePngSha256": "03635b722541964ae8713a8ffc63f42fe3bfbb3f3d0d14a4d0bf9696c450a042",
+    "backPngSha256": "0ccffa01dc3cbab1c6f4a84da59bd752180429375655822a90d1507734ac0026"
+  },
+  "ios": {
+    "productSha": "4a2d54f97c20d54ffcd189b3cfc191548c10ad71",
+    "runId": "af9ce066-58e6-4cf6-91d9-c01bb74f6d81",
+    "uiStepId": "3bf717c7-9621-45ed-84ab-a882b92bd839",
+    "status": "passed",
+    "cleanupComplete": true,
+    "preflightPhase": "verified",
+    "samePid": true,
+    "pid": 32717,
+    "rejectionStatus": 400,
+    "reportSha256": "75ea0d5f242f86cd771ae65d90f03e6b46c7c71cdf19ade2b3fff29cbd58a972",
+    "manifestSha256": "16062178f45791992fcd60d6406e138a9a63e88cc97b0c8fdad5f1e1d428fee6",
+    "testsLogSha256": "3f4a728a7d43924e88c05575c64b6b63bf0b5e91473c154fd61cdacacda80dc5",
+    "deliveryDiagnosticSha256": "1e7e671465741063b76901c4533f4d5ba8eef95fac144b6cd4b0bb7d522feb98",
+    "rejectionDiagnosticSha256": "8d37d7d69886c1c2dd670dffddd1e12d37cfc32674d469f35be37a6a755714b2",
+    "deliverySha256": "e1d3044775045c2479811ae6ae2913bc51b540f3ca9ccaf97fb6c150b278bf7a",
+    "executedPlanSha256": "0b26498f0281d09bcaf7bcf5bf3f3eb6273b77dc9748e653b33f2db6670265dd",
+    "xcresultTreeSha256": "efd728fd5f45cc6bab54d7ead66db581519ba40ec5da5c96b3456ebe03f7bc06",
+    "xcresultFileCount": 33,
+    "attachmentManifestSha256": "e076e00ffe12e490d3aa2459f5c321671aab58e3c5a3943f86f82442c729a553",
+    "authGatePngSha256": "a5e01bd4762663efdde0bdea408275aed00c404188e3e15098be51a9f32f3f14",
+    "cancelledFeedPngSha256": "ae55f96f0315fa898efc48a82c2c3f2de7bb3e7c3e69b9e5c1df3d3ea5898201",
+    "appBundleSha256": "e12d3a42d4942e7242b3ecee3b35c86bba569a08a81d0763085e3137d839260c",
+    "uiRunnerBundleSha256": "5638ecbaf88fd9f36aca9bb231e05bb8105d12f592de627eb25fb61a6988bad9",
+    "testPlanSha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7",
+    "workerSha256": "f2d3d6398d60047a9a8f9741f3efb9d3138b50941a87ef92e767b62e13ad1b68",
+    "simulatorOnly": true
+  },
+  "preservedFailures": [
+    {
+      "runId": "3bcd988e-2cb2-4446-8253-2670e58e74e2",
+      "failureCode": "deep_link_native_rejection_observation_unresolved",
+      "recoveredExactly": true,
+      "reportSha256": "4215e46b20a0625e6863f896bf2e2aa01c3cebf196875c5b1f8deae75dc2ed75"
+    },
+    {
+      "runId": "4424da19-7571-4874-8a75-6fae0164193b",
+      "failureCode": "deep_link_native_rejection_observation_unresolved",
+      "recoveredExactly": true,
+      "reportSha256": "317a37199ea470819f136a518ab2d87bf19524ec8da4f5db5b660da595b23145"
+    },
+    {
+      "runId": "654ddc35-2254-4598-8c8c-eb5575a189a3",
+      "failureCode": "internal_failure",
+      "recoveredExactly": true,
+      "reportSha256": "99100be123ae1c96a6f4326046c24e93223829cbd4897535615254c99eb0e7fc"
+    },
+    {
+      "runId": "5eabbbd0-188f-4646-83f4-b762ae5ccb9b",
+      "failureCode": "deep_link_native_rejection_observation_unresolved",
+      "recoveredExactly": true,
+      "reportSha256": "2fa2f23dd7034ae62d37ddc31e906feb5c4fdc7583c2f660c7b5361cf0a65e3e"
+    },
+    {
+      "runId": "c49dab40-ca31-476d-8c0a-46afff7b0d9d",
+      "failureCode": "deep_link_native_rejection_observation_unresolved",
+      "recoveredExactly": true,
+      "reportSha256": "fbba00349528be27bb151a60cfee2f889f397b6d2c89c37da5acc39c13a5f3e8"
+    },
+    {
+      "runId": "63200090-7036-43ae-b95f-560c035e6077",
+      "failureCode": "deep_link_ios_custody_unresolved",
+      "recoveredExactly": true,
+      "reportSha256": "e37fdd3da0542c1e354b8303bd6651ad43d0937438bd008c6b47dca4fc24c6f9"
+    }
+  ],
+  "limitations": [
+    "no packet-level HTTP trace is claimed",
+    "the iOS result is Simulator evidence",
+    "APNs delivery, physical-device distribution and unrelated navigation routes remain separate scopes",
+    "the Android product observation passed, while its original report remains failed_cleanup_pending and is not rewritten; exact recovery is attested separately"
+  ],
+  "secretsPersisted": false
+}

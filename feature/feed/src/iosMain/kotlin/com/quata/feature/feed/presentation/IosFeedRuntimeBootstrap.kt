@@ -92,11 +92,19 @@ class IosFeedRuntimeBootstrap(
     /**
      * Asynchronously validates the Keychain session before the launcher may mount private
      * factories. An expired session only succeeds after its refresh has completed and persisted.
-     * A failed refresh retains Keychain credentials for a later retry while reporting false.
+     * A transient failed refresh retains Keychain credentials for a later retry while reporting
+     * false. A terminal 400/401 clears only the rejected Keychain session before reporting false.
      */
     fun validateRestoredSession(onCompleted: (Boolean) -> Unit) {
         launchValidationScope.launch {
             onCompleted(authSession.validatedRestoredSession() != null)
+        }
+    }
+
+    /** Resolves an expired session before routing an external private destination. */
+    fun validateSessionForExternalRoute(onCompleted: (Boolean) -> Unit) {
+        launchValidationScope.launch {
+            onCompleted(authSession.currentSession() != null)
         }
     }
 }

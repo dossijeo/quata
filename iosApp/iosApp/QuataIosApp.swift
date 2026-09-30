@@ -308,12 +308,27 @@ private struct IosRegistrationEvidenceInput: Decodable {
     let idempotencyKey: String
 }
 
+final class IosAuthenticatedSessionGenerationGuard {
+    private(set) var generation: UInt64 = 0
+
+    func capture() -> UInt64 { generation }
+
+    func sessionChanged() {
+        generation &+= 1
+    }
+
+    func acceptsTerminalRejection(from capturedGeneration: UInt64) -> Bool {
+        generation == capturedGeneration
+    }
+}
+
 private final class IosAppCompositionRoot {
     let notificationRecipientGate = NotificationRecipientGate()
     private let appearancePreferences = IosAppearancePreferences()
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
     private var hasValidatedAuthenticatedSession = false
+    private let authenticatedSessionGeneration = IosAuthenticatedSessionGenerationGuard()
     private var hasEvaluatedWhatsNewStartup = false
 
     private var window: UIWindow?
@@ -550,7 +565,23 @@ private final class IosAppCompositionRoot {
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
-        _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
+        guard hasValidatedAuthenticatedSession, let runtimeBootstrap else {
+            _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
+            return true
+        }
+        let validationGeneration = authenticatedSessionGeneration.capture()
+        runtimeBootstrap.validateSessionForExternalRoute { [weak self] valid in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if !valid.boolValue,
+                   self.hasValidatedAuthenticatedSession,
+                   self.authenticatedSessionGeneration.acceptsTerminalRejection(from: validationGeneration) {
+                    self.setValidatedAuthenticatedSession(false)
+                    self.authenticatedHost.expireAuthenticatedSession()
+                }
+                _ = self.deepLinkDispatcher.handleUrl(url: url.absoluteString)
+            }
+        }
         return true
     }
 
@@ -1064,7 +1095,7 @@ private final class IosAppCompositionRoot {
                 IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
                     validated: validated.boolValue,
                     installAuthenticatedSession: {
-                        self.hasValidatedAuthenticatedSession = true
+                        self.setValidatedAuthenticatedSession(true)
                         self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self.installRestoredFeedSessionIfAvailable()
                         self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
@@ -1848,7 +1879,7 @@ private final class IosAppCompositionRoot {
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
-                self?.hasValidatedAuthenticatedSession = false
+                self?.setValidatedAuthenticatedSession(false)
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
@@ -1870,7 +1901,7 @@ private final class IosAppCompositionRoot {
                     self?.notificationReplyRuntime?.sessionEnded()
                     self?.notificationRecipientGate.sessionEnded()
                     self?.authenticatedHost.finishAuthentication {
-                        self?.hasValidatedAuthenticatedSession = true
+                        self?.setValidatedAuthenticatedSession(true)
                         self?.notificationReplyRuntime?.resumeAfterSessionValidation()
                         self?.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self?.installRestoredFeedSessionIfAvailable()
@@ -1884,6 +1915,11 @@ private final class IosAppCompositionRoot {
             },
         )
         authenticatedHost.installAuthentication(dependencies)
+    }
+
+    private func setValidatedAuthenticatedSession(_ authenticated: Bool) {
+        authenticatedSessionGeneration.sessionChanged()
+        hasValidatedAuthenticatedSession = authenticated
     }
 
     private func installUgcTermsGateIfAvailable() {
@@ -3396,6 +3432,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 self?.finishLogout()
             }
         }
+    }
+
+    /// The session owner has already cleared the exact rejected Keychain record. Reuse the
+    /// normal local teardown so the pending external route is handled by the public Auth gate.
+    func expireAuthenticatedSession() {
+        guard hasAuthenticatedSession, !isLoggingOut else { return }
+        isLoggingOut = true
+        finishLogout()
     }
 
     func reportLogoutFailure() {

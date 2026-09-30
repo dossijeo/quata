@@ -4,16 +4,28 @@ import {validateIosNativeRejectionReceipt} from './chat-deep-link-ios-rejection.
 // Negative targets are opt-in and have distinct native methods/receipts.
 // Auth-resume acceptance is not inferred from session import.
 export function createIosDeepLinkUi({channel,targetMode,nativeRenewalMode,nativeRejectionMode}) {
-  if(nativeRejectionMode!==undefined&&(nativeRejectionMode!=='cold'||targetMode!==undefined||nativeRenewalMode!==undefined||
-    typeof channel?.nativeRejection!=='function'))throw Error('deep_link_ios_ui_invalid');
+  if(nativeRejectionMode!==undefined&&(!['cold','warm'].includes(nativeRejectionMode)||targetMode!==undefined||nativeRenewalMode!==undefined||
+    typeof channel?.nativeRejection!=='function'||(nativeRejectionMode==='warm'&&typeof channel?.suspendRejection!=='function')))throw Error('deep_link_ios_ui_invalid');
   if(nativeRenewalMode!==undefined&&(!['cold','warm'].includes(nativeRenewalMode)||targetMode!==undefined))throw Error('deep_link_ios_ui_invalid');
   if(targetMode!==undefined&&!["missing-thread","missing-message"].includes(targetMode))throw Error("deep_link_ios_ui_invalid");
   if(typeof channel?.observeChat!=="function")throw Error("deep_link_ios_ui_invalid");
-  let started=false,unresolved=false;
+  let started=false,unresolved=false,rejectionPrepared=false;
   return {
     iosSessionChannel:channel,
     ...(nativeRenewalMode?{nativeExpiryMode:nativeRenewalMode}:{}),
     ...(nativeRejectionMode?{nativeRejectionMode}:{}),
+    ...(nativeRejectionMode==='warm'?{async prepareRejection({target,body}) {
+      if(rejectionPrepared||started||!/^Deep link [0-9a-f-]{36}$/.test(body))throw Error('deep_link_ios_ui_invalid');
+      const runId=body.slice('Deep link '.length);
+      const receipt=await channel.observeChat({runId,stepId:randomUUID(),mode:'cold',threadId:String(target.threadId),
+        messageId:String(target.messageId),body});
+      if(receipt?.runId!==runId||receipt.mode!=='cold'||receipt.passed!==true)throw Error('deep_link_ios_ui_invalid');
+      const suspension=await channel.suspendRejection({runId,stepId:randomUUID()});
+      if(suspension?.runId!==runId||suspension.suspended!==true||suspension.pidPreserved!==true)throw Error('deep_link_ios_ui_invalid');
+      rejectionPrepared=true;
+      return {platform:'ios',mode:'warm',pidPreserved:true,suspended:true,
+        target:{threadId:String(target.threadId),messageId:String(target.messageId)},receipt};
+    }}:{}),
     async run({target,body}) {
       if(started||typeof body!=="string"||!/^Deep link [0-9a-f-]{36}$/.test(body)||
           ![target?.threadId,target?.messageId].every(value=>/^[0-9]{1,16}$/.test(String(value)))||
@@ -24,11 +36,12 @@ export function createIosDeepLinkUi({channel,targetMode,nativeRenewalMode,native
       started=true;unresolved=true;
       const runId=body.slice("Deep link ".length),receipts=[];
       if(nativeRejectionMode) {
-        const input={runId,stepId:randomUUID(),mode:'cold',threadId:String(target.threadId),messageId:String(target.messageId),body};
+        if((nativeRejectionMode==='warm')!==rejectionPrepared)throw Error('deep_link_ios_ui_invalid');
+        const input={runId,stepId:randomUUID(),mode:nativeRejectionMode,threadId:String(target.threadId),messageId:String(target.messageId),body};
         const receipt=await channel.nativeRejection(input);
         validateIosNativeRejectionReceipt({input,receipt});
         unresolved=false;
-        return {passed:true,receipts:[receipt],scope:'ios_external_owned_message_cold_native_rejection_barrier_cancel_and_feed'};
+        return {passed:true,receipts:[receipt],scope:`ios_external_owned_message_${nativeRejectionMode}_native_rejection_barrier_cancel_and_feed`};
       }
       for(const mode of nativeRenewalMode?[nativeRenewalMode]:["cold","warm"]) {
         receipts.push(await channel.observeChat({runId,stepId:randomUUID(),mode,

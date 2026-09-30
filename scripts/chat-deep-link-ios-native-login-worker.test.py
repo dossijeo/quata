@@ -29,6 +29,7 @@ class NativeLoginTests(unittest.TestCase):
                 if variant:
                     data['variant'] = variant
                 actor = worker.Worker.__new__(worker.Worker)
+                actor.native_rejection_absence = None
                 actor.root, actor.products, actor.original = root, products, original
                 actor.run_id, actor.seen = data['runId'], set()
                 actor.installed = actor.pending_owned_read = actor.native_login = None

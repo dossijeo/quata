@@ -15,9 +15,11 @@ import {retireAndroidDeepLinkResidue} from "./e2e-fixtures/chat-deep-link-androi
 import {prepareNativeDeepLinkExpiry,installNativeDeepLinkExpiry,readNativeDeepLinkExpiry,
   awaitNativeDeepLinkCryptographicExpiry,verifyNativeDeepLinkPreDeliveryQuiescence,verifyNativeDeepLinkExpiryIdentity,
   acknowledgeNativeDeepLinkExpiryRead,clearNativeDeepLinkExpiry} from './e2e-fixtures/chat-deep-link-native-expiry.mjs';
-import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
+import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection,
+  awaitNativeWarmDeepLinkRejectionExpiry} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
-  observeIosNativeDeepLinkRejection,clearIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
+  observeIosNativeDeepLinkRejection,confirmIosNativeDeepLinkRejectionAbsence,
+  clearIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
@@ -27,10 +29,11 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   adminRequest,preflight,ui,transportSettled,sessionMode,targetMode,fetchImpl=fetch,
   expiryNow,expirySleep,expiryMaxWaitSeconds}) {
   if(targetMode!==undefined&&(!["missing-message","missing-thread"].includes(targetMode)||sessionMode!==undefined||ui?.prepareLogin!==undefined))throw Error("deep_link_trial_target_mode_invalid");
-  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold","native-refresh-warm","native-cryptographic-expiry-cold","native-rejection-cold"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
-  const nativeRejection=sessionMode==='native-rejection-cold';
+  if(sessionMode!==undefined && !["refresh","revoked","native-refresh-cold","native-refresh-warm","native-cryptographic-expiry-cold","native-rejection-cold","native-rejection-warm"].includes(sessionMode))throw Error("deep_link_trial_session_mode_invalid");
+  const nativeRejectionMode=sessionMode?.startsWith('native-rejection-')?sessionMode.slice('native-rejection-'.length):undefined;
+  const nativeRejection=nativeRejectionMode!==undefined;
   const nativeCryptographicExpiry=sessionMode==='native-cryptographic-expiry-cold';
-  const nativeExpiry=nativeRejection||nativeCryptographicExpiry||['native-refresh-cold','native-refresh-warm'].includes(sessionMode);
+  const nativeExpiry=nativeRejectionMode==='cold'||nativeCryptographicExpiry||['native-refresh-cold','native-refresh-warm'].includes(sessionMode);
   if(!path.isAbsolute(privateDirectory) || typeof preflight!=="function" ||
       typeof transportSettled!=="function" || typeof ui?.run!=="function" || typeof ui?.close!=="function") {
     throw Error("deep_link_trial_configuration_invalid");
@@ -41,7 +44,8 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
   const nativeChannel=android?ui.androidSessionChannel:ui.iosSessionChannel;
   const prepareNativeSession=android?prepareAndroidDeepLinkSession:prepareIosDeepLinkSession;
   const runNativeStep=android?runAndroidDeepLinkCustodyStep:runIosDeepLinkSessionStep;
-  if(nativeRejection&&(!nativeChannel||ui.nativeRejectionMode!=='cold'||ui.nativeExpiryMode!==undefined)||
+  if(nativeRejection&&(!nativeChannel||ui.nativeRejectionMode!==nativeRejectionMode||ui.nativeExpiryMode!==undefined||
+      (nativeRejectionMode==='warm'&&typeof ui.prepareRejection!=='function'))||
     !nativeRejection&&ui.nativeRejectionMode!==undefined)throw Error('deep_link_trial_native_rejection_configuration_invalid');
   if(nativeExpiry&&!nativeRejection&&(!nativeChannel||
     (nativeCryptographicExpiry?ui.nativeExpiryMode!=='cold':`native-refresh-${ui.nativeExpiryMode}`!==sessionMode)||
@@ -49,7 +53,7 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       typeof nativeChannel.acknowledgeOwnedRead!=='function')))
     throw Error('deep_link_trial_native_expiry_configuration_invalid');
   if(!nativeExpiry&&ui.nativeExpiryMode!==undefined)throw Error('deep_link_trial_native_expiry_configuration_invalid');
-  if(nativeChannel!==undefined&&((sessionMode!==undefined&&!nativeExpiry)||loginInUi||
+  if(nativeChannel!==undefined&&((sessionMode!==undefined&&!nativeExpiry&&!nativeRejection)||loginInUi||
       ["sessionStep","close","settled","abort"].some(key=>typeof nativeChannel?.[key]!=="function")))throw Error(android?"deep_link_trial_android_channel_invalid":"deep_link_trial_ios_channel_invalid");
   if(loginInUi&&sessionMode!==undefined)throw Error("deep_link_trial_session_mode_invalid");
   if(loginInUi && (typeof ui.prepareLogin!=="function" || typeof ui.requestLogin!=="function")) {
@@ -166,10 +170,20 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
       await prepareRevokedDeepLinkSession({client,journal:actor.journal,record:actor.record,ticket,session,
         backendUrl,publicKey,operationsSettled:transportSettled});
     }
+    let rejectionPrelude;
+    if(nativeRejectionMode==='warm') {
+      report.phase='prepare_native_warm_rejection_ui';
+      rejectionPrelude=await ui.prepareRejection({target,body:plan.body});
+      report.phase='await_native_warm_rejection_expiry';
+      report.nativeRejectionPreDelivery=await awaitNativeWarmDeepLinkRejectionExpiry({journal:actor.journal,record:actor.record,
+        ticket,session,platform:android?'android':'ios',prelude:rejectionPrelude,target,client,backendUrl,publicKey,fetchImpl,
+        ...(expiryNow?{now:expiryNow}:{}),...(expirySleep?{sleep:expirySleep}:{}),
+        ...(expiryMaxWaitSeconds?{maxWaitSeconds:expiryMaxWaitSeconds}:{})});
+    }
     if(nativeRejection) {
       report.phase='revoke_native_owned_session';
       await (android?prepareAndroidNativeDeepLinkRejection:prepareIosNativeDeepLinkRejection)({client,journal:actor.journal,record:actor.record,ticket,session,
-        backendUrl,publicKey,operationsSettled:transportSettled});
+        backendUrl,publicKey,operationsSettled:transportSettled,mode:nativeRejectionMode,prelude:rejectionPrelude,target});
     }
     report.phase=nativeChannel?(android?"android_ui":"ios_ui"):"web_ui";
     const runUi=()=>ui.run({session,clientInstanceId:ticket.clientInstanceId,target,body:plan.body,
@@ -204,18 +218,24 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
     try {
       await ui.close();
       if(nativeChannel) {
-        if(expiryPrepared) {
+        if(expiryPrepared||nativeRejection) {
           if(nativeRejection) {
             if(!rejectionVerified)throw Error('deep_link_native_rejection_closure_unverified');
-            report.nativeRejection=await (android?confirmAndroidNativeDeepLinkRejectionAbsence:clearIosNativeDeepLinkRejection)({journal:actors[0].journal,
-              record:actors[0].record,stepId:randomUUID(),execute:input=>nativeChannel.sessionStep(input),operationsSettled:transportSettled});
+            const closesWithAbsence=android||nativeRejectionMode==='warm';
+            const closeRejection=android?confirmAndroidNativeDeepLinkRejectionAbsence:
+              closesWithAbsence?confirmIosNativeDeepLinkRejectionAbsence:clearIosNativeDeepLinkRejection;
+            report.nativeRejection=await closeRejection({journal:actors[0].journal,
+              record:actors[0].record,stepId:randomUUID(),
+              execute:input=>android?nativeChannel.sessionStep(input):
+                closesWithAbsence?nativeChannel.probe(input):nativeChannel.sessionStep(input),
+              operationsSettled:transportSettled});
           } else {
             if(!expiryVerified)throw Error('deep_link_native_expiry_closure_unverified');
             await clearNativeDeepLinkExpiry({journal:actors[0].journal,record:actors[0].record,stepId:randomUUID(),
               execute:input=>nativeChannel.sessionStep(input),operationsSettled:transportSettled});
           }
         }
-        if(nativeInput)await runNativeStep({journal:actors[0].journal,
+        if(nativeInput&&!nativeRejection)await runNativeStep({journal:actors[0].journal,
           input:{...nativeInput,stage:"clear",stepId:randomUUID()},execute:value=>nativeChannel.sessionStep(value)});
         await nativeChannel.close();
         if(nativeChannel.settled()!==true)throw Error(android?"deep_link_android_channel_unresolved":"deep_link_ios_channel_unresolved");

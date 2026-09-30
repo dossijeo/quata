@@ -13,7 +13,7 @@ const hash=value=>createHash("sha256").update(value).digest("hex");
 
 export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,products,privateDirectory,supabaseCli,expected,targetMode,nativeLoginMode,nativeRenewalMode,nativeRejectionMode,nativeLoginVariant,nativeCryptographicExpiry=false}) {
   if(nativeLoginVariant!==undefined&&(nativeLoginVariant!=='cancel-then-feed'||nativeLoginMode===undefined))throw Error('deep_link_ios_configuration_invalid');
-  if(nativeRejectionMode!==undefined&&(nativeRejectionMode!=='cold'||nativeLoginMode!==undefined||nativeRenewalMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
+  if(nativeRejectionMode!==undefined&&(!['cold','warm'].includes(nativeRejectionMode)||nativeLoginMode!==undefined||nativeRenewalMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(nativeRenewalMode!==undefined&&(!['cold','warm'].includes(nativeRenewalMode)||nativeLoginMode!==undefined||targetMode!==undefined))throw Error('deep_link_ios_configuration_invalid');
   if(typeof nativeCryptographicExpiry!=='boolean'||(nativeCryptographicExpiry&&nativeRenewalMode!=='cold'))throw Error('deep_link_ios_configuration_invalid');
   if(nativeLoginMode!==undefined&&(!['cold','warm'].includes(nativeLoginMode)||targetMode!==undefined))throw Error("deep_link_ios_configuration_invalid");
@@ -89,7 +89,7 @@ export async function executeDeepLinkIosTrial({client,serviceKey,root,macRoot,pr
     }
     const report=await runDeepLinkChatTrial({client,privateDirectory,backendUrl,publicKey,adminRequest,preflight,
       ui:createIosDeepLinkUi({channel,targetMode,nativeRenewalMode,nativeRejectionMode}),targetMode,
-      sessionMode:nativeRejectionMode?'native-rejection-cold':nativeCryptographicExpiry?'native-cryptographic-expiry-cold':nativeRenewalMode?`native-refresh-${nativeRenewalMode}`:undefined,transportSettled:async()=>pending===0&&!uncertain});
+      sessionMode:nativeRejectionMode?`native-rejection-${nativeRejectionMode}`:nativeCryptographicExpiry?'native-cryptographic-expiry-cold':nativeRenewalMode?`native-refresh-${nativeRenewalMode}`:undefined,transportSettled:async()=>pending===0&&!uncertain});
     return {...report,preflightPhase,productSha:expected.productSha,nativeBuild:expected.nativeBuild};
   }finally {if(!channel.settled())channel.abort();}
 }

@@ -39,6 +39,20 @@ test("normal close removes only the owned lease after final empty probe",async()
   channel.abort();assert.equal(channel.settled(),true);
 }));
 
+test('normal installed custody can close by an exact passive absence probe after product rejection',async()=>withDirectory(async directory=>{
+  const leasePath=path.join(directory,'device.lock'),stages=[],runId=randomUUID(),installStep=randomUUID();
+  const channel=await openAndroidDeepLinkSessionChannel({adb:'synthetic',serial:'emulator-5560',leasePath,
+    evidenceDirectory:directory,stepImpl:async({input})=>{stages.push(input.stage);return receipt(input);}});
+  await channel.sessionStep({runId,stepId:installStep,stage:'install'});
+  const absence={runId,stepId:randomUUID(),stage:'probe-empty'};
+  for(const invalid of [{...absence,runId:randomUUID()},{...absence,stepId:installStep},{...absence,extra:true}])
+    await assert.rejects(channel.sessionStep(invalid),/order_invalid/);
+  await channel.sessionStep(absence);await channel.close();
+  assert.equal(channel.settled(),true);
+  assert.deepEqual(stages,['probe-empty','install','probe-empty','probe-empty']);
+  await assert.rejects(access(leasePath),{code:'ENOENT'});
+}));
+
 for(const outcome of ['complete','foreign-session','unchanged-refresh','read-lost','clear-lost','abort-read'])
 test(`expired Android channel ${outcome} binds renewed snapshot and preserves uncertainty`,async()=>withDirectory(async directory=>{
   const leasePath=path.join(directory,'device.lock'),stages=[];
