@@ -127,6 +127,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.launch
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 
 @Composable
 fun NeighborhoodsScreen(
@@ -137,6 +139,9 @@ fun NeighborhoodsScreen(
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    authenticationContinuationOriginRoute: String = "communities",
     viewModel: NeighborhoodsAndroidViewModel = viewModel(factory = NeighborhoodsAndroidViewModel.factory(repository))
 ) {
     val context = LocalContext.current
@@ -190,6 +195,9 @@ fun NeighborhoodsScreen(
         onOpenConversation = onOpenConversation,
         onOpenUserProfile = onOpenUserProfile,
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+        authenticationContinuationOriginRoute = authenticationContinuationOriginRoute,
         padding = padding,
         model = viewModel,
         openingProfileUserId = openingProfileUserId,

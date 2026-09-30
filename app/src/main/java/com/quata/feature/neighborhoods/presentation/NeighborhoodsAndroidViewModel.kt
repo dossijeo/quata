@@ -14,6 +14,8 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     override fun stopObservingCommunities() = delegate.stopObservingCommunities()
     override fun openChat(neighborhood: String, onOpened: (String) -> Unit) = delegate.openChat(neighborhood, onOpened)
     override fun toggleFollowUser(userId: String) = delegate.toggleFollowUser(userId)
+    override fun ensureFollowUserState(userId: String, desiredState: Boolean) =
+        delegate.ensureFollowUserState(userId, desiredState)
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) = delegate.openPrivateChat(userId, onOpened)
     override fun cancelPrivateChatOpen() = delegate.cancelPrivateChatOpen()
     override fun openUserProfile(userId: String) = delegate.openUserProfile(userId)

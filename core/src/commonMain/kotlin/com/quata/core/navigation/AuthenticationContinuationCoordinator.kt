@@ -16,6 +16,9 @@ enum class AuthenticationContinuationKind {
     OfficialTogglePostLike,
     OfficialAddComment,
     OfficialReportComment,
+    CommunitiesOpenNeighborhoodChat,
+    CommunitiesToggleFollow,
+    CommunitiesOpenPrivateChat,
 }
 
 /**

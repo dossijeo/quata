@@ -134,6 +134,35 @@ class NeighborhoodsViewModel(
         }
     }
 
+    override fun ensureFollowUserState(userId: String, desiredState: Boolean) {
+        if (_uiState.value.followingUserId != null) return
+        _uiState.value = _uiState.value.copy(followingUserId = userId, error = null)
+        scope.launch {
+            repository.getUserProfile(userId)
+                .onSuccess { profile ->
+                    val actualUser = profile.user
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        followingUserId = null,
+                        selectedProfile = currentState.selectedProfile
+                            ?.withFollowRollback(userId, actualUser),
+                        communities = currentState.communities
+                            .withFollowRollback(userId, actualUser),
+                        error = null,
+                    )
+                    if (actualUser.isFollowing != desiredState) {
+                        toggleFollowUser(userId)
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        followingUserId = null,
+                        error = error.message ?: "No se pudo comprobar el seguimiento",
+                    )
+                }
+        }
+    }
+
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingPrivateChatUserId != null) return
         val requestGeneration = ++privateChatRequestGeneration

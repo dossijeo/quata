@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "unit": "OVR-AUTH-REQUIRED",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-30",
+  "productSha": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+  "git": {
+    "head": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+    "workingTreeDirty": false
+  },
+  "validationProvenance": {
+    "runtimeSha": "11077e62e8ce273c8a83debbe9daf9a1896afc3f",
+    "runtimeValidationReused": true,
+    "treeEquivalentRuntimeSha": "3129db826621ca7c9b4d02939ec340190ea8c045",
+    "treeEquivalence": "The complete Product SHA tree is byte-identical before and after rebasing onto the integrated Official candidate.",
+    "independentReviewFindingResolved": "The continuation now reads the authenticated relationship through getUserProfile before deciding whether to toggle, so an anonymous directory snapshot cannot invert an already-satisfied desired state."
+  },
+  "scope": "Communities directory actions resumed after successful authentication",
+  "steps": [
+    "communities_continuation_browser_tests_passed",
+    "android_debug_compilation_passed",
+    "web_wasm_compilation_passed",
+    "capability_matrix_contract_passed",
+    "ios_x64_tests_passed",
+    "ios_framework_link_passed",
+    "ios_simulator_signed_build_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "compileDebugKotlin"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "NeighborhoodsAuthenticationContinuationTest",
+        "compileKotlinWasmJs"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "feature-neighborhoods-iosX64Test",
+        "ios-shared-linkDebugFrameworkIosX64",
+        "SimulatorSigned-build-for-testing"
+      ]
+    }
+  },
+  "assertions": [
+    "opening a community chat resumes with the exact retained community target",
+    "follow and unfollow resume toward the retained desired state without inverting an already-satisfied authenticated state",
+    "opening a private chat resumes with the exact retained member target",
+    "each continuation is atomically claimed before dispatch and cannot repeat on recomposition",
+    "follow continuation refreshes the authenticated relationship and does not trust the anonymous directory isFollowing default",
+    "a continuation from another origin is ignored and an unresolved directory target is cleared only after directory loading finishes",
+    "authentication cancellation, logout and rejected sessions continue clearing the app-scoped pending action"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no remote fixtures or backend mutation used"
+  },
+  "limitations": [
+    "This focal evidence is deterministic contract, compilation and iOS Simulator build evidence; final integrated platform certification remains assigned to GitHub Actions.",
+    "The affected capability and attestation contracts were repeated after the tree-equivalent rebase; platform matrices were not repeated solely because commit identities changed.",
+    "This evidence covers the Communities directory only. Public-profile likes, comments, reports, block controls and other profile actions remain separate scope."
+  ]
+}

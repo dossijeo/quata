@@ -10,6 +10,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.presentation.CommunityProfilePlatformSlots
@@ -50,6 +52,9 @@ fun WebNeighborhoodsHost(
     slots: WebNeighborhoodsSlots,
     onOpenConversation: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    authenticationContinuationOriginRoute: String = "communities",
     onOpenUserRoute: (String) -> Unit,
     /** Feed author navigation enters the existing shared Community member profile surface. */
     initialMemberProfileId: String? = null,
@@ -115,6 +120,9 @@ fun WebNeighborhoodsHost(
                     onOpenUserRoute(userId)
                 },
                 onAuthRequired = onAuthRequired,
+                onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                authenticationContinuationOriginRoute = authenticationContinuationOriginRoute,
                 padding = padding,
                 model = viewModel,
                 requestedCommunityMembers = requestedCommunityMembers,

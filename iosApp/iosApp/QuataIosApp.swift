@@ -1491,6 +1491,13 @@ private final class IosAppCompositionRoot {
                             self?.authenticatedHost.presentAuthRequiredPrompt()
                         }
                     },
+                    onAuthenticationContinuationRequired: { [weak self] continuation in
+                        guard let self else { return }
+                        _ = self.authenticationContinuationCoordinator.request(intent: continuation)
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    },
+                    authenticationContinuationCoordinator: self?.authenticationContinuationCoordinator,
+                    authenticationContinuationOriginRoute: "communities",
                 ),
             )
         }

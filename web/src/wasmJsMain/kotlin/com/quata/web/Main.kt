@@ -863,6 +863,14 @@ private fun QuataWebApp(
                                 navigation.navigateConversation(conversationId, returnFragment = "communities")
                             },
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                            onAuthenticationContinuationRequired = { continuation ->
+                                requestAuthenticationFor(
+                                    fragment = continuation.originRoute,
+                                    continuation = continuation,
+                                )
+                            },
+                            authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                            authenticationContinuationOriginRoute = "communities",
                             onOpenUserRoute = { navigation.navigate("communities") },
                             initialMemberProfileId = null,
                             requestedCommunityMembers = profileEntryCommunityMembersRequest,
