@@ -32,6 +32,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import com.quata.core.model.User
 import com.quata.core.model.Post
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.FilePickerRequest
@@ -84,6 +86,8 @@ fun WebOfficialHost(
     canCreateOfficialPost: Boolean,
     openingProfileUserId: String? = null,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
     onBackFromFocusedPost: (() -> Unit)? = null,
@@ -115,6 +119,8 @@ fun WebOfficialHost(
         currentUserId = currentUserId,
         focusedPostId = officialPostId,
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         onOpenUserProfile = onOpenUserProfile,
         onCreateOfficialPost = onCreateOfficialPost,
         onFocusedPostHandled = {},

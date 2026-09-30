@@ -35,6 +35,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
 import com.quata.core.ui.components.CommunityEmojiCatalogState
 import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.CommunityEmojiPanelContent
@@ -79,6 +81,7 @@ fun OfficialCommentsPanelContent(
     canParticipate: Boolean,
     strings: OfficialCommentsStrings,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     onAddComment: (PostComment) -> Unit,
     onReportComment: (PostComment) -> Unit,
     onOpenUserProfile: (String) -> Unit,
@@ -186,7 +189,16 @@ fun OfficialCommentsPanelContent(
             replyQuoteTestTagPrefix = "official.comments.replyTo.",
             onOpenAuthorProfile = onOpenUserProfile,
             onReply = { replyTo = comment },
-            onReport = { if (canParticipate) onReportComment(comment) else onAuthRequired() },
+            onReport = {
+                if (canParticipate) onReportComment(comment)
+                else onAuthenticationContinuationRequired(
+                    officialAuthenticationContinuation(
+                        AuthenticationContinuationKind.OfficialReportComment,
+                        targetId = comment.id,
+                        relatedId = post.id,
+                    ),
+                )
+            },
         )
     }
 
@@ -212,7 +224,16 @@ fun OfficialCommentsPanelContent(
                 }
             },
             onDraftChange = { draft = it },
-            onAuthRequired = onAuthRequired,
+            onAuthRequired = {
+                onAuthenticationContinuationRequired(
+                    officialAuthenticationContinuation(
+                        AuthenticationContinuationKind.OfficialAddComment,
+                        targetId = post.id,
+                        relatedId = replyTo?.id,
+                        text = draft.text.trim(),
+                    ),
+                )
+            },
             onAddComment = onAddComment,
             onCommentAdded = { comment ->
                 pendingDraft = draft
@@ -399,7 +420,7 @@ data class OfficialCommentsStrings(
 )
 
 @OptIn(ExperimentalTime::class)
-private fun nowOfficialCommentTimestamp(): String = Clock.System.now().toString()
+internal fun nowOfficialCommentTimestamp(): String = Clock.System.now().toString()
 
 @OptIn(ExperimentalTime::class)
 private fun formatOfficialCommentTimestamp(value: String): String {

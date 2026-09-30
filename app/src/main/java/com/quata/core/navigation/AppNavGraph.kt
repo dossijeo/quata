@@ -849,6 +849,13 @@ fun AppNavGraph(
                         onFocusedPostHandled = {},
                         onBackFromFocusedPost = { officialFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() },
+                        onAuthenticationContinuationRequired = { continuation ->
+                            requestAuthentication(
+                                route = continuation.originRoute,
+                                continuation = continuation,
+                            )
+                        },
+                        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },

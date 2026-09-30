@@ -27,6 +27,8 @@ import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.model.AuthSession
 import com.quata.core.model.User
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -80,6 +82,8 @@ class IosOfficialHostDependencies(
     val mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     val canCreateOfficialPost: Boolean = false,
     val onAuthRequired: () -> Unit = {},
+    val onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    val authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     val onOpenUserProfile: (String) -> Unit = {},
     val onCreateOfficialPost: () -> Unit = {},
     val onBackFromFocusedPost: (() -> Unit)? = null,
@@ -100,6 +104,8 @@ fun createIosOfficialHostDependencies(
     initialCurrentUser: User? = null,
     preferredLanguageTag: String? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreateOfficialPost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     canCreateOfficialPost: Boolean = false,
@@ -113,6 +119,8 @@ fun createIosOfficialHostDependencies(
     mediaViewerFactory = mediaViewerFactory,
     initialCurrentUser = initialCurrentUser,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onCreateOfficialPost = onCreateOfficialPost,
     onBackFromFocusedPost = onBackFromFocusedPost,
     canCreateOfficialPost = canCreateOfficialPost,
@@ -132,6 +140,8 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     shareService: ShareService = IosShareService(),
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onBackFromFocusedPost: (() -> Unit)? = null,
     profileOpeningState: IosMemberProfileOpeningState,
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
@@ -140,6 +150,8 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onBackFromFocusedPost = onBackFromFocusedPost,
     profileOpeningState = profileOpeningState,
 )
@@ -153,6 +165,8 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     currentUserId: String? = authSession.restoredSession()?.userId,
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
@@ -168,6 +182,8 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     initialCurrentUser = null,
     preferredLanguageTag = preferredLanguageTag,
     onAuthRequired = onAuthRequired,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onOpenUserProfile = onOpenUserProfile,
     onBackFromFocusedPost = onBackFromFocusedPost,
     canCreateOfficialPost = canCreateOfficialPost,
@@ -192,6 +208,8 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 strings = strings,
                 focusedPostId = dependencies.officialPostId,
                 onAuthRequired = dependencies.onAuthRequired,
+                onAuthenticationContinuationRequired = dependencies.onAuthenticationContinuationRequired,
+                authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
                 onOpenUserProfile = dependencies.onOpenUserProfile,
                 onCreateOfficialPost = dependencies.onCreateOfficialPost,
                 onBackFromFocusedPost = dependencies.onBackFromFocusedPost,

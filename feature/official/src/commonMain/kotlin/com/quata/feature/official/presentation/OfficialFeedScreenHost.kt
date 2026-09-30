@@ -39,6 +39,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
+import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
@@ -202,6 +206,8 @@ fun OfficialFeedScreenHost(
     onFocusedPostHandled: () -> Unit,
     onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
     modifier: Modifier,
@@ -235,6 +241,10 @@ fun OfficialFeedScreenHost(
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
     val layoutDirection = LocalLayoutDirection.current
     val effectiveUserId = currentUserId ?: state.currentUser?.id
+    val pendingAuthenticationContinuation by (
+        authenticationContinuationCoordinator?.pending
+            ?: remember { kotlinx.coroutines.flow.MutableStateFlow<PendingAuthenticationContinuation?>(null) }
+        ).collectAsState()
     val canPublish = state.currentUser?.isOfficial == true && slots.canCreateOfficialPost
     val ranks = remember(state.posts) { calculateOfficialPostRanking(state.posts) }
     val canPullRefresh = activeFocusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
@@ -258,6 +268,98 @@ fun OfficialFeedScreenHost(
     }
     LaunchedEffect(activeFocusedPostId) {
         activeFocusedPostId?.takeIf { state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
+    }
+    LaunchedEffect(
+        effectiveUserId,
+        pendingAuthenticationContinuation?.requestId,
+        state.posts,
+        state.focusedPostLoads,
+    ) {
+        if (effectiveUserId == null) return@LaunchedEffect
+        val coordinator = authenticationContinuationCoordinator ?: return@LaunchedEffect
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        val intent = pending.intent
+        fun resolvePost(postId: String): OfficialPostItem? {
+            state.posts.firstOrNull { it.id == postId }?.let { return it }
+            when (state.focusedPostLoads[postId]) {
+                OfficialFocusedPostLoad.Loading, OfficialFocusedPostLoad.Failed -> Unit
+                OfficialFocusedPostLoad.NotFound -> coordinator.clear(pending.requestId)
+                OfficialFocusedPostLoad.Loaded, null -> viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(postId))
+            }
+            return null
+        }
+        when (intent.kind) {
+            AuthenticationContinuationKind.OfficialTogglePostLike -> {
+                val postId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val desiredState = intent.desiredState ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                if (post.isLikedByCurrentUser == desiredState) {
+                    coordinator.clear(pending.requestId)
+                } else if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(postId))
+                }
+            }
+            AuthenticationContinuationKind.OfficialAddComment -> {
+                val postId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val text = intent.text ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                val replyTarget = intent.relatedId?.let { replyId -> post.comments.firstOrNull { it.id == replyId } }
+                if (intent.relatedId != null && replyTarget == null) {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                commentsPost = postId
+                if (coordinator.claim(pending.requestId) != null) {
+                    val now = nowOfficialCommentTimestamp()
+                    viewModel.onEvent(
+                        OfficialFeedUiEvent.AddComment(
+                            postId,
+                            PostComment(
+                                id = "local_${postId}_$now",
+                                authorName = strings.commentsYou,
+                                message = text,
+                                timestamp = now,
+                                replyToAuthorName = replyTarget?.authorName,
+                                replyToMessage = replyTarget?.message,
+                                replyToCommentId = replyTarget?.id,
+                            ),
+                        ),
+                    )
+                }
+            }
+            AuthenticationContinuationKind.OfficialReportComment -> {
+                val commentId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val postId = intent.relatedId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                if (post.comments.none { it.id == commentId }) {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                commentsPost = postId
+                if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.onEvent(OfficialFeedUiEvent.ReportComment(commentId))
+                }
+            }
+            else -> Unit
+        }
     }
     LaunchedEffect(activeFocusedPostId, visiblePosts) {
         val target = activeFocusedPostId ?: return@LaunchedEffect
@@ -387,7 +489,16 @@ fun OfficialFeedScreenHost(
                                     strings = OfficialPostActionRailStrings(strings.like, strings.comments, strings.share, strings.rank, strings.live, strings.create, strings.delete),
                                     onCreate = ::create,
                                     onOpenLive = { liveOpen = true },
-                                    onLike = { if (effectiveUserId == null) onAuthRequired() else viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(post.id)) },
+                                    onLike = {
+                                        if (effectiveUserId != null) viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(post.id))
+                                        else onAuthenticationContinuationRequired(
+                                            officialAuthenticationContinuation(
+                                                AuthenticationContinuationKind.OfficialTogglePostLike,
+                                                targetId = post.id,
+                                                desiredState = !post.isLikedByCurrentUser,
+                                            ),
+                                        )
+                                    },
                                     onComment = { commentsPost = post.id },
                                     onShare = {
                                         scope.launch {
@@ -493,6 +604,7 @@ fun OfficialFeedScreenHost(
                 emojiLabels = strings.emojiLabels,
             ),
             onAuthRequired = onAuthRequired,
+            onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
             onAddComment = add,
             onReportComment = report,
             onOpenUserProfile = { profileId ->
@@ -531,6 +643,21 @@ fun OfficialFeedScreenHost(
         }
     }
 }
+
+internal fun officialAuthenticationContinuation(
+    kind: AuthenticationContinuationKind,
+    targetId: String? = null,
+    relatedId: String? = null,
+    text: String? = null,
+    desiredState: Boolean? = null,
+): AuthenticationContinuationIntent = AuthenticationContinuationIntent(
+    kind = kind,
+    originRoute = "official",
+    targetId = targetId,
+    relatedId = relatedId,
+    text = text,
+    desiredState = desiredState,
+)
 
 private fun officialFeedStateDescription(state: OfficialFeedUiState): String =
     buildString {

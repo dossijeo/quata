@@ -880,6 +880,13 @@ private fun QuataWebApp(
                                 canCreateOfficialPost = currentUserIsOfficial,
                                 openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onAuthenticationContinuationRequired = { continuation ->
+                                    requestAuthenticationFor(
+                                        fragment = continuation.originRoute,
+                                        continuation = continuation,
+                                    )
+                                },
+                                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onCreateOfficialPost = { navigation.navigate("official-editor") },
                                 onBackFromFocusedPost = navigation.officialPostId?.let { { navigation.replace("official") } },

@@ -420,6 +420,7 @@ fun FeedScreenHost(
                     viewModel.onEvent(FeedUiEvent.ReportComment(commentId))
                 }
             }
+            else -> Unit
         }
     }
     LaunchedEffect(state.confirmedCommentReportIds) {

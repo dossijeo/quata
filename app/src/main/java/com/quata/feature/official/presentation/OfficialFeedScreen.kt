@@ -16,6 +16,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.quata.R
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
@@ -42,6 +44,8 @@ fun OfficialFeedScreen(
     onFocusedPostHandled: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -64,6 +68,8 @@ fun OfficialFeedScreen(
         onFocusedPostHandled = onFocusedPostHandled,
         onBackFromFocusedPost = onBackFromFocusedPost,
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         onOpenUserProfile = onOpenUserProfile,
         onCreateOfficialPost = { onCreateOfficialPost?.invoke() },
         modifier = modifier,
