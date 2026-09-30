@@ -19,6 +19,13 @@ enum class AuthenticationContinuationKind {
     CommunitiesOpenNeighborhoodChat,
     CommunitiesToggleFollow,
     CommunitiesOpenPrivateChat,
+    CommunityProfileEnsureFollow,
+    CommunityProfileOpenPrivateChat,
+    CommunityProfileEnsurePostLike,
+    CommunityProfileAddComment,
+    CommunityProfileReportPost,
+    CommunityProfileConfirmReport,
+    CommunityProfileConfirmBlock,
 }
 
 /**
@@ -32,6 +39,7 @@ data class AuthenticationContinuationIntent(
     val originRoute: String,
     val targetId: String? = null,
     val relatedId: String? = null,
+    val contextId: String? = null,
     val text: String? = null,
     val desiredState: Boolean? = null,
 ) {
@@ -39,6 +47,7 @@ data class AuthenticationContinuationIntent(
         require(originRoute.isNotBlank()) { "authentication_continuation_origin_required" }
         require(targetId == null || targetId.isNotBlank()) { "authentication_continuation_target_invalid" }
         require(relatedId == null || relatedId.isNotBlank()) { "authentication_continuation_related_invalid" }
+        require(contextId == null || contextId.isNotBlank()) { "authentication_continuation_context_invalid" }
         require(text == null || text.isNotBlank()) { "authentication_continuation_text_invalid" }
     }
 }
@@ -81,6 +90,8 @@ class AuthenticationContinuationCoordinator {
             )
         }
     }
+
+    fun pendingIntent(): AuthenticationContinuationIntent? = mutate { _pending.value?.intent }
 
     fun claim(requestId: Long): AuthenticationContinuationIntent? = mutate {
         val current = _pending.value ?: return@mutate null

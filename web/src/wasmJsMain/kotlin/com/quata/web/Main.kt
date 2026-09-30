@@ -327,6 +327,12 @@ private fun QuataWebApp(
         currentUserId = session?.userId
         currentUserIsOfficial = session?.isOfficial == true
         authSurfaceCancellationArmed = false
+        if (session != null) {
+            restorePendingCommunityProfileAfterAuthentication(
+                coordinator = authenticationContinuationCoordinator,
+                profileRoute = feedMemberProfileRoute,
+            )
+        }
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
     }
@@ -854,6 +860,7 @@ private fun QuataWebApp(
                     }
                 } else if (navigation.route == "communities") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Communities) {
+                        val memberProfileId = feedMemberProfileRoute.profileId
                         WebNeighborhoodsHost(
                             repository = neighborhoodsRepository,
                             currentUserId = currentUserId,
@@ -871,9 +878,10 @@ private fun QuataWebApp(
                             },
                             authenticationContinuationCoordinator = authenticationContinuationCoordinator,
                             authenticationContinuationOriginRoute = "communities",
-                            onOpenUserRoute = { navigation.navigate("communities") },
-                            initialMemberProfileId = null,
+                            onOpenUserRoute = feedMemberProfileRoute::open,
+                            initialMemberProfileId = memberProfileId,
                             requestedCommunityMembers = profileEntryCommunityMembersRequest,
+                            onInitialMemberProfileClosed = feedMemberProfileRoute::close,
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
@@ -907,6 +915,11 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = feedMemberProfileRoute::openConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onAuthenticationContinuationRequired = { continuation ->
+                                    requestAuthenticationFor(continuation.originRoute, continuation)
+                                },
+                                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                                authenticationContinuationOriginRoute = "official",
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
@@ -955,6 +968,11 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = feedMemberProfileRoute::openConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onAuthenticationContinuationRequired = { continuation ->
+                                    requestAuthenticationFor(continuation.originRoute, continuation)
+                                },
+                                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                                authenticationContinuationOriginRoute = "chat",
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
@@ -998,6 +1016,11 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = feedMemberProfileRoute::openConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onAuthenticationContinuationRequired = { continuation ->
+                                    requestAuthenticationFor(continuation.originRoute, continuation)
+                                },
+                                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                                authenticationContinuationOriginRoute = "feed",
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,

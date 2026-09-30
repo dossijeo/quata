@@ -490,6 +490,63 @@ class NeighborhoodsViewModel(
         }
     }
 
+    fun ensureProfilePostLikeState(profileId: String, postId: String, desiredState: Boolean) {
+        if (_uiState.value.likingPostId != null) return
+        _uiState.value = _uiState.value.copy(likingPostId = postId, error = null)
+        scope.launch {
+            repository.getUserProfile(profileId)
+                .onSuccess { refreshed ->
+                    val actualPost = refreshed.posts.firstOrNull { it.id == postId }
+                    val current = _uiState.value
+                    val stillSelected = current.selectedProfile?.user?.id == profileId
+                    _uiState.value = current.copy(
+                        selectedProfile = if (stillSelected) refreshed else current.selectedProfile,
+                        likingPostId = null,
+                        error = if (actualPost == null) "No se encontró la publicación" else null,
+                    )
+                    repository.cacheUserProfile(refreshed)
+                    if (stillSelected && actualPost != null && actualPost.isLikedByCurrentUser != desiredState) {
+                        toggleProfilePostLike(postId)
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        likingPostId = null,
+                        error = error.message ?: "No se pudo comprobar el me gusta",
+                    )
+                }
+        }
+    }
+
+    fun ensureProfilePostReported(profileId: String, postId: String) {
+        scope.launch {
+            repository.getUserProfile(profileId)
+                .onSuccess { refreshed ->
+                    val actualPost = refreshed.posts.firstOrNull { it.id == postId }
+                    val current = _uiState.value
+                    _uiState.value = current.copy(
+                        selectedProfile = if (current.selectedProfile?.user?.id == profileId) refreshed else current.selectedProfile,
+                        error = if (actualPost == null) "No se encontró la publicación" else null,
+                    )
+                    repository.cacheUserProfile(refreshed)
+                    if (actualPost != null && !actualPost.isReportedByCurrentUser) {
+                        repository.reportPost(postId)
+                            .onFailure { error ->
+                                _uiState.value = _uiState.value.copy(
+                                    error = error.message ?: "No se pudo reportar",
+                                )
+                            }
+                        refreshSelectedProfile(profileId)
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        error = error.message ?: "No se pudo comprobar el reporte",
+                    )
+                }
+        }
+    }
+
     fun reportProfile(userId: String) {
         if (_uiState.value.profileSafetyUpdatingUserId != null) return
         _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)

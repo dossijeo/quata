@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "unit": "OVR-AUTH-REQUIRED",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-09-30",
+  "productSha": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+  "git": {
+    "head": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+    "workingTreeDirty": false
+  },
+  "validationProvenance": {
+    "runtimeSha": "039afcfb531c1bb74cac97773586fdda3bc0a962",
+    "runtimeValidationReused": true,
+    "treeEquivalentRuntimeSha": "bfa8dc9d501cb59b481676c9be9e6f4a187b0ad5",
+    "treeEquivalence": "The complete Product SHA tree is byte-identical before and after rebasing onto integrated PR #487.",
+    "iosRuntimeSha": "458bcef7d556993cc35a2c80411426500da2aecd",
+    "iosRuntimeValidationReused": true,
+    "iosTreeEquivalence": "The follow-up changes affect only Web restoration tests and reviewed capability hashes; iOS product sources are byte-identical to the signed Simulator build.",
+    "windowsWorktree": "migration-state-reconcile",
+    "macosWorktree": "quata-auth-profile"
+  },
+  "scope": "Protected actions on a public community profile resumed after successful authentication",
+  "steps": [
+    "community_profile_continuation_browser_tests_passed",
+    "android_debug_compilation_passed",
+    "web_wasm_compilation_passed",
+    "ios_x64_focal_tests_passed",
+    "ios_framework_link_passed",
+    "ios_simulator_signed_build_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "compileDebugKotlin"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "CommunityProfileAuthenticationContinuationTest",
+        "NeighborhoodsViewModel-profile-continuation-tests",
+        "compileKotlinWasmJs"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "feature-neighborhoods-iosX64-focal-tests",
+        "ios-shared-linkDebugFrameworkIosX64",
+        "SimulatorSigned-build-for-testing"
+      ]
+    }
+  },
+  "assertions": [
+    "each continuation is bound to the exact origin, profile context and action target before it is atomically claimed",
+    "follow, like and report resume toward the retained desired result after refreshing authenticated profile state",
+    "comment continuation retains the exact post, trimmed draft and optional reply target",
+    "report and block continuations restore confirmation UI instead of performing the mutation directly",
+    "private Chat resumes with the exact retained profile target",
+    "Android and Web restore the route that originated the profile overlay",
+    "iOS dismisses the anonymous profile before authentication and reopens the exact profile with authenticated dependencies"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no remote fixtures or backend mutation used"
+  },
+  "limitations": [
+    "This focal evidence covers deterministic continuation contracts, affected compilation, native iOS tests and a signed Intel Simulator build; GitHub final jobs retain integrated certification.",
+    "No backend send or mutation was performed because the change is limited to retaining and dispatching the protected user action after authentication."
+  ]
+}

@@ -23,7 +23,11 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     fun dismissUserProfileLoadFailure() = delegate.dismissUserProfileLoadFailure()
     fun closeUserProfile() = delegate.closeUserProfile()
     fun reportProfilePost(postId: String) = delegate.reportProfilePost(postId)
+    fun ensureProfilePostReported(profileId: String, postId: String) =
+        delegate.ensureProfilePostReported(profileId, postId)
     fun toggleProfilePostLike(postId: String) = delegate.toggleProfilePostLike(postId)
+    fun ensureProfilePostLikeState(profileId: String, postId: String, desiredState: Boolean) =
+        delegate.ensureProfilePostLikeState(profileId, postId, desiredState)
     fun addProfileComment(postId: String, comment: PostComment) = delegate.addProfileComment(postId, comment)
     fun reportProfile(userId: String) = delegate.reportProfile(userId)
     fun setProfileBlocked(userId: String, blocked: Boolean) = delegate.setProfileBlocked(userId, blocked)

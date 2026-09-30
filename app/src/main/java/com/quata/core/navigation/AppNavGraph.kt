@@ -1164,12 +1164,22 @@ fun AppNavGraph(
                 currentUserIsAdmin = globalProfileState.currentUserIsAdmin,
                 chatError = globalProfileState.error,
                 onAuthRequired = { requestAuthentication() },
+                onAuthenticationContinuationRequired = { continuation ->
+                    requestAuthentication(
+                        route = continuation.originRoute,
+                        continuation = continuation,
+                    )
+                },
+                authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                authenticationContinuationOriginRoute = currentRoute ?: AppDestinations.Feed.route,
                 onReportPost = { postId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfilePost(postId) else requestAuthentication()
                 },
+                onEnsurePostReported = globalProfileViewModel::ensureProfilePostReported,
                 onTogglePostLike = { postId ->
                     if (isAuthenticated) globalProfileViewModel.toggleProfilePostLike(postId) else requestAuthentication()
                 },
+                onEnsurePostLikeState = globalProfileViewModel::ensureProfilePostLikeState,
                 onReportProfile = { profileId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfile(profileId) else requestAuthentication()
                 },
@@ -1186,6 +1196,7 @@ fun AppNavGraph(
                 onFollowUser = { userId ->
                     if (isAuthenticated) globalProfileViewModel.toggleFollowUser(userId) else requestAuthentication()
                 },
+                onEnsureFollowUserState = globalProfileViewModel::ensureFollowUserState,
                 onSetUserRoles = { userId, isAdmin, isOfficial ->
                     if (isAuthenticated) globalProfileViewModel.setUserRoles(userId, isAdmin, isOfficial) else requestAuthentication()
                 },

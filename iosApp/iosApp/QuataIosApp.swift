@@ -1573,7 +1573,21 @@ private final class IosAppCompositionRoot {
                     }
                 }
             },
-            onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+            onAuthRequired: { [weak self] in
+                guard let self else { return }
+                self.authenticatedHost.dismiss(animated: false) {
+                    self.authenticatedHost.presentAuthRequiredPrompt()
+                }
+            },
+            onAuthenticationContinuationRequired: { [weak self] continuation in
+                guard let self else { return }
+                _ = self.authenticationContinuationCoordinator.request(intent: continuation)
+                self.authenticatedHost.dismiss(animated: false) {
+                    self.authenticatedHost.presentAuthRequiredPrompt()
+                }
+            },
+            authenticationContinuationCoordinator: authenticationContinuationCoordinator,
+            authenticationContinuationOriginRoute: authenticatedHost.authenticationContinuationOriginRoute(),
         )
         let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
             dependencies: dependencies
@@ -1933,6 +1947,7 @@ private final class IosAppCompositionRoot {
             documentOpener: platformServices.services.documentOpener,
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
+                    let pendingCommunityProfileId = self?.authenticationContinuationCoordinator.pendingIntent()?.contextId
                     // An older restoration response must not overwrite this interactive login.
                     self?.notificationReplyRuntime?.sessionEnded()
                     self?.notificationRecipientGate.sessionEnded()
@@ -1944,6 +1959,13 @@ private final class IosAppCompositionRoot {
                         self?.notificationRecipientGate.completeValidation(
                             profileId: self?.renewableAuthSession?.restoredSession()?.userId)
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        if let profileId = pendingCommunityProfileId {
+                            DispatchQueue.main.async {
+                                self?.authenticatedHost.dismiss(animated: false) {
+                                    self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                                }
+                            }
+                        }
                         self?.evaluateWhatsNewStartupIfAvailable()
                         self?.drainPendingStartupDeepLinkIfNeeded()
                     }
@@ -3362,6 +3384,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         default:
             routeToRestoreAfterAuthenticationUpgrade = nil
             routeSelectionRevisionAtAuthenticationUpgrade = nil
+        }
+    }
+
+    func authenticationContinuationOriginRoute() -> String {
+        switch visibleRoute {
+        case .official: return "official"
+        case .communities: return "communities"
+        case .chat: return "chat"
+        default: return "feed"
         }
     }
 

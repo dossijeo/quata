@@ -805,6 +805,58 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `profile continuation does not invert a like already restored by auth`() = runTest {
+        val authenticatedPost = Post(
+            "post-a",
+            User("a", "", "a"),
+            "post",
+            createdAt = "now",
+            likesCount = 1,
+            isLikedByCurrentUser = true,
+        )
+        val repository = FakeNeighborhoodRepository().apply {
+            profileOverride = profile("a").copy(posts = listOf(authenticatedPost))
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.likedPosts.clear()
+        repository.getUserProfileCalls.clear()
+
+        model.ensureProfilePostLikeState("a", "post-a", desiredState = true)
+        advanceUntilIdle()
+
+        assertEquals(listOf("a"), repository.getUserProfileCalls)
+        assertTrue(repository.likedPosts.isEmpty())
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.likingPostId)
+        model.close()
+    }
+
+    @Test
+    fun `profile continuation reports only when authenticated state is unreported`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.getUserProfileCalls.clear()
+
+        model.ensureProfilePostReported("a", "post-a")
+        advanceUntilIdle()
+        assertEquals(listOf("post-a"), repository.reportedPosts)
+
+        repository.reportedPosts.clear()
+        repository.profileOverride = profile("a").copy(
+            posts = listOf(profile("a").posts.single().copy(isReportedByCurrentUser = true)),
+        )
+        model.ensureProfilePostReported("a", "post-a")
+        advanceUntilIdle()
+
+        assertTrue(repository.reportedPosts.isEmpty())
+        model.close()
+    }
+
+    @Test
     fun `profile post like success preserves a concurrent comment`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             likeResult = CompletableDeferred()
@@ -1177,6 +1229,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    val likedPosts = mutableListOf<String>()
     var reportResult = CompletableDeferred(Result.success(Unit))
     val reportCalls = mutableListOf<String>()
     var blockResult = CompletableDeferred(Result.success(true))
@@ -1211,7 +1264,10 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
         followCalls += userId
         return followResult.await()
     }
-    override suspend fun toggleProfilePostLike(postId: String) = likeResult.await()
+    override suspend fun toggleProfilePostLike(postId: String): Result<Post?> {
+        likedPosts += postId
+        return likeResult.await()
+    }
     override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> {
         val queued = commentResults.firstOrNull()
         if (queued != null) {
