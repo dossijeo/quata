@@ -45,6 +45,7 @@ fun CommunityProfileCommentsDialogContent(
     canParticipate: Boolean,
     strings: CommunityProfileCommentsDialogStrings,
     onAuthRequired: () -> Unit,
+    onAuthenticationRequired: (draft: String, replyToCommentId: String?) -> Unit = { _, _ -> onAuthRequired() },
     createComment: (draft: String) -> PostComment,
     onAddComment: (PostComment) -> Unit,
     onOpenUserProfile: (String) -> Unit,
@@ -142,7 +143,8 @@ fun CommunityProfileCommentsDialogContent(
                         replyTo = null
                         isEmojiPickerVisible = false
                     } else {
-                        onAuthRequired()
+                        val text = draft.text.trim()
+                        if (text.isNotBlank()) onAuthenticationRequired(text, replyTo?.id)
                     }
                 },
             )

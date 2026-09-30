@@ -184,6 +184,9 @@ class IosCommunityProfileHostDependencies(
     val onClose: () -> Unit,
     val onOpenConversation: (String) -> Unit,
     val onAuthRequired: () -> Unit,
+    val onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    val authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    val authenticationContinuationOriginRoute: String = "communities",
 )
 
 fun createIosCommunityProfileHostDependencies(
@@ -198,6 +201,9 @@ fun createIosCommunityProfileHostDependencies(
     onClose: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    authenticationContinuationOriginRoute: String = "communities",
 ): IosCommunityProfileHostDependencies = IosCommunityProfileHostDependencies(
     repository = repository,
     profileId = profileId,
@@ -210,6 +216,9 @@ fun createIosCommunityProfileHostDependencies(
     onClose = onClose,
     onOpenConversation = onOpenConversation,
     onAuthRequired = onAuthRequired,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+    authenticationContinuationOriginRoute = authenticationContinuationOriginRoute,
 )
 
 /** UIKit adapter for the same complete public-profile Compose root used by Android and Web. */
@@ -326,8 +335,12 @@ fun QuataCommunityProfileViewController(
                 openingProfileUserId = state.openingProfileUserId,
                 errorMessage = state.error,
                 onAuthRequired = dependencies.onAuthRequired,
+                onAuthenticationContinuationRequired = dependencies.onAuthenticationContinuationRequired,
+                authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
+                authenticationContinuationOriginRoute = dependencies.authenticationContinuationOriginRoute,
                 onBack = { if (viewModel.closeUserProfile()) dependencies.onClose() },
                 onFollowUser = viewModel::toggleFollowUser,
+                onEnsureFollowUserState = viewModel::ensureFollowUserState,
                 onOpenPrivateChat = { userId ->
                     viewModel.openPrivateChat(userId) { conversationId ->
                         viewModel.clearUserProfile()
@@ -337,7 +350,9 @@ fun QuataCommunityProfileViewController(
                 onOpenUserProfile = viewModel::openUserProfile,
                 onSetUserRoles = viewModel::setUserRoles,
                 onReportPost = viewModel::reportProfilePost,
+                onEnsurePostReported = viewModel::ensureProfilePostReported,
                 onTogglePostLike = viewModel::toggleProfilePostLike,
+                onEnsurePostLikeState = viewModel::ensureProfilePostLikeState,
                 onReportProfile = viewModel::reportProfile,
                 onSetProfileBlocked = viewModel::setProfileBlocked,
                 onAddComment = viewModel::addProfileComment,

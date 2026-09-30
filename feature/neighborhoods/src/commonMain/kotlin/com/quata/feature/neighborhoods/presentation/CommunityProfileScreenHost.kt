@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,10 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
+import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
@@ -140,13 +145,19 @@ fun CommunityProfileScreenHost(
     openingProfileUserId: String? = null,
     errorMessage: String? = null,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    authenticationContinuationOriginRoute: String = "communities",
     onBack: () -> Unit,
     onFollowUser: (String) -> Unit,
+    onEnsureFollowUserState: (String, Boolean) -> Unit,
     onOpenPrivateChat: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onSetUserRoles: ((String, Boolean, Boolean) -> Unit)?,
     onReportPost: (String) -> Unit,
+    onEnsurePostReported: (String, String) -> Unit,
     onTogglePostLike: (String) -> Unit,
+    onEnsurePostLikeState: (String, String, Boolean) -> Unit,
     onReportProfile: ((String) -> Unit)?,
     onSetProfileBlocked: ((String, Boolean) -> Unit)?,
     onAddComment: (String, PostComment) -> Unit,
@@ -160,12 +171,75 @@ fun CommunityProfileScreenHost(
     var userList by rememberSaveable(profile.user.id) { mutableStateOf<ProfileUserList?>(null) }
     var selectedMediaPostId by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
     var pendingModeration by remember { mutableStateOf<ProfileModerationAction?>(null) }
+    val pendingAuthenticationContinuation by (
+        authenticationContinuationCoordinator?.pending
+            ?: remember { kotlinx.coroutines.flow.MutableStateFlow<PendingAuthenticationContinuation?>(null) }
+        ).collectAsState()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val template = quataTheme()
 
     LaunchedEffect(showPosts) {
         if (showPosts) listState.animateScrollToItem(2)
+    }
+    LaunchedEffect(
+        currentUserId,
+        pendingAuthenticationContinuation?.requestId,
+        profile,
+        followingUserId,
+        openingPrivateChatUserId,
+        likingPostId,
+        commentingPostId,
+        profileSafetyUpdatingUserId,
+    ) {
+        if (currentUserId.isNullOrBlank()) return@LaunchedEffect
+        val coordinator = authenticationContinuationCoordinator ?: return@LaunchedEffect
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        when (val resolution = resolveCommunityProfileAuthenticationContinuation(
+            intent = pending.intent,
+            originRoute = authenticationContinuationOriginRoute,
+            profile = profile,
+            actionInProgress = followingUserId != null || openingPrivateChatUserId != null ||
+                likingPostId != null || commentingPostId != null || profileSafetyUpdatingUserId != null,
+        )) {
+            CommunityProfileAuthenticationContinuationResolution.Ignore,
+            CommunityProfileAuthenticationContinuationResolution.Wait -> Unit
+            CommunityProfileAuthenticationContinuationResolution.Clear -> coordinator.clear(pending.requestId)
+            is CommunityProfileAuthenticationContinuationResolution.EnsureFollow -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    onEnsureFollowUserState(resolution.userId, resolution.desiredState)
+                }
+            }
+            is CommunityProfileAuthenticationContinuationResolution.OpenPrivateChat -> {
+                if (coordinator.claim(pending.requestId) != null) onOpenPrivateChat(resolution.userId)
+            }
+            is CommunityProfileAuthenticationContinuationResolution.EnsurePostLike -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    onEnsurePostLikeState(profile.user.id, resolution.postId, resolution.desiredState)
+                }
+            }
+            is CommunityProfileAuthenticationContinuationResolution.AddComment -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    val base = createComment(resolution.post, resolution.text)
+                    onAddComment(
+                        resolution.post.id,
+                        base.copy(
+                            replyToAuthorName = resolution.replyTarget?.authorName,
+                            replyToMessage = resolution.replyTarget?.message,
+                            replyToCommentId = resolution.replyTarget?.id,
+                        ),
+                    )
+                }
+            }
+            is CommunityProfileAuthenticationContinuationResolution.EnsurePostReported -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    onEnsurePostReported(profile.user.id, resolution.postId)
+                }
+            }
+            is CommunityProfileAuthenticationContinuationResolution.ConfirmModeration -> {
+                if (coordinator.claim(pending.requestId) != null) pendingModeration = resolution.action
+            }
+        }
     }
     ProfileModerationConfirmation(
         action = pendingModeration,
@@ -226,9 +300,30 @@ fun CommunityProfileScreenHost(
                     back = strings.back,
                     avatar = { user, loading, modifier, click -> slots.avatar(user, Modifier.size(48.dp).then(modifier), loading, click) },
                     onBack = { userList = null },
-                    onFollow = { user -> if (currentUserId == null) onAuthRequired() else onFollowUser(user.id) },
+                    onFollow = { user ->
+                        if (currentUserId != null) onFollowUser(user.id)
+                        else onAuthenticationContinuationRequired(
+                            communityProfileAuthenticationContinuation(
+                                AuthenticationContinuationKind.CommunityProfileEnsureFollow,
+                                authenticationContinuationOriginRoute,
+                                profile.user.id,
+                                targetId = user.id,
+                                desiredState = !user.isFollowing,
+                            ),
+                        )
+                    },
                     onProfile = { user -> onOpenUserProfile(user.id) },
-                    onChat = { user -> if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id) },
+                    onChat = { user ->
+                        if (currentUserId != null) onOpenPrivateChat(user.id)
+                        else onAuthenticationContinuationRequired(
+                            communityProfileAuthenticationContinuation(
+                                AuthenticationContinuationKind.CommunityProfileOpenPrivateChat,
+                                authenticationContinuationOriginRoute,
+                                profile.user.id,
+                                targetId = user.id,
+                            ),
+                        )
+                    },
                 )
             } else {
                 CommunityProfileDetailsContent(
@@ -281,8 +376,29 @@ fun CommunityProfileScreenHost(
                                 isOpeningChat = openingPrivateChatUserId?.let { it == profile.user.id } ?: isOpeningChat,
                                 isChatEnabled = !isAnyPrivateChatOpening,
                                 strings = strings.actions,
-                                onFollow = { if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id) },
-                                onChat = { if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(profile.user.id) },
+                                onFollow = {
+                                    if (currentUserId != null) onFollowUser(profile.user.id)
+                                    else onAuthenticationContinuationRequired(
+                                        communityProfileAuthenticationContinuation(
+                                            AuthenticationContinuationKind.CommunityProfileEnsureFollow,
+                                            authenticationContinuationOriginRoute,
+                                            profile.user.id,
+                                            targetId = profile.user.id,
+                                            desiredState = !profile.user.isFollowing,
+                                        ),
+                                    )
+                                },
+                                onChat = {
+                                    if (currentUserId != null) onOpenPrivateChat(profile.user.id)
+                                    else onAuthenticationContinuationRequired(
+                                        communityProfileAuthenticationContinuation(
+                                            AuthenticationContinuationKind.CommunityProfileOpenPrivateChat,
+                                            authenticationContinuationOriginRoute,
+                                            profile.user.id,
+                                            targetId = profile.user.id,
+                                        ),
+                                    )
+                                },
                             )
                         },
                         moderationActions = {
@@ -293,10 +409,32 @@ fun CommunityProfileScreenHost(
                                 isUpdating = profileSafetyUpdatingUserId == profile.user.id,
                                 isEnabled = profileSafetyUpdatingUserId == null,
                                 strings = strings.moderation,
-                                onReport = { if (currentUserId == null) onAuthRequired() else pendingModeration = ProfileModerationAction.Report },
+                                onReport = {
+                                    if (currentUserId != null) pendingModeration = ProfileModerationAction.Report
+                                    else onAuthenticationContinuationRequired(
+                                        communityProfileAuthenticationContinuation(
+                                            AuthenticationContinuationKind.CommunityProfileConfirmReport,
+                                            authenticationContinuationOriginRoute,
+                                            profile.user.id,
+                                            targetId = profile.user.id,
+                                        ),
+                                    )
+                                },
                                 onBlock = {
-                                    if (currentUserId == null) onAuthRequired()
-                                    else pendingModeration = if (profile.isBlockedByCurrentUser) ProfileModerationAction.Unblock else ProfileModerationAction.Block
+                                    val desiredState = !profile.isBlockedByCurrentUser
+                                    if (currentUserId != null) {
+                                        pendingModeration = if (desiredState) ProfileModerationAction.Block else ProfileModerationAction.Unblock
+                                    } else {
+                                        onAuthenticationContinuationRequired(
+                                            communityProfileAuthenticationContinuation(
+                                                AuthenticationContinuationKind.CommunityProfileConfirmBlock,
+                                                authenticationContinuationOriginRoute,
+                                                profile.user.id,
+                                                targetId = profile.user.id,
+                                                desiredState = desiredState,
+                                            ),
+                                        )
+                                    }
                                 },
                             )
                         },
@@ -364,11 +502,28 @@ fun CommunityProfileScreenHost(
                                         isLikeUpdating = likingPostId == post.id,
                                         onToggleLike = { onTogglePostLike(post.id) },
                                         onOpenComments = openComments,
-                                        onAuthRequired = onAuthRequired,
+                                        onAuthRequired = {
+                                            onAuthenticationContinuationRequired(
+                                                communityProfileAuthenticationContinuation(
+                                                    AuthenticationContinuationKind.CommunityProfileEnsurePostLike,
+                                                    authenticationContinuationOriginRoute,
+                                                    profile.user.id,
+                                                    targetId = post.id,
+                                                    desiredState = !post.isLikedByCurrentUser,
+                                                ),
+                                            )
+                                        },
                                         onOpenMedia = { selectedMediaPostId = post.id },
                                         onShare = { slots.sharePost(post) },
                                         onReport = {
-                                            if (currentUserId == null) onAuthRequired()
+                                            if (currentUserId == null) onAuthenticationContinuationRequired(
+                                                communityProfileAuthenticationContinuation(
+                                                    AuthenticationContinuationKind.CommunityProfileReportPost,
+                                                    authenticationContinuationOriginRoute,
+                                                    profile.user.id,
+                                                    targetId = post.id,
+                                                ),
+                                            )
                                             else if (!post.isReportedByCurrentUser) onReportPost(post.id)
                                         },
                                         media = { loaded, load -> slots.postMedia(this, post, loaded, load) },
@@ -382,6 +537,18 @@ fun CommunityProfileScreenHost(
                                             canParticipate = currentUserId != null,
                                             strings = strings.comments,
                                             onAuthRequired = onAuthRequired,
+                                            onAuthenticationRequired = { draft, replyId ->
+                                                onAuthenticationContinuationRequired(
+                                                    communityProfileAuthenticationContinuation(
+                                                        AuthenticationContinuationKind.CommunityProfileAddComment,
+                                                        authenticationContinuationOriginRoute,
+                                                        profile.user.id,
+                                                        targetId = post.id,
+                                                        relatedId = replyId,
+                                                        text = draft,
+                                                    ),
+                                                )
+                                            },
                                             createComment = { draft -> createComment(post, draft) },
                                             onAddComment = addComment,
                                             onOpenUserProfile = onOpenUserProfile,
@@ -434,3 +601,116 @@ private fun NeighborhoodUser.toAvatarAttachment(): ProfileAttachment = ProfileAt
 
 private fun Post.imageTitle(): String =
     placeName?.takeIf { it.isNotBlank() } ?: rankingLabel.takeIf { it.isNotBlank() } ?: author.displayName
+
+internal fun communityProfileAuthenticationContinuation(
+    kind: AuthenticationContinuationKind,
+    originRoute: String,
+    profileId: String,
+    targetId: String? = null,
+    relatedId: String? = null,
+    text: String? = null,
+    desiredState: Boolean? = null,
+): AuthenticationContinuationIntent = AuthenticationContinuationIntent(
+    kind = kind,
+    originRoute = originRoute,
+    targetId = targetId,
+    relatedId = relatedId,
+    contextId = profileId,
+    text = text,
+    desiredState = desiredState,
+)
+
+internal sealed interface CommunityProfileAuthenticationContinuationResolution {
+    data object Ignore : CommunityProfileAuthenticationContinuationResolution
+    data object Wait : CommunityProfileAuthenticationContinuationResolution
+    data object Clear : CommunityProfileAuthenticationContinuationResolution
+    data class EnsureFollow(val userId: String, val desiredState: Boolean) : CommunityProfileAuthenticationContinuationResolution
+    data class OpenPrivateChat(val userId: String) : CommunityProfileAuthenticationContinuationResolution
+    data class EnsurePostLike(val postId: String, val desiredState: Boolean) : CommunityProfileAuthenticationContinuationResolution
+    data class AddComment(
+        val post: Post,
+        val text: String,
+        val replyTarget: PostComment?,
+    ) : CommunityProfileAuthenticationContinuationResolution
+    data class EnsurePostReported(val postId: String) : CommunityProfileAuthenticationContinuationResolution
+    data class ConfirmModeration(val action: ProfileModerationAction) : CommunityProfileAuthenticationContinuationResolution
+}
+
+internal fun resolveCommunityProfileAuthenticationContinuation(
+    intent: AuthenticationContinuationIntent,
+    originRoute: String,
+    profile: CommunityUserProfile,
+    actionInProgress: Boolean,
+): CommunityProfileAuthenticationContinuationResolution {
+    if (intent.originRoute != originRoute) return CommunityProfileAuthenticationContinuationResolution.Ignore
+    val profileKinds = setOf(
+        AuthenticationContinuationKind.CommunityProfileEnsureFollow,
+        AuthenticationContinuationKind.CommunityProfileOpenPrivateChat,
+        AuthenticationContinuationKind.CommunityProfileEnsurePostLike,
+        AuthenticationContinuationKind.CommunityProfileAddComment,
+        AuthenticationContinuationKind.CommunityProfileReportPost,
+        AuthenticationContinuationKind.CommunityProfileConfirmReport,
+        AuthenticationContinuationKind.CommunityProfileConfirmBlock,
+    )
+    if (intent.kind !in profileKinds) return CommunityProfileAuthenticationContinuationResolution.Ignore
+    if (intent.contextId != profile.user.id) return CommunityProfileAuthenticationContinuationResolution.Clear
+    if (actionInProgress) return CommunityProfileAuthenticationContinuationResolution.Wait
+    return when (intent.kind) {
+        AuthenticationContinuationKind.CommunityProfileEnsureFollow -> {
+            val userId = intent.targetId ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val desiredState = intent.desiredState ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val exists = sequenceOf(profile.user)
+                .plus(profile.followers.asSequence())
+                .plus(profile.following.asSequence())
+                .any { it.id == userId }
+            if (exists) CommunityProfileAuthenticationContinuationResolution.EnsureFollow(userId, desiredState)
+            else CommunityProfileAuthenticationContinuationResolution.Clear
+        }
+        AuthenticationContinuationKind.CommunityProfileOpenPrivateChat -> {
+            val userId = intent.targetId ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val exists = sequenceOf(profile.user)
+                .plus(profile.followers.asSequence())
+                .plus(profile.following.asSequence())
+                .any { it.id == userId }
+            if (exists) CommunityProfileAuthenticationContinuationResolution.OpenPrivateChat(userId)
+            else CommunityProfileAuthenticationContinuationResolution.Clear
+        }
+        AuthenticationContinuationKind.CommunityProfileEnsurePostLike -> {
+            val postId = intent.targetId ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val desiredState = intent.desiredState ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            if (profile.posts.any { it.id == postId }) {
+                CommunityProfileAuthenticationContinuationResolution.EnsurePostLike(postId, desiredState)
+            } else CommunityProfileAuthenticationContinuationResolution.Clear
+        }
+        AuthenticationContinuationKind.CommunityProfileAddComment -> {
+            val postId = intent.targetId ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val text = intent.text ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val post = profile.posts.firstOrNull { it.id == postId }
+                ?: return CommunityProfileAuthenticationContinuationResolution.Clear
+            val replyTarget = intent.relatedId?.let { replyId -> post.comments.firstOrNull { it.id == replyId } }
+            if (intent.relatedId != null && replyTarget == null) {
+                CommunityProfileAuthenticationContinuationResolution.Clear
+            } else {
+                CommunityProfileAuthenticationContinuationResolution.AddComment(post, text, replyTarget)
+            }
+        }
+        AuthenticationContinuationKind.CommunityProfileReportPost -> intent.targetId
+            ?.takeIf { postId -> profile.posts.any { it.id == postId } }
+            ?.let(CommunityProfileAuthenticationContinuationResolution::EnsurePostReported)
+            ?: CommunityProfileAuthenticationContinuationResolution.Clear
+        AuthenticationContinuationKind.CommunityProfileConfirmReport -> {
+            if (intent.targetId == profile.user.id) {
+                CommunityProfileAuthenticationContinuationResolution.ConfirmModeration(ProfileModerationAction.Report)
+            } else CommunityProfileAuthenticationContinuationResolution.Clear
+        }
+        AuthenticationContinuationKind.CommunityProfileConfirmBlock -> {
+            if (intent.targetId != profile.user.id) return CommunityProfileAuthenticationContinuationResolution.Clear
+            when (intent.desiredState) {
+                true -> CommunityProfileAuthenticationContinuationResolution.ConfirmModeration(ProfileModerationAction.Block)
+                false -> CommunityProfileAuthenticationContinuationResolution.ConfirmModeration(ProfileModerationAction.Unblock)
+                null -> CommunityProfileAuthenticationContinuationResolution.Clear
+            }
+        }
+        else -> CommunityProfileAuthenticationContinuationResolution.Ignore
+    }
+}

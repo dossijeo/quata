@@ -146,11 +146,15 @@ fun WebNeighborhoodsHost(
             openingProfileUserId = state.openingProfileUserId,
             errorMessage = state.error,
             onAuthRequired = onAuthRequired,
+            onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+            authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+            authenticationContinuationOriginRoute = authenticationContinuationOriginRoute,
             onBack = {
                 val closed = viewModel.closeUserProfile()
                 if (closed && initialMemberProfileId != null) onInitialMemberProfileClosed()
             },
             onFollowUser = viewModel::toggleFollowUser,
+            onEnsureFollowUserState = viewModel::ensureFollowUserState,
             onOpenPrivateChat = { userId ->
                 viewModel.openPrivateChat(userId) { conversationId ->
                     viewModel.clearUserProfile()
@@ -163,7 +167,9 @@ fun WebNeighborhoodsHost(
             },
             onSetUserRoles = viewModel::setUserRoles,
             onReportPost = viewModel::reportProfilePost,
+            onEnsurePostReported = viewModel::ensureProfilePostReported,
             onTogglePostLike = viewModel::toggleProfilePostLike,
+            onEnsurePostLikeState = viewModel::ensureProfilePostLikeState,
             onReportProfile = viewModel::reportProfile,
             onSetProfileBlocked = viewModel::setProfileBlocked,
             onAddComment = viewModel::addProfileComment,
