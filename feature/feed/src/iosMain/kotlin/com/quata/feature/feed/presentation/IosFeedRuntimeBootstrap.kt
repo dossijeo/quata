@@ -1,6 +1,8 @@
 package com.quata.feature.feed.presentation
 
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.platform.ShareService
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
@@ -41,6 +43,8 @@ class IosFeedRuntimeBootstrap(
         onOpenUserProfile: (String) -> Unit = {},
         initialPostId: String? = null,
         onAuthRequired: () -> Unit = {},
+        onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+        authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
         onCreatePost: () -> Unit = {},
         onBackFromFocusedPost: (() -> Unit)? = null,
         onFocusedPostChanged: (String) -> Unit = {},
@@ -53,6 +57,8 @@ class IosFeedRuntimeBootstrap(
             onOpenUserProfile = onOpenUserProfile,
             initialPostId = initialPostId,
             onAuthRequired = onAuthRequired,
+            onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+            authenticationContinuationCoordinator = authenticationContinuationCoordinator,
             onCreatePost = onCreatePost,
             onBackFromFocusedPost = onBackFromFocusedPost,
             onFocusedPostChanged = onFocusedPostChanged,
@@ -66,6 +72,8 @@ class IosFeedRuntimeBootstrap(
         initialPostId: String? = null,
         onOpenUserProfile: (String) -> Unit = {},
         onAuthRequired: () -> Unit = {},
+        onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+        authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
         onCreatePost: () -> Unit = {},
         onBackFromFocusedPost: (() -> Unit)? = null,
         onFocusedPostChanged: (String) -> Unit = {},
@@ -79,6 +87,8 @@ class IosFeedRuntimeBootstrap(
         initialPostId = initialPostId,
         onOpenUserProfile = onOpenUserProfile,
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         onCreatePost = onCreatePost,
         onBackFromFocusedPost = onBackFromFocusedPost,
         onFocusedPostChanged = onFocusedPostChanged,

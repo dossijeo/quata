@@ -103,12 +103,12 @@ class IosFeedReadTransport(
      * It reuses the same session and headers as table mutations but never lets a caller build an
      * arbitrary PostgREST RPC path.
      */
-    suspend fun reportPostRpc(body: String): Result<Unit> = runCatching {
+    suspend fun reportUgcRpc(body: String): Result<Unit> = runCatching {
         require(authSession != null) { "ios_feed_session_missing" }
         val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_feed_session_missing")
         val base = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_url_missing")
         val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_feed_supabase_publishable_key_missing")
-        val request = iosFeedReportPostRpcRequest(base, body)
+        val request = iosFeedReportRpcRequest(base, body)
         val url = NSURL(string = request.url) ?: error("ios_feed_url_invalid")
         val headers = iosFeedPublicHeaders(key).toMutableMap().apply {
             put("Authorization", "Bearer ${session.bearerToken}")
@@ -201,10 +201,21 @@ internal data class IosPublicFeedRequest(
     val headers: Map<Any?, Any?>,
 )
 
-/** Pure contract for the only authenticated Feed RPC currently exposed by iOS. */
+/** Pure contract for the only authenticated Feed moderation RPC currently exposed by iOS. */
 internal data class IosFeedRpcRequest(val method: String, val url: String, val body: String)
 
-internal fun iosFeedReportPostRpcRequest(baseUrl: String, body: String): IosFeedRpcRequest = IosFeedRpcRequest(
+internal enum class IosFeedReportTarget(val wireValue: String) {
+    CommunityPost("community_post"),
+    CommunityComment("community_comment"),
+}
+
+internal fun iosFeedUgcReportBody(
+    actorProfileId: String,
+    target: IosFeedReportTarget,
+    targetId: String,
+): String = "{\"p_actor_profile_id\":\"$actorProfileId\",\"p_target_type\":\"${target.wireValue}\",\"p_target_id\":\"$targetId\",\"p_reason\":\"other\"}"
+
+internal fun iosFeedReportRpcRequest(baseUrl: String, body: String): IosFeedRpcRequest = IosFeedRpcRequest(
     method = "POST",
     url = "${baseUrl.trim().trimEnd('/')}/rest/v1/rpc/quata_ugc_report",
     body = body,

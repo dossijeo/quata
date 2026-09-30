@@ -61,6 +61,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
+import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
@@ -215,7 +219,7 @@ data class FeedScreenPlatformSlots(
  * It owns the common ViewModel lifetime, paging, focus/reset restoration and every Feed
  * mutation. Hosts only provide native media/avatar/share/message adapters and navigation.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, kotlin.time.ExperimentalTime::class)
 @Composable
 fun FeedScreenHost(
     padding: PaddingValues,
@@ -236,9 +240,10 @@ fun FeedScreenHost(
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit = {},
     onCreatePost: () -> Unit = {},
-    onReportComment: (String) -> Unit = {},
     onCommentsVisibilityChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -278,6 +283,10 @@ fun FeedScreenHost(
     val layoutDirection = LocalLayoutDirection.current
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
     val canParticipate = effectiveCurrentUserId != null
+    val pendingAuthenticationContinuation by (
+        authenticationContinuationCoordinator?.pending
+            ?: remember { kotlinx.coroutines.flow.MutableStateFlow<PendingAuthenticationContinuation?>(null) }
+        ).collectAsState()
     val ranks = remember(state.posts) { calculateFeedRanking(state.posts) }
     LaunchedEffect(state.posts, presence) {
         // Ranking rows are derived from these posts, so this also covers their author avatars.
@@ -307,6 +316,116 @@ fun FeedScreenHost(
     }
     LaunchedEffect(networkReconnectToken) {
         if (networkReconnectToken != 0L) viewModel.onEvent(FeedUiEvent.Refresh)
+    }
+    LaunchedEffect(
+        canParticipate,
+        pendingAuthenticationContinuation?.requestId,
+        state.posts,
+        state.focusedPostLoads,
+    ) {
+        if (!canParticipate) return@LaunchedEffect
+        val coordinator = authenticationContinuationCoordinator ?: return@LaunchedEffect
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        val intent = pending.intent
+        fun resolvePost(postId: String): Post? {
+            state.posts.firstOrNull { it.id == postId }?.let { return it }
+            when (state.focusedPostLoads[postId]) {
+                FeedFocusedPostLoad.Loading, FeedFocusedPostLoad.Failed -> Unit
+                FeedFocusedPostLoad.NotFound -> coordinator.clear(pending.requestId)
+                FeedFocusedPostLoad.Loaded, null -> viewModel.onEvent(FeedUiEvent.FocusPost(postId))
+            }
+            return null
+        }
+        when (intent.kind) {
+            AuthenticationContinuationKind.FeedTogglePostLike -> {
+                val postId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val desiredState = intent.desiredState ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                if (post.isLikedByCurrentUser == desiredState) {
+                    coordinator.clear(pending.requestId)
+                } else if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.onEvent(FeedUiEvent.ToggleLike(postId))
+                }
+            }
+            AuthenticationContinuationKind.FeedReportPost -> {
+                val postId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                if (!post.isReportedByCurrentUser && coordinator.claim(pending.requestId) != null) {
+                    viewModel.onEvent(FeedUiEvent.ReportPost(postId))
+                    showMessage(strings.reportSuccess)
+                } else if (post.isReportedByCurrentUser) {
+                    coordinator.clear(pending.requestId)
+                }
+            }
+            AuthenticationContinuationKind.FeedOpenComposer -> {
+                if (coordinator.claim(pending.requestId) != null) onCreatePost()
+            }
+            AuthenticationContinuationKind.FeedAddComment -> {
+                val postId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val text = intent.text ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                val replyTarget = intent.relatedId?.let { replyId -> post.comments.firstOrNull { it.id == replyId } }
+                if (intent.relatedId != null && replyTarget == null) {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                if (coordinator.claim(pending.requestId) != null) {
+                    val now = nowCommentTimestamp()
+                    viewModel.onEvent(
+                        FeedUiEvent.AddComment(
+                            postId,
+                            PostComment(
+                                id = "local_${postId}_$now",
+                                authorName = strings.commentsYou,
+                                message = text,
+                                timestamp = now,
+                                replyToAuthorName = replyTarget?.authorName,
+                                replyToMessage = replyTarget?.message,
+                                replyToCommentId = replyTarget?.id,
+                            ),
+                        ),
+                    )
+                }
+            }
+            AuthenticationContinuationKind.FeedReportComment -> {
+                val commentId = intent.targetId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val postId = intent.relatedId ?: run {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                val post = resolvePost(postId) ?: return@LaunchedEffect
+                if (post.comments.none { it.id == commentId }) {
+                    coordinator.clear(pending.requestId)
+                    return@LaunchedEffect
+                }
+                if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.onEvent(FeedUiEvent.ReportComment(commentId))
+                }
+            }
+        }
+    }
+    LaunchedEffect(state.confirmedCommentReportIds) {
+        val commentId = state.confirmedCommentReportIds.firstOrNull() ?: return@LaunchedEffect
+        showMessage(strings.reportSuccess)
+        viewModel.onEvent(FeedUiEvent.ConfirmedCommentReportConsumed(commentId))
     }
     LaunchedEffect(state.posts, pendingDeletedPostId) {
         val deletedId = pendingDeletedPostId ?: return@LaunchedEffect
@@ -504,7 +623,16 @@ fun FeedScreenHost(
                     avatar = { slots.avatarWithPresence(post, presence?.let { post.author.id in onlineProfileIds }) },
                     onOpenComments = { commentsPostId = post.id },
                     onOpenLive = { liveOpen = true },
-                    onLike = { if (canParticipate) viewModel.onEvent(FeedUiEvent.ToggleLike(post.id)) else onAuthRequired() },
+                    onLike = {
+                        if (canParticipate) viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
+                        else onAuthenticationContinuationRequired(
+                            feedAuthenticationContinuation(
+                                AuthenticationContinuationKind.FeedTogglePostLike,
+                                post.id,
+                                desiredState = !post.isLikedByCurrentUser,
+                            ),
+                        )
+                    },
                     onDelete = { deletionPostId = post.id },
                     onShare = {
                         scope.launch {
@@ -517,9 +645,16 @@ fun FeedScreenHost(
                     onReport = {
                         if (post.isReportedByCurrentUser) Unit
                         else if (canParticipate) { viewModel.onEvent(FeedUiEvent.ReportPost(post.id)); showMessage(strings.reportSuccess) }
-                        else onAuthRequired()
+                        else onAuthenticationContinuationRequired(
+                            feedAuthenticationContinuation(AuthenticationContinuationKind.FeedReportPost, post.id),
+                        )
                     },
-                    onCreatePost = { if (canParticipate) onCreatePost() else onAuthRequired() },
+                    onCreatePost = {
+                        if (canParticipate) onCreatePost()
+                        else onAuthenticationContinuationRequired(
+                            feedAuthenticationContinuation(AuthenticationContinuationKind.FeedOpenComposer),
+                        )
+                    },
                     onOpenAuthorProfile = { onOpenUserProfile(post.author.id) },
                 )
             }
@@ -573,8 +708,10 @@ fun FeedScreenHost(
             post = post,
             canParticipate = canParticipate,
             strings = strings,
-            onAuthRequired = onAuthRequired,
-            onReportComment = onReportComment,
+            onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+            onReportComment = { commentId ->
+                viewModel.onEvent(FeedUiEvent.ReportComment(commentId))
+            },
             onOpenUserProfile = { profileId ->
                 commentsPostId = null
                 onOpenUserProfile(profileId)
@@ -626,6 +763,21 @@ fun FeedScreenHost(
 internal fun feedSharePayload(post: Post, title: String): SharePayload =
     SharePayload(text = quataPostUrl(post.id), title = title)
 
+internal fun feedAuthenticationContinuation(
+    kind: AuthenticationContinuationKind,
+    targetId: String? = null,
+    relatedId: String? = null,
+    text: String? = null,
+    desiredState: Boolean? = null,
+): AuthenticationContinuationIntent = AuthenticationContinuationIntent(
+    kind = kind,
+    originRoute = "feed",
+    targetId = targetId,
+    relatedId = relatedId,
+    text = text,
+    desiredState = desiredState,
+)
+
 /** A cancelled native share sheet is not an error; unavailable/failing adapters must be visible. */
 internal fun feedShareResultMessage(
     result: PlatformResult<Unit>,
@@ -643,7 +795,7 @@ private fun FeedCommentsDialog(
     post: Post,
     canParticipate: Boolean,
     strings: FeedScreenStrings,
-    onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit,
     onReportComment: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onAddComment: (PostComment) -> Unit,
@@ -713,7 +865,7 @@ private fun FeedCommentsDialog(
     slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
         if (!landscape) QuataCommentsPanelPortraitContent(
                 header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { modifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, modifier.testTag("feed.comments.translator"), ::openTranslator, translatorEnabled) }) },
-                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
+                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthenticationContinuationRequired(feedAuthenticationContinuation(AuthenticationContinuationKind.FeedReportComment, comment.id, post.id)) }) }; item { Spacer(Modifier.height(24.dp)) } } },
                 replyTarget = replyTo?.let {
                     {
                         QuataReplyTargetBannerContent(
@@ -727,14 +879,14 @@ private fun FeedCommentsDialog(
                     }
                 },
                 emojiPanel = if (isEmojiPickerVisible) {{ FeedCommunityEmojiPanel(emojiCatalogState(), strings, emojiGridMaxHeight, { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)) }} else null,
-                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, enabled = pendingCommentId == null, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { comment -> pendingDraft = draft; pendingReplyTo = replyTo; pendingCommentId = comment.id; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth(), isSending = pendingCommentId != null, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, enabled = pendingCommentId == null, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, { onAuthenticationContinuationRequired(feedAuthenticationContinuation(AuthenticationContinuationKind.FeedAddComment, post.id, replyTo?.id, draft.text.trim())) }, onAddComment, { comment -> pendingDraft = draft; pendingReplyTo = replyTo; pendingCommentId = comment.id; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth(), isSending = pendingCommentId != null, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
                 errorMessage = visibleCommentErrorMessage,
                 errorTestTag = "feed.comments.error",
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         ) else QuataCommentsPanelLandscapeContent(
             header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier.testTag("feed.comments.translator"), ::openTranslator, translatorEnabled) }, modifier) },
             closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
-            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
+            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthenticationContinuationRequired(feedAuthenticationContinuation(AuthenticationContinuationKind.FeedReportComment, comment.id, post.id)) }) }; item { Spacer(Modifier.height(12.dp)) } } },
             replyTarget = replyTo?.let {
                 {
                     QuataReplyTargetBannerContent(
@@ -747,7 +899,7 @@ private fun FeedCommentsDialog(
                     )
                 }
             },
-            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, enabled = pendingCommentId == null, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { comment -> pendingDraft = draft; pendingReplyTo = replyTo; pendingCommentId = comment.id; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier, isSending = pendingCommentId != null, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, enabled = pendingCommentId == null, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, { onAuthenticationContinuationRequired(feedAuthenticationContinuation(AuthenticationContinuationKind.FeedAddComment, post.id, replyTo?.id, draft.text.trim())) }, onAddComment, { comment -> pendingDraft = draft; pendingReplyTo = replyTo; pendingCommentId = comment.id; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier, isSending = pendingCommentId != null, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
             emojiPanel = if (isEmojiPickerVisible) {{ FeedCommunityEmojiPanel(emojiCatalogState(), strings, emojiGridMaxHeight, { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState)) }} else null,
             errorMessage = visibleCommentErrorMessage,
             errorTestTag = "feed.comments.error",

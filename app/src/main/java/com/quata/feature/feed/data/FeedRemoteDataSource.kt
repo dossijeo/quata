@@ -73,4 +73,7 @@ class FeedRemoteDataSource(
 
     suspend fun reportPost(postId: String, profileId: String) =
         supabaseApi.reportUgc(profileId, "community_post", postId, "other")
+
+    suspend fun reportComment(commentId: String, profileId: String) =
+        supabaseApi.reportUgc(profileId, "community_comment", commentId, "other")
 }

@@ -22,6 +22,8 @@ interface FeedReadRepository {
 interface FeedMutationRepository {
     suspend fun toggleLike(postId: String): Result<Post?>
     suspend fun reportPost(postId: String): Result<Post?>
+    suspend fun reportComment(commentId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("feed_comment_report_not_supported"))
     suspend fun addComment(postId: String, comment: PostComment): Result<Post?>
     suspend fun deletePost(postId: String): Result<Unit>
 }
@@ -39,6 +41,8 @@ class ReadOnlyFeedRepository(
     override suspend fun toggleLike(postId: String): Result<Post?> = unsupportedMutation()
 
     override suspend fun reportPost(postId: String): Result<Post?> = unsupportedMutation()
+
+    override suspend fun reportComment(commentId: String): Result<Unit> = unsupportedMutation()
 
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = unsupportedMutation()
 

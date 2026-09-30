@@ -171,6 +171,8 @@ import com.quata.designsystem.translation.quataTranslatableText
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.textCanvasTypography
 import com.quata.feature.feed.domain.FeedRepository
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -201,8 +203,9 @@ fun FeedScreen(
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreatePost: () -> Unit = {},
-    onReportComment: (String) -> Unit = {},
     onLandscapeCommentsOverlayActiveChange: (Boolean) -> Unit = {},
     viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository)),
 ) {
@@ -226,9 +229,10 @@ fun FeedScreen(
         onBackFromFocusedPost = onBackFromFocusedPost,
         onFocusedPostChanged = onFocusedPostChanged,
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         onOpenUserProfile = onOpenUserProfile,
         onCreatePost = onCreatePost,
-        onReportComment = onReportComment,
         onCommentsVisibilityChanged = onLandscapeCommentsOverlayActiveChange,
         strings = FeedScreenStrings(
             empty = stringResource(R.string.feed_empty),

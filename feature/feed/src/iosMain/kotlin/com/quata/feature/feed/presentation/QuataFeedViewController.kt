@@ -14,6 +14,8 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
@@ -48,6 +50,8 @@ class IosFeedHostDependencies(
     val presence: FeedUserPresence? = null,
     /** Capability gate owned by the UIKit app router; the Feed remains publicly readable. */
     val onAuthRequired: () -> Unit = {},
+    val onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    val authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     val onCreatePost: () -> Unit = {},
     val onBackFromFocusedPost: (() -> Unit)? = null,
     val onFocusedPostChanged: (String) -> Unit = {},
@@ -66,6 +70,8 @@ fun iosReadOnlyFeedHostDependencies(
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
@@ -78,6 +84,8 @@ fun iosReadOnlyFeedHostDependencies(
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
     onAuthRequired = onAuthRequired,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onCreatePost = onCreatePost,
     onBackFromFocusedPost = onBackFromFocusedPost,
     onFocusedPostChanged = onFocusedPostChanged,
@@ -97,6 +105,8 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onOpenUserProfile: (String) -> Unit = {},
     initialPostId: String? = null,
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
@@ -109,6 +119,8 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onOpenUserProfile = onOpenUserProfile,
     initialPostId = initialPostId,
     onAuthRequired = onAuthRequired,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onCreatePost = onCreatePost,
     onBackFromFocusedPost = onBackFromFocusedPost,
     onFocusedPostChanged = onFocusedPostChanged,
@@ -125,6 +137,8 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     initialPostId: String? = null,
     onOpenUserProfile: (String) -> Unit = {},
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreatePost: () -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
@@ -141,6 +155,8 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
         initialPostId = initialPostId,
         presence = IosFeedPresence(configuration, authSession),
         onAuthRequired = onAuthRequired,
+        onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         onCreatePost = onCreatePost,
         onBackFromFocusedPost = onBackFromFocusedPost,
         onFocusedPostChanged = onFocusedPostChanged,
@@ -209,6 +225,8 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
             ),
             onOpenUserProfile = dependencies.onOpenUserProfile,
             onAuthRequired = dependencies.onAuthRequired,
+            onAuthenticationContinuationRequired = dependencies.onAuthenticationContinuationRequired,
+            authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
             onCreatePost = dependencies.onCreatePost,
             onBackFromFocusedPost = dependencies.onBackFromFocusedPost,
             onFocusedPostChanged = dependencies.onFocusedPostChanged,
