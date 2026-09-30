@@ -29,6 +29,8 @@ import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentViewerState
@@ -83,6 +85,9 @@ class IosNeighborhoodsHostDependencies(
     val onOpenConversation: (String) -> Unit,
     /** Public Communities may browse anonymously; writes/navigation acquire Auth at the shell. */
     val onAuthRequired: () -> Unit = {},
+    val onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    val authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    val authenticationContinuationOriginRoute: String = "communities",
     val profileNavigator: IosCommunityProfileNavigator,
 )
 
@@ -100,6 +105,9 @@ fun createIosNeighborhoodsHostDependencies(
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (CommunityUserProfile) -> Unit,
     onAuthRequired: () -> Unit = {},
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    authenticationContinuationOriginRoute: String = "communities",
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
@@ -118,6 +126,9 @@ fun createIosNeighborhoodsHostDependencies(
     },
     onOpenConversation = onOpenConversation,
     onAuthRequired = onAuthRequired,
+    onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+    authenticationContinuationOriginRoute = authenticationContinuationOriginRoute,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
 )
 
@@ -151,6 +162,9 @@ fun QuataNeighborhoodsViewController(
                 dependencies.viewModel.openUserProfile(userId)
             },
             onAuthRequired = dependencies.onAuthRequired,
+            onAuthenticationContinuationRequired = dependencies.onAuthenticationContinuationRequired,
+            authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
+            authenticationContinuationOriginRoute = dependencies.authenticationContinuationOriginRoute,
             padding = PaddingValues(),
             model = dependencies.viewModel,
             closeModelOnDispose = true,

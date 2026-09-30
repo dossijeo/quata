@@ -2119,6 +2119,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     onOpenConversation: { _ in },
                     onNavigateToProfile: { _ in },
                     onAuthRequired: {},
+                    onAuthenticationContinuationRequired: { _ in },
+                    authenticationContinuationCoordinator: nil,
+                    authenticationContinuationOriginRoute: "communities",
                 ),
             )
         }

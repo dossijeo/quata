@@ -10,6 +10,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.quata.core.navigation.AuthenticationContinuationCoordinator
+import com.quata.core.navigation.AuthenticationContinuationIntent
+import com.quata.core.navigation.AuthenticationContinuationKind
+import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +61,9 @@ fun NeighborhoodsScreenHost(
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
+    authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
+    authenticationContinuationOriginRoute: String = "communities",
     padding: PaddingValues,
     repository: NeighborhoodRepository? = null,
     model: NeighborhoodsScreenModel? = null,
@@ -74,6 +81,10 @@ fun NeighborhoodsScreenHost(
     }
     val viewModel = model ?: requireNotNull(ownedModel)
     val state by viewModel.uiState.collectAsState()
+    val pendingAuthenticationContinuation by (
+        authenticationContinuationCoordinator?.pending
+            ?: remember { kotlinx.coroutines.flow.MutableStateFlow<PendingAuthenticationContinuation?>(null) }
+        ).collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -95,6 +106,43 @@ fun NeighborhoodsScreenHost(
         if (selected != null) selectedCommunity = selected.name
     }
 
+    LaunchedEffect(
+        currentUserId,
+        pendingAuthenticationContinuation?.requestId,
+        state.communities,
+        state.isLoading,
+    ) {
+        if (currentUserId.isNullOrBlank()) return@LaunchedEffect
+        val coordinator = authenticationContinuationCoordinator ?: return@LaunchedEffect
+        val pending = pendingAuthenticationContinuation ?: return@LaunchedEffect
+        val intent = pending.intent
+        when (val resolution = resolveCommunitiesAuthenticationContinuation(
+            intent = intent,
+            originRoute = authenticationContinuationOriginRoute,
+            communities = state.communities,
+            isLoading = state.isLoading,
+        )) {
+            CommunitiesAuthenticationContinuationResolution.Ignore,
+            CommunitiesAuthenticationContinuationResolution.Wait -> Unit
+            CommunitiesAuthenticationContinuationResolution.Clear -> coordinator.clear(pending.requestId)
+            is CommunitiesAuthenticationContinuationResolution.OpenNeighborhoodChat -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.openChat(resolution.neighborhood, onOpenConversation)
+                }
+            }
+            is CommunitiesAuthenticationContinuationResolution.ToggleFollow -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.toggleFollowUser(resolution.userId)
+                }
+            }
+            is CommunitiesAuthenticationContinuationResolution.OpenPrivateChat -> {
+                if (coordinator.claim(pending.requestId) != null) {
+                    viewModel.openPrivateChat(resolution.userId, onOpenConversation)
+                }
+            }
+        }
+    }
+
     val selected = state.communities.firstOrNull { it.name == selectedCommunity }
     if (selected != null) {
         NeighborhoodUsersContent(
@@ -113,7 +161,14 @@ fun NeighborhoodsScreenHost(
             },
             onFollowUser = { user ->
                 if (canPerformNeighborhoodPrivateAction(currentUserId)) viewModel.toggleFollowUser(user.id)
-                else onAuthRequired()
+                else onAuthenticationContinuationRequired(
+                    communitiesAuthenticationContinuation(
+                        kind = AuthenticationContinuationKind.CommunitiesToggleFollow,
+                        originRoute = authenticationContinuationOriginRoute,
+                        targetId = user.id,
+                        desiredState = !user.isFollowing,
+                    ),
+                )
             },
             onOpenProfile = { user ->
                 viewModel.cancelPrivateChatOpen()
@@ -126,7 +181,13 @@ fun NeighborhoodsScreenHost(
                         onOpenConversation(conversationId)
                     }
                 } else {
-                    onAuthRequired()
+                    onAuthenticationContinuationRequired(
+                        communitiesAuthenticationContinuation(
+                            kind = AuthenticationContinuationKind.CommunitiesOpenPrivateChat,
+                            originRoute = authenticationContinuationOriginRoute,
+                            targetId = user.id,
+                        ),
+                    )
                 }
             },
         )
@@ -147,7 +208,13 @@ fun NeighborhoodsScreenHost(
                 if (canPerformNeighborhoodPrivateAction(currentUserId)) {
                     viewModel.openChat(community.name, onOpenConversation)
                 } else {
-                    onAuthRequired()
+                    onAuthenticationContinuationRequired(
+                        communitiesAuthenticationContinuation(
+                            kind = AuthenticationContinuationKind.CommunitiesOpenNeighborhoodChat,
+                            originRoute = authenticationContinuationOriginRoute,
+                            targetId = community.name,
+                        ),
+                    )
                 }
             },
         )
@@ -156,3 +223,52 @@ fun NeighborhoodsScreenHost(
 
 private fun neighborhoodRequestKey(value: String): String =
     value.trim().lowercase().replace(Regex("[^a-z0-9]+"), ".").trim('.')
+
+internal fun communitiesAuthenticationContinuation(
+    kind: AuthenticationContinuationKind,
+    originRoute: String,
+    targetId: String,
+    desiredState: Boolean? = null,
+): AuthenticationContinuationIntent = AuthenticationContinuationIntent(
+    kind = kind,
+    originRoute = originRoute,
+    targetId = targetId,
+    desiredState = desiredState,
+)
+
+internal sealed interface CommunitiesAuthenticationContinuationResolution {
+    data object Ignore : CommunitiesAuthenticationContinuationResolution
+    data object Wait : CommunitiesAuthenticationContinuationResolution
+    data object Clear : CommunitiesAuthenticationContinuationResolution
+    data class OpenNeighborhoodChat(val neighborhood: String) : CommunitiesAuthenticationContinuationResolution
+    data class ToggleFollow(val userId: String) : CommunitiesAuthenticationContinuationResolution
+    data class OpenPrivateChat(val userId: String) : CommunitiesAuthenticationContinuationResolution
+}
+
+internal fun resolveCommunitiesAuthenticationContinuation(
+    intent: AuthenticationContinuationIntent,
+    originRoute: String,
+    communities: List<com.quata.feature.neighborhoods.domain.NeighborhoodCommunity>,
+    isLoading: Boolean,
+): CommunitiesAuthenticationContinuationResolution {
+    if (intent.originRoute != originRoute) return CommunitiesAuthenticationContinuationResolution.Ignore
+    return when (intent.kind) {
+        AuthenticationContinuationKind.CommunitiesOpenNeighborhoodChat -> intent.targetId
+            ?.let(CommunitiesAuthenticationContinuationResolution::OpenNeighborhoodChat)
+            ?: CommunitiesAuthenticationContinuationResolution.Clear
+        AuthenticationContinuationKind.CommunitiesToggleFollow -> {
+            val userId = intent.targetId ?: return CommunitiesAuthenticationContinuationResolution.Clear
+            val desiredState = intent.desiredState ?: return CommunitiesAuthenticationContinuationResolution.Clear
+            val user = communities.asSequence().flatMap { it.users.asSequence() }.firstOrNull { it.id == userId }
+            when {
+                user == null && isLoading -> CommunitiesAuthenticationContinuationResolution.Wait
+                user == null || user.isFollowing == desiredState -> CommunitiesAuthenticationContinuationResolution.Clear
+                else -> CommunitiesAuthenticationContinuationResolution.ToggleFollow(userId)
+            }
+        }
+        AuthenticationContinuationKind.CommunitiesOpenPrivateChat -> intent.targetId
+            ?.let(CommunitiesAuthenticationContinuationResolution::OpenPrivateChat)
+            ?: CommunitiesAuthenticationContinuationResolution.Clear
+        else -> CommunitiesAuthenticationContinuationResolution.Ignore
+    }
+}

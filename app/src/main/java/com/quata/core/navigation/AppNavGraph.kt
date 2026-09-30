@@ -920,7 +920,12 @@ fun AppNavGraph(
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },
-                        onAuthRequired = { requestAuthentication() }
+                        onAuthRequired = { requestAuthentication() },
+                        onAuthenticationContinuationRequired = { continuation ->
+                            requestAuthentication(continuation = continuation)
+                        },
+                        authenticationContinuationCoordinator = authenticationContinuationCoordinator,
+                        authenticationContinuationOriginRoute = AppDestinations.Neighborhoods.route,
                     )
                 }
 
