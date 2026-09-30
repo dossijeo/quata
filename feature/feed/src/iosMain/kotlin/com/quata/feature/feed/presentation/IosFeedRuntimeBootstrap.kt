@@ -99,6 +99,13 @@ class IosFeedRuntimeBootstrap(
             onCompleted(authSession.validatedRestoredSession() != null)
         }
     }
+
+    /** Resolves an expired session before routing an external private destination. */
+    fun validateSessionForExternalRoute(onCompleted: (Boolean) -> Unit) {
+        launchValidationScope.launch {
+            onCompleted(authSession.currentSession() != null)
+        }
+    }
 }
 
 /**

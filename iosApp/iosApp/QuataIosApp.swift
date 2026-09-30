@@ -550,7 +550,20 @@ private final class IosAppCompositionRoot {
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
-        _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
+        guard hasValidatedAuthenticatedSession, let runtimeBootstrap else {
+            _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
+            return true
+        }
+        runtimeBootstrap.validateSessionForExternalRoute { [weak self] valid in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if !valid.boolValue, self.hasValidatedAuthenticatedSession {
+                    self.hasValidatedAuthenticatedSession = false
+                    self.authenticatedHost.expireAuthenticatedSession()
+                }
+                _ = self.deepLinkDispatcher.handleUrl(url: url.absoluteString)
+            }
+        }
         return true
     }
 
@@ -3396,6 +3409,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 self?.finishLogout()
             }
         }
+    }
+
+    /// The session owner has already cleared the exact rejected Keychain record. Reuse the
+    /// normal local teardown so the pending external route is handled by the public Auth gate.
+    func expireAuthenticatedSession() {
+        guard hasAuthenticatedSession, !isLoggingOut else { return }
+        isLoggingOut = true
+        finishLogout()
     }
 
     func reportLogoutFailure() {

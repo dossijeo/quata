@@ -42,7 +42,7 @@ data class IosSupabaseAuthRuntimeConfiguration(
 class IosSupabaseAuthSessionRefresher(
     private val configuration: IosSupabaseAuthRuntimeConfiguration,
 ) : IosAuthSessionRefresher {
-    override suspend fun refresh(session: AuthSession): AuthSession? = runCatching {
+    override suspend fun refresh(session: AuthSession): AuthSession? = try {
         val refreshToken = session.refreshToken?.takeIf(String::isNotBlank)
             ?: error("ios_auth_refresh_token_missing")
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty)
@@ -62,8 +62,14 @@ class IosSupabaseAuthSessionRefresher(
             setValue("application/json", "Content-Type")
         }
         request.iosData().toRefreshedAuthSession(session)
-    }.getOrNull()
+    } catch (_: IosAuthRefreshHttpRejectedException) {
+        throw IosAuthSessionRejectedException(session)
+    } catch (_: Throwable) {
+        null
+    }
 }
+
+private class IosAuthRefreshHttpRejectedException : RuntimeException("ios_auth_refresh_rejected")
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSURLRequest.iosData(): NSData = suspendCancellableCoroutine { continuation ->
@@ -100,6 +106,8 @@ private class IosAuthDataTaskDelegate(
         if (status == 400 || status == 401) {
             // Numeric transport evidence only: never log credentials or response bodies.
             NSLog("Quata auth refresh rejected status=$status")
+            continuation.resumeWithException(IosAuthRefreshHttpRejectedException())
+            return
         }
         if (status == null || status !in 200..299) {
             continuation.resumeWithException(IllegalStateException("ios_auth_refresh_http_${status ?: "unknown"}"))

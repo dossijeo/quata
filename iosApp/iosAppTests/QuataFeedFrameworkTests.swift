@@ -892,6 +892,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
     }
 
+    func testRejectedSessionUsesLocalLogoutTeardownBeforeGatingTheExternalChat() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let authenticatedFeed = UIViewController()
+        let publicFeed = UIViewController()
+        let prompt = UIViewController()
+        router.installFeedFactory { _ in authenticatedFeed }
+        router.installAuthRequiredPromptFactory { prompt }
+        router.installLogoutAction({ _ in XCTFail("Terminal refresh rejection must not replay remote logout.") }) {
+            router.installPublicFeed { _ in publicFeed }
+        }
+
+        router.expireAuthenticatedSession()
+        router.showChat(conversationId: "sb:3443", messageId: "12628")
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === publicFeed)
+        XCTAssertTrue(router.presentedViewController?.children.first === prompt)
+        XCTAssertFalse(router.children.contains { $0 === authenticatedFeed })
+    }
+
     func testAuthRequiredPromptCreateAccountOpensRegistrationFullScreenOutsideShell() {
         let mounted = mountRouter()
         let router = mounted.router
