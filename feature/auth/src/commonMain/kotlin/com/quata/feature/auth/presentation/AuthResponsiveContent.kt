@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -31,7 +32,15 @@ fun AuthResponsiveContent(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
-        val scrollState = rememberScrollState()
+        val portraitScrollState = rememberScrollState()
+        val landscapeScrollState = rememberScrollState()
+        LaunchedEffect(isLandscape) {
+            if (isLandscape) {
+                landscapeScrollState.scrollTo(0)
+            } else {
+                portraitScrollState.scrollTo(0)
+            }
+        }
         if (isLandscape) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
@@ -44,14 +53,14 @@ fun AuthResponsiveContent(
                     verticalArrangement = Arrangement.Center,
                 ) { QuataLogo(subtitle = subtitle) }
                 Column(
-                    modifier = Modifier.weight(1f).fillMaxHeight().imePadding().verticalScroll(scrollState).padding(vertical = 2.dp),
+                    modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(landscapeScrollState).imePadding().padding(vertical = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.Top,
                 ) { content(true) }
             }
         } else {
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(min = maxHeight).imePadding().verticalScroll(scrollState)
+                modifier = Modifier.fillMaxWidth().heightIn(min = maxHeight).verticalScroll(portraitScrollState).imePadding()
                     .padding(horizontal = 18.dp, vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
