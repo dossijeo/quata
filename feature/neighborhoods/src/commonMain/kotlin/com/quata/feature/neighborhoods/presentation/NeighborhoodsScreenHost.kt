@@ -31,6 +31,7 @@ interface NeighborhoodsScreenModel {
     fun stopObservingCommunities()
     fun openChat(neighborhood: String, onOpened: (String) -> Unit)
     fun toggleFollowUser(userId: String)
+    fun ensureFollowUserState(userId: String, desiredState: Boolean)
     fun openPrivateChat(userId: String, onOpened: (String) -> Unit)
     fun cancelPrivateChatOpen()
     fun openUserProfile(userId: String)
@@ -130,9 +131,9 @@ fun NeighborhoodsScreenHost(
                     viewModel.openChat(resolution.neighborhood, onOpenConversation)
                 }
             }
-            is CommunitiesAuthenticationContinuationResolution.ToggleFollow -> {
+            is CommunitiesAuthenticationContinuationResolution.EnsureFollowState -> {
                 if (coordinator.claim(pending.requestId) != null) {
-                    viewModel.toggleFollowUser(resolution.userId)
+                    viewModel.ensureFollowUserState(resolution.userId, resolution.desiredState)
                 }
             }
             is CommunitiesAuthenticationContinuationResolution.OpenPrivateChat -> {
@@ -241,7 +242,10 @@ internal sealed interface CommunitiesAuthenticationContinuationResolution {
     data object Wait : CommunitiesAuthenticationContinuationResolution
     data object Clear : CommunitiesAuthenticationContinuationResolution
     data class OpenNeighborhoodChat(val neighborhood: String) : CommunitiesAuthenticationContinuationResolution
-    data class ToggleFollow(val userId: String) : CommunitiesAuthenticationContinuationResolution
+    data class EnsureFollowState(
+        val userId: String,
+        val desiredState: Boolean,
+    ) : CommunitiesAuthenticationContinuationResolution
     data class OpenPrivateChat(val userId: String) : CommunitiesAuthenticationContinuationResolution
 }
 
@@ -262,8 +266,8 @@ internal fun resolveCommunitiesAuthenticationContinuation(
             val user = communities.asSequence().flatMap { it.users.asSequence() }.firstOrNull { it.id == userId }
             when {
                 user == null && isLoading -> CommunitiesAuthenticationContinuationResolution.Wait
-                user == null || user.isFollowing == desiredState -> CommunitiesAuthenticationContinuationResolution.Clear
-                else -> CommunitiesAuthenticationContinuationResolution.ToggleFollow(userId)
+                user == null -> CommunitiesAuthenticationContinuationResolution.Clear
+                else -> CommunitiesAuthenticationContinuationResolution.EnsureFollowState(userId, desiredState)
             }
         }
         AuthenticationContinuationKind.CommunitiesOpenPrivateChat -> intent.targetId

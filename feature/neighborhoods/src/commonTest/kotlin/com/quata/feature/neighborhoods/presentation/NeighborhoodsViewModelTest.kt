@@ -32,6 +32,42 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NeighborhoodsViewModelTest {
     @Test
+    fun `continuation does not invert an existing follow hidden by the anonymous directory`() = runTest {
+        val anonymousDirectoryUser = user("peer").copy(isFollowing = false)
+        val repository = FakeNeighborhoodRepository().apply {
+            communitiesFlow = flowOf(
+                listOf(
+                    NeighborhoodCommunity(
+                        name = "Barrio",
+                        users = listOf(anonymousDirectoryUser),
+                        conversationId = null,
+                        lastMessagePreview = null,
+                        lastMessageAtMillis = null,
+                        messageCount = 0,
+                    ),
+                ),
+            )
+            profileResults["peer"] = CompletableDeferred(
+                Result.success(profile("peer", user("peer").copy(isFollowing = true))),
+            )
+        }
+        val model = model(repository)
+
+        model.startObservingCommunities()
+        advanceUntilIdle()
+        assertFalse(model.uiState.value.communities.single().users.single().isFollowing)
+
+        model.ensureFollowUserState("peer", desiredState = true)
+        advanceUntilIdle()
+
+        assertEquals(listOf("peer"), repository.getUserProfileCalls)
+        assertTrue(repository.followCalls.isEmpty())
+        assertTrue(model.uiState.value.communities.single().users.single().isFollowing)
+        assertEquals(null, model.uiState.value.followingUserId)
+        model.close()
+    }
+
+    @Test
     fun `directory load failure leaves a stable error state`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             communitiesFlow = flow { throw IllegalStateException("offline") }

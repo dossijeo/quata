@@ -58,22 +58,20 @@ class NeighborhoodsAuthenticationContinuationTest {
     }
 
     @Test
-    fun `follow continuation preserves desired state and never inverts a satisfied state`() {
+    fun `follow continuation preserves desired state for a fresh relationship lookup`() {
         val follow = communitiesAuthenticationContinuation(
             kind = AuthenticationContinuationKind.CommunitiesToggleFollow,
             originRoute = "communities",
             targetId = "peer",
             desiredState = true,
         )
-        val alreadyFollowed = follow.copy(targetId = "followed")
-
         assertEquals(
-            CommunitiesAuthenticationContinuationResolution.ToggleFollow("peer"),
+            CommunitiesAuthenticationContinuationResolution.EnsureFollowState("peer", true),
             resolveCommunitiesAuthenticationContinuation(follow, "communities", communities, isLoading = false),
         )
         assertEquals(
-            CommunitiesAuthenticationContinuationResolution.Clear,
-            resolveCommunitiesAuthenticationContinuation(alreadyFollowed, "communities", communities, isLoading = false),
+            CommunitiesAuthenticationContinuationResolution.EnsureFollowState("followed", true),
+            resolveCommunitiesAuthenticationContinuation(follow.copy(targetId = "followed"), "communities", communities, isLoading = false),
         )
     }
 
