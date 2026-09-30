@@ -5,7 +5,8 @@ import {awaitNativeWarmDeepLinkRejectionExpiry,prepareAndroidNativeDeepLinkRejec
   prepareIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {androidDeepLinkCustodySettled,iosDeepLinkCustodySettled} from './e2e-fixtures/chat-deep-link-ios-custody.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
-  androidNativeDeepLinkRejectionCustodySettled,observeIosNativeDeepLinkRejection,clearIosNativeDeepLinkRejection,
+  androidNativeDeepLinkRejectionCustodySettled,observeIosNativeDeepLinkRejection,
+  confirmIosNativeDeepLinkRejectionAbsence,clearIosNativeDeepLinkRejection,
   iosNativeDeepLinkRejectionCustodySettled} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
 
 function fixture() {
@@ -216,13 +217,26 @@ for(const platform of ['android','ios'])test(`${platform} warm rejection stays i
   await (platform==='android'?observeAndroidNativeDeepLinkRejection:observeIosNativeDeepLinkRejection)(f.args);
   if(platform==='android')await confirmAndroidNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),
     execute:async input=>({...input,verified:true})});
-  else await clearIosNativeDeepLinkRejection({...f.args,stepId:randomUUID(),execute:async input=>{
-    assert.equal(input.stage,'clear');assert.equal(input.accessToken,f.saved.state.sessions[0].iosSession.install.input.accessToken);
-    return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
-  }});
+  else await confirmIosNativeDeepLinkRejectionAbsence({...f.args,stepId:randomUUID(),
+    execute:async input=>({runId:input.runId,stepId:input.stepId,probe:true,verified:true})});
   const entry=f.saved.state.sessions[0];
   assert.equal(platform==='android'?androidDeepLinkCustodySettled(entry):iosDeepLinkCustodySettled(entry),true);
   assert.equal(entry.nativeSessionRejection.mode,'warm');assert.equal(entry.nativeSessionRejection.prelude.receipt.mode,'cold');
+  if(platform==='ios')assert.equal(entry.iosSession.clear,undefined);
+});
+for(const variant of ['lost','foreign-receipt','live-operations','reused-step'])
+test(`warm iOS absence ${variant} preserves custody and blocks replay`,async()=>{
+  const f=await warmRevokedFixture('ios');await observeIosNativeDeepLinkRejection(f.args);let probes=0;
+  const args={...f.args,
+    stepId:variant==='reused-step'?f.saved.state.sessions[0].nativeSessionRejection.installStepId:randomUUID(),
+    operationsSettled:async()=>variant!=='live-operations',execute:async input=>{
+      probes++;if(variant==='lost')throw Error('private');
+      return {runId:variant==='foreign-receipt'?randomUUID():input.runId,stepId:input.stepId,probe:true,verified:true};
+    }};
+  await assert.rejects(confirmIosNativeDeepLinkRejectionAbsence(args),{message:'deep_link_native_rejection_absence_unresolved'});
+  assert.equal(probes,['live-operations','reused-step'].includes(variant)?0:1);
+  assert.equal(iosNativeDeepLinkRejectionCustodySettled(f.saved.state.sessions[0]),false);
+  if(probes)await assert.rejects(confirmIosNativeDeepLinkRejectionAbsence({...args,stepId:randomUUID()}));
 });
 test('warm Android observation rejects a changed product PID after revocation',async()=>{
   const f=await warmRevokedFixture('android');f.result.receipts[0].beforePid='9999';

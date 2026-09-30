@@ -28,11 +28,15 @@ el refresh exclusivamente al enlace externo.
 la renovación falla o devuelve otra sesión próxima a vencer. Conserva el snapshot
 anterior. `IosFeedRuntimeBootstrap.validateRestoredSession` utiliza esa
 validación mediante `IosRenewableAuthSession.validatedRestoredSession()`.
-`IosSupabaseAuthSessionRefresher` transforma un fallo HTTP en resultado nulo;
-no demuestra por sí mismo revocación ni borrado de Keychain. El camino de peticiones
-`currentSession()` usa otra política (`ensureFreshSession`), que puede devolver
-la sesión anterior tras una renovación fallida. No transferir la aceptación del
-arranque frío a una app ya autenticada.
+`IosSupabaseAuthSessionRefresher` distingue el rechazo terminal HTTP 400/401 y
+transporta el snapshot exacto rechazado; los fallos transitorios conservan el
+resultado nulo. `IosRenewableAuthSession` sólo retira esa sesión si sigue siendo
+la generación activa y vuelve a resolver si otra sesión la reemplazó durante la
+petición. El camino de peticiones `currentSession()` mantiene la política de
+`ensureFreshSession`, pero ya no puede publicar como válida una sesión terminalmente
+rechazada ni borrar una sustitución concurrente. Esta composición no demuestra por
+sí sola revocación backend ni borrado de Keychain: el ensayo caliente debe observar
+el rechazo y la barrera sobre el recorrido de producto.
 
 En Android, `SupabaseHttpClient.refreshCurrentSession()` borra la sesión ante
 HTTP 400/401 y aplica un cooldown tras fallo. `QuataApp` también programa la

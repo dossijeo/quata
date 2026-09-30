@@ -251,7 +251,8 @@ class DeliveryOrderTests(unittest.TestCase):
                         'startedAtNs': str(started_at_ns), 'endedAtNs': str(started_at_ns + 2)}
 
             with patch.object(module.subprocess, 'Popen', side_effect=start), patch.object(module.subprocess, 'run') as run, \
-                    patch.object(module, 'read_ios_refresh_rejection', side_effect=read_rejection):
+                    patch.object(module, 'read_ios_refresh_rejection', side_effect=read_rejection), \
+                    patch.object(module.time, 'time_ns', side_effect=lambda: events.append('window-start') or 1_800_000_000_000_000_000):
                 run.return_value.returncode = 1
                 if pre_delivery_pid is not None or not ready or missing_http:
                     with self.assertRaises(RuntimeError):
@@ -286,6 +287,9 @@ class DeliveryOrderTests(unittest.TestCase):
                         self.assertNotIn('QUATA_IOS_EXTERNAL_CHAT_E2E', plan['EnvironmentVariables'])
                         self.assertTrue(receipt['cancelled'])
                         self.assertEqual(receipt['rejection']['status'], 400)
+                        self.assertLess(events.index('window-start'), events.index('openurl'))
+                        if rejection_mode == 'warm':
+                            self.assertLess(events.index('window-start'), events.index('spawn'))
                     else:
                         self.assertEqual(plan['OnlyTestIdentifiers'], ['QuataIosExternalChatLinkUITests/' + method])
                         self.assertNotIn('http-witness', events)

@@ -495,6 +495,7 @@ class Worker:
         # Retain only fixed phase names and process IDs on failure, never the
         # request/session, URL, exception text or subprocess output.
         diagnostic = {'stepId': step, 'phase': 'waiting_ready'}
+        rejection_started_at_ns = None
         try:
             marker = 'QUATA_DEEP_LINK_CHAT_OBSERVER_READY:' + step
             deadline = time.monotonic() + 120
@@ -511,10 +512,15 @@ class Worker:
             require(diagnostic['preDeliveryPid'] == expected_pid)
             if native_rejection and request['mode'] == 'warm':
                 diagnostic['phase'] = 'resuming_pid'
+                # Resuming the suspended foreground process can immediately run
+                # its expiration callback. Open the witness window before CONT,
+                # not only before the subsequent external URL delivery.
+                rejection_started_at_ns = time.time_ns()
                 self.resume_suspended_rejection()
                 require(self.app_pid() == expected_pid)
             diagnostic['phase'] = 'openurl'
-            rejection_started_at_ns = time.time_ns() if native_rejection else None
+            if native_rejection and rejection_started_at_ns is None:
+                rejection_started_at_ns = time.time_ns()
             self.call(['xcrun', 'simctl', 'openurl', SIMULATOR, url])
             diagnostic['phase'] = 'waiting_app_pid'
             deadline = time.monotonic() + 30

@@ -52,7 +52,7 @@ for(const [platform,mode,expiryKind] of [['ios','cold'],['ios','warm'],['android
   ['ios','cold','cryptographic'],['android','cold','cryptographic'],['android','rejection-cold'],['ios','rejection-cold'],
   ['android','rejection-warm'],['ios','rejection-warm']])
 for(const failure of [undefined,expiryKind==='cryptographic'?'install-cryptographic-expired':mode==='rejection-warm'?'install':'install-expired','observe',
-  ...(mode.startsWith('rejection-')?['revoke',platform==='ios'?(mode==='rejection-warm'?'clear':'clear-expired'):'probe-empty','channel-close']:
+  ...(mode.startsWith('rejection-')?['revoke',mode==='rejection-warm'?'probe-empty':platform==='ios'?'clear-expired':'probe-empty','channel-close']:
     ['read-owned',...(platform==='ios'?['ack']:[]),'clear'])])
 test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} preserves lifecycle ordering`,async()=>{
   const rejection=mode.startsWith('rejection-'),rejectionMode=rejection?mode.slice('rejection-'.length):undefined,cryptographic=expiryKind==='cryptographic';
@@ -86,6 +86,12 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
         {runId:input.runId,stepId:input.stepId,stage:'clear',...renewed});installed=undefined;
     }
     return {runId:input.runId,stepId:input.stepId,stage:input.stage,verified:true};
+  },probe:async input=>{
+    state.events.push('probe-empty');if(failure==='probe-empty')throw Error('synthetic-uncertain');
+    assert.equal(platform,'ios');assert.equal(rejectionMode,'warm');
+    assert.equal(state.records[0]().state.sessions[0].nativeSessionRejection.observation.verified,true);
+    installed=undefined;
+    return {runId:input.runId,stepId:input.stepId,probe:true,verified:true};
   },observeChat:async input=>{
     if(rejectionMode==='warm'&&!state.revoked) {
       state.events.push('prelude');assert.equal(input.mode,'cold');assert.ok(installed);
@@ -161,7 +167,7 @@ test(`native expiry coordinator ${platform} ${mode} ${failure??'complete'} prese
         {jwtExpired:true,authRejected:true,preDeliveryRefreshCount:0,afterInstall:{
           helperRefreshObserved:false,jwtStillRejected:true,preDeliveryRefreshCount:0}});
       assert.deepEqual(state.events,[...(cryptographic?['await-crypto']:[]),installStage,...(rejection?[...(rejectionMode==='warm'?['prelude','await-crypto']:[]),'revoke','observe',
-        platform==='ios'?(rejectionMode==='warm'?'clear':'clear-expired'):'probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
+        platform==='ios'?(rejectionMode==='warm'?'probe-empty':'clear-expired'):'probe-empty']:['observe','read-owned',...(platform==='ios'?['ack']:[]),'clear']),'channel-close','retire-thread',
         'retire-profile',...(platform==='android'?['retire-android-residue']:[]),'retire-profile','journal-remove','journal-remove']);
     }
   }finally{assert.equal(path.dirname(dir),os.tmpdir());await rm(dir,{recursive:true,force:true});}

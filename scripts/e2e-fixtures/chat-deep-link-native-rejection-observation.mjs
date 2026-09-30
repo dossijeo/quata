@@ -14,12 +14,13 @@ function rejectionMode(rejection) {
 function checkedEntry(entry,platform='android') {
   const renewal=entry.nativeSessionRenewal,rejection=entry.nativeSessionRejection;
   const mode=rejectionMode(rejection),custodyKind=legacyColdRejection(rejection)?'expired-metadata':rejection.custodyKind;
+  const terminalPhase=platform==='android'||mode==='warm'?'absent':'cleared';
   if(['runId','profileId','authUserId','authSessionId','webSessionId'].some(k=>!uuid.test(entry[k]))||
     entry.purpose!=='deep_link'||entry.requestStarted!==true||
     ['iosNativeLogin','androidNativeLogin','refreshAttempt','noSession'].some(k=>entry[k]!==undefined)||
     rejection?.platform!==platform||rejection.authSessionId!==entry.authSessionId||
-    !['revoked','observed',platform==='ios'?'cleared':'absent'].includes(rejection.phase)||
-    (platform==='ios'?rejection.absence!==undefined:rejection.clear!==undefined)||
+    !['revoked','observed',terminalPhase].includes(rejection.phase)||
+    ((platform==='android'||mode==='warm')?rejection.clear!==undefined:rejection.absence!==undefined)||
     !isDeepStrictEqual(entry.revocation,{started:true,verified:true}))throw Error();
   let installedSession;
   if(mode==='cold'&&custodyKind==='expired-metadata') {
@@ -121,16 +122,20 @@ async function observeNativeDeepLinkRejection(args,platform) {
 }
 
 // No clear or refresh: the passive native probe must prove all session keys absent.
-export async function confirmAndroidNativeDeepLinkRejectionAbsence(args) {
+export const confirmAndroidNativeDeepLinkRejectionAbsence=args=>confirmNativeDeepLinkRejectionAbsence(args,'android');
+export const confirmIosNativeDeepLinkRejectionAbsence=args=>confirmNativeDeepLinkRejectionAbsence(args,'ios');
+async function confirmNativeDeepLinkRejectionAbsence(args,platform) {
   try {
     if(typeof args.execute!=='function'||typeof args.operationsSettled!=='function'||await args.operationsSettled()!==true||!uuid.test(args.stepId))throw Error();
-    const saved=await checkedJournal(args),rejection=saved.state.sessions[0].nativeSessionRejection;
+    const saved=await checkedJournal(args,platform),rejection=saved.state.sessions[0].nativeSessionRejection;
+    if(platform==='ios'&&rejectionMode(rejection)!=='warm')throw Error();
     if(rejection.phase!=='observed'||rejection.observation?.verified!==true||rejection.absence!==undefined||args.stepId===rejection.installStepId)throw Error();
-    checkedObservation(rejection.observation,'android',args.record.runId,legacyColdRejection(rejection));
+    checkedObservation(rejection.observation,platform,args.record.runId,legacyColdRejection(rejection));
     const input={runId:args.record.runId,stepId:args.stepId,stage:'probe-empty'};
     rejection.absence={started:true,verified:false,input};await persist(args.journal,saved);
     const receipt=await args.execute(structuredClone(input));
-    if(!isDeepStrictEqual(receipt,{...input,verified:true})||!isDeepStrictEqual(await args.journal.read(),saved))throw Error();
+    const expected=platform==='ios'?{runId:input.runId,stepId:input.stepId,probe:true,verified:true}:{...input,verified:true};
+    if(!isDeepStrictEqual(receipt,expected)||!isDeepStrictEqual(await args.journal.read(),saved))throw Error();
     rejection.absence.verified=true;rejection.phase='absent';await persist(args.journal,saved);
     return {absent:true};
   }catch{throw Error('deep_link_native_rejection_absence_unresolved');}
@@ -146,8 +151,9 @@ export function androidNativeDeepLinkRejectionCustodySettled(entry) {
   }catch{return false;}
 }
 
-// iOS retains the expired snapshot after rejection. The existing native command
-// compares it exactly before removing it; no read exchange or ACK is manufactured.
+// The cold iOS fixture retains its deliberately expired metadata snapshot. The
+// native command compares it exactly before removing it; warm terminal rejection
+// instead uses the passive absence proof above because product owns the removal.
 export async function clearIosNativeDeepLinkRejection(args) {
   try {
     if(typeof args.execute!=='function'||typeof args.operationsSettled!=='function'||await args.operationsSettled()!==true||!uuid.test(args.stepId))throw Error();
@@ -168,8 +174,15 @@ export async function clearIosNativeDeepLinkRejection(args) {
 
 export function iosNativeDeepLinkRejectionCustodySettled(entry) {
   try {
-    const rejection=checkedEntry(entry,'ios'),clear=rejection.clear;
+    const rejection=checkedEntry(entry,'ios');
     checkedObservation(rejection.observation,'ios',entry.runId,legacyColdRejection(rejection));
+    if(rejectionMode(rejection)==='warm') {
+      const absence=rejection.absence;
+      return rejection.phase==='absent'&&rejection.observation.verified===true&&absence?.started===true&&absence.verified===true&&
+        uuid.test(absence.input?.stepId)&&![rejection.installStepId,rejection.observation.result.receipts[0].stepId].includes(absence.input.stepId)&&
+        isDeepStrictEqual(absence.input,{runId:entry.runId,stepId:absence.input.stepId,stage:'probe-empty'});
+    }
+    const clear=rejection.clear;
     return rejection.phase==='cleared'&&rejection.observation.verified===true&&clear?.started===true&&clear.verified===true&&
       uuid.test(clear.input?.stepId)&&![rejection.installStepId,rejection.observation.result.receipts[0].stepId].includes(clear.input.stepId)&&
       isDeepStrictEqual(clear.input,rejectionMode(rejection)==='cold'?

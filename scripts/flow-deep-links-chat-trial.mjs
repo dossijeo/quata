@@ -18,7 +18,8 @@ import {prepareNativeDeepLinkExpiry,installNativeDeepLinkExpiry,readNativeDeepLi
 import {prepareAndroidNativeDeepLinkRejection,prepareIosNativeDeepLinkRejection,
   awaitNativeWarmDeepLinkRejectionExpiry} from './e2e-fixtures/chat-deep-link-native-rejection.mjs';
 import {observeAndroidNativeDeepLinkRejection,confirmAndroidNativeDeepLinkRejectionAbsence,
-  observeIosNativeDeepLinkRejection,clearIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
+  observeIosNativeDeepLinkRejection,confirmIosNativeDeepLinkRejectionAbsence,
+  clearIosNativeDeepLinkRejection} from './e2e-fixtures/chat-deep-link-native-rejection-observation.mjs';
 
 // Server-side assembly. The reviewed platform adapter owns the UI lifecycle.
 // Caller supplies an already-connected dedicated DB client with statement_timeout,
@@ -220,8 +221,14 @@ export async function runDeepLinkChatTrial({client,privateDirectory,backendUrl,p
         if(expiryPrepared||nativeRejection) {
           if(nativeRejection) {
             if(!rejectionVerified)throw Error('deep_link_native_rejection_closure_unverified');
-            report.nativeRejection=await (android?confirmAndroidNativeDeepLinkRejectionAbsence:clearIosNativeDeepLinkRejection)({journal:actors[0].journal,
-              record:actors[0].record,stepId:randomUUID(),execute:input=>nativeChannel.sessionStep(input),operationsSettled:transportSettled});
+            const closesWithAbsence=android||nativeRejectionMode==='warm';
+            const closeRejection=android?confirmAndroidNativeDeepLinkRejectionAbsence:
+              closesWithAbsence?confirmIosNativeDeepLinkRejectionAbsence:clearIosNativeDeepLinkRejection;
+            report.nativeRejection=await closeRejection({journal:actors[0].journal,
+              record:actors[0].record,stepId:randomUUID(),
+              execute:input=>android?nativeChannel.sessionStep(input):
+                closesWithAbsence?nativeChannel.probe(input):nativeChannel.sessionStep(input),
+              operationsSettled:transportSettled});
           } else {
             if(!expiryVerified)throw Error('deep_link_native_expiry_closure_unverified');
             await clearNativeDeepLinkExpiry({journal:actors[0].journal,record:actors[0].record,stepId:randomUUID(),
