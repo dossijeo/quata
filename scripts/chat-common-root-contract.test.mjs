@@ -499,6 +499,9 @@ test("SCR-CHAT inventory reflects the real common-root state without declaring f
   assert.doesNotMatch(scrChat, /No se revalidaron redes, permisos físicos, media ni operaciones de grupo/);
   assert.match(chatFavorites, /FavoriteMessagesConversationId/);
   assert.match(chatFavorites, /Android, Wasm e iOS/);
+  assert.match(chatFavorites, /601 filas[^|]*250\/250\/101/);
+  assert.match(chatFavorites, /RPC legado[^|]*Android v32/);
+  assert.match(chatFavorites, /402 exceed_egress_quota/);
   assert.match(inventory, /\| `CHAT-MESSAGES` \|[\s\S]*?#226 \(`702aad06`\)/);
   assert.match(chatMessages, /permisos de edición\/borrado[^|]*#404\/#405/);
   assert.match(chatMessages, /transporte push[^|]*`FLOW-PUSH-LIFECYCLE`/);

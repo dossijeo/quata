@@ -12,6 +12,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatConversationCursor
 import com.quata.feature.chat.domain.ChatConversationPage
 import com.quata.feature.chat.domain.ChatForwardResult
+import com.quata.feature.chat.domain.ChatFavoriteCursor
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.domain.ChatSyncStatus
@@ -119,8 +120,14 @@ open class PostgrestChatRepository(
     private var currentUserSnapshot: User? = null
     private val retryableOutgoing = mutableMapOf<String, StoredChatOutgoing>()
     private val outboxMutex = Mutex()
+    private val favoritesMutex = Mutex()
     private var loadedOutboxActorId: String? = null
     private var loadedInboxPageCount: Int = 0
+    private var favoritesOwnerActorId: String? = null
+    private var favoritesGeneration: Long = 0L
+    private var loadedFavoritesPageCount: Int = 0
+    private var favoritesNextCursor: ChatFavoriteCursor? = null
+    private var favoritesHasMore: Boolean = false
     private var networkRecoveryJob: Job? = null
     private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
         currentActor = { if (networkAvailable) authenticatedUser.currentUserId() else null },
@@ -264,6 +271,8 @@ open class PostgrestChatRepository(
         while (currentCoroutineContext().isActive) {
             awaitForeground()
             if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                val actorId = authenticatedActorId()
+                favoritesMutex.withLock { activateFavoritesActorLocked(actorId) }
                 if (networkAvailable) refreshFavorites().getOrThrow()
             } else {
                 awaitActiveConversation(conversationId)
@@ -274,7 +283,24 @@ open class PostgrestChatRepository(
         }
     }
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = runCatching {
-        if (conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching false
+        if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+            return@runCatching favoritesMutex.withLock {
+                val actorId = authenticatedActorId()
+                val generation = activateFavoritesActorLocked(actorId)
+                if (!favoritesHasMore) return@withLock false
+                val cursor = favoritesNextCursor ?: error("chat_favorites_cursor_missing")
+                val page = fetchFavoritesPage(actorId, cursor, limit)
+                assertFavoritesActorCurrent(actorId, generation)
+                val state = messagesState(AppDestinations.FavoriteMessagesConversationId)
+                state.value = (state.value + page.messages)
+                    .distinctBy(Message::id)
+                    .sortedByDescending { it.sentAtMillis ?: Long.MIN_VALUE }
+                favoritesHasMore = page.hasMore
+                favoritesNextCursor = page.nextCursor
+                loadedFavoritesPageCount += 1
+                favoritesHasMore
+            }
+        }
         val normalizedLimit = limit.coerceAtLeast(1)
         val knownMessageIds = messagesState(conversationId).value
             .mapNotNull { it.id.toLongOrNull() }
@@ -806,13 +832,69 @@ open class PostgrestChatRepository(
         messagesState(conversationId).value
     }.onFailure { updateReadFailure() }
     private suspend fun refreshFavorites(): Result<List<Message>> = runCatching {
-        val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        val envelope = rpc("quata_chat_get_favorites", buildJsonObject { put("p_actor_profile_id", userId); put("p_limit", FavoritesPageSize) }.toString())
-        val favorites = envelope.toChatRpcMessages(userId).filter { it.isFavorite && !it.isDeleted }
-            .sortedByDescending { it.sentAtMillis ?: Long.MIN_VALUE }
-        messagesState(AppDestinations.FavoriteMessagesConversationId).value = favorites
-        markRequestCompleted(); favorites
+        favoritesMutex.withLock {
+            val actorId = currentUserId()
+            val generation = activateFavoritesActorLocked(actorId)
+            val pagesToRetain = loadedFavoritesPageCount.coerceAtLeast(1)
+            var cursor: ChatFavoriteCursor? = null
+            var hasMore = true
+            val refreshed = mutableListOf<Message>()
+            var loadedPages = 0
+            while (loadedPages < pagesToRetain && hasMore) {
+                val page = fetchFavoritesPage(actorId, cursor, FavoritesPageSize)
+                refreshed += page.messages
+                cursor = page.nextCursor
+                hasMore = page.hasMore
+                loadedPages += 1
+            }
+            assertFavoritesActorCurrent(actorId, generation)
+            val favorites = refreshed.distinctBy(Message::id)
+                .sortedByDescending { it.sentAtMillis ?: Long.MIN_VALUE }
+            messagesState(AppDestinations.FavoriteMessagesConversationId).value = favorites
+            favoritesHasMore = hasMore
+            favoritesNextCursor = cursor
+            loadedFavoritesPageCount = loadedPages.coerceAtLeast(1)
+            favorites
+        }
     }.onFailure { updateReadFailure() }
+
+    private suspend fun fetchFavoritesPage(
+        actorId: String,
+        cursor: ChatFavoriteCursor?,
+        limit: Int,
+    ): ChatFavoritePage {
+        currentUserId(expectedActorId = actorId)
+        _syncStatus.value = ChatSyncStatus.Refreshing
+        val envelope = rpc("quata_chat_get_favorites_page", favoritesPageRequest(actorId, cursor, limit))
+        authenticatedActorId(expectedActorId = actorId)
+        updateCurrentUserFrom(envelope, actorId)
+        val messages = envelope.toChatRpcMessages(actorId)
+            .filter { it.isFavorite && !it.isDeleted }
+        if (envelope.favoritesHasMore && envelope.favoritesNextCursor == null) {
+            error("chat_favorites_cursor_missing")
+        }
+        markRequestCompleted()
+        return ChatFavoritePage(messages, envelope.favoritesHasMore, envelope.favoritesNextCursor)
+    }
+
+    private fun activateFavoritesActorLocked(actorId: String): Long {
+        if (favoritesOwnerActorId != actorId) {
+            favoritesOwnerActorId = actorId
+            favoritesGeneration += 1L
+            loadedFavoritesPageCount = 0
+            favoritesNextCursor = null
+            favoritesHasMore = false
+            messagesState(AppDestinations.FavoriteMessagesConversationId).value = emptyList()
+        }
+        return favoritesGeneration
+    }
+
+    private suspend fun assertFavoritesActorCurrent(actorId: String, generation: Long) {
+        check(favoritesOwnerActorId == actorId && favoritesGeneration == generation) {
+            "chat_favorites_actor_generation_changed"
+        }
+        authenticatedActorId(expectedActorId = actorId)
+    }
     private fun acknowledgeDelivery(actor: String, incoming: List<Message>, source: String) {
         scope.launch { deliveryAcknowledgements.received(actor, incoming, source) }
     }
@@ -935,6 +1017,12 @@ open class PostgrestChatRepository(
         put("p_before_updated_at", cursor?.updatedAt?.let(::JsonPrimitive) ?: JsonNull)
         put("p_before_thread_id", cursor?.threadId?.let(::JsonPrimitive) ?: JsonNull)
     }.toString()
+    private fun favoritesPageRequest(userId: String, cursor: ChatFavoriteCursor?, limit: Int) = buildJsonObject {
+        put("p_actor_profile_id", userId)
+        put("p_limit", limit.coerceIn(1, FavoritesPageSize))
+        put("p_before_created_at", cursor?.createdAt?.let(::JsonPrimitive) ?: JsonNull)
+        put("p_before_message_id", cursor?.messageId?.let(::JsonPrimitive) ?: JsonNull)
+    }.toString()
     private fun threadRequest(userId: String, threadId: Long, limit: Int, knownIds: List<Long>) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_limit", limit); put("p_known_message_ids", JsonArray(knownIds.map(::JsonPrimitive))) }.toString()
     private fun sendMessageRequest(userId: String, threadId: Long, message: String, fileIds: List<Long>, replyTo: Long?, clientId: String?) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message", message); put("p_file_ids", JsonArray(fileIds.map(::JsonPrimitive))); put("p_reply_to_message_id", replyTo?.let(::JsonPrimitive) ?: JsonNull); put("p_client_message_id", clientId?.let(::JsonPrimitive) ?: JsonNull) }.toString()
     private fun threadActionRequest(userId: String, threadId: Long) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId) }.toString()
@@ -958,6 +1046,12 @@ open class PostgrestChatRepository(
         const val OutboxLeaseMillis = 5 * 60_000L
     }
 }
+
+private data class ChatFavoritePage(
+    val messages: List<Message>,
+    val hasMore: Boolean,
+    val nextCursor: ChatFavoriteCursor?,
+)
 
 private class OutboxMessageAlreadyClaimed : IllegalStateException("chat_outbox_message_already_claimed")
 private class OutboxLeaseLost : IllegalStateException("chat_outbox_lease_lost")

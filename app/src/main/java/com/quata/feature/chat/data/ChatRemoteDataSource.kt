@@ -61,6 +61,12 @@ class ChatRemoteDataSource(
     ) = supabaseApi.sendChatMessage(profileId, threadId, message, fileIds, replyToMessageId, clientMessageId)
     suspend fun setChatFavorite(profileId: String, threadId: Long, messageId: Long, favorite: Boolean) = supabaseApi.setChatFavorite(profileId, threadId, messageId, favorite)
     suspend fun getChatFavorites(profileId: String, limit: Int = 250) = supabaseApi.getChatFavorites(profileId, limit)
+    suspend fun getChatFavoritesPage(
+        profileId: String,
+        limit: Int = 250,
+        beforeCreatedAt: String? = null,
+        beforeMessageId: Long? = null,
+    ) = supabaseApi.getChatFavoritesPage(profileId, limit, beforeCreatedAt, beforeMessageId)
     suspend fun editChatMessage(profileId: String, threadId: Long, messageId: Long, message: String) = supabaseApi.editChatMessage(profileId, threadId, messageId, message)
     suspend fun deleteChatMessages(profileId: String, threadId: Long, messageIds: List<Long>) = supabaseApi.deleteChatMessages(profileId, threadId, messageIds)
     suspend fun forwardChatMessage(profileId: String, messageId: Long, threadIds: List<Long>) = supabaseApi.forwardChatMessage(profileId, messageId, threadIds)

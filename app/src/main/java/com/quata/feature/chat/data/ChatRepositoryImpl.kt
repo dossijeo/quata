@@ -27,6 +27,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatConversationCursor
 import com.quata.feature.chat.domain.ChatConversationPage
 import com.quata.feature.chat.domain.ChatForwardResult
+import com.quata.feature.chat.domain.ChatFavoriteCursor
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.domain.SosRateLimitException
@@ -111,6 +112,7 @@ class ChatRepositoryImpl(
     private var realtimeTokenRefreshJob: Job? = null
     private var lastFullRefreshAtMillis: Long = 0L
     private var lastFavoritesRefreshAtMillis: Long = 0L
+    private val favoritesPager = AndroidChatFavoritesPager(FAVORITES_PAGE_SIZE)
     private val lastThreadRefreshAtMillis = ConcurrentHashMap<String, Long>()
     @Volatile
     private var cacheProfileId: String? = null
@@ -241,6 +243,7 @@ class ChatRepositoryImpl(
         lastThreadRefreshAtMillis.clear()
         lastFullRefreshAtMillis = 0L
         lastFavoritesRefreshAtMillis = 0L
+        favoritesPager.switchActor(profileId)
         notificationFactory.clearChatMessages()
         if (profileId == null) return
         restoreCache(profileId)
@@ -417,8 +420,18 @@ class ChatRepositoryImpl(
         }
 
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = runCatching {
-        if (AppConfig.USE_MOCK_BACKEND || conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching false
+        if (AppConfig.USE_MOCK_BACKEND) return@runCatching false
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+            val snapshot = favoritesPager.loadOlder(
+                actorId = session.userId,
+                limit = limit,
+                currentMessages = { favoriteMessages.value },
+                loadPage = { cursor, pageLimit -> fetchFavoritePage(session.userId, cursor, pageLimit) },
+                commit = { page -> commitFavoriteSnapshot(session.userId, page) },
+            )
+            return@runCatching snapshot.hasMore
+        }
         val knownIds = messagesState(conversationId).value.mapNotNull { it.id.toLongOrNull() }
         val payload = remote.getChatThread(session.userId, conversationId.requireThreadId(), limit, knownIds)
         val parsed = parseChatPayload(payload, session.userId)
@@ -1276,24 +1289,20 @@ class ChatRepositoryImpl(
         val previousFavoritesRefreshAtMillis = lastFavoritesRefreshAtMillis
         lastFavoritesRefreshAtMillis = now
         runCatching {
-            val payload = remote.getChatFavorites(profileId)
-            currentCoroutineContext().ensureActive()
-            val parsed = parseChatPayload(payload, profileId)
-            parsed.profiles.forEach { profilesById[it.id] = it }
-            val cachedMessages = cacheStore.cachedFavoriteMessages(profileId)
-            val messages = reconcileChatMessages(
-                incoming = parsed.messages,
-                existing = cachedMessages,
-                retainUnmatchedExisting = false
+            val snapshot = favoritesPager.refresh(
+                actorId = profileId,
+                cachedMessages = { cacheStore.cachedFavoriteMessages(profileId) },
+                loadPage = { cursor, limit -> fetchFavoritePage(profileId, cursor, limit) },
+                commit = { page -> commitFavoriteSnapshot(profileId, page) },
             )
-                .sortedByDescending { it.sentAtMillis ?: 0L }
-            val displayMessages = attachmentFileCache.resolveCached(profileId, messages)
-            favoriteMessages.value = displayMessages
-            messagesState(AppDestinations.FavoriteMessagesConversationId).value = displayMessages
-            cacheStore.replaceFavoriteMessages(profileId, messages)
             scope.launch {
-                val prefetched = attachmentFileCache.prefetchAndResolve(profileId, messages)
-                if (sessionManager.currentSession()?.userId == profileId) favoriteMessages.value = prefetched
+                val prefetched = attachmentFileCache.prefetchAndResolve(profileId, snapshot.messages)
+                if (sessionManager.currentSession()?.userId == profileId &&
+                    favoriteMessages.value.map(Message::id) == snapshot.messages.map(Message::id)
+                ) {
+                    favoriteMessages.value = prefetched
+                    messagesState(AppDestinations.FavoriteMessagesConversationId).value = prefetched
+                }
             }
         }.onFailure { error ->
             if (error is CancellationException) {
@@ -1302,6 +1311,40 @@ class ChatRepositoryImpl(
             }
             Log.w(TAG, "Could not refresh favorite chat messages", error)
         }
+    }
+
+    private suspend fun fetchFavoritePage(
+        profileId: String,
+        cursor: ChatFavoriteCursor?,
+        limit: Int,
+    ): AndroidFavoritePage {
+        val payload = remote.getChatFavoritesPage(
+            profileId = profileId,
+            limit = limit.coerceIn(1, FAVORITES_PAGE_SIZE),
+            beforeCreatedAt = cursor?.createdAt,
+            beforeMessageId = cursor?.messageId,
+        )
+        currentCoroutineContext().ensureActive()
+        check(sessionManager.currentSession()?.userId == profileId) { "chat_favorites_session_actor_mismatch" }
+        val envelope = parseChatRpcPayloadEnvelope(payload)
+        envelope.profileRecords().map { it.toCommunityProfile() }.forEach { profilesById[it.id] = it }
+        if (envelope.favoritesHasMore && envelope.favoritesNextCursor == null) {
+            error("chat_favorites_cursor_missing")
+        }
+        return AndroidFavoritePage(
+            messages = envelope.toChatRpcMessages(profileId).filter { it.isFavorite && !it.isDeleted },
+            hasMore = envelope.favoritesHasMore,
+            nextCursor = envelope.favoritesNextCursor,
+        )
+    }
+
+    private suspend fun commitFavoriteSnapshot(profileId: String, snapshot: AndroidFavoriteSnapshot) {
+        check(sessionManager.currentSession()?.userId == profileId) { "chat_favorites_session_actor_mismatch" }
+        val displayMessages = attachmentFileCache.resolveCached(profileId, snapshot.messages)
+        check(sessionManager.currentSession()?.userId == profileId) { "chat_favorites_session_actor_mismatch" }
+        favoriteMessages.value = displayMessages
+        messagesState(AppDestinations.FavoriteMessagesConversationId).value = displayMessages
+        cacheStore.replaceFavoriteMessages(profileId, snapshot.messages)
     }
 
     private suspend fun refreshLoadedThreads() {
@@ -1766,6 +1809,7 @@ class ChatRepositoryImpl(
         const val TAG = "QuataChat"
         const val FULL_REFRESH_MIN_INTERVAL_MILLIS = 8_000L
         const val INBOX_PAGE_SIZE = 100
+        const val FAVORITES_PAGE_SIZE = 250
         const val FAVORITES_REFRESH_MIN_INTERVAL_MILLIS = 8_000L
         const val THREAD_REFRESH_MIN_INTERVAL_MILLIS = 1_200L
         const val REALTIME_REFRESH_LEEWAY_SECONDS = 115L

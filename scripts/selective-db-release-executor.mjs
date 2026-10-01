@@ -104,6 +104,12 @@ const approvedReleases = [
       ["20261001211000", "d5e9ed9b0f78dc434918044c41f73d7bb3f1717629aba03f1052e3dd30f3b76b"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261001211500", "50ef988f6b843ae921de5e41e69e739da443c737844159b2a8d5b064eea54f71"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -560,6 +566,76 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     }
     if (!modernRejected) throw new Error("selective_release_chat_actor_boundary_modern_anonymous_not_rejected");
     await client.query("release savepoint chat_actor_boundary_modern_anonymous");
+  }
+  if (selectedVersions.includes("20261001211500")) {
+    const functions = (await client.query(`
+      select
+        p.prosecdef as security_definer,
+        p.proconfig as configuration,
+        pg_get_functiondef(p.oid) as definition,
+        has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute,
+        has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+        has_function_privilege('public', p.oid, 'execute') as public_execute
+      from pg_proc p
+      join pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='public'
+        and p.proname='quata_chat_get_favorites_page'
+        and pg_get_function_identity_arguments(p.oid)='p_actor_profile_id uuid, p_limit integer, p_before_created_at timestamp with time zone, p_before_message_id bigint'
+    `)).rows;
+    if (functions.length !== 1) throw new Error("selective_release_favorites_pagination_function_missing");
+    const favorites = functions[0];
+    if (!favorites.security_definer
+        || !favorites.configuration?.includes("search_path=public")
+        || !favorites.authenticated_execute || favorites.anon_execute || favorites.public_execute) {
+      throw new Error("selective_release_favorites_pagination_security_failed");
+    }
+    if (!/order by m\.created_at desc, m\.id desc[\s\S]*limit v_limit \+ 1/i.test(favorites.definition)
+        || !/m\.created_at < p_before_created_at/i.test(favorites.definition)
+        || !/m\.id < p_before_message_id/i.test(favorites.definition)) {
+      throw new Error("selective_release_favorites_pagination_definition_failed");
+    }
+    const legacy = (await client.query(`
+      select has_function_privilege('anon', p.oid, 'execute') as anon_execute
+      from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='public' and p.proname='quata_chat_get_favorites'
+        and pg_get_function_identity_arguments(p.oid)='p_actor_profile_id uuid, p_limit integer'
+    `)).rows;
+    if (legacy.length !== 1 || !legacy[0].anon_execute) {
+      throw new Error("selective_release_favorites_pagination_legacy_contract_changed");
+    }
+    const actor = (await client.query(`
+      select cp.id as profile_id, cp.auth_user_id
+      from public.chat_message_favorites f
+      join public.community_profiles cp on cp.id=f.profile_id
+      where cp.auth_user_id is not null and cp.account_status='active'
+      group by cp.id, cp.auth_user_id
+      order by count(*) desc, cp.id
+      limit 1
+    `)).rows[0];
+    if (actor) {
+      await client.query("select set_config('request.jwt.claim.sub', $1, true), set_config('request.jwt.claim.role', 'authenticated', true)", [actor.auth_user_id]);
+      const first = (await client.query(
+        "select public.quata_chat_get_favorites_page($1::uuid, 1, null, null) as payload",
+        [actor.profile_id],
+      )).rows[0]?.payload;
+      if (!first || !Array.isArray(first.messages) || first.messages.length > 1
+          || typeof first.has_more !== "boolean"
+          || (first.has_more && (!first.next_cursor?.created_at || !first.next_cursor?.message_id))) {
+        throw new Error("selective_release_favorites_pagination_first_page_postcondition_failed");
+      }
+      if (first.has_more) {
+        const cursor = first.next_cursor;
+        const second = (await client.query(
+          "select public.quata_chat_get_favorites_page($1::uuid, 1, $2::timestamptz, $3::bigint) as payload",
+          [actor.profile_id, cursor.created_at, cursor.message_id],
+        )).rows[0]?.payload;
+        const firstIds = new Set(first.messages.map(({ id }) => String(id)));
+        if (!second || !Array.isArray(second.messages) || second.messages.length > 1
+            || second.messages.some(({ id }) => firstIds.has(String(id)))) {
+          throw new Error("selective_release_favorites_pagination_second_page_postcondition_failed");
+        }
+      }
+    }
   }
   if (selectedVersions.includes("20260927100000")
       || selectedVersions.includes("20260927113000")

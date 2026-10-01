@@ -841,7 +841,7 @@ class PostgrestChatRepositoryTest {
             transport = object : ChatPostgrestTransport {
                 override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
                     return when (functionName) {
-                        "quata_chat_get_favorites" -> ChatPostgrestResponse.Failure(IllegalStateException("favorites_load_failed"))
+                        "quata_chat_get_favorites_page" -> ChatPostgrestResponse.Failure(IllegalStateException("favorites_load_failed"))
                         else -> ChatPostgrestResponse.Success("{}")
                     }
                 }
@@ -873,7 +873,7 @@ class PostgrestChatRepositoryTest {
                             favoriteEnabled = body.contains("\"p_favorite\":true")
                             ChatPostgrestResponse.Success("{}")
                         }
-                        "quata_chat_get_favorites" -> {
+                        "quata_chat_get_favorites_page" -> {
                             val body = if (favoriteEnabled) chatPayload(favorited = true) else """{"messages":[]}"""
                             ChatPostgrestResponse.Success(body)
                         }
@@ -898,11 +898,141 @@ class PostgrestChatRepositoryTest {
                 "quata_chat_get_thread",
                 "quata_chat_set_favorite",
                 "quata_chat_get_thread",
-                "quata_chat_get_favorites",
+                "quata_chat_get_favorites_page",
             ),
             calls,
         )
         assertEquals("123", repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first().single().id)
+    }
+
+    @Test
+    fun favoritesCursorLoadsSixHundredAndOneMessagesAcrossThreeStablePages() = runTest {
+        val requests = mutableListOf<String>()
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                assertEquals("quata_chat_get_favorites_page", functionName)
+                requests += body
+                val page = when {
+                    body.contains("\"p_before_message_id\":352") -> favoritesPage(351 downTo 102, true, 102)
+                    body.contains("\"p_before_message_id\":102") -> favoritesPage(101 downTo 1, false, null)
+                    else -> favoritesPage(601 downTo 352, true, 352)
+                }
+                ChatPostgrestResponse.Success(page)
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("attachment uploader should not be used") },
+            pollIntervalMillis = 5_000L,
+        )
+
+        val first = repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first()
+        assertEquals(250, first.size)
+        assertTrue(repository.loadOlderMessages(AppDestinations.FavoriteMessagesConversationId, 250).getOrThrow())
+        assertFalse(repository.loadOlderMessages(AppDestinations.FavoriteMessagesConversationId, 250).getOrThrow())
+
+        val complete = repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first()
+        assertEquals(601, complete.size)
+        assertEquals(601, complete.map { it.id }.distinct().size)
+        assertEquals((1L..601L).toList(), complete.mapNotNull { it.id.toLongOrNull() }.sorted())
+        assertEquals(6, requests.size)
+        assertTrue(requests.any { it.contains("\"p_before_message_id\":352") })
+        assertTrue(requests.any { it.contains("\"p_before_message_id\":102") })
+    }
+
+    @Test
+    fun favoritesActorSwitchClearsPreviousActorWhileOffline() = runTest {
+        var actorId = "profile-a"
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                assertEquals("quata_chat_get_favorites_page", functionName)
+                val messageId = if (body.contains("profile-a")) 11 else 22
+                ChatPostgrestResponse.Success(favoritesPage(messageId downTo messageId, false, null))
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { actorId },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("attachment uploader should not be used") },
+        )
+
+        assertEquals("11", repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first().single().id)
+        actorId = "profile-b"
+        repository.setDeviceNetworkAvailable(false)
+
+        assertTrue(repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first().isEmpty())
+    }
+
+    @Test
+    fun favoritesInFlightResponseCannotCrossActorBoundary() = runTest {
+        var actorId = "profile-a"
+        val requestStarted = CompletableDeferred<Unit>()
+        val releaseRequest = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                assertEquals("quata_chat_get_favorites_page", functionName)
+                if (body.contains("profile-a")) {
+                    requestStarted.complete(Unit)
+                    releaseRequest.await()
+                    ChatPostgrestResponse.Success(favoritesPage(11 downTo 11, false, null))
+                } else {
+                    ChatPostgrestResponse.Success(favoritesPage(22 downTo 22, false, null))
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { actorId },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("attachment uploader should not be used") },
+        )
+
+        val actorARead = async {
+            runCatching { repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first() }
+        }
+        requestStarted.await()
+        actorId = "profile-b"
+        releaseRequest.complete(Unit)
+        assertTrue(actorARead.await().isFailure)
+
+        val actorBMessages = repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first()
+        assertEquals(listOf("22"), actorBMessages.map { it.id })
+    }
+
+    @Test
+    fun favoritesRefreshSerializesWithOlderPageLoadWithoutTruncatingDepth() = runTest {
+        var firstPageCalls = 0
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                assertEquals("quata_chat_get_favorites_page", functionName)
+                if (body.contains("\"p_before_message_id\":352")) {
+                    ChatPostgrestResponse.Success(favoritesPage(351 downTo 102, false, null))
+                } else {
+                    firstPageCalls += 1
+                    if (firstPageCalls == 2) {
+                        refreshStarted.complete(Unit)
+                        releaseRefresh.await()
+                    }
+                    ChatPostgrestResponse.Success(favoritesPage(601 downTo 352, true, 352))
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("attachment uploader should not be used") },
+        )
+
+        assertEquals(250, repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first().size)
+        val refresh = async { repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first() }
+        refreshStarted.await()
+        val loadOlder = async { repository.loadOlderMessages(AppDestinations.FavoriteMessagesConversationId, 250) }
+        runCurrent()
+        releaseRefresh.complete(Unit)
+        assertEquals(250, refresh.await().size)
+        assertFalse(loadOlder.await().getOrThrow())
+
+        val complete = repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first()
+        assertEquals(500, complete.size)
+        assertEquals(500, complete.map { it.id }.distinct().size)
+    }
+
+    private fun favoritesPage(ids: IntProgression, hasMore: Boolean, cursorId: Int?): String {
+        val messages = ids.joinToString(",") { id ->
+            """{"id":$id,"thread_id":77,"sender_profile_id":"profile-1","body":"favorite-$id","created_at":"2026-10-01T00:00:00Z","created_at_millis":$id,"favorited":true,"sender":{"id":"profile-1","display_name":"Gabrielo"}}"""
+        }
+        val cursor = cursorId?.let { """{"created_at":"2026-10-01T00:00:00Z","message_id":$it}""" } ?: "null"
+        return """{"messages":[$messages],"has_more":$hasMore,"next_cursor":$cursor}"""
     }
 
     private fun chatPayload(favorited: Boolean): String = """

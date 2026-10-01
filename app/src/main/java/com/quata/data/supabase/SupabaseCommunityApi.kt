@@ -1016,6 +1016,16 @@ class SupabaseCommunityApi(
     suspend fun getChatFavorites(profileId: String, limit: Int = 250): JsonElement =
         client.rpc<QuataChatFavoritesRequest, JsonElement>("quata_chat_get_favorites", QuataChatFavoritesRequest(profileId, limit))
 
+    suspend fun getChatFavoritesPage(
+        profileId: String,
+        limit: Int = 250,
+        beforeCreatedAt: String? = null,
+        beforeMessageId: Long? = null,
+    ): JsonElement = client.rpc<QuataChatFavoritesPageRequest, JsonElement>(
+        "quata_chat_get_favorites_page",
+        QuataChatFavoritesPageRequest(profileId, limit, beforeCreatedAt, beforeMessageId),
+    )
+
     suspend fun editChatMessage(profileId: String, threadId: Long, messageId: Long, message: String): JsonElement =
         client.rpc<QuataChatEditMessageRequest, JsonElement>("quata_chat_edit_message", QuataChatEditMessageRequest(profileId, threadId, messageId, message))
 

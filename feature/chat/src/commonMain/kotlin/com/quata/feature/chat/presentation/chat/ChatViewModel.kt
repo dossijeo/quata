@@ -230,7 +230,7 @@ class ChatViewModel(
     }
 
     fun loadOlderMessages(): Boolean {
-        if (isFavoritesConversation || _uiState.value.isLoadingOlderMessages || !_uiState.value.hasMoreHistory) return false
+        if (_uiState.value.isLoadingOlderMessages || !_uiState.value.hasMoreHistory) return false
         _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
         scope.launch {
             repository.loadOlderMessages(conversationId)
