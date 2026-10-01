@@ -158,6 +158,40 @@ class PostgrestChatRepositoryTest {
         assertEquals(MessageDeliveryState.Read, message.deliveryState)
     }
 
+    @Test
+    fun olderMessagePagingStopsWhenAnAlreadyFullCacheReceivesNoNewMessages() = runTest {
+        val threadRequests = mutableListOf<String>()
+        var threadCalls = 0
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                if (functionName != "quata_chat_get_thread") {
+                    ChatPostgrestResponse.Success("{}")
+                } else {
+                    threadRequests += body
+                    threadCalls += 1
+                    val messages = if (threadCalls == 1) {
+                        """{"threads":[{"id":7,"type":"private"}],"messages":[
+                            {"id":41,"thread_id":7,"sender_profile_id":"profile-1","body":"newer"},
+                            {"id":40,"thread_id":7,"sender_profile_id":"profile-1","body":"older"}
+                        ]}"""
+                    } else {
+                        """{"threads":[{"id":7,"type":"private"}],"messages":[]}"""
+                    }
+                    ChatPostgrestResponse.Success(messages)
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+        repository.setActiveConversation("sb:7")
+
+        assertEquals(2, repository.observeMessages("sb:7").first().size)
+        assertFalse(repository.loadOlderMessages("sb:7", limit = 2).getOrThrow())
+
+        assertEquals(2, threadRequests.size)
+        assertTrue(threadRequests.last().contains("\"p_known_message_ids\":[41,40]"))
+    }
+
     private suspend fun verifyDeliveryReceipt(source: String, inbox: Boolean) {
         val receipt = CompletableDeferred<String>()
         val releaseReceipt = CompletableDeferred<Unit>()

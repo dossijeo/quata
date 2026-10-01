@@ -275,7 +275,16 @@ open class PostgrestChatRepository(
     }
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = runCatching {
         if (conversationId == AppDestinations.FavoriteMessagesConversationId) return@runCatching false
-        refreshThread(conversationId, limit.coerceAtLeast(1)).getOrThrow().size >= limit
+        val normalizedLimit = limit.coerceAtLeast(1)
+        val knownMessageIds = messagesState(conversationId).value
+            .mapNotNull { it.id.toLongOrNull() }
+            .toSet()
+        val refreshedMessages = refreshThread(conversationId, normalizedLimit).getOrThrow()
+        refreshedMessages.asSequence()
+            .mapNotNull { it.id.toLongOrNull() }
+            .filterNot(knownMessageIds::contains)
+            .distinct()
+            .count() >= normalizedLimit
     }
     override fun observeParticipantCandidates(): Flow<List<User>> = flow {
         val page = searchConversationCandidates(query = "", limit = CandidatePageSize, offset = 0).getOrThrow()

@@ -40,8 +40,10 @@ class ChatViewModel(
     private var isConversationVisible = false
     private var messageObservationJob: Job? = null
     private var composerDraftWriteJob: Job? = null
+    private var composerRestoreHistoryJob: Job? = null
     private var composerRevision = 0L
     private val composerDraftLease = CompletableDeferred<ChatComposerDraftLease?>()
+    private var pendingComposerRestore: PendingComposerRestore? = null
 
     init {
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
@@ -133,6 +135,7 @@ class ChatViewModel(
                         hasReceivedMessageSnapshot = true,
                         messageLoadFailure = null,
                     )
+                    tryRestoreComposerDraft()
                     if (isConversationVisible && repository.isAppForeground.value) {
                         repository.markConversationRead(conversationId)
                     }
@@ -145,7 +148,7 @@ class ChatViewModel(
             is ChatUiEvent.MessageChanged -> {
                 _uiState.value = _uiState.value.copy(messageText = event.value)
                 repository.setTyping(conversationId, event.value.isNotBlank())
-                persistPlainComposerDraft(event.value)
+                persistCurrentComposerDraft(event.value)
             }
             is ChatUiEvent.AttachmentSelected -> _uiState.value = _uiState.value.copy(
                 attachmentUri = event.uri,
@@ -439,7 +442,7 @@ class ChatViewModel(
             attachmentMimeType = null,
             replyToMessage = draft.replyToMessage
         )
-        if (draft.replyToMessage == null) persistPlainComposerDraft(draft.text)
+        persistCurrentComposerDraft(draft.text)
     }
 
     private fun restoreEditDraftIfComposerIsEmpty(message: Message, text: String) {
@@ -450,6 +453,7 @@ class ChatViewModel(
             editingMessage = message,
             selectedMessageId = message.id
         )
+        persistCurrentComposerDraft(text)
     }
 
     private fun restoreComposerDraft() {
@@ -457,39 +461,131 @@ class ChatViewModel(
         val revisionAtStart = composerRevision
         scope.launch {
             val lease = composerDraftLease.await() ?: return@launch
-            val restored = store.read(lease, conversationId) ?: return@launch
-            val state = _uiState.value
-            if (
-                composerRevision == revisionAtStart &&
-                state.messageText.isEmpty() &&
-                state.editingMessage == null &&
-                state.replyToMessage == null
-            ) {
-                _uiState.value = state.copy(messageText = restored)
-            }
+            val restored = store.readRecord(lease, conversationId) ?: return@launch
+            pendingComposerRestore = PendingComposerRestore(restored, revisionAtStart)
+            tryRestoreComposerDraft()
         }
     }
 
-    private fun persistPlainComposerDraft(value: String) {
-        composerRevision += 1
+    private fun tryRestoreComposerDraft() {
+        val pending = pendingComposerRestore ?: return
         val state = _uiState.value
-        if (state.editingMessage != null || state.replyToMessage != null) return
-        queueComposerDraftWrite(value)
+        if (
+            composerRevision != pending.revision ||
+            state.messageText.isNotEmpty() ||
+            state.editingMessage != null ||
+            state.replyToMessage != null
+        ) {
+            pendingComposerRestore = null
+            return
+        }
+        if (pending.draft.mode == ChatComposerDraftMode.Plain) {
+            pendingComposerRestore = null
+            _uiState.value = state.copy(messageText = pending.draft.text)
+            return
+        }
+        if (!state.hasReceivedMessageSnapshot) return
+
+        val target = state.messages.firstOrNull { it.id == pending.draft.targetMessageId }
+        if (target != null) {
+            val valid = !target.isLocalEcho && !target.isDeleted &&
+                (pending.draft.mode != ChatComposerDraftMode.Edit || target.isMine)
+            if (!valid) {
+                discardPendingComposerRestore()
+                return
+            }
+            pendingComposerRestore = null
+            _uiState.value = when (pending.draft.mode) {
+                ChatComposerDraftMode.Plain -> state
+                ChatComposerDraftMode.Reply -> state.copy(
+                    messageText = pending.draft.text,
+                    replyToMessage = target,
+                )
+                ChatComposerDraftMode.Edit -> state.copy(
+                    messageText = pending.draft.text,
+                    editingMessage = target,
+                    selectedMessageId = null,
+                )
+            }
+            return
+        }
+
+        if (!state.hasMoreHistory) {
+            discardPendingComposerRestore()
+            return
+        }
+        if (composerRestoreHistoryJob?.isActive == true) return
+        composerRestoreHistoryJob = scope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
+            var shouldRefreshSnapshot = false
+            try {
+                repository.loadOlderMessages(conversationId)
+                    .onSuccess { hasMore ->
+                        _uiState.value = _uiState.value.copy(hasMoreHistory = hasMore)
+                        shouldRefreshSnapshot = true
+                    }
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false)
+                composerRestoreHistoryJob = null
+            }
+            // Repository paging updates its cache before returning. Reattaching forces a fresh
+            // authoritative snapshot before either resolving the target or declaring it absent.
+            if (shouldRefreshSnapshot) observeMessages()
+        }
+    }
+
+    private fun discardPendingComposerRestore() {
+        pendingComposerRestore = null
+        composerRevision += 1
+        queueComposerDraftWrite(ChatComposerDraftRecord(""))
+    }
+
+    private fun persistCurrentComposerDraft(value: String) {
+        val state = _uiState.value
+        val draft = when {
+            state.editingMessage != null -> ChatComposerDraftRecord(
+                text = value,
+                mode = ChatComposerDraftMode.Edit,
+                targetMessageId = state.editingMessage.id,
+            )
+            state.replyToMessage != null -> ChatComposerDraftRecord(
+                text = value,
+                mode = ChatComposerDraftMode.Reply,
+                targetMessageId = state.replyToMessage.id,
+            )
+            else -> ChatComposerDraftRecord(value)
+        }
+        persistComposerDraft(draft)
+    }
+
+    private fun persistPlainComposerDraft(value: String) {
+        persistComposerDraft(ChatComposerDraftRecord(value))
+    }
+
+    private fun persistComposerDraft(draft: ChatComposerDraftRecord) {
+        composerRevision += 1
+        pendingComposerRestore = null
+        composerRestoreHistoryJob?.cancel()
+        composerRestoreHistoryJob = null
+        queueComposerDraftWrite(draft)
     }
 
     private fun clearComposerDraft() {
         composerRevision += 1
-        queueComposerDraftWrite("")
+        pendingComposerRestore = null
+        composerRestoreHistoryJob?.cancel()
+        composerRestoreHistoryJob = null
+        queueComposerDraftWrite(ChatComposerDraftRecord(""))
     }
 
-    private fun queueComposerDraftWrite(value: String) {
+    private fun queueComposerDraftWrite(draft: ChatComposerDraftRecord) {
         val store = composerDraftStore ?: return
         val previousWrite = composerDraftWriteJob
         composerDraftWriteJob = composerDraftScope.launch {
             previousWrite?.join()
             val lease = composerDraftLease.await() ?: return@launch
-            if (value.isEmpty()) store.clear(lease, conversationId)
-            else store.write(lease, conversationId, value)
+            if (draft.isEmpty) store.clear(lease, conversationId)
+            else store.writeRecord(lease, conversationId, draft)
         }
     }
 
@@ -875,6 +971,7 @@ class ChatViewModel(
     private fun startReply() {
         selectedMessage()?.takeIf { !it.isLocalEcho && !it.isDeleted }?.let { message ->
             _uiState.value = _uiState.value.copy(replyToMessage = message, selectedMessageId = null)
+            persistCurrentComposerDraft(_uiState.value.messageText)
         }
     }
 
@@ -885,6 +982,7 @@ class ChatViewModel(
                 messageText = message.text,
                 selectedMessageId = null
             )
+            persistCurrentComposerDraft(message.text)
         }
     }
 
@@ -1029,3 +1127,8 @@ private data class OutgoingDraft(
             this.attachmentMimeType == attachmentMimeType &&
             this.replyToMessage?.id == replyToMessage?.id
 }
+
+private data class PendingComposerRestore(
+    val draft: ChatComposerDraftRecord,
+    val revision: Long,
+)
