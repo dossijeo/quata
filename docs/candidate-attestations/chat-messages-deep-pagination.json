@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES"
+  ],
+  "status": "passed",
+  "productSha": "072f492b17310b3ce7ff282a4b5ea5eb9182ae1c",
+  "certification": "hermetic-deep-message-pagination-complete-deployed-rpc-postflight-reused-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "072f492b17310b3ce7ff282a4b5ea5eb9182ae1c",
+      "report": "docs/candidate-attestations/evidence/chat-messages-deep-pagination-4e2b9468.json",
+      "reportSha256": "d070a0ac5e6322cbe369bcc7342ea4b40c30a150307e38f49d9c311fe352f08b",
+      "reportStatus": "passed",
+      "reportGitHead": "4e2b94682c1fc39220945e8e510fb2a18a84420d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "initial_page_contains_the_latest_250_messages",
+        "second_full_page_returns_has_more_true",
+        "final_partial_page_returns_has_more_false",
+        "known_message_id_counts_progress_as_0_250_500_601",
+        "all_601_messages_are_present_exactly_once",
+        "final_cache_is_ordered_by_timestamp_not_id",
+        "web_wasm_24_repository_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "072f492b17310b3ce7ff282a4b5ea5eb9182ae1c",
+      "report": "docs/candidate-attestations/evidence/chat-messages-deep-pagination-4e2b9468.json",
+      "reportSha256": "d070a0ac5e6322cbe369bcc7342ea4b40c30a150307e38f49d9c311fe352f08b",
+      "reportStatus": "passed",
+      "reportGitHead": "4e2b94682c1fc39220945e8e510fb2a18a84420d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "known_message_id_counts_progress_as_0_250_500_601",
+        "all_601_messages_are_present_exactly_once",
+        "final_cache_is_ordered_by_timestamp_not_id",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "072f492b17310b3ce7ff282a4b5ea5eb9182ae1c",
+      "report": "docs/candidate-attestations/evidence/chat-messages-deep-pagination-4e2b9468.json",
+      "reportSha256": "d070a0ac5e6322cbe369bcc7342ea4b40c30a150307e38f49d9c311fe352f08b",
+      "reportStatus": "passed",
+      "reportGitHead": "4e2b94682c1fc39220945e8e510fb2a18a84420d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "second_full_page_returns_has_more_true",
+        "final_partial_page_returns_has_more_false",
+        "all_601_messages_are_present_exactly_once",
+        "final_cache_is_ordered_by_timestamp_not_id",
+        "ios_x64_deep_pagination_test_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "JAVA_HOME=<installed-quata-jbr21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.deepMessagePagingExhaustsEveryPageInChronologicalOrderWithoutDuplicates --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-messages-deep-pagination.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "072f492b17310b3ce7ff282a4b5ea5eb9182ae1c",
+    "blockingFindings": [],
+    "scopeLimit": "The common repository deep-page accumulation contract is proven with 601 hermetic messages and the already-applied RPC postflight. No new backend mutation or unrelated Chat flow is claimed."
+  },
+  "notes": [
+    "The common repository requests the latest 250 messages, then two older pages of 250 and 101 while sending every known numeric message ID back to quata_chat_get_thread.",
+    "The accepted fixture permutes IDs independently from timestamps. The complete result must therefore follow timestamp order; an accidental ID sort cannot satisfy the assertion.",
+    "All 601 messages appear exactly once. A full older page retains hasMore=true, the final partial page returns false, and a later refresh preserves the accumulated deep history.",
+    "The selective database release postflight dated 2026-09-22 already verified both pagination orders of the deployed quata_chat_get_thread function. This candidate closes the client-side deep-pagination limit without another destructive backend fixture while Supabase egress is unavailable.",
+    "The first iOS class-wide run exposed a timeout in the pre-existing foreground-resume inbox test after compilation; the new test did not fail. The exact focal rerun passed and did not repeat the unrelated class matrix.",
+    "Independent review initially found the coupled ID/timestamp fixture could mask an ordering defect. After the complete modular ID permutation, rereview returned GO with no P0-P3 findings.",
+    "Product SHA 072f492b recomposes the byte-identical deep-pagination product patch onto the integrated #500 squash 06d42a18. Git range-diff marks the product commit equal and every affected product/test blob remains identical to 11446ec88; the historical report remains bound to its actual execution head. Platform matrices were not repeated solely for the Git base advance.",
+    "Other Chat network failures, delete permissions, expired sessions and push transport remain separate units."
+  ]
+}
