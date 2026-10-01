@@ -111,6 +111,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 )
             }
             val conversationsStrings = remember(languageTag) { conversationsLocaleCatalogForLanguage(languageTag) }
+            val composerDraftStore = remember(dependencies.preferences) { ChatComposerDraftStore(dependencies.preferences) }
             var inviteContactsEnabled by remember { mutableStateOf(false) }
             val clipboard = remember { IosClipboardService() }
             val translationGateway = remember {
@@ -133,6 +134,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                     iosChatEvidenceCameraCapturePhoto() ?: dependencies.cameraCapture.capturePhoto()
                 },
                 conversationId = dependencies.conversationId,
+                composerDraftStore = composerDraftStore,
                 focusedMessageId = dependencies.focusedMessageId,
                 onFocusedMessageHandled = dependencies.onFocusedMessageHandled,
                 navigationMessage = dependencies.navigationMessage,

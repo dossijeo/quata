@@ -4,6 +4,7 @@ import com.quata.core.common.AppDispatchers
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.platform.PrefixClearablePreferenceStore
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
@@ -16,10 +17,186 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 
 class ChatViewModelComposerActionsTest {
+    @Test
+    fun composerDraftsAreRestoredAcrossModelsAndClearedAfterSend() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val preferences = ComposerMemoryPreferences()
+        val store = ChatComposerDraftStore(preferences)
+        val repository = RecordingChatRepository(emptyList())
+        val first = chatViewModel(repository, dispatcher, store)
+
+        first.onEvent(ChatUiEvent.MessageChanged("durable draft"))
+        first.close()
+        testScheduler.advanceUntilIdle()
+        assertEquals("durable draft", store.read("me", "conversation-1"))
+
+        val restored = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+        assertEquals("durable draft", restored.uiState.value.messageText)
+        restored.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+        assertNull(store.read("me", "conversation-1"))
+        restored.close()
+    }
+
+    @Test
+    fun failedSendRestoresAndPersistsThePlainDraft() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val repository = RecordingChatRepository(emptyList()).apply {
+            sendMessageResult = Result.failure(IllegalStateException("offline"))
+        }
+        val model = chatViewModel(repository, dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("retry later"))
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("retry later", model.uiState.value.messageText)
+        assertEquals("retry later", store.read("me", "conversation-1"))
+        model.close()
+    }
+
+    @Test
+    fun leavingOrDeletingAConversationClearsItsDraft() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        for (event in listOf(ChatUiEvent.LeaveConversation, ChatUiEvent.DeleteConversation)) {
+            val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+            store.write("me", "conversation-1", "discard me")
+            val model = chatViewModel(RecordingChatRepository(emptyList()), dispatcher, store)
+            testScheduler.advanceUntilIdle()
+
+            model.onEvent(event)
+            testScheduler.advanceUntilIdle()
+
+            assertNull(store.read("me", "conversation-1"))
+            model.close()
+        }
+    }
+
+    @Test
+    fun composerInputWinsOverAConcurrentDelayedRestore() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val preferences = BlockingComposerPreferences(
+            mapOf(
+                ChatComposerDraftStore.conversationKey("me", 0L, "conversation-1") to
+                    "{\"generation\":0,\"text\":\"stored\"}",
+            ),
+        )
+        val model = chatViewModel(
+            RecordingChatRepository(emptyList()),
+            dispatcher,
+            ChatComposerDraftStore(preferences),
+        )
+
+        testScheduler.runCurrent()
+        model.onEvent(ChatUiEvent.MessageChanged("new input"))
+        preferences.releaseReads.complete(Unit)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("new input", model.uiState.value.messageText)
+        assertEquals("new input", ChatComposerDraftStore(preferences).read("me", "conversation-1"))
+        model.close()
+    }
+
+    @Test
+    fun composerStoreIsolatesActorsAndConversationsAndFailsClosedOnCorruption() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val store = ChatComposerDraftStore(preferences)
+        store.write("actor-a", "conversation-1", "one")
+        store.write("actor-a", "conversation-2", "two")
+        store.write("actor-b", "conversation-1", "other")
+
+        assertEquals("one", store.read("actor-a", "conversation-1"))
+        assertEquals("two", store.read("actor-a", "conversation-2"))
+        assertEquals("other", store.read("actor-b", "conversation-1"))
+        store.clearActor("actor-a")
+        assertNull(store.read("actor-a", "conversation-1"))
+        assertEquals("other", store.read("actor-b", "conversation-1"))
+
+        val corruptKey = ChatComposerDraftStore.conversationKey("actor-c", 0L, "conversation-1")
+        preferences.putString(corruptKey, "not-json")
+        assertNull(store.read("actor-c", "conversation-1"))
+        assertNull(preferences.getString(corruptKey))
+    }
+
+    @Test
+    fun separateStoreInstancesCannotOverwriteOtherConversationDrafts() = runTest {
+        val preferences = BlockingTwoDraftWritesPreferences()
+        val first = ChatComposerDraftStore(preferences)
+        val second = ChatComposerDraftStore(preferences)
+
+        val writes = listOf(
+            async { first.write("me", "conversation-1", "one") },
+            async { second.write("me", "conversation-2", "two") },
+        )
+        preferences.bothWritesStarted.await()
+        preferences.releaseWrites.complete(Unit)
+        writes.forEach { it.await() }
+
+        assertEquals("one", first.read("me", "conversation-1"))
+        assertEquals("two", second.read("me", "conversation-2"))
+    }
+
+    @Test
+    fun actorRetirementInvalidatesAWriteThatFinishesAfterLogout() = runTest {
+        val preferences = BlockingDraftWritePreferences()
+        val store = ChatComposerDraftStore(preferences)
+        val lease = store.open("me")
+        val staleWrite = async { store.write(lease, "conversation-1", "private") }
+        preferences.writeStarted.await()
+
+        store.clearActor("me")
+        preferences.releaseDraftWrites.complete(Unit)
+        staleWrite.await()
+
+        assertNull(store.read("me", "conversation-1"))
+        assertNull(preferences.getString(ChatComposerDraftStore.conversationKey("me", 0L, "conversation-1")))
+    }
+
+    @Test
+    fun staleWriteCannotOverwriteTheNextSessionDraft() = runTest {
+        val preferences = SessionRacePreferences()
+        val oldStore = ChatComposerDraftStore(preferences)
+        val oldLease = oldStore.open("me")
+        val staleWrite = async { oldStore.write(oldLease, "conversation-1", "old session") }
+        preferences.oldWriteStarted.await()
+
+        oldStore.clearActor("me")
+        val newStore = ChatComposerDraftStore(preferences)
+        newStore.write("me", "conversation-1", "new session")
+        preferences.releaseOldWrite.complete(Unit)
+        staleWrite.await()
+
+        assertEquals("new session", newStore.read("me", "conversation-1"))
+        assertNull(preferences.getString(ChatComposerDraftStore.conversationKey("me", 0L, "conversation-1")))
+    }
+
+    @Test
+    fun delayedAuthenticatedActorStillEnablesDraftPersistence() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val preferences = ComposerMemoryPreferences()
+        val store = ChatComposerDraftStore(preferences)
+        val base = RecordingChatRepository(emptyList())
+        val repository = object : ChatRepository by base {
+            override fun currentUser(): User? = null
+            override suspend fun currentActorId(): String = "me"
+        }
+        val model = chatViewModel(repository, dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("late actor"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("late actor", store.read("me", "conversation-1"))
+        model.close()
+    }
+
     @Test
     fun initialReadFailurePublishesOnlyLocalizedReadMessage() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -441,12 +618,75 @@ class ChatViewModelComposerActionsTest {
 private fun chatViewModel(
     repository: ChatRepository,
     dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    composerDraftStore: ChatComposerDraftStore? = null,
 ) = ChatViewModel(
     conversationId = "conversation-1",
     repository = repository,
     text = { it.camelToKebab() },
+    composerDraftStore = composerDraftStore,
     dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
 )
+
+private open class ComposerMemoryPreferences(
+    initial: Map<String, String> = emptyMap(),
+) : PrefixClearablePreferenceStore {
+    protected val values = initial.toMutableMap()
+    override suspend fun getString(key: String): String? = values[key]
+    override suspend fun putString(key: String, value: String) { values[key] = value }
+    override suspend fun remove(key: String) { values.remove(key) }
+    override suspend fun removeByPrefix(prefix: String) {
+        values.keys.filter { it.startsWith(prefix) }.forEach(values::remove)
+    }
+}
+
+private class BlockingComposerPreferences(initial: Map<String, String>) : ComposerMemoryPreferences(initial) {
+    val releaseReads = CompletableDeferred<Unit>()
+    override suspend fun getString(key: String): String? {
+        releaseReads.await()
+        return super.getString(key)
+    }
+}
+
+private class BlockingDraftWritePreferences : ComposerMemoryPreferences() {
+    val writeStarted = CompletableDeferred<Unit>()
+    val releaseDraftWrites = CompletableDeferred<Unit>()
+
+    override suspend fun putString(key: String, value: String) {
+        if (key.startsWith(ChatComposerDraftStore.actorPrefix("me"))) {
+            writeStarted.complete(Unit)
+            releaseDraftWrites.await()
+        }
+        super.putString(key, value)
+    }
+}
+
+private class BlockingTwoDraftWritesPreferences : ComposerMemoryPreferences() {
+    val bothWritesStarted = CompletableDeferred<Unit>()
+    val releaseWrites = CompletableDeferred<Unit>()
+    private var started = 0
+
+    override suspend fun putString(key: String, value: String) {
+        if (key.startsWith(ChatComposerDraftStore.actorPrefix("me"))) {
+            started += 1
+            if (started == 2) bothWritesStarted.complete(Unit)
+            releaseWrites.await()
+        }
+        super.putString(key, value)
+    }
+}
+
+private class SessionRacePreferences : ComposerMemoryPreferences() {
+    val oldWriteStarted = CompletableDeferred<Unit>()
+    val releaseOldWrite = CompletableDeferred<Unit>()
+
+    override suspend fun putString(key: String, value: String) {
+        if (key.contains(".g0.")) {
+            oldWriteStarted.complete(Unit)
+            releaseOldWrite.await()
+        }
+        super.putString(key, value)
+    }
+}
 
 private fun ChatText.camelToKebab(): String =
     name.replace(Regex("([a-z])([A-Z])"), "$1-$2").lowercase()

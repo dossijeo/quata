@@ -8,6 +8,7 @@ import com.quata.core.platform.PreferenceStore
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
+import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -113,12 +114,14 @@ class WebAuthRepository(
 
     /** Keeps the server logout, browser unsubscribe and local cleanup in the required order. */
     suspend fun logoutWithBrowserUnsubscribe(browserUnsubscribe: suspend () -> Result<Unit>): Result<Unit> {
+        val retiringProfileId = storedProfileIdOrNull()
         val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()
         val browserResult = withTimeoutOrNull(WebBrowserUnsubscribeTimeoutMillis) {
             runCatching { browserUnsubscribe().getOrThrow() }
         } ?: Result.failure(IllegalStateException("web_push_unsubscribe_timeout"))
         val browserFailure = browserResult.exceptionOrNull()
         WebAuthStorage.clear(preferences)
+        retiringProfileId?.let { ChatComposerDraftStore(preferences).clearActor(it) }
         activeSession = null
         val failure = serverFailure ?: browserFailure
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
@@ -242,6 +245,8 @@ class WebAuthRepository(
             "web_auth_lifecycle_failed"
         }
         WebAuthStorage.clear(preferences)
+        ChatComposerDraftStore(preferences).clearActor(session.userId)
+        activeSession = null
     }
 
     private suspend fun notifyServerLogout() {

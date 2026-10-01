@@ -54,8 +54,14 @@ fun ChatScreenHost(
     onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
     groupMembersInitiallyExpanded: Boolean = false,
-    model: ChatViewModel = remember(repository, conversationId) {
-        ChatViewModel(conversationId = conversationId, repository = repository, text = text)
+    composerDraftStore: ChatComposerDraftStore? = null,
+    model: ChatViewModel = remember(repository, conversationId, composerDraftStore) {
+        ChatViewModel(
+            conversationId = conversationId,
+            repository = repository,
+            text = text,
+            composerDraftStore = composerDraftStore,
+        )
     },
 ) {
     val state by model.uiState.collectAsState()

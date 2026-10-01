@@ -190,6 +190,13 @@ open class PostgrestChatRepository(
         }
     }
     override fun currentUser(): User? = currentUserSnapshot
+    override suspend fun currentActorId(): String? = runCatching {
+        authenticatedUser.currentUserId()?.also { actorId ->
+            if (currentUserSnapshot?.id != actorId) {
+                currentUserSnapshot = User(id = actorId, email = "", displayName = "")
+            }
+        }
+    }.getOrNull()
     override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId; realtimeGateway?.setVisibleConversation(conversationId) }
     override fun setConversationVisible(conversationId: String, visible: Boolean) {
         if (visible) {

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -21,9 +22,11 @@ class ChatViewModel(
     private val repository: ChatRepository,
     private val isFavoritesConversation: Boolean = false,
     private val text: (ChatText) -> String = { "Chat error" },
+    private val composerDraftStore: ChatComposerDraftStore? = null,
     dispatchers: AppDispatchers = AppDispatchers()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.main)
+    private val composerDraftScope = CoroutineScope(SupervisorJob() + dispatchers.io)
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
     private var backendMessages: List<Message> = emptyList()
@@ -36,9 +39,20 @@ class ChatViewModel(
     private var forwardCandidatePageJob: Job? = null
     private var isConversationVisible = false
     private var messageObservationJob: Job? = null
+    private var composerDraftWriteJob: Job? = null
+    private var composerRevision = 0L
+    private val composerDraftLease = CompletableDeferred<ChatComposerDraftLease?>()
 
     init {
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
+        composerDraftScope.launch {
+            val lease = runCatching {
+                val store = composerDraftStore ?: return@runCatching null
+                repository.currentActorId()?.let { store.open(it) }
+            }.getOrNull()
+            composerDraftLease.complete(lease)
+        }
+        restoreComposerDraft()
         scope.launch {
             if (isConversationVisible && repository.isAppForeground.value) {
                 repository.markConversationRead(conversationId)
@@ -131,6 +145,7 @@ class ChatViewModel(
             is ChatUiEvent.MessageChanged -> {
                 _uiState.value = _uiState.value.copy(messageText = event.value)
                 repository.setTyping(conversationId, event.value.isNotBlank())
+                persistPlainComposerDraft(event.value)
             }
             is ChatUiEvent.AttachmentSelected -> _uiState.value = _uiState.value.copy(
                 attachmentUri = event.uri,
@@ -147,9 +162,15 @@ class ChatViewModel(
             ChatUiEvent.CloseAddParticipants -> closeAddParticipantsPicker()
             ChatUiEvent.AddSelectedParticipants -> addParticipants()
             ChatUiEvent.StartReply -> startReply()
-            ChatUiEvent.ClearReply -> _uiState.value = _uiState.value.copy(replyToMessage = null)
+            ChatUiEvent.ClearReply -> {
+                _uiState.value = _uiState.value.copy(replyToMessage = null)
+                persistPlainComposerDraft(_uiState.value.messageText)
+            }
             ChatUiEvent.StartEdit -> startEdit()
-            ChatUiEvent.CancelEdit -> _uiState.value = _uiState.value.copy(editingMessage = null, messageText = "")
+            ChatUiEvent.CancelEdit -> {
+                _uiState.value = _uiState.value.copy(editingMessage = null, messageText = "")
+                persistPlainComposerDraft("")
+            }
             ChatUiEvent.ToggleFavoriteSelected -> toggleFavoriteSelected()
             ChatUiEvent.DeleteSelectedMessage -> deleteSelectedMessage()
             ChatUiEvent.ReportSelectedMessage -> reportSelectedMessage()
@@ -264,6 +285,7 @@ class ChatViewModel(
                 selectedMessageId = null
             )
             publishMessages(isLoading = false)
+            persistPlainComposerDraft("")
         }
         optimisticEditedMessage?.let { message ->
             optimisticEditedMessages = optimisticEditedMessages + (message.id to message)
@@ -315,6 +337,7 @@ class ChatViewModel(
                         editingMessage = null,
                         selectedMessageId = null
                     )
+                    persistPlainComposerDraft("")
                 }
             }
             .onFailure { error ->
@@ -416,6 +439,7 @@ class ChatViewModel(
             attachmentMimeType = null,
             replyToMessage = draft.replyToMessage
         )
+        if (draft.replyToMessage == null) persistPlainComposerDraft(draft.text)
     }
 
     private fun restoreEditDraftIfComposerIsEmpty(message: Message, text: String) {
@@ -426,6 +450,47 @@ class ChatViewModel(
             editingMessage = message,
             selectedMessageId = message.id
         )
+    }
+
+    private fun restoreComposerDraft() {
+        val store = composerDraftStore ?: return
+        val revisionAtStart = composerRevision
+        scope.launch {
+            val lease = composerDraftLease.await() ?: return@launch
+            val restored = store.read(lease, conversationId) ?: return@launch
+            val state = _uiState.value
+            if (
+                composerRevision == revisionAtStart &&
+                state.messageText.isEmpty() &&
+                state.editingMessage == null &&
+                state.replyToMessage == null
+            ) {
+                _uiState.value = state.copy(messageText = restored)
+            }
+        }
+    }
+
+    private fun persistPlainComposerDraft(value: String) {
+        composerRevision += 1
+        val state = _uiState.value
+        if (state.editingMessage != null || state.replyToMessage != null) return
+        queueComposerDraftWrite(value)
+    }
+
+    private fun clearComposerDraft() {
+        composerRevision += 1
+        queueComposerDraftWrite("")
+    }
+
+    private fun queueComposerDraftWrite(value: String) {
+        val store = composerDraftStore ?: return
+        val previousWrite = composerDraftWriteJob
+        composerDraftWriteJob = composerDraftScope.launch {
+            previousWrite?.join()
+            val lease = composerDraftLease.await() ?: return@launch
+            if (value.isEmpty()) store.clear(lease, conversationId)
+            else store.write(lease, conversationId, value)
+        }
     }
 
     private fun Message.matchesLocalEcho(local: Message): Boolean {
@@ -760,14 +825,20 @@ class ChatViewModel(
     private fun deleteConversation() = scope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.deleteConversation(conversationId)
-            .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true) }
+            .onSuccess {
+                clearComposerDraft()
+                _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true)
+            }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.DeleteConversation)) }
     }
 
     private fun leaveConversation() = scope.launch {
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.leaveConversation(conversationId)
-            .onSuccess { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true) }
+            .onSuccess {
+                clearComposerDraft()
+                _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true)
+            }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.LeaveConversation)) }
     }
 
@@ -928,6 +999,12 @@ class ChatViewModel(
         cleanupEmptyConversationIfNeeded()
         repository.setConversationVisible(conversationId, false)
         scope.coroutineContext.cancel()
+        val pendingDraftWrite = composerDraftWriteJob
+        if (pendingDraftWrite == null) {
+            composerDraftScope.coroutineContext.cancel()
+        } else {
+            pendingDraftWrite.invokeOnCompletion { composerDraftScope.coroutineContext.cancel() }
+        }
     }
 }
 

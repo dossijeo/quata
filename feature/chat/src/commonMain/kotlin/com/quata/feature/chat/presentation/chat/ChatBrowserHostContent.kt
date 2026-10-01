@@ -158,6 +158,7 @@ fun ChatProductHostContent(
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
+    composerDraftStore: ChatComposerDraftStore? = null,
     conversationModel: ChatViewModel? = null,
     compactHeader: Boolean = false,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
@@ -216,6 +217,7 @@ fun ChatProductHostContent(
             text = text,
             modifier = modifier,
             conversationModel = conversationModel,
+            composerDraftStore = composerDraftStore,
             compactHeader = compactHeader,
             trailingActions = trailingActions,
             onOpenTranslator = onOpenTranslator,
@@ -270,6 +272,7 @@ private fun ChatCommonConversationHost(
     onFocusedMessageHandled: () -> Unit,
     text: (ChatText) -> String,
     modifier: Modifier,
+    composerDraftStore: ChatComposerDraftStore?,
     conversationModel: ChatViewModel?,
     compactHeader: Boolean,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
@@ -304,12 +307,13 @@ private fun ChatCommonConversationHost(
     var documentOpenJob by remember(conversationId) { mutableStateOf<Job?>(null) }
     var documentOpenGeneration by remember(conversationId) { mutableLongStateOf(0L) }
     val ownsViewModel = conversationModel == null
-    val viewModel = remember(repository, conversationId, conversationModel) {
+    val viewModel = remember(repository, conversationId, conversationModel, composerDraftStore) {
         conversationModel ?: ChatViewModel(
             conversationId = conversationId,
             repository = repository,
             text = text,
             isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId,
+            composerDraftStore = composerDraftStore,
         )
     }
     val state by viewModel.uiState.collectAsState()

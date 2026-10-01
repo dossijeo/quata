@@ -232,17 +232,32 @@ class AndroidClipboardService(context: Context) : ClipboardService {
     }
 }
 
-class AndroidPreferenceStore(context: Context, name: String = "quata_platform") : PreferenceStore {
+class AndroidPreferenceStore(
+    context: Context,
+    name: String = "quata_platform",
+    private val commitWrites: Boolean = false,
+) : PrefixClearablePreferenceStore {
     private val preferences: SharedPreferences = context.applicationContext.getSharedPreferences(name, Context.MODE_PRIVATE)
 
     override suspend fun getString(key: String): String? = preferences.getString(key, null)
 
     override suspend fun putString(key: String, value: String) {
-        preferences.edit().putString(key, value).apply()
+        persist(preferences.edit().putString(key, value))
     }
 
     override suspend fun remove(key: String) {
-        preferences.edit().remove(key).apply()
+        persist(preferences.edit().remove(key))
+    }
+
+    override suspend fun removeByPrefix(prefix: String) {
+        val editor = preferences.edit()
+        preferences.all.keys.filter { it.startsWith(prefix) }.forEach(editor::remove)
+        persist(editor)
+    }
+
+    @android.annotation.SuppressLint("UseKtx")
+    private fun persist(editor: SharedPreferences.Editor) {
+        if (commitWrites) check(editor.commit()) { "preference_commit_failed" } else editor.apply()
     }
 }
 
