@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "612e37e84acc86b26ccea117f41ec8c8d0f8d8c3",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic plain/reply/edit/attachment composer restoration and affected platform validation; no backend mutation and no authenticated or visual E2E claim.",
+  "steps": [
+    "legacy_plain_text_draft_remains_compatible",
+    "context_scoped_by_actor_generation_and_conversation",
+    "reply_and_edit_context_restoration_remains_fail_closed",
+    "selected_attachment_is_staged_in_app_owned_cache_before_persistence",
+    "attachment_only_draft_is_restored",
+    "send_retains_exact_attachment_until_repository_acceptance",
+    "failed_send_restores_the_durable_attachment",
+    "successful_send_cleans_the_sent_attachment_without_deleting_a_newer_draft",
+    "replace_clear_leave_delete_and_actor_retirement_schedule_owned_cleanup",
+    "failed_exact_and_prefix_cleanup_remain_durable_and_retryable",
+    "close_waits_for_staging_and_the_write_created_by_staging",
+    "concurrent_store_cleanup_cannot_delete_an_in_flight_attachment_in_the_same_process",
+    "cleanup_acknowledgements_do_not_rewrite_stale_draft_snapshots",
+    "web_wasm_39_focal_tests_passed",
+    "android_debug_compilation_passed",
+    "web_wasm_compilation_passed",
+    "ios_x64_complete_focal_class_passed",
+    "ios_simulator_signed_build_for_testing_passed",
+    "independent_review_go_no_p0_p2"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "webTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin",
+    "webCompile": ".\\gradlew.bat :web:compileKotlinWasmJs",
+    "iosTests": "bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest",
+    "iosHost": "bash scripts/build-ios-intel-simulator-signed.sh"
+  },
+  "results": {
+    "webWasmFocal": "39/39 passed",
+    "iosX64Focal": "complete ChatViewModelComposerActionsTest class passed",
+    "iosHost": "TEST BUILD SUCCEEDED; Compose resources verified; Intel SimulatorSigned Keychain lane validated"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "612e37e84acc86b26ccea117f41ec8c8d0f8d8c3",
+    "blockingFindings": [],
+    "scopeLimit": "Shared in-flight attachment custody was demonstrated across store instances in one process; independent browser-tab/process coordination was not demonstrated."
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
+  },
+  "limits": [
+    "Scroll position and unrelated internal state remain transient.",
+    "No authenticated backend or visual host E2E is claimed.",
+    "Independent browser-tab/process coordination is not claimed; Web durable message outbox cross-tab behavior remains covered by its separate unit.",
+    "Final GitHub candidate certification remains pending behind the single active remote candidate."
+  ]
+}
