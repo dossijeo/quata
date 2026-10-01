@@ -560,6 +560,7 @@
     <string name="chat_error_open_conversation">Impossible d’ouvrir la conversation</string>
     <string name="chat_error_restore_conversation">Impossible de restaurer la conversation</string>
     <string name="chat_error_send">Impossible d’envoyer le message</string>
+    <string name="chat_error_preserve_attachment">Impossible de conserver la pièce jointe</string>
     <string name="chat_error_update">Impossible de mettre à jour la conversation</string>
     <string name="chat_error_load_candidates">Impossible de charger la liste des utilisateurs</string>
     <string name="chat_error_add_participant">Impossible d’ajouter le participant</string>

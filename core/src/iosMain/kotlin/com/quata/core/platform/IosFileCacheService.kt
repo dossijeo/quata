@@ -9,7 +9,7 @@ import platform.Foundation.NSURL
 
 /** Persistent, app-private binary storage for files that must survive an iOS process restart. */
 @OptIn(ExperimentalForeignApi::class)
-class IosFileCacheService : FileCacheService {
+class IosFileCacheService : PrefixClearableFileCacheService {
     private val manager = NSFileManager.defaultManager
 
     override suspend fun store(cacheKey: String, file: PlatformFile): PlatformResult<PlatformFile> {
@@ -51,12 +51,28 @@ class IosFileCacheService : FileCacheService {
         }
     }
 
+    override suspend fun removeByPrefix(prefix: String): PlatformResult<Unit> = removeByPrefixNow(prefix)
+
+    fun removeByPrefixNow(prefix: String): PlatformResult<Unit> {
+        if (!isSafeFileCachePrefix(prefix)) return PlatformResult.Failure("file_cache_prefix_invalid")
+        val root = cacheRootPath()
+        val names = (manager.contentsOfDirectoryAtPath(root, null) as? List<*>)
+            .orEmpty()
+            .mapNotNull { it as? String }
+            .filter { it.startsWith(prefix) }
+        val removed = names.all { name -> manager.removeItemAtPath("$root/$name", null) }
+        return if (removed) PlatformResult.Success(Unit) else PlatformResult.Failure("file_cache_remove_prefix_failed")
+    }
+
     private fun cacheUrl(cacheKey: String): NSURL? {
         val safeKey = cacheKey.trim().takeIf(::isSafeFileCacheKey) ?: return null
-        val root = NSHomeDirectory().trimEnd('/') + "/Library/Application Support/Quata/ChatOutbox"
+        val root = cacheRootPath()
         return NSURL.fileURLWithPath("$root/$safeKey.bin")
     }
 }
+
+private fun cacheRootPath(): String =
+    NSHomeDirectory().trimEnd('/') + "/Library/Application Support/Quata/ChatOutbox"
 
 @OptIn(ExperimentalForeignApi::class)
 private fun PlatformFile.localFileUrlOrNull(): NSURL? {
@@ -81,6 +97,11 @@ private fun protectedFileAttributes(): Map<Any?, *> =
     mapOf(NSFileProtectionKey to NSFileProtectionCompleteUntilFirstUserAuthentication)
 
 private fun isSafeFileCacheKey(value: String): Boolean =
+    value.isNotEmpty() && value.length <= 120 && value.all { char ->
+        char.isLetterOrDigit() || char == '-' || char == '_' || char == '.' || char == ':'
+    }
+
+private fun isSafeFileCachePrefix(value: String): Boolean =
     value.isNotEmpty() && value.length <= 120 && value.all { char ->
         char.isLetterOrDigit() || char == '-' || char == '_' || char == '.' || char == ':'
     }

@@ -2058,6 +2058,10 @@ private final class IosAppCompositionRoot {
         defaults.dictionaryRepresentation().keys
             .filter { $0.hasPrefix(generationPrefix) }
             .forEach(defaults.removeObject(forKey:))
+        _ = IosChatComposerDraftAttachmentCleanupKt.clearIosChatComposerDraftAttachments(
+            actorId: actorId,
+            generation: generation
+        )
         retiringChatDraftActorId = nil
     }
 

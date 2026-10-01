@@ -251,6 +251,7 @@
     <string name="chat_error_open_conversation">Could not open the conversation</string>
     <string name="chat_error_restore_conversation">Could not restore the conversation</string>
     <string name="chat_error_send">Could not send the message</string>
+    <string name="chat_error_preserve_attachment">Could not preserve the attachment</string>
     <string name="chat_error_update">Could not update the conversation</string>
     <string name="chat_error_load_candidates">Could not load the user list</string>
     <string name="chat_error_add_participant">Could not add the participant</string>

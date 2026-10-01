@@ -4,6 +4,8 @@ import com.quata.core.common.AppDispatchers
 import com.quata.core.model.Conversation
 import com.quata.core.model.MessageDeliveryState
 import com.quata.core.model.Message
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +42,8 @@ class ChatViewModel(
     private var isConversationVisible = false
     private var messageObservationJob: Job? = null
     private var composerDraftWriteJob: Job? = null
+    private var composerAttachmentStageJob: Job? = null
+    private var composerAttachmentSelection = 0L
     private var composerRestoreHistoryJob: Job? = null
     private var composerRevision = 0L
     private val composerDraftLease = CompletableDeferred<ChatComposerDraftLease?>()
@@ -150,11 +154,7 @@ class ChatViewModel(
                 repository.setTyping(conversationId, event.value.isNotBlank())
                 persistCurrentComposerDraft(event.value)
             }
-            is ChatUiEvent.AttachmentSelected -> _uiState.value = _uiState.value.copy(
-                attachmentUri = event.uri,
-                attachmentName = event.name,
-                attachmentMimeType = event.mimeType
-            )
+            is ChatUiEvent.AttachmentSelected -> stageComposerAttachment(event)
             is ChatUiEvent.ParticipantSearchChanged -> onParticipantCandidateQueryChanged(event.value)
             is ChatUiEvent.ParticipantSelectionToggled -> toggleParticipant(event.userId)
             is ChatUiEvent.MessageSelected -> _uiState.value = _uiState.value.copy(selectedMessageId = event.messageId)
@@ -192,11 +192,7 @@ class ChatViewModel(
             ChatUiEvent.HideConversation -> hideConversation()
             ChatUiEvent.DeleteConversation -> deleteConversation()
             ChatUiEvent.Send -> send()
-            ChatUiEvent.ClearAttachment -> _uiState.value = _uiState.value.copy(
-                attachmentUri = null,
-                attachmentName = null,
-                attachmentMimeType = null
-            )
+            ChatUiEvent.ClearAttachment -> clearComposerAttachment()
         }
     }
 
@@ -247,6 +243,7 @@ class ChatViewModel(
 
     private fun send() = scope.launch {
         val text = _uiState.value.messageText
+        val attachmentCacheKey = _uiState.value.attachmentCacheKey
         val attachmentUri = _uiState.value.attachmentUri
         val attachmentName = _uiState.value.attachmentName
         val attachmentMimeType = _uiState.value.attachmentMimeType
@@ -261,9 +258,10 @@ class ChatViewModel(
         val editingMessage = _uiState.value.editingMessage
         val replyToMessage = _uiState.value.replyToMessage
         val draft = retryDraft
-            ?.takeIf { it.matches(text, attachmentUri, attachmentName, attachmentMimeType, replyToMessage) }
+            ?.takeIf { it.matches(text, attachmentCacheKey, attachmentUri, attachmentName, attachmentMimeType, replyToMessage) }
             ?: OutgoingDraft(
                 text = text,
+                attachmentCacheKey = attachmentCacheKey,
                 attachmentUri = attachmentUri,
                 attachmentName = attachmentName,
                 attachmentMimeType = attachmentMimeType,
@@ -281,6 +279,7 @@ class ChatViewModel(
             localEchoMessages = localEchoMessages + message
             _uiState.value = _uiState.value.copy(
                 messageText = "",
+                attachmentCacheKey = null,
                 attachmentUri = null,
                 attachmentName = null,
                 attachmentMimeType = null,
@@ -288,7 +287,6 @@ class ChatViewModel(
                 selectedMessageId = null
             )
             publishMessages(isLoading = false)
-            persistPlainComposerDraft("")
         }
         optimisticEditedMessage?.let { message ->
             optimisticEditedMessages = optimisticEditedMessages + (message.id to message)
@@ -323,6 +321,7 @@ class ChatViewModel(
         result
             .onSuccess {
                 repository.setTyping(conversationId, false)
+                if (optimisticMessage != null) persistPlainComposerDraft("")
                 optimisticMessage?.let { message ->
                     if (repository.isMessagePending(message.clientMessageId.orEmpty())) {
                         markLocalEchoPending(message)
@@ -433,16 +432,25 @@ class ChatViewModel(
     private fun restoreDraftIfComposerIsEmpty(draft: OutgoingDraft) {
         val state = _uiState.value
         if (state.messageText.isNotBlank() || state.attachmentUri != null) return
-        val failedAttachment = draft.attachmentUri != null
-        retryDraft = if (failedAttachment) null else draft
+        val restorableDraft = if (draft.attachmentCacheKey == null) {
+            draft.copy(
+                attachmentUri = null,
+                attachmentName = null,
+                attachmentMimeType = null,
+            )
+        } else {
+            draft
+        }
+        retryDraft = restorableDraft
         _uiState.value = state.copy(
-            messageText = draft.text,
-            attachmentUri = null,
-            attachmentName = null,
-            attachmentMimeType = null,
-            replyToMessage = draft.replyToMessage
+            messageText = restorableDraft.text,
+            attachmentCacheKey = restorableDraft.attachmentCacheKey,
+            attachmentUri = restorableDraft.attachmentUri,
+            attachmentName = restorableDraft.attachmentName,
+            attachmentMimeType = restorableDraft.attachmentMimeType,
+            replyToMessage = restorableDraft.replyToMessage
         )
-        persistCurrentComposerDraft(draft.text)
+        persistCurrentComposerDraft(restorableDraft.text)
     }
 
     private fun restoreEditDraftIfComposerIsEmpty(message: Message, text: String) {
@@ -473,6 +481,7 @@ class ChatViewModel(
         if (
             composerRevision != pending.revision ||
             state.messageText.isNotEmpty() ||
+            state.attachmentUri != null ||
             state.editingMessage != null ||
             state.replyToMessage != null
         ) {
@@ -481,7 +490,7 @@ class ChatViewModel(
         }
         if (pending.draft.mode == ChatComposerDraftMode.Plain) {
             pendingComposerRestore = null
-            _uiState.value = state.copy(messageText = pending.draft.text)
+            _uiState.value = state.withRestoredComposerDraft(pending.draft)
             return
         }
         if (!state.hasReceivedMessageSnapshot) return
@@ -499,10 +508,18 @@ class ChatViewModel(
                 ChatComposerDraftMode.Plain -> state
                 ChatComposerDraftMode.Reply -> state.copy(
                     messageText = pending.draft.text,
+                    attachmentCacheKey = pending.draft.attachment?.cacheKey,
+                    attachmentUri = pending.draft.attachment?.reference,
+                    attachmentName = pending.draft.attachment?.name,
+                    attachmentMimeType = pending.draft.attachment?.mimeType,
                     replyToMessage = target,
                 )
                 ChatComposerDraftMode.Edit -> state.copy(
                     messageText = pending.draft.text,
+                    attachmentCacheKey = pending.draft.attachment?.cacheKey,
+                    attachmentUri = pending.draft.attachment?.reference,
+                    attachmentName = pending.draft.attachment?.name,
+                    attachmentMimeType = pending.draft.attachment?.mimeType,
                     editingMessage = target,
                     selectedMessageId = null,
                 )
@@ -540,26 +557,89 @@ class ChatViewModel(
         queueComposerDraftWrite(ChatComposerDraftRecord(""))
     }
 
+    private fun stageComposerAttachment(event: ChatUiEvent.AttachmentSelected) {
+        val store = composerDraftStore
+        if (store == null) {
+            _uiState.value = _uiState.value.copy(
+                attachmentCacheKey = null,
+                attachmentUri = event.uri,
+                attachmentName = event.name,
+                attachmentMimeType = event.mimeType,
+            )
+            return
+        }
+        composerRevision += 1
+        pendingComposerRestore = null
+        composerRestoreHistoryJob?.cancel()
+        composerRestoreHistoryJob = null
+        val selection = ++composerAttachmentSelection
+        val previousStage = composerAttachmentStageJob
+        composerAttachmentStageJob = composerDraftScope.launch {
+            previousStage?.join()
+            val lease = composerDraftLease.await() ?: return@launch
+            val staged = store.stageAttachment(
+                lease = lease,
+                uniqueId = newClientMessageId(),
+                file = PlatformFile(event.uri, event.name, event.mimeType),
+            )
+            when (staged) {
+                is PlatformResult.Success -> {
+                    if (selection != composerAttachmentSelection) {
+                        store.discardStagedAttachment(lease, staged.value)
+                        return@launch
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        attachmentCacheKey = staged.value.cacheKey,
+                        attachmentUri = staged.value.reference,
+                        attachmentName = staged.value.name,
+                        attachmentMimeType = staged.value.mimeType,
+                        error = null,
+                    )
+                    persistCurrentComposerDraft(_uiState.value.messageText)
+                }
+                is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> {
+                    if (selection == composerAttachmentSelection) {
+                        _uiState.value = _uiState.value.copy(error = text(ChatText.PreserveAttachment))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun clearComposerAttachment() {
+        composerAttachmentSelection += 1
+        _uiState.value = _uiState.value.copy(
+            attachmentCacheKey = null,
+            attachmentUri = null,
+            attachmentName = null,
+            attachmentMimeType = null,
+        )
+        persistCurrentComposerDraft(_uiState.value.messageText)
+    }
+
     private fun persistCurrentComposerDraft(value: String) {
         val state = _uiState.value
+        val attachment = state.composerDraftAttachment()
         val draft = when {
             state.editingMessage != null -> ChatComposerDraftRecord(
                 text = value,
                 mode = ChatComposerDraftMode.Edit,
                 targetMessageId = state.editingMessage.id,
+                attachment = attachment,
             )
             state.replyToMessage != null -> ChatComposerDraftRecord(
                 text = value,
                 mode = ChatComposerDraftMode.Reply,
                 targetMessageId = state.replyToMessage.id,
+                attachment = attachment,
             )
-            else -> ChatComposerDraftRecord(value)
+            else -> ChatComposerDraftRecord(value, attachment = attachment)
         }
         persistComposerDraft(draft)
     }
 
     private fun persistPlainComposerDraft(value: String) {
-        persistComposerDraft(ChatComposerDraftRecord(value))
+        persistComposerDraft(ChatComposerDraftRecord(value, attachment = _uiState.value.composerDraftAttachment()))
     }
 
     private fun persistComposerDraft(draft: ChatComposerDraftRecord) {
@@ -1098,16 +1178,41 @@ class ChatViewModel(
         repository.setConversationVisible(conversationId, false)
         scope.coroutineContext.cancel()
         val pendingDraftWrite = composerDraftWriteJob
-        if (pendingDraftWrite == null) {
+        val pendingAttachmentStage = composerAttachmentStageJob
+        if (pendingDraftWrite == null && pendingAttachmentStage == null) {
             composerDraftScope.coroutineContext.cancel()
         } else {
-            pendingDraftWrite.invokeOnCompletion { composerDraftScope.coroutineContext.cancel() }
+            val closeJob = composerDraftScope.launch {
+                pendingAttachmentStage?.join()
+                pendingDraftWrite?.join()
+            }
+            closeJob.invokeOnCompletion { composerDraftScope.coroutineContext.cancel() }
         }
     }
 }
 
+private fun ChatUiState.composerDraftAttachment(): ChatComposerDraftAttachment? {
+    val cacheKey = attachmentCacheKey ?: return null
+    val reference = attachmentUri ?: return null
+    return ChatComposerDraftAttachment(
+        cacheKey = cacheKey,
+        reference = reference,
+        name = attachmentName,
+        mimeType = attachmentMimeType,
+    )
+}
+
+private fun ChatUiState.withRestoredComposerDraft(draft: ChatComposerDraftRecord): ChatUiState = copy(
+    messageText = draft.text,
+    attachmentCacheKey = draft.attachment?.cacheKey,
+    attachmentUri = draft.attachment?.reference,
+    attachmentName = draft.attachment?.name,
+    attachmentMimeType = draft.attachment?.mimeType,
+)
+
 private data class OutgoingDraft(
     val text: String,
+    val attachmentCacheKey: String?,
     val attachmentUri: String?,
     val attachmentName: String?,
     val attachmentMimeType: String?,
@@ -1116,12 +1221,14 @@ private data class OutgoingDraft(
 ) {
     fun matches(
         text: String,
+        attachmentCacheKey: String?,
         attachmentUri: String?,
         attachmentName: String?,
         attachmentMimeType: String?,
         replyToMessage: Message?
     ): Boolean =
         this.text == text &&
+            this.attachmentCacheKey == attachmentCacheKey &&
             this.attachmentUri == attachmentUri &&
             this.attachmentName == attachmentName &&
             this.attachmentMimeType == attachmentMimeType &&

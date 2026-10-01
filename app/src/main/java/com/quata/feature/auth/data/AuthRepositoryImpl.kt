@@ -24,6 +24,7 @@ import com.quata.data.supabase.SupabaseCacheMode
 import com.quata.data.supabase.SupabaseResponseCacheStore
 import com.quata.data.supabase.QuataRegistrationRequest
 import com.quata.feature.chat.data.ChatAttachmentFileCache
+import com.quata.feature.chat.data.AndroidChatComposerFileCacheService
 import com.quata.feature.chat.data.SupabaseChatCacheStore
 import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
@@ -268,7 +269,10 @@ internal class AuthRepositoryImpl(
     }
 
     private suspend fun clearLocalAccountData(profileId: String) {
-        ChatComposerDraftStore(AndroidPreferenceStore(appContext, commitWrites = true)).clearActor(profileId)
+        ChatComposerDraftStore(
+            AndroidPreferenceStore(appContext, commitWrites = true),
+            AndroidChatComposerFileCacheService(appContext),
+        ).clearActor(profileId)
         SupabaseChatCacheStore(appContext).clearProfile(profileId)
         ChatAttachmentFileCache(appContext).clearProfile(profileId)
         SupabaseResponseCacheStore(appContext).clearAll()

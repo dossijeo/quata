@@ -7,6 +7,7 @@ enum class ChatText {
     LoadConversations,
     LoadMessages,
     Send,
+    PreserveAttachment,
     You,
     Update,
     AddParticipant,
@@ -35,6 +36,7 @@ fun chatTextForLanguage(value: ChatText, languageTag: String?): String {
             ChatText.LoadConversations -> "No se pudieron cargar los chats."
             ChatText.LoadMessages -> "No se pudieron cargar los mensajes."
             ChatText.Send -> "No se pudo enviar el mensaje."
+            ChatText.PreserveAttachment -> "No se pudo conservar el archivo adjunto."
             ChatText.You -> "Tú"
             ChatText.Update -> "No se pudo actualizar el chat."
             ChatText.AddParticipant -> "No se pudo añadir al participante."
@@ -58,6 +60,7 @@ fun chatTextForLanguage(value: ChatText, languageTag: String?): String {
             ChatText.LoadConversations -> "Impossible de charger les discussions."
             ChatText.LoadMessages -> "Impossible de charger les messages."
             ChatText.Send -> "Impossible d’envoyer le message."
+            ChatText.PreserveAttachment -> "Impossible de conserver la pièce jointe."
             ChatText.You -> "Vous"
             ChatText.Update -> "Impossible de mettre à jour la discussion."
             ChatText.AddParticipant -> "Impossible d’ajouter le participant."
@@ -81,6 +84,7 @@ fun chatTextForLanguage(value: ChatText, languageTag: String?): String {
             ChatText.LoadConversations -> "Could not load chats."
             ChatText.LoadMessages -> "Could not load messages."
             ChatText.Send -> "Could not send the message."
+            ChatText.PreserveAttachment -> "Could not preserve the attachment."
             ChatText.You -> "You"
             ChatText.Update -> "Could not update the chat."
             ChatText.AddParticipant -> "Could not add the participant."

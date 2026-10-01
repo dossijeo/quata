@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.IosClipboardService
+import com.quata.core.platform.IosFileCacheService
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.platform.AudioPlayerService
@@ -111,7 +112,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 )
             }
             val conversationsStrings = remember(languageTag) { conversationsLocaleCatalogForLanguage(languageTag) }
-            val composerDraftStore = remember(dependencies.preferences) { ChatComposerDraftStore(dependencies.preferences) }
+            val composerDraftStore = remember(dependencies.preferences) {
+                ChatComposerDraftStore(dependencies.preferences, IosFileCacheService())
+            }
             var inviteContactsEnabled by remember { mutableStateOf(false) }
             val clipboard = remember { IosClipboardService() }
             val translationGateway = remember {
