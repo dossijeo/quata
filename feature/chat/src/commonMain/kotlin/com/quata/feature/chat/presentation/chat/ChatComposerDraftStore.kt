@@ -183,12 +183,15 @@ class ChatComposerDraftStore(
         val key = conversationKey(lease.actorId, lease.generation, conversationId)
         val oldStored = preferences.getString(key)?.toStoredDraftRecord()
         val oldAttachmentKey = oldStored?.attachment?.cacheKey
+        val acknowledgedCleanupKeys = preferences.getString(
+            cleanupAcknowledgementKey(lease.actorId, lease.generation, conversationId),
+        ).decodeStrings()
         val attachment = draft.attachment
         if (attachment != null && !attachment.cacheKey.startsWith(attachmentGenerationPrefix(lease.actorId, lease.generation))) {
             return
         }
         val pendingCleanupKeys = buildSet {
-            addAll(oldStored?.pendingCleanupKeys.orEmpty())
+            addAll(oldStored?.pendingCleanupKeys.orEmpty() - acknowledgedCleanupKeys)
             if (oldAttachmentKey != null && oldAttachmentKey != attachment?.cacheKey) add(oldAttachmentKey)
         }
         val stored = StoredDraftRecord(
@@ -244,21 +247,26 @@ class ChatComposerDraftStore(
         val key = conversationKey(lease.actorId, lease.generation, conversationId)
         val stored = supplied ?: preferences.getString(key)?.toStoredDraftRecord() ?: return null
         val activeKey = stored.attachment?.cacheKey
-        val remaining = stored.pendingCleanupKeys.filterTo(linkedSetOf()) { pendingKey ->
+        val acknowledgementKey = cleanupAcknowledgementKey(lease.actorId, lease.generation, conversationId)
+        val acknowledged = preferences.getString(acknowledgementKey).decodeStrings()
+        val newlyAcknowledged = linkedSetOf<String>()
+        val remaining = (stored.pendingCleanupKeys - acknowledged).filterTo(linkedSetOf()) { pendingKey ->
             if (pendingKey == activeKey || pendingKey in retainedAttachmentKeys.value) return@filterTo true
-            attachmentFiles.remove(pendingKey) !is PlatformResult.Success
+            val cleanupFailed = attachmentFiles.remove(pendingKey) !is PlatformResult.Success
+            if (!cleanupFailed) newlyAcknowledged += pendingKey
+            cleanupFailed
         }
         if (currentGeneration(lease.actorId) != lease.generation) {
             preferences.remove(key)
             return null
         }
         val reconciled = stored.copy(pendingCleanupKeys = remaining)
-        if (reconciled.toDraftRecord(null).isEmpty && reconciled.attachment == null && remaining.isEmpty()) {
-            preferences.remove(key)
-            return null
+        if (newlyAcknowledged.isNotEmpty()) {
+            preferences.putString(acknowledgementKey, (acknowledged + newlyAcknowledged).sorted().encodeStrings())
         }
-        if (reconciled != stored) preferences.putString(key, reconciled.encode())
-        return reconciled
+        return reconciled.takeUnless {
+            it.toDraftRecord(null).isEmpty && it.attachment == null && remaining.isEmpty()
+        }
     }
 
     private suspend fun queueDetachedAttachmentCleanup(lease: ChatComposerDraftLease, cacheKey: String) {
@@ -370,6 +378,9 @@ class ChatComposerDraftStore(
 
         internal fun conversationKey(actorId: String, generation: Long, conversationId: String): String =
             "${generationPrefix(actorId, generation)}${conversationId.length}:$conversationId"
+
+        internal fun cleanupAcknowledgementKey(actorId: String, generation: Long, conversationId: String): String =
+            "${generationPrefix(actorId, generation)}cleanup.${conversationId.length}:$conversationId"
 
         internal fun retirementKey(actorId: String): String =
             "quata.chat.composer.retired.v2.${actorId.length}:$actorId"

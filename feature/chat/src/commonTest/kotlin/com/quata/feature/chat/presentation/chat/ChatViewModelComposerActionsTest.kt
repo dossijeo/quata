@@ -657,7 +657,9 @@ class ChatViewModelComposerActionsTest {
     fun suspendedCleanupCannotOverwriteANewerDraftRecord() = runTest {
         val removeGate = CompletableDeferred<Unit>()
         val files = ComposerMemoryFiles(removeGate = removeGate)
-        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val preferences = ComposerMemoryPreferences()
+        val store = ChatComposerDraftStore(preferences, files)
+        val concurrentStore = ChatComposerDraftStore(preferences, files)
         val lease = store.open("me")
         val first = assertNotNull(
             (store.stageAttachment(lease, "first", PlatformFile("content://first")) as? PlatformResult.Success)?.value,
@@ -676,14 +678,14 @@ class ChatViewModelComposerActionsTest {
         testScheduler.runCurrent()
         files.removeStarted.await()
         val newerWrite = async {
-            store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("latest", attachment = latest))
+            concurrentStore.writeRecord("me", "conversation-1", ChatComposerDraftRecord("latest", attachment = latest))
         }
         testScheduler.runCurrent()
 
         removeGate.complete(Unit)
         cleanup.await()
         newerWrite.await()
-        val persisted = assertNotNull(store.readRecord(lease, "conversation-1"))
+        val persisted = assertNotNull(concurrentStore.readRecord("me", "conversation-1"))
         assertEquals("latest", persisted.text)
         assertEquals(latest.cacheKey, persisted.attachment?.cacheKey)
     }
