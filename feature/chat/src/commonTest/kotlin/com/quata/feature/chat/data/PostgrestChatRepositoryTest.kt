@@ -12,7 +12,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.core.platform.PreferenceStore
@@ -190,6 +194,53 @@ class PostgrestChatRepositoryTest {
 
         assertEquals(2, threadRequests.size)
         assertTrue(threadRequests.last().contains("\"p_known_message_ids\":[41,40]"))
+    }
+
+    @Test
+    fun deepMessagePagingExhaustsEveryPageInChronologicalOrderWithoutDuplicates() = runTest {
+        val knownIdCounts = mutableListOf<Int>()
+        val chronologicalMessages = (1L..601L).map { sentAtMillis ->
+            (((sentAtMillis * 137L) % 601L) + 1L) to sentAtMillis
+        }
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                if (functionName != "quata_chat_get_thread") {
+                    ChatPostgrestResponse.Success("{}")
+                } else {
+                    val request = Json.parseToJsonElement(body).jsonObject
+                    val knownIds = request.getValue("p_known_message_ids").jsonArray
+                        .map { it.jsonPrimitive.long }
+                        .toSet()
+                    val limit = request.getValue("p_limit").jsonPrimitive.int
+                    knownIdCounts += knownIds.size
+                    val page = chronologicalMessages
+                        .filterNot { (id, _) -> id in knownIds }
+                        .sortedByDescending { (_, sentAtMillis) -> sentAtMillis }
+                        .take(limit)
+                        .sortedBy { (_, sentAtMillis) -> sentAtMillis }
+                    val messages = page.joinToString(",") { (id, sentAtMillis) ->
+                        """{"id":$id,"thread_id":7,"sender_profile_id":"profile-1","body":"message-$id","created_at_millis":$sentAtMillis}"""
+                    }
+                    ChatPostgrestResponse.Success(
+                        """{"threads":[{"id":7,"type":"private"}],"messages":[$messages]}""",
+                    )
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+        )
+        repository.setActiveConversation("sb:7")
+
+        val latest = repository.observeMessages("sb:7").first()
+        assertEquals(250, latest.size)
+        assertEquals(chronologicalMessages.takeLast(250).map { it.first.toString() }, latest.map { it.id })
+        assertTrue(repository.loadOlderMessages("sb:7", limit = 250).getOrThrow())
+        assertFalse(repository.loadOlderMessages("sb:7", limit = 250).getOrThrow())
+
+        val complete = repository.observeMessages("sb:7").first()
+        assertEquals(chronologicalMessages.map { it.first.toString() }, complete.map { it.id })
+        assertEquals(601, complete.map { it.id }.distinct().size)
+        assertEquals(listOf(0, 250, 500, 601), knownIdCounts)
     }
 
     private suspend fun verifyDeliveryReceipt(source: String, inbox: Boolean) {
