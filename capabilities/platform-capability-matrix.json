@@ -492,7 +492,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt",
-              "sha256": "d6c96e5a16f0892588447f40df4c473f45bd5cdb39c79c00c896caffc0b6c9b8",
+              "sha256": "c55c37e891b84a7c592e8fbdf36a0c8b8bc695274942274424ed8fc558ee8ba1",
               "role": "implementation"
             }
           ]
@@ -512,7 +512,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "67248abb74712e86b8780c95cdfe5f321443fce402947e314424157b6a507b6f",
+              "sha256": "ded0f175feddebae0e559e602ed31a09f78986758b0d7e304fe47958521b2f68",
               "role": "implementation"
             }
           ]
@@ -527,7 +527,7 @@
             },
             {
               "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt",
-              "sha256": "f5b4a38a493478836d1f27d16b617102186f261a564fa10b6a7c753bc06cd2a2",
+              "sha256": "7bf9cf5276f65128d3a5d360e7ee4bccaeb16bce2a6384a5aad69f85d28f6b48",
               "role": "runtime-bootstrap"
             },
             {
@@ -537,7 +537,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "67248abb74712e86b8780c95cdfe5f321443fce402947e314424157b6a507b6f",
+              "sha256": "ded0f175feddebae0e559e602ed31a09f78986758b0d7e304fe47958521b2f68",
               "role": "implementation"
             }
           ]
@@ -565,7 +565,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt",
-              "sha256": "d6c96e5a16f0892588447f40df4c473f45bd5cdb39c79c00c896caffc0b6c9b8",
+              "sha256": "c55c37e891b84a7c592e8fbdf36a0c8b8bc695274942274424ed8fc558ee8ba1",
               "role": "implementation"
             }
           ]
@@ -585,7 +585,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "67248abb74712e86b8780c95cdfe5f321443fce402947e314424157b6a507b6f",
+              "sha256": "ded0f175feddebae0e559e602ed31a09f78986758b0d7e304fe47958521b2f68",
               "role": "implementation"
             }
           ]
@@ -600,7 +600,7 @@
             },
             {
               "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt",
-              "sha256": "f5b4a38a493478836d1f27d16b617102186f261a564fa10b6a7c753bc06cd2a2",
+              "sha256": "7bf9cf5276f65128d3a5d360e7ee4bccaeb16bce2a6384a5aad69f85d28f6b48",
               "role": "runtime-bootstrap"
             },
             {
@@ -610,7 +610,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "67248abb74712e86b8780c95cdfe5f321443fce402947e314424157b6a507b6f",
+              "sha256": "ded0f175feddebae0e559e602ed31a09f78986758b0d7e304fe47958521b2f68",
               "role": "implementation"
             }
           ]
