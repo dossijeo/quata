@@ -36,6 +36,7 @@ class WebAuthRepository(
     private val preferences: PreferenceStore,
 ) : AuthRepository {
     private val refreshMutex = Mutex()
+    private val sessionMutationMutex = Mutex()
     private var activeSession: WebLocalSession? = null
 
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
@@ -58,14 +59,16 @@ class WebAuthRepository(
 
     /** Restores a complete, non-expired local session without making a network request. */
     suspend fun restoreLocalSession(): WebLocalSession? {
-        val session = storedSessionOrNull() ?: return null
-        if (session.expiresAt <= currentEpochSeconds()) {
-            WebAuthStorage.clear(preferences)
-            activeSession = null
-            return null
+        return sessionMutationMutex.withLock {
+            val session = storedSessionOrNull() ?: return@withLock null
+            if (session.expiresAt <= currentEpochSeconds()) {
+                WebAuthStorage.clear(preferences)
+                activeSession = null
+                return@withLock null
+            }
+            activeSession = session
+            session
         }
-        activeSession = session
-        return session
     }
 
     /** Returns the persisted profile id without refreshing, expiring or clearing local credentials. */
@@ -86,12 +89,7 @@ class WebAuthRepository(
             try {
                 refreshSession(latest)
             } catch (_: WebRefreshSessionRejected) {
-                // A login can finish while the old request is in flight. Only
-                // retire the credentials rejected by this particular refresh.
-                if (storedSessionOrNull()?.sameCredentialsAs(latest) == true) {
-                    WebAuthStorage.clear(preferences)
-                    if (activeSession?.sameCredentialsAs(latest) == true) activeSession = null
-                }
+                retireSessionIfCurrent(latest)
                 null
             } catch (_: Exception) {
                 // Network, throttling and unknown responses do not prove revocation.
@@ -99,6 +97,30 @@ class WebAuthRepository(
             }
         }
     }
+
+    /**
+     * Renews the exact credentials rejected by an authenticated request.
+     *
+     * A login may finish while the rejected request is in flight. In that case the newer session
+     * is returned without refreshing or clearing it; the caller must still verify that the actor
+     * has not changed before replaying an actor-bound request.
+     */
+    internal suspend fun sessionAfterUnauthorized(rejectedAccessToken: String): WebLocalSession? =
+        refreshMutex.withLock {
+            val latest = storedSessionOrNull() ?: return@withLock null
+            if (latest.accessToken != rejectedAccessToken) {
+                return@withLock latest.also { activeSession = it }
+            }
+            try {
+                refreshSession(latest)
+            } catch (_: WebRefreshSessionRejected) {
+                retireSessionIfCurrent(latest)
+                null
+            } catch (_: Exception) {
+                // A transport failure does not prove that the refresh token is invalid.
+                null
+            }
+        }
 
     /** Non-suspending snapshot for feature session providers after launcher authentication. */
     internal fun activeProfileSessionOrNull(): WebLocalSession? = activeSession
@@ -122,7 +144,10 @@ class WebAuthRepository(
             runCatching { browserUnsubscribe().getOrThrow() }
         } ?: Result.failure(IllegalStateException("web_push_unsubscribe_timeout"))
         val browserFailure = browserResult.exceptionOrNull()
-        WebAuthStorage.clear(preferences)
+        sessionMutationMutex.withLock {
+            WebAuthStorage.clear(preferences)
+            activeSession = null
+        }
         retiringProfileId?.let {
             ChatComposerDraftStore(
                 preferences,
@@ -130,7 +155,6 @@ class WebAuthRepository(
                 BrowserChatComposerAttachmentExecutionLock(),
             ).clearActor(it)
         }
-        activeSession = null
         val failure = serverFailure ?: browserFailure
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
@@ -252,13 +276,15 @@ class WebAuthRepository(
         check(Json.parseToJsonElement(response).jsonObject["ok"]?.jsonPrimitive?.booleanOrNull == true) {
             "web_auth_lifecycle_failed"
         }
-        WebAuthStorage.clear(preferences)
+        sessionMutationMutex.withLock {
+            WebAuthStorage.clear(preferences)
+            activeSession = null
+        }
         ChatComposerDraftStore(
             preferences,
             BrowserFileCacheService(),
             BrowserChatComposerAttachmentExecutionLock(),
         ).clearActor(session.userId)
-        activeSession = null
     }
 
     private suspend fun notifyServerLogout() {
@@ -288,7 +314,7 @@ class WebAuthRepository(
         }
     }
 
-    private suspend fun refreshSession(current: WebLocalSession): WebLocalSession {
+    private suspend fun refreshSession(current: WebLocalSession): WebLocalSession? {
         val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
         val response = webPostJson(
             endpoint = configuration.supabaseRefreshTokenEndpoint(),
@@ -297,9 +323,15 @@ class WebAuthRepository(
             classifyRefreshFailure = true,
         )
         val refreshed = response.toWebRefreshedSession(current)
-        refreshed.persist(preferences)
-        activeSession = refreshed
-        return refreshed
+        return sessionMutationMutex.withLock {
+            val latest = storedSessionOrNull() ?: return@withLock null
+            if (!latest.sameCredentialsAs(current)) {
+                return@withLock latest.also { activeSession = it }
+            }
+            refreshed.persist(preferences)
+            activeSession = refreshed
+            refreshed
+        }
     }
 
     private suspend fun acceptAuthenticationPayload(payload: String): AuthSession {
@@ -309,8 +341,7 @@ class WebAuthRepository(
         )
         val webSessionToken = payload.webSessionToken()
         val displayName = payload.webProfileDisplayName()
-        session.persist(preferences, webSessionToken, displayName)
-        activeSession = WebLocalSession(
+        val accepted = WebLocalSession(
             accessToken = session.accessToken ?: session.token,
             refreshToken = session.refreshToken.orEmpty(),
             webSessionToken = webSessionToken,
@@ -319,7 +350,19 @@ class WebAuthRepository(
             displayName = displayName,
             isOfficial = session.isOfficial,
         )
+        sessionMutationMutex.withLock {
+            session.persist(preferences, webSessionToken, displayName)
+            activeSession = accepted
+        }
         return session
+    }
+
+    private suspend fun retireSessionIfCurrent(expected: WebLocalSession) {
+        sessionMutationMutex.withLock {
+            if (storedSessionOrNull()?.sameCredentialsAs(expected) != true) return@withLock
+            WebAuthStorage.clear(preferences)
+            if (activeSession?.sameCredentialsAs(expected) == true) activeSession = null
+        }
     }
 
     private suspend fun fetchAuthenticatedProfileIsOfficial(accessToken: String, profileId: String): Boolean {
