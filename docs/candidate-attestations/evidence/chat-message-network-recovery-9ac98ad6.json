@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "9ac98ad6ec5af04247a13c299ba415e32837057b",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic recovery of the shared Chat message read path after initial-observer and older-history transport failures. Explicit retry preserves the draft and loaded messages, clears only the recovered failure source and cannot hide a concurrent terminal observer failure on Web/Wasm and iOS x64; Android compiles the same common runtime.",
+  "steps": [
+    "initial_observation_failure_is_terminal_until_explicit_retry",
+    "explicit_observation_retry_resubscribes_once",
+    "composer_draft_survives_observation_recovery",
+    "history_failure_preserves_loaded_messages",
+    "successful_history_retry_clears_its_own_failure",
+    "history_success_cannot_hide_a_concurrent_observation_failure",
+    "web_wasm_47_composer_tests_passed",
+    "ios_x64_47_composer_tests_passed_on_exact_product_sha",
+    "android_debug_compilation_passed",
+    "independent_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "webTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosFocal": "JAVA_HOME=<installed-quata-jbr21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain"
+  },
+  "results": {
+    "webWasmComposer": "47 tests passed in Chrome Headless",
+    "android": "BUILD SUCCESSFUL",
+    "iosX64Composer": "Complete ChatViewModelComposerActionsTest class passed; BUILD SUCCESSFUL"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "9ac98ad6ec5af04247a13c299ba415e32837057b",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P1 the first implementation let a successful history request erase a concurrent terminal observer failure; failure ownership is now separate and the exact interleaving has a regression test"
+    ]
+  },
+  "cleanup": {
+    "state": "complete",
+    "mode": "hermetic_common_tests_no_credentials_no_backend_mutation",
+    "macTemporaryWorktreeRemoved": true
+  },
+  "limits": [
+    "This unit covers message-read observation and older-history transport recovery. It does not claim mutation authorization failures, expired authenticated sessions or push transport.",
+    "No backend, credential, notification or platform UI fixture was required."
+  ]
+}

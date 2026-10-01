@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES"
+  ],
+  "status": "passed",
+  "productSha": "0567b9073dc10028f9993b51bb1f43612feaf2c4",
+  "certification": "hermetic-message-read-network-recovery-complete-affected-platform-validation-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "0567b9073dc10028f9993b51bb1f43612feaf2c4",
+      "report": "docs/candidate-attestations/evidence/chat-message-network-recovery-9ac98ad6.json",
+      "reportSha256": "057ee9e0b01a0beee457d257cd83a1edb39f433a34a967c4befb1b30fd763741",
+      "reportStatus": "passed",
+      "reportGitHead": "9ac98ad6ec5af04247a13c299ba415e32837057b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "initial_observation_failure_is_terminal_until_explicit_retry",
+        "explicit_observation_retry_resubscribes_once",
+        "composer_draft_survives_observation_recovery",
+        "history_failure_preserves_loaded_messages",
+        "successful_history_retry_clears_its_own_failure",
+        "history_success_cannot_hide_a_concurrent_observation_failure",
+        "web_wasm_47_composer_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_common_tests_no_credentials_no_backend_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "0567b9073dc10028f9993b51bb1f43612feaf2c4",
+      "report": "docs/candidate-attestations/evidence/chat-message-network-recovery-9ac98ad6.json",
+      "reportSha256": "057ee9e0b01a0beee457d257cd83a1edb39f433a34a967c4befb1b30fd763741",
+      "reportStatus": "passed",
+      "reportGitHead": "9ac98ad6ec5af04247a13c299ba415e32837057b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "successful_history_retry_clears_its_own_failure",
+        "history_success_cannot_hide_a_concurrent_observation_failure",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_common_tests_no_credentials_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "0567b9073dc10028f9993b51bb1f43612feaf2c4",
+      "report": "docs/candidate-attestations/evidence/chat-message-network-recovery-9ac98ad6.json",
+      "reportSha256": "057ee9e0b01a0beee457d257cd83a1edb39f433a34a967c4befb1b30fd763741",
+      "reportStatus": "passed",
+      "reportGitHead": "9ac98ad6ec5af04247a13c299ba415e32837057b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "initial_observation_failure_is_terminal_until_explicit_retry",
+        "history_failure_preserves_loaded_messages",
+        "history_success_cannot_hide_a_concurrent_observation_failure",
+        "ios_x64_47_composer_tests_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_common_tests_no_credentials_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "JAVA_HOME=<installed-quata-jbr21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-network-recovery.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "0567b9073dc10028f9993b51bb1f43612feaf2c4",
+    "blockingFindings": [],
+    "scopeLimit": "Initial-observer and older-history message-read network recovery are proven hermetically. Mutation authorization, expired sessions, backend replay and push transport remain separate scopes."
+  },
+  "notes": [
+    "Initial message observation failures remain terminal until explicit retry; retry re-subscribes exactly once and preserves the current composer draft.",
+    "An older-history failure preserves the loaded message list. Its explicit retry repeats the page and clears only the history failure after success.",
+    "Observation and history failures have independent ownership. Success in either operation cannot hide a concurrent failure in the other, and a combined retry relaunches both failed operations.",
+    "Focused-message retry delegates the historical page request to the existing deep-link state machine, preventing duplicate requests while still reattaching a failed observer.",
+    "The complete 47-test composer class passed in Web/Wasm and iOS x64 on the exact Product SHA; Android compiled the common runtime.",
+    "Independent review rejected the first implementation for a P1 interleaving. After separate failure ownership and an exact race regression test, rereview returned GO with no P0-P3 findings.",
+    "No credentials or backend state were used. The temporary macOS worktree and bundle were removed after the iOS run.",
+    "Product SHA 0567b907 recompone sin cambios semanticos la unidad de recuperacion de red sobre el merge integrado de #501 (`9d92e65b0`). El diff de producto respecto a `9afac928` conserva los mismos blobs funcionales; no se repitieron matrices de plataforma solo por el cambio de base."
+  ]
+}
