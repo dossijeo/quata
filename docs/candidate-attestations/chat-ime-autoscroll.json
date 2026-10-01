@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES"
+  ],
+  "status": "passed",
+  "productSha": "92c8a6d257c5785067226735993e1769badcb2ea",
+  "certification": "hermetic-ime-viewport-resize-complete-affected-platform-validation-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "92c8a6d257c5785067226735993e1769badcb2ea",
+      "report": "docs/candidate-attestations/evidence/chat-ime-autoscroll-9fe1b2e9.json",
+      "reportSha256": "f721f5cc45e9b802d2708fc9a6cc3f66edc7c455e1064bc2afe168531f315748",
+      "reportStatus": "passed",
+      "reportGitHead": "9fe1b2e928c7973c8b161cbc7d6b634f6fe76e3a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "attached_viewport_resize_keeps_the_latest_message_visible",
+        "detached_viewport_resize_preserves_the_same_message_anchor_within_one_dp",
+        "web_wasm_9_affected_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_ui_and_policy_tests_no_credentials_no_backend_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "92c8a6d257c5785067226735993e1769badcb2ea",
+      "report": "docs/candidate-attestations/evidence/chat-ime-autoscroll-9fe1b2e9.json",
+      "reportSha256": "f721f5cc45e9b802d2708fc9a6cc3f66edc7c455e1064bc2afe168531f315748",
+      "reportStatus": "passed",
+      "reportGitHead": "9fe1b2e928c7973c8b161cbc7d6b634f6fe76e3a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "attached_viewport_resize_keeps_the_latest_message_visible",
+        "detached_viewport_resize_preserves_the_same_message_anchor_within_one_dp",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_ui_and_policy_tests_no_credentials_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "92c8a6d257c5785067226735993e1769badcb2ea",
+      "report": "docs/candidate-attestations/evidence/chat-ime-autoscroll-9fe1b2e9.json",
+      "reportSha256": "f721f5cc45e9b802d2708fc9a6cc3f66edc7c455e1064bc2afe168531f315748",
+      "reportStatus": "passed",
+      "reportGitHead": "9fe1b2e928c7973c8b161cbc7d6b634f6fe76e3a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "attached_viewport_resize_keeps_the_latest_message_visible",
+        "detached_viewport_resize_preserves_the_same_message_anchor_within_one_dp",
+        "ios_x64_5_final_ui_tests_passed_on_exact_product_sha",
+        "ios_x64_4_policy_tests_passed_before_the_assertion_only_correction"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_ui_and_policy_tests_no_credentials_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --tests com.quata.feature.chat.presentation.chat.ChatAutoScrollPolicyTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "JAVA_HOME=<installed-jdk-21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-ime-autoscroll.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "92c8a6d257c5785067226735993e1769badcb2ea",
+    "blockingFindings": [],
+    "scopeLimit": "The common viewport-height response under the existing imePadding is proven hermetically. No real OS-keyboard journey, authenticated backend journey or unrelated screen behavior is claimed."
+  },
+  "notes": [
+    "When the common conversation viewport changes height, an attached reader remains at the latest message and a detached reader retains the same stable message anchor.",
+    "Incoming messages do not snap a detached reader; the reader's own new message follows the existing product policy, and prepended history does not move the reader.",
+    "The first exact iOS assertion preserved message-25 but exposed a one-dp cross-platform rounding difference. The final contract requires the same stable message with at most one-dp offset tolerance.",
+    "The final five iOS UI tests passed on the exact Product SHA. The four policy tests passed before the assertion-only test correction and were not repeated solely because the SHA changed.",
+    "Independent review returned GO with no P0-P3 findings after the detached resize test was stabilized.",
+    "No credentials, backend mutation, real OS keyboard journey or unrelated platform matrix was used.",
+    "Product SHA 92c8a6d25 has the exact tree 23553b395f12bbd9ca0b874f11a50154787db368 already reviewed and validated as a3b7b2019; it replaces the two #499 ancestors with their squash merge e25a47756. Runtime, tests and evidence are byte-identical, so platform matrices were not repeated solely for the Git identity advance."
+  ]
+}

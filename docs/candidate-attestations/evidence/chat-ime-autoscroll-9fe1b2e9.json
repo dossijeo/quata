@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "9fe1b2e928c7973c8b161cbc7d6b634f6fe76e3a",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic common Chat viewport-resize behavior under the existing host imePadding: an attached reader follows the latest message while a detached reader keeps the same stable message anchor within one density-independent pixel; no OS-keyboard journey or backend mutation is claimed.",
+  "steps": [
+    "attached_viewport_resize_keeps_the_latest_message_visible",
+    "detached_viewport_resize_preserves_the_same_message_anchor_within_one_dp",
+    "attached_reader_follows_an_incoming_message",
+    "detached_reader_ignores_an_incoming_message",
+    "detached_reader_follows_their_own_new_message",
+    "detached_reader_ignores_prepended_history",
+    "web_wasm_9_affected_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_5_final_ui_tests_passed_on_exact_product_sha",
+    "ios_x64_4_policy_tests_passed_before_the_assertion_only_correction",
+    "independent_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "webTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --tests com.quata.feature.chat.presentation.chat.ChatAutoScrollPolicyTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosFinalUiTests": "JAVA_HOME=<installed-jdk-21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosPolicyTests": "JAVA_HOME=<installed-jdk-21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatAutoScrollPolicyTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain"
+  },
+  "results": {
+    "webWasmAffected": "9 tests passed in Chrome Headless",
+    "android": "BUILD SUCCESSFUL",
+    "iosX64FinalUi": "5 tests passed on the exact Product SHA; BUILD SUCCESSFUL",
+    "iosX64Policy": "4 tests passed on the immediately preceding runtime-equivalent Product SHA; the policy test file and product runtime were unchanged afterward"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "9fe1b2e928c7973c8b161cbc7d6b634f6fe76e3a",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P3 detached resize test now waits for a stable anchored viewport before resizing",
+      "The cross-platform one-dp rounding difference preserves the same message and cannot mask a jump to the latest item"
+    ]
+  },
+  "cleanup": {
+    "state": "not_required",
+    "mode": "hermetic_ui_and_policy_tests_no_credentials_no_backend_mutation"
+  },
+  "preservedFailures": [
+    "The first exact detached-anchor assertion failed on iOS with the same message-25 retained and a one-dp offset rounding difference, 18dp before resize versus 17dp afterward; the contract was narrowed to stable message identity with at most one-dp tolerance."
+  ],
+  "limits": [
+    "The viewport-height change is exercised hermetically in the common Compose UI; this evidence does not claim a real OS keyboard presentation journey.",
+    "The test does not use an authenticated session, backend mutation or unrelated platform matrix.",
+    "Final GitHub candidate certification remains pending behind the single active remote candidate."
+  ]
+}
