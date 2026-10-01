@@ -12,12 +12,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatViewModel(
     private val conversationId: String,
@@ -241,123 +243,140 @@ class ChatViewModel(
         }
     }
 
-    private fun send() = scope.launch {
-        val text = _uiState.value.messageText
-        val attachmentCacheKey = _uiState.value.attachmentCacheKey
-        val attachmentUri = _uiState.value.attachmentUri
-        val attachmentName = _uiState.value.attachmentName
-        val attachmentMimeType = _uiState.value.attachmentMimeType
-        if (text.isBlank() && attachmentUri.isNullOrBlank()) return@launch
+    private fun send() {
+        val stateAtSend = _uiState.value
+        val text = stateAtSend.messageText
+        val attachmentCacheKey = stateAtSend.attachmentCacheKey
+        val attachmentUri = stateAtSend.attachmentUri
+        val attachmentName = stateAtSend.attachmentName
+        val attachmentMimeType = stateAtSend.attachmentMimeType
+        if (text.isBlank() && attachmentUri.isNullOrBlank()) return
 
-        val currentUserId = _uiState.value.currentUser?.id
-        if (currentUserId != null && currentUserId in _uiState.value.conversation?.blockedUserIds.orEmpty()) {
+        val currentUserId = stateAtSend.currentUser?.id
+        if (currentUserId != null && currentUserId in stateAtSend.conversation?.blockedUserIds.orEmpty()) {
             _uiState.value = _uiState.value.copy(error = "Has sido bloqueado de esta conversacion")
-            return@launch
+            return
         }
 
-        val editingMessage = _uiState.value.editingMessage
-        val replyToMessage = _uiState.value.replyToMessage
-        val draft = retryDraft
-            ?.takeIf { it.matches(text, attachmentCacheKey, attachmentUri, attachmentName, attachmentMimeType, replyToMessage) }
-            ?: OutgoingDraft(
-                text = text,
-                attachmentCacheKey = attachmentCacheKey,
-                attachmentUri = attachmentUri,
-                attachmentName = attachmentName,
-                attachmentMimeType = attachmentMimeType,
-                replyToMessage = replyToMessage,
-                clientMessageId = newClientMessageId()
-            )
-        retryDraft = null
-        val optimisticMessage = if (editingMessage == null) createOptimisticMessage(draft) else null
-        val optimisticEditedMessage = editingMessage?.copy(
-            text = text,
-            isEdited = true,
-            isPending = true
-        )
-        optimisticMessage?.let { message ->
-            localEchoMessages = localEchoMessages + message
-            _uiState.value = _uiState.value.copy(
-                messageText = "",
-                attachmentCacheKey = null,
-                attachmentUri = null,
-                attachmentName = null,
-                attachmentMimeType = null,
-                replyToMessage = null,
-                selectedMessageId = null
-            )
-            publishMessages(isLoading = false)
-        }
-        optimisticEditedMessage?.let { message ->
-            optimisticEditedMessages = optimisticEditedMessages + (message.id to message)
-            _uiState.value = _uiState.value.copy(
-                messageText = "",
-                editingMessage = null,
-                selectedMessageId = null
-            )
-            publishMessages(isLoading = false)
-        }
-
-        val result = when {
-            editingMessage != null -> repository.editMessage(editingMessage.id, text)
-            replyToMessage != null -> repository.sendReply(
-                conversationId = conversationId,
-                text = text,
-                replyTo = replyToMessage,
-                attachmentUri = attachmentUri,
-                attachmentName = attachmentName,
-                attachmentMimeType = attachmentMimeType,
-                clientMessageId = draft.clientMessageId
-            )
-            else -> repository.sendMessage(
-                conversationId = conversationId,
-                text = text,
-                attachmentUri = attachmentUri,
-                attachmentName = attachmentName,
-                attachmentMimeType = attachmentMimeType,
-                clientMessageId = draft.clientMessageId
-            )
-        }
-        result
-            .onSuccess {
-                repository.setTyping(conversationId, false)
-                if (optimisticMessage != null) persistPlainComposerDraft("")
+        val sendRevision = composerRevision
+        attachmentCacheKey?.let { composerDraftStore?.retainAttachment(it) }
+        scope.launch {
+            try {
+                val editingMessage = stateAtSend.editingMessage
+                val replyToMessage = stateAtSend.replyToMessage
+                val draft = retryDraft
+                    ?.takeIf { it.matches(text, attachmentCacheKey, attachmentUri, attachmentName, attachmentMimeType, replyToMessage) }
+                    ?: OutgoingDraft(
+                        text = text,
+                        attachmentCacheKey = attachmentCacheKey,
+                        attachmentUri = attachmentUri,
+                        attachmentName = attachmentName,
+                        attachmentMimeType = attachmentMimeType,
+                        replyToMessage = replyToMessage,
+                        clientMessageId = newClientMessageId()
+                    )
+                retryDraft = null
+                val optimisticMessage = if (editingMessage == null) createOptimisticMessage(draft) else null
+                val optimisticEditedMessage = editingMessage?.copy(
+                    text = text,
+                    isEdited = true,
+                    isPending = true
+                )
                 optimisticMessage?.let { message ->
-                    if (repository.isMessagePending(message.clientMessageId.orEmpty())) {
-                        markLocalEchoPending(message)
-                    } else {
-                        markLocalEchoSent(message)
-                    }
-                }
-                if (editingMessage != null) {
-                    optimisticEditedMessages = optimisticEditedMessages.mapValues { (messageId, message) ->
-                        if (messageId == editingMessage.id) message.copy(isPending = false) else message
-                    }
+                    localEchoMessages = localEchoMessages + message
+                    _uiState.value = _uiState.value.copy(
+                        messageText = "",
+                        attachmentCacheKey = null,
+                        attachmentUri = null,
+                        attachmentName = null,
+                        attachmentMimeType = null,
+                        replyToMessage = null,
+                        selectedMessageId = null
+                    )
                     publishMessages(isLoading = false)
+                }
+                optimisticEditedMessage?.let { message ->
+                    optimisticEditedMessages = optimisticEditedMessages + (message.id to message)
                     _uiState.value = _uiState.value.copy(
                         messageText = "",
                         editingMessage = null,
                         selectedMessageId = null
                     )
-                    persistPlainComposerDraft("")
+                    publishMessages(isLoading = false)
                 }
-            }
-            .onFailure { error ->
-                optimisticMessage?.let { failedMessage ->
-                    val alreadyConfirmed = backendMessages.any { remote -> remote.matchesLocalEcho(failedMessage) }
-                    localEchoMessages = localEchoMessages.filterNot { it.id == failedMessage.id }
-                    if (!alreadyConfirmed) {
-                        restoreDraftIfComposerIsEmpty(draft)
+
+                val result = when {
+                    editingMessage != null -> repository.editMessage(editingMessage.id, text)
+                    replyToMessage != null -> repository.sendReply(
+                        conversationId = conversationId,
+                        text = text,
+                        replyTo = replyToMessage,
+                        attachmentUri = attachmentUri,
+                        attachmentName = attachmentName,
+                        attachmentMimeType = attachmentMimeType,
+                        clientMessageId = draft.clientMessageId
+                    )
+                    else -> repository.sendMessage(
+                        conversationId = conversationId,
+                        text = text,
+                        attachmentUri = attachmentUri,
+                        attachmentName = attachmentName,
+                        attachmentMimeType = attachmentMimeType,
+                        clientMessageId = draft.clientMessageId
+                    )
+                }
+                result
+                    .onSuccess {
+                        repository.setTyping(conversationId, false)
+                        if (optimisticMessage != null && composerRevision == sendRevision) clearComposerDraft()
+                        optimisticMessage?.let { message ->
+                            if (repository.isMessagePending(message.clientMessageId.orEmpty())) {
+                                markLocalEchoPending(message)
+                            } else {
+                                markLocalEchoSent(message)
+                            }
+                        }
+                        if (editingMessage != null) {
+                            optimisticEditedMessages = optimisticEditedMessages.mapValues { (messageId, message) ->
+                                if (messageId == editingMessage.id) message.copy(isPending = false) else message
+                            }
+                            publishMessages(isLoading = false)
+                            _uiState.value = _uiState.value.copy(
+                                messageText = "",
+                                editingMessage = null,
+                                selectedMessageId = null
+                            )
+                            if (composerRevision == sendRevision) clearComposerDraft()
+                        }
                     }
-                    publishMessages(isLoading = false)
+                    .onFailure { error ->
+                        optimisticMessage?.let { failedMessage ->
+                            val alreadyConfirmed = backendMessages.any { remote -> remote.matchesLocalEcho(failedMessage) }
+                            localEchoMessages = localEchoMessages.filterNot { it.id == failedMessage.id }
+                            if (!alreadyConfirmed) {
+                                restoreDraftIfComposerIsEmpty(draft)
+                            }
+                            publishMessages(isLoading = false)
+                        }
+                        if (editingMessage != null) {
+                            optimisticEditedMessages = optimisticEditedMessages - editingMessage.id
+                            restoreEditDraftIfComposerIsEmpty(editingMessage, text)
+                            publishMessages(isLoading = false)
+                        }
+                        _uiState.value = _uiState.value.copy(error = text(ChatText.Send))
+                    }
+            } finally {
+                if (attachmentCacheKey != null) {
+                    withContext(NonCancellable) {
+                        val store = composerDraftStore
+                        val lease = composerDraftLease.await()
+                        if (store != null && lease != null) {
+                            store.releaseAttachment(lease, conversationId, attachmentCacheKey)
+                        }
+                    }
                 }
-                if (editingMessage != null) {
-                    optimisticEditedMessages = optimisticEditedMessages - editingMessage.id
-                    restoreEditDraftIfComposerIsEmpty(editingMessage, text)
-                    publishMessages(isLoading = false)
-                }
-                _uiState.value = _uiState.value.copy(error = text(ChatText.Send))
             }
+        }
     }
 
     private fun publishMessages(isLoading: Boolean = _uiState.value.isLoading) {
@@ -1177,14 +1196,17 @@ class ChatViewModel(
         cleanupEmptyConversationIfNeeded()
         repository.setConversationVisible(conversationId, false)
         scope.coroutineContext.cancel()
-        val pendingDraftWrite = composerDraftWriteJob
         val pendingAttachmentStage = composerAttachmentStageJob
-        if (pendingDraftWrite == null && pendingAttachmentStage == null) {
+        if (composerDraftWriteJob == null && pendingAttachmentStage == null) {
             composerDraftScope.coroutineContext.cancel()
         } else {
             val closeJob = composerDraftScope.launch {
                 pendingAttachmentStage?.join()
-                pendingDraftWrite?.join()
+                while (true) {
+                    val pendingDraftWrite = composerDraftWriteJob ?: break
+                    pendingDraftWrite.join()
+                    if (pendingDraftWrite === composerDraftWriteJob) break
+                }
             }
             closeJob.invokeOnCompletion { composerDraftScope.coroutineContext.cancel() }
         }

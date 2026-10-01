@@ -8,8 +8,10 @@ import com.quata.core.platform.PrefixClearableFileCacheService
 import com.quata.core.platform.PrefixClearablePreferenceStore
 import com.quata.core.platform.UnsupportedFileCacheService
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -54,19 +56,40 @@ class ChatComposerDraftStore(
     private val preferences: PreferenceStore,
     private val attachmentFiles: FileCacheService = UnsupportedFileCacheService,
 ) {
-    suspend fun open(actorId: String): ChatComposerDraftLease =
-        ChatComposerDraftLease(actorId, currentGeneration(actorId))
+    private val retainedAttachmentKeys = mutableMapOf<String, Int>()
+
+    suspend fun open(actorId: String): ChatComposerDraftLease {
+        val generation = currentGeneration(actorId)
+        retryRetiredGenerationCleanup(actorId, generation)
+        retryDetachedAttachmentCleanup(actorId, generation)
+        return ChatComposerDraftLease(actorId, generation)
+    }
+
+    fun retainAttachment(cacheKey: String) {
+        retainedAttachmentKeys[cacheKey] = retainedAttachmentKeys.getOrElse(cacheKey) { 0 } + 1
+    }
+
+    suspend fun releaseAttachment(
+        lease: ChatComposerDraftLease,
+        conversationId: String,
+        cacheKey: String,
+    ) {
+        val remainingRetainers = retainedAttachmentKeys.getOrElse(cacheKey) { 0 } - 1
+        if (remainingRetainers > 0) retainedAttachmentKeys[cacheKey] = remainingRetainers
+        else retainedAttachmentKeys.remove(cacheKey)
+        reconcileRecordCleanup(lease, conversationId)
+    }
 
     suspend fun readRecord(lease: ChatComposerDraftLease, conversationId: String): ChatComposerDraftRecord? {
         if (currentGeneration(lease.actorId) != lease.generation) return null
         val key = conversationKey(lease.actorId, lease.generation, conversationId)
         val raw = preferences.getString(key) ?: return null
-        val stored = raw.toStoredDraftRecord() ?: return preferences.remove(key).let { null }
+        var stored = raw.toStoredDraftRecord() ?: return preferences.remove(key).let { null }
         if (stored.generation != lease.generation) {
             preferences.remove(key)
-            stored.attachment?.cacheKey?.let { attachmentFiles.remove(it) }
             return null
         }
+        stored = reconcileRecordCleanup(lease, conversationId, stored) ?: return null
         val attachment = stored.attachment ?: return stored.toDraftRecord(null).takeUnless(ChatComposerDraftRecord::isEmpty)
         return when (val cached = attachmentFiles.get(attachment.cacheKey)) {
             is PlatformResult.Success -> stored.toDraftRecord(
@@ -106,7 +129,7 @@ class ChatComposerDraftStore(
         return when (val cached = attachmentFiles.store(cacheKey, file)) {
             is PlatformResult.Success -> {
                 if (currentGeneration(lease.actorId) != lease.generation) {
-                    attachmentFiles.remove(cacheKey)
+                    queueDetachedAttachmentCleanup(lease, cacheKey)
                     PlatformResult.Failure("composer_draft_generation_retired")
                 } else {
                     PlatformResult.Success(
@@ -128,7 +151,7 @@ class ChatComposerDraftStore(
 
     suspend fun discardStagedAttachment(lease: ChatComposerDraftLease, attachment: ChatComposerDraftAttachment) {
         if (attachment.cacheKey.startsWith(attachmentGenerationPrefix(lease.actorId, lease.generation))) {
-            attachmentFiles.remove(attachment.cacheKey)
+            queueDetachedAttachmentCleanup(lease, attachment.cacheKey)
         }
     }
 
@@ -139,37 +162,31 @@ class ChatComposerDraftStore(
     ) {
         if (currentGeneration(lease.actorId) != lease.generation) return
         val key = conversationKey(lease.actorId, lease.generation, conversationId)
-        val oldAttachmentKey = preferences.getString(key)
-            ?.toStoredDraftRecord()
-            ?.attachment
-            ?.cacheKey
+        val oldStored = preferences.getString(key)?.toStoredDraftRecord()
+        val oldAttachmentKey = oldStored?.attachment?.cacheKey
         val attachment = draft.attachment
         if (attachment != null && !attachment.cacheKey.startsWith(attachmentGenerationPrefix(lease.actorId, lease.generation))) {
             return
         }
-        if (draft.isEmpty) {
-            preferences.remove(key)
-        } else {
-            preferences.putString(key, buildJsonObject {
-                put("generation", lease.generation)
-                put("text", draft.text)
-                put("mode", draft.mode.name.lowercase())
-                draft.targetMessageId?.let { put("targetMessageId", it) }
-                attachment?.let {
-                    put("attachmentCacheKey", it.cacheKey)
-                    it.name?.let { value -> put("attachmentName", value) }
-                    it.mimeType?.let { value -> put("attachmentMimeType", value) }
-                    it.sizeBytes?.let { value -> put("attachmentSizeBytes", value) }
-                }
-            }.toString())
+        val pendingCleanupKeys = buildSet {
+            addAll(oldStored?.pendingCleanupKeys.orEmpty())
+            if (oldAttachmentKey != null && oldAttachmentKey != attachment?.cacheKey) add(oldAttachmentKey)
         }
+        val stored = StoredDraftRecord(
+            generation = lease.generation,
+            text = draft.text,
+            mode = draft.mode,
+            targetMessageId = draft.targetMessageId,
+            attachment = attachment?.let { StoredAttachment(it.cacheKey, it.name, it.mimeType, it.sizeBytes) },
+            pendingCleanupKeys = pendingCleanupKeys,
+        )
+        preferences.putString(key, stored.encode())
         if (currentGeneration(lease.actorId) != lease.generation) {
             preferences.remove(key)
-            attachment?.cacheKey?.let { attachmentFiles.remove(it) }
+            attachment?.cacheKey?.let { queueDetachedAttachmentCleanup(lease, it) }
+            return
         }
-        if (oldAttachmentKey != null && oldAttachmentKey != attachment?.cacheKey) {
-            attachmentFiles.remove(oldAttachmentKey)
-        }
+        reconcileRecordCleanup(lease, conversationId, stored)
     }
 
     suspend fun write(lease: ChatComposerDraftLease, conversationId: String, text: String) =
@@ -177,14 +194,7 @@ class ChatComposerDraftStore(
 
     suspend fun clear(lease: ChatComposerDraftLease, conversationId: String) {
         if (currentGeneration(lease.actorId) != lease.generation) return
-        val key = conversationKey(lease.actorId, lease.generation, conversationId)
-        val attachmentKey = preferences.getString(key)
-            ?.toStoredDraftRecord()
-            ?.takeIf { it.generation == lease.generation }
-            ?.attachment
-            ?.cacheKey
-        preferences.remove(key)
-        attachmentKey?.let { attachmentFiles.remove(it) }
+        writeRecord(lease, conversationId, ChatComposerDraftRecord(""))
     }
 
     suspend fun read(actorId: String, conversationId: String): String? = read(open(actorId), conversationId)
@@ -197,12 +207,65 @@ class ChatComposerDraftStore(
 
     suspend fun clearActor(actorId: String) {
         val retiringGeneration = currentGeneration(actorId)
+        val pending = retiredGenerations(actorId) + retiringGeneration
+        preferences.putString(retiredCleanupKey(actorId), pending.sorted().encodeLongs())
         preferences.putString(retirementKey(actorId), (retiringGeneration + 1L).toString())
         (preferences as? PrefixClearablePreferenceStore)
             ?.removeByPrefix(generationPrefix(actorId, retiringGeneration))
-        (attachmentFiles as? PrefixClearableFileCacheService)
-            ?.removeByPrefix(attachmentGenerationPrefix(actorId, retiringGeneration))
+        preferences.remove(detachedCleanupKey(actorId, retiringGeneration))
+        retryRetiredGenerationCleanup(actorId, retiringGeneration + 1L)
     }
+
+    private suspend fun reconcileRecordCleanup(
+        lease: ChatComposerDraftLease,
+        conversationId: String,
+        supplied: StoredDraftRecord? = null,
+    ): StoredDraftRecord? {
+        if (currentGeneration(lease.actorId) != lease.generation) return null
+        val key = conversationKey(lease.actorId, lease.generation, conversationId)
+        val stored = supplied ?: preferences.getString(key)?.toStoredDraftRecord() ?: return null
+        val activeKey = stored.attachment?.cacheKey
+        val remaining = stored.pendingCleanupKeys.filterTo(linkedSetOf()) { pendingKey ->
+            if (pendingKey == activeKey || pendingKey in retainedAttachmentKeys) return@filterTo true
+            attachmentFiles.remove(pendingKey) !is PlatformResult.Success
+        }
+        val reconciled = stored.copy(pendingCleanupKeys = remaining)
+        if (reconciled.toDraftRecord(null).isEmpty && remaining.isEmpty()) {
+            preferences.remove(key)
+            return null
+        }
+        if (reconciled != stored) preferences.putString(key, reconciled.encode())
+        return reconciled
+    }
+
+    private suspend fun queueDetachedAttachmentCleanup(lease: ChatComposerDraftLease, cacheKey: String) {
+        val key = detachedCleanupKey(lease.actorId, lease.generation)
+        val pending = preferences.getString(key).decodeStrings() + cacheKey
+        preferences.putString(key, pending.sorted().encodeStrings())
+        retryDetachedAttachmentCleanup(lease.actorId, lease.generation)
+    }
+
+    private suspend fun retryDetachedAttachmentCleanup(actorId: String, generation: Long) {
+        val key = detachedCleanupKey(actorId, generation)
+        val remaining = preferences.getString(key).decodeStrings().filterTo(linkedSetOf()) {
+            it in retainedAttachmentKeys || attachmentFiles.remove(it) !is PlatformResult.Success
+        }
+        if (remaining.isEmpty()) preferences.remove(key)
+        else preferences.putString(key, remaining.sorted().encodeStrings())
+    }
+
+    private suspend fun retryRetiredGenerationCleanup(actorId: String, currentGeneration: Long) {
+        val service = attachmentFiles as? PrefixClearableFileCacheService ?: return
+        val remaining = retiredGenerations(actorId).filterTo(linkedSetOf()) { generation ->
+            generation >= currentGeneration ||
+                service.removeByPrefix(attachmentGenerationPrefix(actorId, generation)) !is PlatformResult.Success
+        }
+        if (remaining.isEmpty()) preferences.remove(retiredCleanupKey(actorId))
+        else preferences.putString(retiredCleanupKey(actorId), remaining.sorted().encodeLongs())
+    }
+
+    private suspend fun retiredGenerations(actorId: String): Set<Long> =
+        preferences.getString(retiredCleanupKey(actorId)).decodeLongs()
 
     private suspend fun currentGeneration(actorId: String): Long =
         preferences.getString(retirementKey(actorId))?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
@@ -220,9 +283,28 @@ class ChatComposerDraftStore(
         val mode: ChatComposerDraftMode,
         val targetMessageId: String?,
         val attachment: StoredAttachment?,
+        val pendingCleanupKeys: Set<String> = emptySet(),
     ) {
         fun toDraftRecord(resolvedAttachment: ChatComposerDraftAttachment?): ChatComposerDraftRecord =
             ChatComposerDraftRecord(text, mode, targetMessageId, resolvedAttachment)
+
+        fun encode(): String = buildJsonObject {
+            put("generation", generation)
+            put("text", text)
+            put("mode", mode.name.lowercase())
+            targetMessageId?.let { put("targetMessageId", it) }
+            attachment?.let {
+                put("attachmentCacheKey", it.cacheKey)
+                it.name?.let { value -> put("attachmentName", value) }
+                it.mimeType?.let { value -> put("attachmentMimeType", value) }
+                it.sizeBytes?.let { value -> put("attachmentSizeBytes", value) }
+            }
+            if (pendingCleanupKeys.isNotEmpty()) {
+                put("pendingAttachmentCleanup", buildJsonArray {
+                    pendingCleanupKeys.sorted().forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                })
+            }
+        }.toString()
     }
 
     private fun String.toStoredDraftRecord(): StoredDraftRecord? = runCatching {
@@ -247,6 +329,10 @@ class ChatComposerDraftStore(
                     sizeBytes = value["attachmentSizeBytes"]?.jsonPrimitive?.longOrNull,
                 )
             },
+            pendingCleanupKeys = value["pendingAttachmentCleanup"]?.jsonArray
+                ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                ?.toSet()
+                .orEmpty(),
         ).also { stored -> stored.toDraftRecord(null) }
     }.getOrNull()
 
@@ -265,10 +351,38 @@ class ChatComposerDraftStore(
         internal fun retirementKey(actorId: String): String =
             "quata.chat.composer.retired.v2.${actorId.length}:$actorId"
 
+        internal fun retiredCleanupKey(actorId: String): String =
+            "quata.chat.composer.retired-cleanup.v1.${actorId.length}:$actorId"
+
+        internal fun detachedCleanupKey(actorId: String, generation: Long): String =
+            "quata.chat.composer.detached-cleanup.v1.${actorId.length}:$actorId.g$generation"
+
         internal fun attachmentGenerationPrefix(actorId: String, generation: Long): String =
             "qccd-${actorId.stableCacheHash()}-g$generation-"
     }
 }
+
+private fun Iterable<String>.encodeStrings(): String = buildJsonArray {
+    forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+}.toString()
+
+private fun String?.decodeStrings(): Set<String> = runCatching {
+    this?.let(Json::parseToJsonElement)?.jsonArray
+        ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+        ?.toSet()
+        .orEmpty()
+}.getOrDefault(emptySet())
+
+private fun Iterable<Long>.encodeLongs(): String = buildJsonArray {
+    forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+}.toString()
+
+private fun String?.decodeLongs(): Set<Long> = runCatching {
+    this?.let(Json::parseToJsonElement)?.jsonArray
+        ?.mapNotNull { it.jsonPrimitive.longOrNull }
+        ?.toSet()
+        .orEmpty()
+}.getOrDefault(emptySet())
 
 private fun String.stableCacheHash(): String {
     var hash = 14695981039346656037uL
