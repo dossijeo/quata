@@ -478,17 +478,42 @@ test("common chat profile entry exposes stable cross-platform evidence anchors",
 
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {
   const scrChat = inventory.split(/\r?\n/).find((line) => line.startsWith("| `SCR-CHAT` |"));
+  const chatMessages = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-MESSAGES` |"));
+  const chatMessageActions = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-MESSAGE-ACTIONS` |"));
+  const chatNotifications = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-NOTIFICATIONS` |"));
+  const chatFocusedMessage = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-FOCUSED-MESSAGE` |"));
   const chatFavorites = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-FAVORITES` |"));
   assert.ok(scrChat, "SCR-CHAT row must exist");
+  assert.ok(chatMessages, "CHAT-MESSAGES row must exist");
+  assert.ok(chatMessageActions, "CHAT-MESSAGE-ACTIONS row must exist");
+  assert.ok(chatNotifications, "CHAT-NOTIFICATIONS row must exist");
+  assert.ok(chatFocusedMessage, "CHAT-FOCUSED-MESSAGE row must exist");
   assert.ok(chatFavorites, "CHAT-FAVORITES row must exist");
   assert.match(scrChat, /\*\*COMÚN con límites\.\*\*/);
   assert.match(scrChat, /`ChatProductHostContent`\/`ChatScreenHost` se consume en Android, Wasm e iOS/);
   assert.doesNotMatch(scrChat, /FALLBACK|PARCIAL/);
   assert.match(scrChat, /no declarar GO/);
+  assert.match(scrChat, /`CHAT-MESSAGES`[^|]*`FLOW-CONNECTIVITY-PRESENCE`/);
+  assert.match(scrChat, /Red de lectura, media y operaciones de grupo cuentan con cierres focales multiplataforma/);
+  assert.match(scrChat, /permisos físicos no acreditados[^|]*fallos de red ajenos[^|]*GO visual\/operativo global/);
+  assert.doesNotMatch(scrChat, /No se revalidaron redes, permisos físicos, media ni operaciones de grupo/);
   assert.match(chatFavorites, /FavoriteMessagesConversationId/);
   assert.match(chatFavorites, /Android, Wasm e iOS/);
   assert.match(inventory, /\| `CHAT-MESSAGES` \|[\s\S]*?#226 \(`702aad06`\)/);
-  assert.match(inventory, /\| `CHAT-FOCUSED-MESSAGE` \|[\s\S]*?contrato común de foco/);
+  assert.match(chatMessages, /permisos de edición\/borrado[^|]*#404\/#405/);
+  assert.match(chatMessages, /transporte push[^|]*`FLOW-PUSH-LIFECYCLE`/);
+  assert.doesNotMatch(chatMessages, /permanecen permisos de borrado/);
+  assert.match(chatMessageActions, /GO focal integrado y certificado por #404\/#405/);
+  assert.match(chatNotifications, /GO focal integrado y certificado por #403\/#408/);
+  assert.match(chatNotifications, /mute\/unmute[^|]*inbox común/);
+  assert.match(chatNotifications, /device token[^|]*APNs\/FCM\/Web Push[^|]*Reply/);
+  assert.match(chatNotifications, /`FLOW-PUSH-LIFECYCLE`[^|]*`FLOW-NOTIFICATION-REPLY`/);
+  assert.doesNotMatch(chatNotifications, /COMÚN para mute\/unmute/);
+  assert.match(chatFocusedMessage, /contrato común de foco/);
+  assert.match(chatFocusedMessage, /`FLOW-DEEP-LINKS` integrado en #327/);
+  assert.match(chatFocusedMessage, /sesión expirada/);
+  assert.match(chatFocusedMessage, /Universal Links[^|]*APNs[^|]*entrega push[^|]*lifecycle global/);
+  assert.doesNotMatch(chatFocusedMessage, /Cold start y sesión expirada no quedan cubiertos/);
   assert.doesNotMatch(inventory, /Web\/iOS aún conservan `ChatBrowserHostContent`/);
 
   assert.match(verticalPlan, /Android, Wasm e iOS consumen ya `ChatProductHostContent`\/`ChatScreenHost`/);
