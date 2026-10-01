@@ -31,7 +31,7 @@ class ChatViewModel(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.main)
     private val composerDraftScope = CoroutineScope(SupervisorJob() + dispatchers.io)
-    private val _uiState = MutableStateFlow(ChatUiState())
+    private val _uiState = MutableStateFlow(ChatUiState(isViewportRestoreReady = composerDraftStore == null))
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
     private var backendMessages: List<Message> = emptyList()
     private var localEchoMessages: List<Message> = emptyList()
@@ -44,12 +44,14 @@ class ChatViewModel(
     private var isConversationVisible = false
     private var messageObservationJob: Job? = null
     private var composerDraftWriteJob: Job? = null
+    private var viewportWriteJob: Job? = null
     private var composerAttachmentStageJob: Job? = null
     private var composerAttachmentSelection = 0L
     private var composerRestoreHistoryJob: Job? = null
     private var composerRevision = 0L
     private val composerDraftLease = CompletableDeferred<ChatComposerDraftLease?>()
     private var pendingComposerRestore: PendingComposerRestore? = null
+    private var lastQueuedViewport: ChatConversationViewport? = null
 
     init {
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
@@ -59,6 +61,15 @@ class ChatViewModel(
                 repository.currentActorId()?.let { store.open(it) }
             }.getOrNull()
             composerDraftLease.complete(lease)
+            val viewport = runCatching {
+                val store = composerDraftStore ?: return@runCatching null
+                lease?.let { store.readViewport(it, conversationId) }
+            }.getOrNull()
+            lastQueuedViewport = viewport
+            _uiState.value = _uiState.value.copy(
+                restoredViewport = viewport,
+                isViewportRestoreReady = true,
+            )
         }
         restoreComposerDraft()
         scope.launch {
@@ -241,6 +252,40 @@ class ChatViewModel(
             repository.retryPendingMessage(clientMessageId)
                 .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message) }
         }
+    }
+
+    fun consumeRestoredViewport(preserveUntilUserScroll: Boolean = false) {
+        if (_uiState.value.restoredViewport != null) {
+            _uiState.value = _uiState.value.copy(
+                restoredViewport = null,
+                isViewportFallbackProtected =
+                    _uiState.value.isViewportFallbackProtected || preserveUntilUserScroll,
+            )
+        }
+    }
+
+    fun discardRestoredViewport() {
+        _uiState.value = _uiState.value.copy(
+            restoredViewport = null,
+            isViewportRestoreReady = true,
+            isViewportFallbackProtected = false,
+        )
+        queueViewportWrite(null)
+    }
+
+    fun allowViewportPersistenceAfterUserScroll() {
+        if (_uiState.value.isViewportFallbackProtected) {
+            _uiState.value = _uiState.value.copy(isViewportFallbackProtected = false)
+        }
+    }
+
+    fun persistViewport(viewport: ChatConversationViewport) {
+        if (
+            !uiState.value.isViewportRestoreReady ||
+            uiState.value.isViewportFallbackProtected ||
+            viewport == lastQueuedViewport
+        ) return
+        queueViewportWrite(viewport)
     }
 
     private fun send() {
@@ -677,6 +722,23 @@ class ChatViewModel(
         queueComposerDraftWrite(ChatComposerDraftRecord(""))
     }
 
+    private fun queueViewportWrite(viewport: ChatConversationViewport?) {
+        val store = composerDraftStore ?: return
+        lastQueuedViewport = viewport
+        val previousWrite = viewportWriteJob
+        viewportWriteJob = composerDraftScope.launch {
+            previousWrite?.join()
+            val lease = composerDraftLease.await() ?: return@launch
+            if (viewport == null) store.clearViewport(lease, conversationId)
+            else store.writeViewport(lease, conversationId, viewport)
+        }
+    }
+
+    private fun clearConversationLocalState() {
+        clearComposerDraft()
+        queueViewportWrite(null)
+    }
+
     private fun queueComposerDraftWrite(draft: ChatComposerDraftRecord) {
         val store = composerDraftStore ?: return
         val previousWrite = composerDraftWriteJob
@@ -1021,7 +1083,7 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.deleteConversation(conversationId)
             .onSuccess {
-                clearComposerDraft()
+                clearConversationLocalState()
                 _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true)
             }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.DeleteConversation)) }
@@ -1031,7 +1093,7 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(isConversationActionInProgress = true)
         repository.leaveConversation(conversationId)
             .onSuccess {
-                clearComposerDraft()
+                clearConversationLocalState()
                 _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, shouldCloseConversation = true)
             }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.LeaveConversation)) }
@@ -1197,7 +1259,8 @@ class ChatViewModel(
         repository.setConversationVisible(conversationId, false)
         scope.coroutineContext.cancel()
         val pendingAttachmentStage = composerAttachmentStageJob
-        if (composerDraftWriteJob == null && pendingAttachmentStage == null) {
+        val pendingViewportWrite = viewportWriteJob
+        if (composerDraftWriteJob == null && pendingAttachmentStage == null && pendingViewportWrite == null) {
             composerDraftScope.coroutineContext.cancel()
         } else {
             val closeJob = composerDraftScope.launch {
@@ -1206,6 +1269,11 @@ class ChatViewModel(
                     val pendingDraftWrite = composerDraftWriteJob ?: break
                     pendingDraftWrite.join()
                     if (pendingDraftWrite === composerDraftWriteJob) break
+                }
+                while (true) {
+                    val pendingWrite = viewportWriteJob ?: break
+                    pendingWrite.join()
+                    if (pendingWrite === viewportWriteJob) break
                 }
             }
             closeJob.invokeOnCompletion { composerDraftScope.coroutineContext.cancel() }

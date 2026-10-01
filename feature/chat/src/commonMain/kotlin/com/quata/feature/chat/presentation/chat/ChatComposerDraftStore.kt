@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -53,6 +54,20 @@ data class ChatComposerDraftRecord(
     }
 
     val isEmpty: Boolean get() = mode == ChatComposerDraftMode.Plain && text.isEmpty() && attachment == null
+}
+
+sealed interface ChatConversationViewport {
+    data object Latest : ChatConversationViewport
+
+    data class Anchored(
+        val messageId: String,
+        val scrollOffsetDp: Float,
+    ) : ChatConversationViewport {
+        init {
+            require(messageId.isNotBlank())
+            require(scrollOffsetDp.isFinite() && scrollOffsetDp >= 0f)
+        }
+    }
 }
 
 /** Durable actor/conversation composer state. Message targets and cached files are revalidated. */
@@ -219,6 +234,39 @@ class ChatComposerDraftStore(
         writeRecord(lease, conversationId, ChatComposerDraftRecord(""))
     }
 
+    suspend fun readViewport(
+        lease: ChatComposerDraftLease,
+        conversationId: String,
+    ): ChatConversationViewport? = recordMutex.withLock {
+        if (currentGeneration(lease.actorId) != lease.generation) return@withLock null
+        val key = viewportKey(lease.actorId, lease.generation, conversationId)
+        val raw = preferences.getString(key) ?: return@withLock null
+        val stored = raw.toStoredViewport()
+        if (stored == null || stored.generation != lease.generation) {
+            preferences.remove(key)
+            null
+        } else {
+            stored.viewport
+        }
+    }
+
+    suspend fun writeViewport(
+        lease: ChatComposerDraftLease,
+        conversationId: String,
+        viewport: ChatConversationViewport,
+    ) = recordMutex.withLock {
+        if (currentGeneration(lease.actorId) != lease.generation) return@withLock
+        val key = viewportKey(lease.actorId, lease.generation, conversationId)
+        preferences.putString(key, StoredViewport(lease.generation, viewport).encode())
+        if (currentGeneration(lease.actorId) != lease.generation) preferences.remove(key)
+    }
+
+    suspend fun clearViewport(lease: ChatComposerDraftLease, conversationId: String) = recordMutex.withLock {
+        if (currentGeneration(lease.actorId) == lease.generation) {
+            preferences.remove(viewportKey(lease.actorId, lease.generation, conversationId))
+        }
+    }
+
     suspend fun read(actorId: String, conversationId: String): String? = read(open(actorId), conversationId)
     suspend fun readRecord(actorId: String, conversationId: String): ChatComposerDraftRecord? =
         readRecord(open(actorId), conversationId)
@@ -338,6 +386,23 @@ class ChatComposerDraftStore(
         }.toString()
     }
 
+    private data class StoredViewport(
+        val generation: Long,
+        val viewport: ChatConversationViewport,
+    ) {
+        fun encode(): String = buildJsonObject {
+            put("generation", generation)
+            when (val value = viewport) {
+                ChatConversationViewport.Latest -> put("kind", "latest")
+                is ChatConversationViewport.Anchored -> {
+                    put("kind", "anchored")
+                    put("messageId", value.messageId)
+                    put("scrollOffsetDp", value.scrollOffsetDp)
+                }
+            }
+        }.toString()
+    }
+
     private fun String.toStoredDraftRecord(): StoredDraftRecord? = runCatching {
         val value = Json.parseToJsonElement(this).jsonObject
         val mode = when (value["mode"]?.jsonPrimitive?.contentOrNull) {
@@ -367,6 +432,20 @@ class ChatComposerDraftStore(
         ).also { stored -> stored.toDraftRecord(null) }
     }.getOrNull()
 
+    private fun String.toStoredViewport(): StoredViewport? = runCatching {
+        val value = Json.parseToJsonElement(this).jsonObject
+        val generation = value["generation"]?.jsonPrimitive?.longOrNull ?: return null
+        val viewport = when (value["kind"]?.jsonPrimitive?.contentOrNull) {
+            "latest" -> ChatConversationViewport.Latest
+            "anchored" -> ChatConversationViewport.Anchored(
+                messageId = value["messageId"]?.jsonPrimitive?.contentOrNull ?: return null,
+                scrollOffsetDp = value["scrollOffsetDp"]?.jsonPrimitive?.doubleOrNull?.toFloat() ?: return null,
+            )
+            else -> return null
+        }
+        StoredViewport(generation, viewport)
+    }.getOrNull()
+
     companion object {
         private const val MaxAttachmentCacheKeyLength = 120
         private val retainedAttachmentKeys = MutableStateFlow<Map<String, Int>>(emptyMap())
@@ -382,6 +461,9 @@ class ChatComposerDraftStore(
 
         internal fun cleanupAcknowledgementKey(actorId: String, generation: Long, conversationId: String): String =
             "${generationPrefix(actorId, generation)}cleanup.${conversationId.length}:$conversationId"
+
+        internal fun viewportKey(actorId: String, generation: Long, conversationId: String): String =
+            "${generationPrefix(actorId, generation)}viewport.${conversationId.length}:$conversationId"
 
         internal fun retirementKey(actorId: String): String =
             "quata.chat.composer.retired.v2.${actorId.length}:$actorId"
