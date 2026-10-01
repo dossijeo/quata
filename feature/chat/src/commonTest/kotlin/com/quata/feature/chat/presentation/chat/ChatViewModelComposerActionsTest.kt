@@ -46,6 +46,173 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun replyDraftRestoresOnlyAfterItsCurrentConversationTargetIsValidated() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val target = otherMessage(id = "reply-target", text = "question")
+        store.writeRecord(
+            "me",
+            "conversation-1",
+            ChatComposerDraftRecord("answer", ChatComposerDraftMode.Reply, target.id),
+        )
+
+        val repository = RecordingChatRepository(listOf(target))
+        val model = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("answer", model.uiState.value.messageText)
+        assertEquals(target.id, model.uiState.value.replyToMessage?.id)
+        assertNull(model.uiState.value.editingMessage)
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(target.id, repository.sendReplyCalls.single().replyToMessageId)
+        assertNull(store.readRecord("me", "conversation-1"))
+        model.close()
+    }
+
+    @Test
+    fun editDraftRestoresOnlyForAValidOwnedMessage() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val target = ownMessage(id = "edit-target", text = "before")
+        store.writeRecord(
+            "me",
+            "conversation-1",
+            ChatComposerDraftRecord("after", ChatComposerDraftMode.Edit, target.id),
+        )
+
+        val repository = RecordingChatRepository(listOf(target))
+        val model = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("after", model.uiState.value.messageText)
+        assertEquals(target.id, model.uiState.value.editingMessage?.id)
+        assertNull(model.uiState.value.replyToMessage)
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(EditMessageCall(target.id, "after"), repository.editMessageCalls.single())
+        assertNull(store.readRecord("me", "conversation-1"))
+        model.close()
+    }
+
+    @Test
+    fun startingReplyOrEditPersistsItsContextBeforeAnyFurtherInput() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+
+        val replyStore = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val replyTarget = otherMessage("reply-now")
+        val replyModel = chatViewModel(RecordingChatRepository(listOf(replyTarget)), dispatcher, replyStore)
+        testScheduler.advanceUntilIdle()
+        replyModel.onEvent(ChatUiEvent.MessageSelected(replyTarget.id))
+        replyModel.onEvent(ChatUiEvent.StartReply)
+        replyModel.close()
+        testScheduler.advanceUntilIdle()
+        assertEquals(
+            ChatComposerDraftRecord("", ChatComposerDraftMode.Reply, replyTarget.id),
+            replyStore.readRecord("me", "conversation-1"),
+        )
+
+        val editStore = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val editTarget = ownMessage("edit-now", text = "original")
+        val editModel = chatViewModel(RecordingChatRepository(listOf(editTarget)), dispatcher, editStore)
+        testScheduler.advanceUntilIdle()
+        editModel.onEvent(ChatUiEvent.MessageSelected(editTarget.id))
+        editModel.onEvent(ChatUiEvent.StartEdit)
+        editModel.close()
+        testScheduler.advanceUntilIdle()
+        assertEquals(
+            ChatComposerDraftRecord("original", ChatComposerDraftMode.Edit, editTarget.id),
+            editStore.readRecord("me", "conversation-1"),
+        )
+    }
+
+    @Test
+    fun contextualRestorePagesHistoryUntilTheTargetIsInAnAuthoritativeSnapshot() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val target = otherMessage("older-reply")
+        store.writeRecord(
+            "me",
+            "conversation-1",
+            ChatComposerDraftRecord("older answer", ChatComposerDraftMode.Reply, target.id),
+        )
+        val repository = RecordingChatRepository(emptyList()).apply {
+            olderMessagesToLoad = listOf(target)
+        }
+
+        val model = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, repository.loadOlderMessagesCalls)
+        assertEquals(target.id, model.uiState.value.replyToMessage?.id)
+        assertEquals("older answer", model.uiState.value.messageText)
+        model.close()
+    }
+
+    @Test
+    fun userInputCancelsSuspendedContextRestoreWithoutLeavingHistoryLoadingStuck() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+        store.writeRecord(
+            "me",
+            "conversation-1",
+            ChatComposerDraftRecord("stale answer", ChatComposerDraftMode.Reply, "missing-target"),
+        )
+        val pagingStarted = CompletableDeferred<Unit>()
+        val neverCompletes = CompletableDeferred<Unit>()
+        val repository = object : ChatRepository by RecordingChatRepository(emptyList()) {
+            override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> {
+                pagingStarted.complete(Unit)
+                neverCompletes.await()
+                return Result.success(false)
+            }
+        }
+        val model = chatViewModel(repository, dispatcher, store)
+
+        testScheduler.runCurrent()
+        assertTrue(pagingStarted.isCompleted)
+        assertTrue(model.uiState.value.isLoadingOlderMessages)
+
+        model.onEvent(ChatUiEvent.MessageChanged("new input"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("new input", model.uiState.value.messageText)
+        assertFalse(model.uiState.value.isLoadingOlderMessages)
+        assertEquals("new input", store.read("me", "conversation-1"))
+        model.close()
+    }
+
+    @Test
+    fun missingDeletedOrUnownedTargetsDiscardContextualDraftsFailClosed() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val cases = listOf(
+            Triple(ChatComposerDraftMode.Reply, "missing", emptyList()),
+            Triple(ChatComposerDraftMode.Reply, "deleted", listOf(otherMessage("deleted").copy(isDeleted = true))),
+            Triple(ChatComposerDraftMode.Edit, "unowned", listOf(otherMessage("unowned"))),
+            Triple(ChatComposerDraftMode.Edit, "local", listOf(ownMessage("local", isLocalEcho = true))),
+        )
+
+        for ((mode, targetId, messages) in cases) {
+            val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+            store.writeRecord(
+                "me",
+                "conversation-1",
+                ChatComposerDraftRecord("private draft", mode, targetId),
+            )
+            val model = chatViewModel(RecordingChatRepository(messages), dispatcher, store)
+            testScheduler.advanceUntilIdle()
+
+            assertEquals("", model.uiState.value.messageText, "$mode/$targetId")
+            assertNull(model.uiState.value.replyToMessage, "$mode/$targetId")
+            assertNull(model.uiState.value.editingMessage, "$mode/$targetId")
+            assertNull(store.readRecord("me", "conversation-1"), "$mode/$targetId")
+            model.close()
+        }
+    }
+
+    @Test
     fun failedSendRestoresAndPersistsThePlainDraft() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val store = ChatComposerDraftStore(ComposerMemoryPreferences())
@@ -124,6 +291,14 @@ class ChatViewModelComposerActionsTest {
         preferences.putString(corruptKey, "not-json")
         assertNull(store.read("actor-c", "conversation-1"))
         assertNull(preferences.getString(corruptKey))
+
+        val invalidContextKey = ChatComposerDraftStore.conversationKey("actor-c", 0L, "conversation-2")
+        preferences.putString(
+            invalidContextKey,
+            "{\"generation\":0,\"text\":\"draft\",\"mode\":\"edit\"}",
+        )
+        assertNull(store.readRecord("actor-c", "conversation-2"))
+        assertNull(preferences.getString(invalidContextKey))
     }
 
     @Test
@@ -783,6 +958,8 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     var toggleFavoriteMessageResult: Result<Unit> = Result.success(Unit)
     var forwardMessageResult: Result<ChatForwardResult>? = null
     var setConversationMutedResult: Result<Unit> = Result.success(Unit)
+    var olderMessagesToLoad: List<Message> = emptyList()
+    var loadOlderMessagesCalls: Int = 0
     var promoteModeratorResult: Result<Unit> = Result.success(Unit)
     var demoteModeratorResult: Result<Unit> = Result.success(Unit)
     var removeParticipantResult: Result<Unit> = Result.success(Unit)
@@ -810,7 +987,14 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     override suspend fun getConversations(): Result<List<Conversation>> = Result.success(conversations.value)
     override fun observeConversations(): Flow<List<Conversation>> = conversations
     override fun observeMessages(conversationId: String): Flow<List<Message>> = messages
-    override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = Result.success(false)
+    override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> {
+        loadOlderMessagesCalls += 1
+        if (olderMessagesToLoad.isNotEmpty()) {
+            messages.value = (messages.value + olderMessagesToLoad).distinctBy(Message::id)
+            olderMessagesToLoad = emptyList()
+        }
+        return Result.success(false)
+    }
     override fun observeParticipantCandidates(): Flow<List<User>> = participantCandidates
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> =
         Result.failure(UnsupportedOperationException("unused"))
