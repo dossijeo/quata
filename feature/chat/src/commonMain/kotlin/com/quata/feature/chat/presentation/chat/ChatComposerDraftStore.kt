@@ -61,7 +61,6 @@ class ChatComposerDraftStore(
     private val attachmentFiles: FileCacheService = UnsupportedFileCacheService,
 ) {
     private val recordMutex = Mutex()
-    private val retainedAttachmentKeys = MutableStateFlow<Map<String, Int>>(emptyMap())
 
     suspend fun open(actorId: String): ChatComposerDraftLease = recordMutex.withLock {
         val generation = currentGeneration(actorId)
@@ -208,6 +207,7 @@ class ChatComposerDraftStore(
             attachment?.cacheKey?.let { queueDetachedAttachmentCleanup(lease, it) }
             return
         }
+        preferences.remove(cleanupAcknowledgementKey(lease.actorId, lease.generation, conversationId))
         reconcileRecordCleanup(lease, conversationId, stored)
     }
 
@@ -369,6 +369,7 @@ class ChatComposerDraftStore(
 
     companion object {
         private const val MaxAttachmentCacheKeyLength = 120
+        private val retainedAttachmentKeys = MutableStateFlow<Map<String, Int>>(emptyMap())
 
         internal fun actorPrefix(actorId: String): String =
             "quata.chat.composer.drafts.v2.${actorId.length}:$actorId."

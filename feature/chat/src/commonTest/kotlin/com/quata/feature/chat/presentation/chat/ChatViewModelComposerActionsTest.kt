@@ -691,6 +691,38 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun separateStoreCannotDeleteAnAttachmentRetainedByAnInFlightSend() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val files = ComposerMemoryFiles()
+        val sendingStore = ChatComposerDraftStore(preferences, files)
+        val replacementStore = ChatComposerDraftStore(preferences, files)
+        val sendingLease = sendingStore.open("me")
+        val sent = assertNotNull(
+            (sendingStore.stageAttachment(sendingLease, "sent", PlatformFile("content://sent")) as? PlatformResult.Success)?.value,
+        )
+        sendingStore.writeRecord(sendingLease, "conversation-1", ChatComposerDraftRecord("sent", attachment = sent))
+        sendingStore.retainAttachment(sent.cacheKey)
+        val replacement = assertNotNull(
+            (replacementStore.stageAttachment(
+                replacementStore.open("me"),
+                "replacement",
+                PlatformFile("content://replacement"),
+            ) as? PlatformResult.Success)?.value,
+        )
+
+        replacementStore.writeRecord(
+            "me",
+            "conversation-1",
+            ChatComposerDraftRecord("replacement", attachment = replacement),
+        )
+        assertTrue(files.contains(sent.cacheKey))
+
+        sendingStore.releaseAttachment(sendingLease, "conversation-1", sent.cacheKey)
+        assertFalse(files.contains(sent.cacheKey))
+        assertTrue(files.contains(replacement.cacheKey))
+    }
+
+    @Test
     fun failedActorAttachmentCleanupRetriesAfterRetirement() = runTest {
         val files = ComposerMemoryFiles(prefixRemoveFailuresRemaining = 1)
         val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
