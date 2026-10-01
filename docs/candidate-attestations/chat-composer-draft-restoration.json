@@ -6,12 +6,12 @@
     "CHAT-COMPOSER-ATTACHMENTS"
   ],
   "status": "passed",
-  "productSha": "143599e40f864cffa8b790ac47027fb8c960e5d6",
+  "productSha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
   "certification": "hermetic-plain-reply-edit-attachment-draft-lifecycle-complete-affected-platform-validation-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "143599e40f864cffa8b790ac47027fb8c960e5d6",
+      "sha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
       "report": "docs/candidate-attestations/evidence/chat-composer-attachment-restoration-612e37e8.json",
       "reportSha256": "0db4fb6772cdf063207d6e909b5d947360fd86088cab1a02c50f9dcc03100e9f",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "143599e40f864cffa8b790ac47027fb8c960e5d6",
+      "sha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
       "report": "docs/candidate-attestations/evidence/chat-composer-attachment-restoration-612e37e8.json",
       "reportSha256": "0db4fb6772cdf063207d6e909b5d947360fd86088cab1a02c50f9dcc03100e9f",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "143599e40f864cffa8b790ac47027fb8c960e5d6",
+      "sha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
       "report": "docs/candidate-attestations/evidence/chat-composer-attachment-restoration-612e37e8.json",
       "reportSha256": "0db4fb6772cdf063207d6e909b5d947360fd86088cab1a02c50f9dcc03100e9f",
       "reportStatus": "passed",
@@ -70,6 +70,7 @@
   },
   "preflight": [
     "git diff --check",
+    ".\\gradlew.bat :app:lintDebug --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
     ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest",
     ".\\gradlew.bat :app:compileDebugKotlin",
     ".\\gradlew.bat :web:compileKotlinWasmJs",
@@ -79,7 +80,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "143599e40f864cffa8b790ac47027fb8c960e5d6",
+    "reviewedSha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
     "blockingFindings": [],
     "scopeLimit": "Shared in-flight attachment custody is proven across store instances in one process; independent browser-tab/process coordination is not claimed."
   },
@@ -93,6 +94,8 @@
     "The complete 39-test Web/Wasm focal class, Android and Web compilation, the complete iOS x64 focal class and the signed iOS host build passed on the Product SHA.",
     "Independent review returned GO with no P0-P2 findings after four defect-fix rounds and confirmed that the earlier concurrency, attachment-only, cleanup and acknowledgement findings are resolved.",
     "Scroll position and unrelated internal state remain transient. This unit does not claim authenticated backend, visual host E2E or coordination across independent browser processes/tabs.",
-    "Product SHA 143599e40 recomposes the unchanged attachment-restoration runtime onto the frozen context candidate. All seven changed feature source and test paths are byte-identical to the preceding composed Product SHA 8d37f114. The historical evidence report remains bound to report Git HEAD 612e37e8; documentation and attestation bindings were renewed, and no platform matrix was repeated solely for the base advance."
+    "Product SHA 143599e40 recomposes the unchanged attachment-restoration runtime onto the frozen context candidate. All seven changed feature source and test paths are byte-identical to the preceding composed Product SHA 8d37f114. The historical evidence report remains bound to report Git HEAD 612e37e8; documentation and attestation bindings were renewed, and no platform matrix was repeated solely for the base advance.",
+    "Product SHA 7c8a0bbdf replaces Android Uri.parse with the equivalent AndroidX String.toUri extension required by the existing lint policy. The complete Android app lint gate passed and includes Debug Kotlin compilation; Web and iOS sources, resources, tests, configuration and dependencies are unchanged, so their previously frozen evidence was not repeated.",
+    "Independent exact-delta review returned GO without P0-P3 findings on Product SHA 7c8a0bbdf and confirmed that the Android-only gate is sufficient for this semantic-equivalent lint repair."
   ]
 }
