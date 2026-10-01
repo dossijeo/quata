@@ -17,6 +17,7 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.Message
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -74,6 +75,78 @@ class ChatConversationViewportUiTest {
 
         onNodeWithTag("chat.message.message-29").assertIsDisplayed()
         onAllNodesWithTag("chat.message.message-0").assertCountEquals(0)
+    }
+
+    @Test
+    fun viewportResizeKeepsLatestVisibleWhileFollowingTheBottom() = runComposeUiTest {
+        val messages = (0 until 40).map(::viewportMessage)
+        var viewportHeight by mutableStateOf(360.dp)
+        setContent {
+            QuataTheme {
+                ChatConversationDetailContent(
+                    messages = messages,
+                    selectedMessageId = null,
+                    strings = ChatConversationDetailStrings("edited", "deleted", "forwarded"),
+                    showSenderAvatar = { false },
+                    avatar = {},
+                    onOpenLink = {},
+                    onMessageClick = {},
+                    composer = {},
+                    initialViewport = ChatConversationViewport.Latest,
+                    isInitialViewportReady = true,
+                    modifier = Modifier.height(viewportHeight),
+                )
+            }
+        }
+
+        onNodeWithTag("chat.message.message-39").assertIsDisplayed()
+        runOnIdle { viewportHeight = 220.dp }
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodesWithTag("chat.message.message-39").fetchSemanticsNodes().isNotEmpty()
+        }
+        onNodeWithTag("chat.message.message-39").assertIsDisplayed()
+    }
+
+    @Test
+    fun viewportResizeDoesNotSnapADetachedReaderBackToLatest() = runComposeUiTest {
+        val messages = (0 until 40).map(::viewportMessage)
+        var viewportHeight by mutableStateOf(300.dp)
+        var persistedViewport: ChatConversationViewport? = null
+        setContent {
+            QuataTheme {
+                ChatConversationDetailContent(
+                    messages = messages,
+                    selectedMessageId = null,
+                    strings = ChatConversationDetailStrings("edited", "deleted", "forwarded"),
+                    showSenderAvatar = { false },
+                    avatar = {},
+                    onOpenLink = {},
+                    onMessageClick = {},
+                    composer = {},
+                    initialViewport = ChatConversationViewport.Latest,
+                    isInitialViewportReady = true,
+                    onViewportChanged = { persistedViewport = it },
+                    modifier = Modifier.height(viewportHeight),
+                )
+            }
+        }
+
+        onNodeWithTag(ChatConversationMessagesListTestTag).performTouchInput { swipeDown() }
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodesWithTag("chat.message.message-39").fetchSemanticsNodes().isEmpty() &&
+                persistedViewport is ChatConversationViewport.Anchored
+        }
+        val detachedViewport = persistedViewport as ChatConversationViewport.Anchored
+        mainClock.autoAdvance = false
+        runOnIdle { viewportHeight = 180.dp }
+        mainClock.advanceTimeBy(500)
+        waitForIdle()
+        onAllNodesWithTag("chat.message.message-39").assertCountEquals(0)
+        runOnIdle {
+            val resizedViewport = persistedViewport as ChatConversationViewport.Anchored
+            assertEquals(detachedViewport.messageId, resizedViewport.messageId)
+            assertTrue(abs(detachedViewport.scrollOffsetDp - resizedViewport.scrollOffsetDp) <= 1f)
+        }
     }
 
     @Test

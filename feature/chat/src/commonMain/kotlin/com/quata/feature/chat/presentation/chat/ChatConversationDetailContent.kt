@@ -206,6 +206,21 @@ fun ChatConversationDetailContent(
         }
         previousMessageLayout = currentMessageLayout
     }
+    LaunchedEffect(listState, initialPositionReady, focusedMessageId, currentMessageLayout) {
+        if (!initialPositionReady || focusedMessageId != null || currentMessageLayout.isEmpty()) {
+            return@LaunchedEffect
+        }
+        var previousViewportHeight = 0
+        snapshotFlow { listState.layoutInfo.viewportSize.height }
+            .distinctUntilChanged()
+            .collect { viewportHeight ->
+                val viewportChanged = previousViewportHeight > 0 && viewportHeight > 0
+                previousViewportHeight = viewportHeight
+                if (viewportChanged && !userHasDetachedFromBottom) {
+                    listState.scrollToItem(currentMessageLayout.lastIndex, scrollOffset = Int.MAX_VALUE)
+                }
+            }
+    }
     LaunchedEffect(listState, isUserDragging) {
         if (isUserDragging) {
             hasUserScrolledSinceFallback = true
