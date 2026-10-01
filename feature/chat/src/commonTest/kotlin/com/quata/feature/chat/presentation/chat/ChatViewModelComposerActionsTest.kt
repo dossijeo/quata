@@ -796,6 +796,52 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun separateStoreCleanupWaitsForTheInFlightAttachmentEffect() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val files = ComposerMemoryFiles()
+        val sendingStore = ChatComposerDraftStore(preferences, files)
+        val replacementStore = ChatComposerDraftStore(preferences, files)
+        val lease = sendingStore.open("me")
+        val sent = assertNotNull(
+            (sendingStore.stageAttachment(lease, "sent-effect", PlatformFile("content://sent")) as? PlatformResult.Success)?.value,
+        )
+        val replacement = assertNotNull(
+            (replacementStore.stageAttachment(
+                replacementStore.open("me"),
+                "replacement-effect",
+                PlatformFile("content://replacement"),
+            ) as? PlatformResult.Success)?.value,
+        )
+        sendingStore.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("sent", attachment = sent))
+        val effectStarted = CompletableDeferred<Unit>()
+        val finishEffect = CompletableDeferred<Unit>()
+        val effect = async {
+            sendingStore.withAttachmentCustody(lease) {
+                effectStarted.complete(Unit)
+                finishEffect.await()
+            }
+        }
+        effectStarted.await()
+
+        val replacementWrite = async {
+            replacementStore.writeRecord(
+                "me",
+                "conversation-1",
+                ChatComposerDraftRecord("replacement", attachment = replacement),
+            )
+        }
+        testScheduler.runCurrent()
+        assertFalse(replacementWrite.isCompleted)
+        assertTrue(files.contains(sent.cacheKey))
+
+        finishEffect.complete(Unit)
+        effect.await()
+        replacementWrite.await()
+        assertFalse(files.contains(sent.cacheKey))
+        assertTrue(files.contains(replacement.cacheKey))
+    }
+
+    @Test
     fun failedActorAttachmentCleanupRetriesAfterRetirement() = runTest {
         val files = ComposerMemoryFiles(prefixRemoveFailuresRemaining = 1)
         val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
@@ -810,6 +856,44 @@ class ChatViewModelComposerActionsTest {
 
         store.open("me")
         assertFalse(files.contains(staged.cacheKey))
+    }
+
+    @Test
+    fun suspendedRetiredCleanupPreservesANewerIosRetirement() = runTest {
+        val releasePrefixCleanup = CompletableDeferred<Unit>()
+        val preferences = ComposerMemoryPreferences(
+            mapOf(
+                ChatComposerDraftStore.retirementKey("me") to "1",
+                ChatComposerDraftStore.retiredCleanupKey("me") to "[0]",
+            ),
+        )
+        val files = ComposerMemoryFiles(
+            prefixRemoveGate = releasePrefixCleanup,
+            prefixRemoveFailuresRemaining = 1,
+        )
+        val generationZeroKey = "${ChatComposerDraftStore.attachmentGenerationPrefix("me", 0)}old"
+        val generationOneKey = "${ChatComposerDraftStore.attachmentGenerationPrefix("me", 1)}new"
+        files.store(generationZeroKey, PlatformFile("content://old"))
+        files.store(generationOneKey, PlatformFile("content://new"))
+        val store = ChatComposerDraftStore(preferences, files)
+
+        val oldReconciliation = async { store.open("me") }
+        files.prefixRemoveStarted.await()
+        assertEquals("0", preferences.getString(ChatComposerDraftStore.retiredCleanupCursorKey("me")))
+
+        // Mirrors Swift writing after a stale absence observation made before common migrated v1.
+        preferences.putString(ChatComposerDraftStore.retiredCleanupCursorKey("me"), "0")
+        preferences.putString(ChatComposerDraftStore.retirementKey("me"), "2")
+
+        releasePrefixCleanup.complete(Unit)
+        oldReconciliation.await()
+        assertTrue(files.contains(generationZeroKey))
+        assertTrue(files.contains(generationOneKey))
+        assertEquals("0", preferences.getString(ChatComposerDraftStore.retiredCleanupCursorKey("me")))
+
+        store.open("me")
+        assertFalse(files.contains(generationOneKey))
+        assertEquals("2", preferences.getString(ChatComposerDraftStore.retiredCleanupCursorKey("me")))
     }
 
     @Test
@@ -1214,12 +1298,14 @@ private class ComposerMemoryFiles(
     private val storeFailure: String? = null,
     val storeGate: CompletableDeferred<Unit>? = null,
     val removeGate: CompletableDeferred<Unit>? = null,
+    val prefixRemoveGate: CompletableDeferred<Unit>? = null,
     var removeFailuresRemaining: Int = 0,
     var prefixRemoveFailuresRemaining: Int = 0,
 ) : PrefixClearableFileCacheService {
     private val values = mutableMapOf<String, PlatformFile>()
     val storeStarted = CompletableDeferred<Unit>()
     val removeStarted = CompletableDeferred<Unit>()
+    val prefixRemoveStarted = CompletableDeferred<Unit>()
 
     fun contains(key: String): Boolean = key in values
 
@@ -1247,6 +1333,8 @@ private class ComposerMemoryFiles(
     }
 
     override suspend fun removeByPrefix(prefix: String): PlatformResult<Unit> {
+        prefixRemoveStarted.complete(Unit)
+        prefixRemoveGate?.await()
         if (prefixRemoveFailuresRemaining > 0) {
             prefixRemoveFailuresRemaining -= 1
             return PlatformResult.Failure("prefix remove failed")

@@ -22,6 +22,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+interface ChatComposerAttachmentExecutionLock {
+    suspend fun <T> withLock(actorId: String, generation: Long, block: suspend () -> T): T
+}
+
+object InProcessChatComposerAttachmentExecutionLock : ChatComposerAttachmentExecutionLock {
+    private val registryMutex = Mutex()
+    private val locks = mutableMapOf<String, Mutex>()
+
+    override suspend fun <T> withLock(actorId: String, generation: Long, block: suspend () -> T): T {
+        val key = "$actorId\u0000$generation"
+        val lock = registryMutex.withLock { locks.getOrPut(key) { Mutex() } }
+        return lock.withLock { block() }
+    }
+}
+
 class ChatComposerDraftLease internal constructor(
     internal val actorId: String,
     internal val generation: Long,
@@ -74,6 +89,8 @@ sealed interface ChatConversationViewport {
 class ChatComposerDraftStore(
     private val preferences: PreferenceStore,
     private val attachmentFiles: FileCacheService = UnsupportedFileCacheService,
+    private val attachmentExecutionLock: ChatComposerAttachmentExecutionLock =
+        InProcessChatComposerAttachmentExecutionLock,
 ) {
     private val recordMutex = Mutex()
 
@@ -89,6 +106,11 @@ class ChatComposerDraftStore(
             retained + (cacheKey to (retained.getOrElse(cacheKey) { 0 } + 1))
         }
     }
+
+    suspend fun <T> withAttachmentCustody(
+        lease: ChatComposerDraftLease,
+        block: suspend () -> T,
+    ): T = attachmentExecutionLock.withLock(lease.actorId, lease.generation, block)
 
     suspend fun releaseAttachment(
         lease: ChatComposerDraftLease,
@@ -276,14 +298,15 @@ class ChatComposerDraftStore(
     suspend fun clear(actorId: String, conversationId: String) = clear(open(actorId), conversationId)
 
     suspend fun clearActor(actorId: String) {
-        val retiringGeneration = currentGeneration(actorId)
-        val pending = retiredGenerations(actorId) + retiringGeneration
-        preferences.putString(retiredCleanupKey(actorId), pending.sorted().encodeLongs())
-        preferences.putString(retirementKey(actorId), (retiringGeneration + 1L).toString())
-        (preferences as? PrefixClearablePreferenceStore)
-            ?.removeByPrefix(generationPrefix(actorId, retiringGeneration))
-        preferences.remove(detachedCleanupKey(actorId, retiringGeneration))
-        retryRetiredGenerationCleanup(actorId, retiringGeneration + 1L)
+        attachmentExecutionLock.withLock(actorId, RetirementJournalLockGeneration) {
+            val retiringGeneration = currentGeneration(actorId)
+            ensureRetiredCleanupCursor(actorId, retiringGeneration)
+            preferences.putString(retirementKey(actorId), (retiringGeneration + 1L).toString())
+            (preferences as? PrefixClearablePreferenceStore)
+                ?.removeByPrefix(generationPrefix(actorId, retiringGeneration))
+            preferences.remove(detachedCleanupKey(actorId, retiringGeneration))
+            retryRetiredGenerationCleanupLocked(actorId, retiringGeneration + 1L)
+        }
     }
 
     private suspend fun reconcileRecordCleanup(
@@ -300,7 +323,7 @@ class ChatComposerDraftStore(
         val newlyAcknowledged = linkedSetOf<String>()
         val remaining = (stored.pendingCleanupKeys - acknowledged).filterTo(linkedSetOf()) { pendingKey ->
             if (pendingKey == activeKey || pendingKey in retainedAttachmentKeys.value) return@filterTo true
-            val cleanupFailed = attachmentFiles.remove(pendingKey) !is PlatformResult.Success
+            val cleanupFailed = removeAttachmentUnderCustody(lease.actorId, lease.generation, pendingKey)
             if (!cleanupFailed) newlyAcknowledged += pendingKey
             cleanupFailed
         }
@@ -327,27 +350,53 @@ class ChatComposerDraftStore(
     private suspend fun retryDetachedAttachmentCleanup(actorId: String, generation: Long) {
         val key = detachedCleanupKey(actorId, generation)
         val remaining = preferences.getString(key).decodeStrings().filterTo(linkedSetOf()) {
-            it in retainedAttachmentKeys.value || attachmentFiles.remove(it) !is PlatformResult.Success
+            it in retainedAttachmentKeys.value || removeAttachmentUnderCustody(actorId, generation, it)
         }
         if (remaining.isEmpty()) preferences.remove(key)
         else preferences.putString(key, remaining.sorted().encodeStrings())
     }
 
     private suspend fun retryRetiredGenerationCleanup(actorId: String, currentGeneration: Long) {
-        val service = attachmentFiles as? PrefixClearableFileCacheService ?: return
-        val remaining = retiredGenerations(actorId).filterTo(linkedSetOf()) { generation ->
-            generation >= currentGeneration ||
-                service.removeByPrefix(attachmentGenerationPrefix(actorId, generation)) !is PlatformResult.Success
+        attachmentExecutionLock.withLock(actorId, RetirementJournalLockGeneration) {
+            retryRetiredGenerationCleanupLocked(actorId, currentGeneration)
         }
-        if (remaining.isEmpty()) preferences.remove(retiredCleanupKey(actorId))
-        else preferences.putString(retiredCleanupKey(actorId), remaining.sorted().encodeLongs())
     }
 
-    private suspend fun retiredGenerations(actorId: String): Set<Long> =
-        preferences.getString(retiredCleanupKey(actorId)).decodeLongs()
+    private suspend fun retryRetiredGenerationCleanupLocked(actorId: String, currentGeneration: Long) {
+        val service = attachmentFiles as? PrefixClearableFileCacheService ?: return
+        var generation = ensureRetiredCleanupCursor(actorId) ?: return
+        while (generation < currentGeneration) {
+            val cleanupFailed = attachmentExecutionLock.withLock(actorId, generation) {
+                service.removeByPrefix(attachmentGenerationPrefix(actorId, generation)) !is PlatformResult.Success
+            }
+            if (cleanupFailed) return
+            generation += 1L
+            preferences.putString(retiredCleanupCursorKey(actorId), generation.toString())
+        }
+    }
+
+    private suspend fun ensureRetiredCleanupCursor(actorId: String, retiringGeneration: Long? = null): Long? {
+        preferences.getString(retiredCleanupCursorKey(actorId))
+            ?.toLongOrNull()
+            ?.coerceAtLeast(0L)
+            ?.let { return it }
+        val legacyGeneration = preferences.getString(retiredCleanupKey(actorId)).decodeLongs().minOrNull()
+        val cursor = listOfNotNull(legacyGeneration, retiringGeneration).minOrNull() ?: return null
+        preferences.putString(retiredCleanupCursorKey(actorId), cursor.toString())
+        preferences.remove(retiredCleanupKey(actorId))
+        return cursor
+    }
 
     private suspend fun currentGeneration(actorId: String): Long =
         preferences.getString(retirementKey(actorId))?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+
+    private suspend fun removeAttachmentUnderCustody(
+        actorId: String,
+        generation: Long,
+        cacheKey: String,
+    ): Boolean = attachmentExecutionLock.withLock(actorId, generation) {
+        cacheKey in retainedAttachmentKeys.value || attachmentFiles.remove(cacheKey) !is PlatformResult.Success
+    }
 
     private data class StoredAttachment(
         val cacheKey: String,
@@ -448,6 +497,7 @@ class ChatComposerDraftStore(
 
     companion object {
         private const val MaxAttachmentCacheKeyLength = 120
+        private const val RetirementJournalLockGeneration = Long.MIN_VALUE
         private val retainedAttachmentKeys = MutableStateFlow<Map<String, Int>>(emptyMap())
 
         internal fun actorPrefix(actorId: String): String =
@@ -471,6 +521,9 @@ class ChatComposerDraftStore(
         internal fun retiredCleanupKey(actorId: String): String =
             "quata.chat.composer.retired-cleanup.v1.${actorId.length}:$actorId"
 
+        internal fun retiredCleanupCursorKey(actorId: String): String =
+            "quata.chat.composer.retired-cleanup-cursor.v2.${actorId.length}:$actorId"
+
         internal fun detachedCleanupKey(actorId: String, generation: Long): String =
             "quata.chat.composer.detached-cleanup.v1.${actorId.length}:$actorId.g$generation"
 
@@ -489,10 +542,6 @@ private fun String?.decodeStrings(): Set<String> = runCatching {
         ?.toSet()
         .orEmpty()
 }.getOrDefault(emptySet())
-
-private fun Iterable<Long>.encodeLongs(): String = buildJsonArray {
-    forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
-}.toString()
 
 private fun String?.decodeLongs(): Set<Long> = runCatching {
     this?.let(Json::parseToJsonElement)?.jsonArray

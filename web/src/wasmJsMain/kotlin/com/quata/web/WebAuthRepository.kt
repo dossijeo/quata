@@ -10,6 +10,7 @@ import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
+import com.quata.feature.chat.presentation.chat.BrowserChatComposerAttachmentExecutionLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -122,7 +123,13 @@ class WebAuthRepository(
         } ?: Result.failure(IllegalStateException("web_push_unsubscribe_timeout"))
         val browserFailure = browserResult.exceptionOrNull()
         WebAuthStorage.clear(preferences)
-        retiringProfileId?.let { ChatComposerDraftStore(preferences, BrowserFileCacheService()).clearActor(it) }
+        retiringProfileId?.let {
+            ChatComposerDraftStore(
+                preferences,
+                BrowserFileCacheService(),
+                BrowserChatComposerAttachmentExecutionLock(),
+            ).clearActor(it)
+        }
         activeSession = null
         val failure = serverFailure ?: browserFailure
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
@@ -246,7 +253,11 @@ class WebAuthRepository(
             "web_auth_lifecycle_failed"
         }
         WebAuthStorage.clear(preferences)
-        ChatComposerDraftStore(preferences, BrowserFileCacheService()).clearActor(session.userId)
+        ChatComposerDraftStore(
+            preferences,
+            BrowserFileCacheService(),
+            BrowserChatComposerAttachmentExecutionLock(),
+        ).clearActor(session.userId)
         activeSession = null
     }
 

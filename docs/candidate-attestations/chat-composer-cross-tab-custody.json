@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER-ATTACHMENTS"
+  ],
+  "status": "passed",
+  "productSha": "6f4813ce072ad465267ddee9190828c1cc958612",
+  "certification": "hermetic-cross-tab-attachment-custody-complete-affected-platform-validation-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "6f4813ce072ad465267ddee9190828c1cc958612",
+      "report": "docs/candidate-attestations/evidence/chat-composer-cross-tab-custody-074bae62.json",
+      "reportSha256": "82ecf6d0bd0e3a90520fa1f5b8e582215f85fdb190a594aa38dc33fa1343565c",
+      "reportStatus": "passed",
+      "reportGitHead": "074bae62e7c0524969121bdf24386d5778dc3f93",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "two_browser_lock_wrappers_serialize_the_same_actor_generation",
+        "cancelled_pending_browser_waiter_never_executes_later",
+        "cancelled_acquired_browser_effect_releases_the_lock",
+        "web_wasm_3_browser_lock_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "6f4813ce072ad465267ddee9190828c1cc958612",
+      "report": "docs/candidate-attestations/evidence/chat-composer-cross-tab-custody-074bae62.json",
+      "reportSha256": "82ecf6d0bd0e3a90520fa1f5b8e582215f85fdb190a594aa38dc33fa1343565c",
+      "reportStatus": "passed",
+      "reportGitHead": "074bae62e7c0524969121bdf24386d5778dc3f93",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "separate_store_cleanup_waits_for_the_attachment_effect",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "6f4813ce072ad465267ddee9190828c1cc958612",
+      "report": "docs/candidate-attestations/evidence/chat-composer-cross-tab-custody-074bae62.json",
+      "reportSha256": "82ecf6d0bd0e3a90520fa1f5b8e582215f85fdb190a594aa38dc33fa1343565c",
+      "reportStatus": "passed",
+      "reportGitHead": "074bae62e7c0524969121bdf24386d5778dc3f93",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_direct_logout_cleanup_uses_the_same_generation_custody",
+        "retired_cleanup_cursor_migrates_v1_without_losing_a_newer_generation",
+        "failed_old_generation_cleanup_preserves_both_old_and_new_generation_custody",
+        "ios_x64_complete_focal_composer_class_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.BrowserChatComposerAttachmentExecutionLockTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "JAVA_HOME=<installed-jdk-21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-composer-cross-tab-custody.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "6f4813ce072ad465267ddee9190828c1cc958612",
+    "blockingFindings": [],
+    "scopeLimit": "Web custody is proven through distinct wrappers sharing navigator.locks; no visual two-tab E2E is claimed. Android and iOS keep process-local exclusion."
+  },
+  "notes": [
+    "Attachment send effects and exact, detached or retired-generation cleanup use the same actor-generation custody.",
+    "Web injects navigator.locks into the product Chat host and logout cleanup. Pending cancellation aborts the browser request, and cancellation after acquisition always releases it.",
+    "Android and iOS keep the shared in-process keyed mutex. The direct Swift logout path records retirement before metadata deletion and removes bytes only under the same generation custody.",
+    "The retired-generation journal is a monotonic cursor serialized per actor. Its v1 migration and the synchronous iOS bridge cannot lose a newer generation or skip legacy cleanup after a failed older cleanup.",
+    "The affected 44-test Web/Wasm composer class, three browser-lock tests, Android compilation and the complete iOS x64 composer class passed on the Product SHA.",
+    "Independent review returned GO with no P0-P2 findings after the cancellation, iOS cleanup and two journal-race findings were corrected.",
+    "No credentials, backend mutation, visual journey or unrelated platform matrix was used.",
+    "Product SHA 6f4813ce0 recomposes byte-identical cross-tab custody runtime and tests onto main after #498 merged; platform matrices were not repeated solely for the Git base advance. Final GitHub certification waits behind the single active remote candidate."
+  ]
+}
