@@ -16,7 +16,7 @@ import kotlinx.serialization.json.longOrNull
  * URLs returned by [store] and [get] are owned by this instance and can be released with
  * [release] once a host no longer renders or uploads them.
  */
-class BrowserFileCacheService : FileCacheService {
+class BrowserFileCacheService : PrefixClearableFileCacheService {
     private val issuedReferences = mutableSetOf<String>()
 
     override suspend fun store(cacheKey: String, file: PlatformFile): PlatformResult<PlatformFile> {
@@ -33,6 +33,21 @@ class BrowserFileCacheService : FileCacheService {
         if (!cacheKey.isSafeFileCacheKey()) return PlatformResult.Failure("invalid_cache_key")
         return suspendCoroutine<PlatformResult<Unit>> { continuation ->
             browserCacheRemove(cacheKey) { state, reason ->
+                continuation.resume(
+                    when (state) {
+                        "success" -> PlatformResult.Success(Unit)
+                        "unsupported" -> PlatformResult.Unsupported
+                        else -> PlatformResult.Failure(reason)
+                    },
+                )
+            }
+        }
+    }
+
+    override suspend fun removeByPrefix(prefix: String): PlatformResult<Unit> {
+        if (!prefix.isSafeFileCachePrefix()) return PlatformResult.Failure("invalid_cache_prefix")
+        return suspendCoroutine<PlatformResult<Unit>> { continuation ->
+            browserCacheRemoveByPrefix(prefix) { state, reason ->
                 continuation.resume(
                     when (state) {
                         "success" -> PlatformResult.Success(Unit)
@@ -91,6 +106,8 @@ private fun String?.toCachedPlatformFile(): PlatformFile? = runCatching {
 }.getOrNull()
 
 private fun String.isSafeFileCacheKey(): Boolean = matches(Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}"))
+private fun String.isSafeFileCachePrefix(): Boolean =
+    isNotEmpty() && length <= 128 && all { it.isLetterOrDigit() || it in "._:-" }
 
 private fun browserRevokeObjectUrl(reference: String): Unit = js(
     """
@@ -187,5 +204,40 @@ private fun browserCacheRemove(cacheKey: String, onResult: (String, String?) -> 
       db.close();
       onResult('success', null);
     })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_remove_failed'))
+    """,
+)
+
+private fun browserCacheRemoveByPrefix(prefix: String, onResult: (String, String?) -> Unit): Unit = js(
+    """
+    (async () => {
+      if (!globalThis.indexedDB) { onResult('unsupported', null); return; }
+      const openDatabase = () => new Promise((resolve, reject) => {
+        const request = indexedDB.open('quata-file-cache', 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('files')) db.createObjectStore('files');
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('web_file_cache_database_failed'));
+      });
+      const db = await openDatabase();
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction('files', 'readwrite');
+        const store = transaction.objectStore('files');
+        const cursorRequest = store.openKeyCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          if (typeof cursor.key === 'string' && cursor.key.startsWith(prefix)) store.delete(cursor.key);
+          cursor.continue();
+        };
+        cursorRequest.onerror = () => reject(cursorRequest.error || new Error('web_file_cache_cursor_failed'));
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error('web_file_cache_delete_failed'));
+        transaction.onabort = () => reject(transaction.error || new Error('web_file_cache_delete_aborted'));
+      });
+      db.close();
+      onResult('success', null);
+    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_file_cache_remove_prefix_failed'))
     """,
 )

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.quata.R
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.AndroidPreferenceStore
+import com.quata.feature.chat.data.AndroidChatComposerFileCacheService
 import com.quata.feature.chat.domain.ChatRepository
 import kotlinx.coroutines.flow.StateFlow
 
@@ -20,7 +21,10 @@ class ChatAndroidViewModel(
         repository = repository,
         isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId,
         text = context.applicationContext::androidChatText,
-        composerDraftStore = ChatComposerDraftStore(AndroidPreferenceStore(context, commitWrites = true)),
+        composerDraftStore = ChatComposerDraftStore(
+            AndroidPreferenceStore(context, commitWrites = true),
+            AndroidChatComposerFileCacheService(context),
+        ),
     )
 
     val uiState: StateFlow<ChatUiState> = commonModel.uiState
@@ -51,6 +55,7 @@ internal fun Context.androidChatText(value: ChatText): String = getString(
         ChatText.LoadConversations -> R.string.chat_error_load_conversations
         ChatText.LoadMessages -> R.string.chat_error_load_messages
         ChatText.Send -> R.string.chat_error_send
+        ChatText.PreserveAttachment -> R.string.chat_error_preserve_attachment
         ChatText.You -> R.string.common_you
         ChatText.Update -> R.string.chat_error_update
         ChatText.AddParticipant -> R.string.chat_error_add_participant

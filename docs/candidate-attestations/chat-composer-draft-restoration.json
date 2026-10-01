@@ -2,94 +2,100 @@
   "version": 1,
   "units": [
     "CHAT-COMPOSER-DRAFTS",
-    "CHAT-COMPOSER-CONTEXT"
+    "CHAT-COMPOSER-CONTEXT",
+    "CHAT-COMPOSER-ATTACHMENTS"
   ],
   "status": "passed",
-  "productSha": "dd5d49d977cc7e1b8a10448504dba0e506c6ef08",
-  "certification": "hermetic-plain-reply-edit-draft-lifecycle-complete-affected-platform-validation-complete-final-ci-pending",
+  "productSha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
+  "certification": "hermetic-plain-reply-edit-attachment-draft-lifecycle-complete-affected-platform-validation-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "dd5d49d977cc7e1b8a10448504dba0e506c6ef08",
-      "report": "docs/candidate-attestations/evidence/chat-composer-context-restoration-7b58f3b6.json",
-      "reportSha256": "2d6c179144e35816241f6c9102de7f27a088c3f03524b4043555de27abc76e1e",
+      "sha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
+      "report": "docs/candidate-attestations/evidence/chat-composer-attachment-restoration-612e37e8.json",
+      "reportSha256": "0db4fb6772cdf063207d6e909b5d947360fd86088cab1a02c50f9dcc03100e9f",
       "reportStatus": "passed",
-      "reportGitHead": "7b58f3b6209c92875b2fb0df8ee0860c554fdefd",
+      "reportGitHead": "612e37e84acc86b26ccea117f41ec8c8d0f8d8c3",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "legacy_plain_text_draft_remains_compatible",
-        "reply_context_restored_only_after_authoritative_target_validation",
-        "edit_context_restored_only_for_authoritative_owned_target",
-        "web_wasm_affected_tests_passed"
+        "attachment_only_draft_is_restored",
+        "failed_send_restores_the_durable_attachment",
+        "concurrent_store_cleanup_cannot_delete_an_in_flight_attachment_in_the_same_process",
+        "web_wasm_39_focal_tests_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+        "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
       }
     },
     "android": {
       "status": "passed",
-      "sha": "dd5d49d977cc7e1b8a10448504dba0e506c6ef08",
-      "report": "docs/candidate-attestations/evidence/chat-composer-context-restoration-7b58f3b6.json",
-      "reportSha256": "2d6c179144e35816241f6c9102de7f27a088c3f03524b4043555de27abc76e1e",
+      "sha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
+      "report": "docs/candidate-attestations/evidence/chat-composer-attachment-restoration-612e37e8.json",
+      "reportSha256": "0db4fb6772cdf063207d6e909b5d947360fd86088cab1a02c50f9dcc03100e9f",
       "reportStatus": "passed",
-      "reportGitHead": "7b58f3b6209c92875b2fb0df8ee0860c554fdefd",
+      "reportGitHead": "612e37e84acc86b26ccea117f41ec8c8d0f8d8c3",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "context_scoped_by_actor_generation_and_conversation",
-        "invalid_context_targets_fail_closed",
+        "selected_attachment_is_staged_in_app_owned_cache_before_persistence",
+        "replace_clear_leave_delete_and_actor_retirement_schedule_owned_cleanup",
         "android_debug_compilation_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+        "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
       }
     },
     "ios": {
       "status": "passed",
-      "sha": "dd5d49d977cc7e1b8a10448504dba0e506c6ef08",
-      "report": "docs/candidate-attestations/evidence/chat-composer-context-restoration-7b58f3b6.json",
-      "reportSha256": "2d6c179144e35816241f6c9102de7f27a088c3f03524b4043555de27abc76e1e",
+      "sha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
+      "report": "docs/candidate-attestations/evidence/chat-composer-attachment-restoration-612e37e8.json",
+      "reportSha256": "0db4fb6772cdf063207d6e909b5d947360fd86088cab1a02c50f9dcc03100e9f",
       "reportStatus": "passed",
-      "reportGitHead": "7b58f3b6209c92875b2fb0df8ee0860c554fdefd",
+      "reportGitHead": "612e37e84acc86b26ccea117f41ec8c8d0f8d8c3",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "older_target_is_resolved_after_bounded_progress_paging",
-        "user_input_cancels_suspended_restore_and_clears_loading_state",
-        "ios_x64_affected_tests_passed"
+        "failed_exact_and_prefix_cleanup_remain_durable_and_retryable",
+        "ios_x64_complete_focal_class_passed",
+        "ios_simulator_signed_build_for_testing_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+        "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
       }
     }
   },
   "preflight": [
     "git diff --check",
-    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests *ChatViewModelComposerActionsTest* --tests *PostgrestChatRepositoryTest*",
+    ".\\gradlew.bat :app:lintDebug --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest",
     ".\\gradlew.bat :app:compileDebugKotlin",
-    "bash ./gradlew :feature:chat:iosX64Test --tests *ChatViewModelComposerActionsTest.contextualRestorePagesHistoryUntilTheTargetIsInAnAuthoritativeSnapshot* --tests *ChatViewModelComposerActionsTest.userInputCancelsSuspendedContextRestoreWithoutLeavingHistoryLoadingStuck* --tests *PostgrestChatRepositoryTest.olderMessagePagingStopsWhenAnAlreadyFullCacheReceivesNoNewMessages*",
+    ".\\gradlew.bat :web:compileKotlinWasmJs",
+    "bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-composer-draft-restoration.json"
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "dd5d49d977cc7e1b8a10448504dba0e506c6ef08",
-    "blockingFindings": []
+    "reviewedSha": "7c8a0bbdfcfb378793c711cc796e2a686d30c548",
+    "blockingFindings": [],
+    "scopeLimit": "Shared in-flight attachment custody is proven across store instances in one process; independent browser-tab/process coordination is not claimed."
   },
   "notes": [
-    "The common Chat composer remains backward-compatible with legacy plain-text draft records and scopes every record by actor generation and conversation.",
-    "Reply and edit mode plus target message ID are persisted immediately when the contextual action starts, even before further text input.",
-    "Context is restored only after the target appears in an authoritative message snapshot. Reply rejects absent, deleted and local-echo targets; edit additionally requires an owned message.",
-    "A target outside the first snapshot can be resolved by loading older messages. Pagination counts newly received numeric message IDs, stops without progress and cannot loop because the accumulated cache already exceeds the page size.",
-    "User input cancels a suspended contextual restore; finally always clears isLoadingOlderMessages and the new user text wins.",
-    "Successful send and leaving or deleting the conversation clear that conversation draft. Logout and destructive account lifecycle retire the actor generation; an obsolete write cannot overwrite the next session.",
-    "The affected browser tests, Android consumer compilation and three exact iOS x64 regressions passed on the Product SHA. A broader iOS class run is preserved as a failed attempt because one unrelated preexisting inbox cursor test timed out.",
-    "Independent review returned GO with no P0-P3 findings and confirmed the pagination and cancellation defects from the prior review are fixed.",
-    "Attachments, scroll position and unrelated internal state remain transient. This unit does not claim authenticated backend or visual host E2E and does not alter message delivery semantics.",
-    "Product SHA c4381f6b recomposes the unchanged context-restoration runtime onto the frozen draft candidate. Every runtime source path is byte-identical to the original Product SHA 7b58f3b6; only the required reviewed capability hash was renewed. The historical report remains bound to 7b58f3b6 and no platform matrix was repeated solely for the base advance.",
-    "Product SHA dd5d49d9 reapplies the context-restoration runtime and tests directly on main 88e15390 after the durable plain-draft unit merged in #495. Every non-documentation source and test path is byte-identical to c4381f6b; range-diff differs because capability/inventory documentation moved into the Product commit and this attestation was rebound. The historical report remains bound to 7b58f3b6, so platform matrices were not repeated solely for the squash-merge base advance. Fifty-five affected candidate, capability and common-root assertions plus diff-check pass."
+    "The common Chat composer remains backward-compatible with legacy plain-text draft records and scopes text, Reply/Edit context and staged attachments by actor generation and conversation.",
+    "A selected attachment is copied into app-owned durable cache before its draft reference is persisted; attachment-only drafts restore after recreation.",
+    "Send retains the exact staged attachment during the send operation. Repository acceptance cleans the composer copy without deleting a newer draft, while failure restores the durable attachment for retry.",
+    "Replace, clear, successful send, leave, delete and actor retirement schedule owned cleanup. Failed exact or generation-prefix cleanup stays durable and retryable, and acknowledgement cannot rewrite a stale draft snapshot.",
+    "Close waits for staging and the write created by staging. Shared in-process retention prevents a second store instance from deleting an attachment still used by an in-flight send.",
+    "Reply/Edit target restoration remains authoritative and fail-closed; user input, paging, actor retirement and stale-write invariants from the preceding unit remain covered.",
+    "The complete 39-test Web/Wasm focal class, Android and Web compilation, the complete iOS x64 focal class and the signed iOS host build passed on the Product SHA.",
+    "Independent review returned GO with no P0-P2 findings after four defect-fix rounds and confirmed that the earlier concurrency, attachment-only, cleanup and acknowledgement findings are resolved.",
+    "Scroll position and unrelated internal state remain transient. This unit does not claim authenticated backend, visual host E2E or coordination across independent browser processes/tabs.",
+    "Product SHA 143599e40 recomposes the unchanged attachment-restoration runtime onto the frozen context candidate. All seven changed feature source and test paths are byte-identical to the preceding composed Product SHA 8d37f114. The historical evidence report remains bound to report Git HEAD 612e37e8; documentation and attestation bindings were renewed, and no platform matrix was repeated solely for the base advance.",
+    "Product SHA 7c8a0bbdf replaces Android Uri.parse with the equivalent AndroidX String.toUri extension required by the existing lint policy. The complete Android app lint gate passed and includes Debug Kotlin compilation; Web and iOS sources, resources, tests, configuration and dependencies are unchanged, so their previously frozen evidence was not repeated.",
+    "Independent exact-delta review returned GO without P0-P3 findings on Product SHA 7c8a0bbdf and confirmed that the Android-only gate is sufficient for this semantic-equivalent lint repair."
   ]
 }

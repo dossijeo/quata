@@ -10,6 +10,11 @@ interface FileCacheService {
     suspend fun remove(cacheKey: String): PlatformResult<Unit>
 }
 
+/** Optional bulk cleanup used by actor/generation-scoped durable state. */
+interface PrefixClearableFileCacheService : FileCacheService {
+    suspend fun removeByPrefix(prefix: String): PlatformResult<Unit>
+}
+
 /** Explicit fallback for targets and hosts that do not provide persistent binary storage. */
 object UnsupportedFileCacheService : FileCacheService {
     override suspend fun store(cacheKey: String, file: PlatformFile): PlatformResult<PlatformFile> = PlatformResult.Unsupported

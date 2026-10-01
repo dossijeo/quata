@@ -5,6 +5,7 @@ package com.quata.web
 import com.quata.core.model.AuthSession
 import com.quata.core.model.currentEpochSeconds
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.BrowserFileCacheService
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
@@ -121,7 +122,7 @@ class WebAuthRepository(
         } ?: Result.failure(IllegalStateException("web_push_unsubscribe_timeout"))
         val browserFailure = browserResult.exceptionOrNull()
         WebAuthStorage.clear(preferences)
-        retiringProfileId?.let { ChatComposerDraftStore(preferences).clearActor(it) }
+        retiringProfileId?.let { ChatComposerDraftStore(preferences, BrowserFileCacheService()).clearActor(it) }
         activeSession = null
         val failure = serverFailure ?: browserFailure
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
@@ -245,7 +246,7 @@ class WebAuthRepository(
             "web_auth_lifecycle_failed"
         }
         WebAuthStorage.clear(preferences)
-        ChatComposerDraftStore(preferences).clearActor(session.userId)
+        ChatComposerDraftStore(preferences, BrowserFileCacheService()).clearActor(session.userId)
         activeSession = null
     }
 

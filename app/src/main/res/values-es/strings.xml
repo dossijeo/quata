@@ -561,6 +561,7 @@
     <string name="chat_error_open_conversation">No se pudo abrir la conversación</string>
     <string name="chat_error_restore_conversation">No se pudo restaurar la conversación</string>
     <string name="chat_error_send">No se pudo enviar el mensaje</string>
+    <string name="chat_error_preserve_attachment">No se pudo conservar el archivo adjunto</string>
     <string name="chat_error_update">No se pudo actualizar la conversación</string>
     <string name="chat_error_load_candidates">No se pudo cargar la lista de usuarios</string>
     <string name="chat_error_add_participant">No se pudo añadir al participante</string>

@@ -26,6 +26,7 @@ import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.BrowserAudioRecorderService
+import com.quata.core.platform.BrowserFileCacheService
 import com.quata.core.platform.DocumentPreviewKind
 import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.DocumentOpenService
@@ -111,7 +112,9 @@ fun WebChatHost(
             searchPreferences = ConversationSearchPreferences(preferences),
         )
     }
-    val composerDraftStore = remember(preferences) { ChatComposerDraftStore(preferences) }
+    val composerDraftStore = remember(preferences) {
+        ChatComposerDraftStore(preferences, BrowserFileCacheService())
+    }
     val clipboard = remember { BrowserClipboardService() }
     val translationGateway = remember {
         FangChatTranslationGateway(FangTranslationService(transport = BrowserTranslationHttpTransport()))

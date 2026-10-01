@@ -4,6 +4,9 @@ import com.quata.core.common.AppDispatchers
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PrefixClearableFileCacheService
 import com.quata.core.platform.PrefixClearablePreferenceStore
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
@@ -484,6 +487,326 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun durableAttachmentRestoresAcrossModelsAndIsRemovedAfterSend() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val preferences = ComposerMemoryPreferences()
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(preferences, files)
+        val repository = RecordingChatRepository(emptyList())
+        val first = chatViewModel(repository, dispatcher, store)
+
+        first.onEvent(ChatUiEvent.MessageChanged("with attachment"))
+        first.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/photo", "photo.jpg", "image/jpeg"))
+        testScheduler.advanceUntilIdle()
+        val stagedReference = first.uiState.value.attachmentUri
+        val stagedKey = assertNotNull(first.uiState.value.attachmentCacheKey)
+        assertEquals("cache://$stagedKey", stagedReference)
+        assertTrue(files.contains(stagedKey))
+        first.close()
+
+        val restored = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+        assertEquals("with attachment", restored.uiState.value.messageText)
+        assertEquals(stagedKey, restored.uiState.value.attachmentCacheKey)
+        assertEquals(stagedReference, restored.uiState.value.attachmentUri)
+
+        restored.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+        assertEquals(stagedReference, repository.sendMessageCalls.single().attachmentUri)
+        assertNull(store.readRecord("me", "conversation-1"))
+        assertFalse(files.contains(stagedKey))
+        restored.close()
+    }
+
+    @Test
+    fun attachmentOnlyDraftRestoresAcrossModels() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val repository = RecordingChatRepository(emptyList())
+        val first = chatViewModel(repository, dispatcher, store)
+
+        first.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/only", "only.jpg", "image/jpeg"))
+        testScheduler.advanceUntilIdle()
+        val stagedKey = assertNotNull(first.uiState.value.attachmentCacheKey)
+        first.close()
+
+        val restored = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+        assertEquals("", restored.uiState.value.messageText)
+        assertEquals(stagedKey, restored.uiState.value.attachmentCacheKey)
+        assertEquals("only.jpg", restored.uiState.value.attachmentName)
+        assertTrue(files.contains(stagedKey))
+        restored.close()
+    }
+
+    @Test
+    fun failedSendRestoresTheDurableAttachmentAndKeepsItForRetry() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val repository = RecordingChatRepository(emptyList()).apply {
+            sendMessageResult = Result.failure(IllegalStateException("offline"))
+        }
+        val model = chatViewModel(repository, dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("retry with bytes"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/retry", "retry.txt", "text/plain"))
+        testScheduler.advanceUntilIdle()
+        val stagedKey = assertNotNull(model.uiState.value.attachmentCacheKey)
+        val stagedReference = assertNotNull(model.uiState.value.attachmentUri)
+
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+        assertEquals("retry with bytes", model.uiState.value.messageText)
+        assertEquals(stagedKey, model.uiState.value.attachmentCacheKey)
+        assertEquals(stagedReference, model.uiState.value.attachmentUri)
+        assertTrue(files.contains(stagedKey))
+        assertEquals(stagedKey, store.readRecord("me", "conversation-1")?.attachment?.cacheKey)
+
+        repository.sendMessageResult = Result.success(Unit)
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+        assertEquals(2, repository.sendMessageCalls.size)
+        assertEquals(stagedReference, repository.sendMessageCalls.last().attachmentUri)
+        assertFalse(files.contains(stagedKey))
+        model.close()
+    }
+
+    @Test
+    fun sendInFlightKeepsItsAttachmentWhileAReplacementDraftIsPersisted() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val repository = RecordingChatRepository(emptyList())
+        val sendGate = CompletableDeferred<Unit>()
+        repository.sendMessageGate = sendGate
+        val model = chatViewModel(repository, dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("first"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/first", "first.txt", "text/plain"))
+        testScheduler.advanceUntilIdle()
+        val sentKey = assertNotNull(model.uiState.value.attachmentCacheKey)
+
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.runCurrent()
+        assertTrue(files.contains(sentKey))
+
+        model.onEvent(ChatUiEvent.MessageChanged("new draft"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/second", "second.txt", "text/plain"))
+        testScheduler.runCurrent()
+        val replacementKey = assertNotNull(model.uiState.value.attachmentCacheKey)
+        assertTrue(files.contains(sentKey))
+        assertTrue(files.contains(replacementKey))
+
+        sendGate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("new draft", model.uiState.value.messageText)
+        assertEquals(replacementKey, model.uiState.value.attachmentCacheKey)
+        assertEquals(replacementKey, store.readRecord("me", "conversation-1")?.attachment?.cacheKey)
+        assertFalse(files.contains(sentKey))
+        assertTrue(files.contains(replacementKey))
+        model.close()
+    }
+
+    @Test
+    fun closeWaitsForTheDraftWriteCreatedByAttachmentStaging() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles(storeGate = CompletableDeferred())
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val model = chatViewModel(RecordingChatRepository(emptyList()), dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("survives close"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/late", "late.txt", "text/plain"))
+        testScheduler.runCurrent()
+        files.storeStarted.await()
+        model.close()
+
+        files.storeGate?.complete(Unit)
+        testScheduler.advanceUntilIdle()
+
+        val restored = assertNotNull(store.readRecord("me", "conversation-1"))
+        assertEquals("survives close", restored.text)
+        assertEquals("late.txt", restored.attachment?.name)
+    }
+
+    @Test
+    fun failedAttachmentCleanupRemainsDurableAndRetries() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val files = ComposerMemoryFiles(removeFailuresRemaining = 1)
+        val store = ChatComposerDraftStore(preferences, files)
+        val lease = store.open("me")
+        val first = assertNotNull(
+            (store.stageAttachment(lease, "first", PlatformFile("content://first")) as? PlatformResult.Success)?.value,
+        )
+        val second = assertNotNull(
+            (store.stageAttachment(lease, "second", PlatformFile("content://second")) as? PlatformResult.Success)?.value,
+        )
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("one", attachment = first))
+
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("two", attachment = second))
+        assertTrue(files.contains(first.cacheKey))
+
+        assertEquals(second.cacheKey, store.readRecord(lease, "conversation-1")?.attachment?.cacheKey)
+        assertFalse(files.contains(first.cacheKey))
+        assertTrue(files.contains(second.cacheKey))
+    }
+
+    @Test
+    fun suspendedCleanupCannotOverwriteANewerDraftRecord() = runTest {
+        val removeGate = CompletableDeferred<Unit>()
+        val files = ComposerMemoryFiles(removeGate = removeGate)
+        val preferences = ComposerMemoryPreferences()
+        val store = ChatComposerDraftStore(preferences, files)
+        val concurrentStore = ChatComposerDraftStore(preferences, files)
+        val lease = store.open("me")
+        val first = assertNotNull(
+            (store.stageAttachment(lease, "first", PlatformFile("content://first")) as? PlatformResult.Success)?.value,
+        )
+        val second = assertNotNull(
+            (store.stageAttachment(lease, "second", PlatformFile("content://second")) as? PlatformResult.Success)?.value,
+        )
+        val latest = assertNotNull(
+            (store.stageAttachment(lease, "latest", PlatformFile("content://latest")) as? PlatformResult.Success)?.value,
+        )
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("old", attachment = first))
+        store.retainAttachment(first.cacheKey)
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("new", attachment = second))
+
+        val cleanup = async { store.releaseAttachment(lease, "conversation-1", first.cacheKey) }
+        testScheduler.runCurrent()
+        files.removeStarted.await()
+        val newerWrite = async {
+            concurrentStore.writeRecord("me", "conversation-1", ChatComposerDraftRecord("latest", attachment = latest))
+        }
+        testScheduler.runCurrent()
+
+        removeGate.complete(Unit)
+        cleanup.await()
+        newerWrite.await()
+        val persisted = assertNotNull(concurrentStore.readRecord("me", "conversation-1"))
+        assertEquals("latest", persisted.text)
+        assertEquals(latest.cacheKey, persisted.attachment?.cacheKey)
+    }
+
+    @Test
+    fun separateStoreCannotDeleteAnAttachmentRetainedByAnInFlightSend() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val files = ComposerMemoryFiles()
+        val sendingStore = ChatComposerDraftStore(preferences, files)
+        val replacementStore = ChatComposerDraftStore(preferences, files)
+        val sendingLease = sendingStore.open("me")
+        val sent = assertNotNull(
+            (sendingStore.stageAttachment(sendingLease, "sent", PlatformFile("content://sent")) as? PlatformResult.Success)?.value,
+        )
+        sendingStore.writeRecord(sendingLease, "conversation-1", ChatComposerDraftRecord("sent", attachment = sent))
+        sendingStore.retainAttachment(sent.cacheKey)
+        val replacement = assertNotNull(
+            (replacementStore.stageAttachment(
+                replacementStore.open("me"),
+                "replacement",
+                PlatformFile("content://replacement"),
+            ) as? PlatformResult.Success)?.value,
+        )
+
+        replacementStore.writeRecord(
+            "me",
+            "conversation-1",
+            ChatComposerDraftRecord("replacement", attachment = replacement),
+        )
+        assertTrue(files.contains(sent.cacheKey))
+
+        sendingStore.releaseAttachment(sendingLease, "conversation-1", sent.cacheKey)
+        assertFalse(files.contains(sent.cacheKey))
+        assertTrue(files.contains(replacement.cacheKey))
+    }
+
+    @Test
+    fun failedActorAttachmentCleanupRetriesAfterRetirement() = runTest {
+        val files = ComposerMemoryFiles(prefixRemoveFailuresRemaining = 1)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val lease = store.open("me")
+        val staged = assertNotNull(
+            (store.stageAttachment(lease, "private", PlatformFile("content://private")) as? PlatformResult.Success)?.value,
+        )
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("private", attachment = staged))
+
+        store.clearActor("me")
+        assertTrue(files.contains(staged.cacheKey))
+
+        store.open("me")
+        assertFalse(files.contains(staged.cacheKey))
+    }
+
+    @Test
+    fun replacingAndClearingAttachmentDeletesOnlyTheSupersededCachedBytes() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val model = chatViewModel(RecordingChatRepository(emptyList()), dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("keep text"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/one", "one.txt", "text/plain"))
+        testScheduler.advanceUntilIdle()
+        val firstKey = assertNotNull(model.uiState.value.attachmentCacheKey)
+
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/two", "two.txt", "text/plain"))
+        testScheduler.advanceUntilIdle()
+        val secondKey = assertNotNull(model.uiState.value.attachmentCacheKey)
+        assertFalse(files.contains(firstKey))
+        assertTrue(files.contains(secondKey))
+
+        model.onEvent(ChatUiEvent.ClearAttachment)
+        testScheduler.advanceUntilIdle()
+        assertEquals("keep text", model.uiState.value.messageText)
+        assertNull(model.uiState.value.attachmentCacheKey)
+        assertNull(model.uiState.value.attachmentUri)
+        assertFalse(files.contains(secondKey))
+        assertEquals("keep text", store.read("me", "conversation-1"))
+        model.close()
+    }
+
+    @Test
+    fun attachmentStagingFailureNeverPersistsTheTemporaryReference() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles(storeFailure = "copy failed")
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val model = chatViewModel(RecordingChatRepository(emptyList()), dispatcher, store)
+
+        model.onEvent(ChatUiEvent.MessageChanged("safe text"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/private", "private.txt", "text/plain"))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("preserve-attachment", model.uiState.value.error)
+        assertNull(model.uiState.value.attachmentCacheKey)
+        assertNull(model.uiState.value.attachmentUri)
+        val stored = assertNotNull(store.readRecord("me", "conversation-1"))
+        assertEquals("safe text", stored.text)
+        assertNull(stored.attachment)
+        model.close()
+    }
+
+    @Test
+    fun actorRetirementDeletesItsAttachmentGenerationAndRejectsTheOldLease() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(preferences, files)
+        val oldLease = store.open("me")
+        val staged = assertNotNull(
+            (store.stageAttachment(oldLease, "old", PlatformFile("content://old", "old.txt", "text/plain"))
+                as? PlatformResult.Success)?.value,
+        )
+        store.writeRecord(oldLease, "conversation-1", ChatComposerDraftRecord("private", attachment = staged))
+        assertTrue(files.contains(staged.cacheKey))
+
+        store.clearActor("me")
+        assertFalse(files.contains(staged.cacheKey))
+        assertNull(store.readRecord("me", "conversation-1"))
+        assertTrue(store.stageAttachment(oldLease, "stale", PlatformFile("content://stale")) is PlatformResult.Failure)
+    }
+
+    @Test
     fun replyAndEditModesDispatchSharedRepositoryCallsAndCanBeCancelled() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val own = ownMessage(id = "own-1", text = "before")
@@ -814,6 +1137,52 @@ private open class ComposerMemoryPreferences(
     }
 }
 
+private class ComposerMemoryFiles(
+    private val storeFailure: String? = null,
+    val storeGate: CompletableDeferred<Unit>? = null,
+    val removeGate: CompletableDeferred<Unit>? = null,
+    var removeFailuresRemaining: Int = 0,
+    var prefixRemoveFailuresRemaining: Int = 0,
+) : PrefixClearableFileCacheService {
+    private val values = mutableMapOf<String, PlatformFile>()
+    val storeStarted = CompletableDeferred<Unit>()
+    val removeStarted = CompletableDeferred<Unit>()
+
+    fun contains(key: String): Boolean = key in values
+
+    override suspend fun store(cacheKey: String, file: PlatformFile): PlatformResult<PlatformFile> {
+        storeFailure?.let { return PlatformResult.Failure(it) }
+        storeStarted.complete(Unit)
+        storeGate?.await()
+        val cached = file.copy(reference = "cache://$cacheKey")
+        values[cacheKey] = cached
+        return PlatformResult.Success(cached)
+    }
+
+    override suspend fun get(cacheKey: String): PlatformResult<PlatformFile> =
+        values[cacheKey]?.let { PlatformResult.Success(it) } ?: PlatformResult.Failure("missing")
+
+    override suspend fun remove(cacheKey: String): PlatformResult<Unit> {
+        if (removeFailuresRemaining > 0) {
+            removeFailuresRemaining -= 1
+            return PlatformResult.Failure("remove failed")
+        }
+        removeStarted.complete(Unit)
+        removeGate?.await()
+        values.remove(cacheKey)
+        return PlatformResult.Success(Unit)
+    }
+
+    override suspend fun removeByPrefix(prefix: String): PlatformResult<Unit> {
+        if (prefixRemoveFailuresRemaining > 0) {
+            prefixRemoveFailuresRemaining -= 1
+            return PlatformResult.Failure("prefix remove failed")
+        }
+        values.keys.filter { it.startsWith(prefix) }.forEach(values::remove)
+        return PlatformResult.Success(Unit)
+    }
+}
+
 private class BlockingComposerPreferences(initial: Map<String, String>) : ComposerMemoryPreferences(initial) {
     val releaseReads = CompletableDeferred<Unit>()
     override suspend fun getString(key: String): String? {
@@ -951,6 +1320,7 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     val setConversationMutedCalls = mutableListOf<MuteCall>()
 
     var sendMessageResult: Result<Unit> = Result.success(Unit)
+    var sendMessageGate: CompletableDeferred<Unit>? = null
     var sendReplyResult: Result<Unit> = Result.success(Unit)
     var editMessageResult: Result<Unit> = Result.success(Unit)
     var deleteMessageResult: Result<Unit> = Result.success(Unit)
@@ -1021,6 +1391,7 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
             attachmentMimeType = attachmentMimeType,
             hasClientMessageId = !clientMessageId.isNullOrBlank(),
         )
+        sendMessageGate?.await()
         return sendMessageResult
     }
     override suspend fun sendReply(

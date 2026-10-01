@@ -2050,6 +2050,10 @@ private final class IosAppCompositionRoot {
         let defaults = UserDefaults.standard
         let retirementKey = ChatComposerDraftStoreKt.chatComposerDraftRetirementKey(actorId: actorId)
         let generation = Int64(defaults.string(forKey: retirementKey) ?? "0") ?? 0
+        IosChatComposerDraftAttachmentCleanupKt.prepareIosChatComposerDraftAttachmentRetirement(
+            actorId: actorId,
+            generation: generation
+        )
         defaults.set(String(generation + 1), forKey: retirementKey)
         let generationPrefix = ChatComposerDraftStoreKt.chatComposerDraftGenerationPrefix(
             actorId: actorId,
@@ -2058,6 +2062,10 @@ private final class IosAppCompositionRoot {
         defaults.dictionaryRepresentation().keys
             .filter { $0.hasPrefix(generationPrefix) }
             .forEach(defaults.removeObject(forKey:))
+        IosChatComposerDraftAttachmentCleanupKt.clearIosChatComposerDraftAttachments(
+            actorId: actorId,
+            generation: generation
+        )
         retiringChatDraftActorId = nil
     }
 

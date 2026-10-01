@@ -10,6 +10,7 @@ import com.quata.feature.chat.domain.ChatSyncStatus
 
 data class ChatUiState(
     val messageText: String = "",
+    val attachmentCacheKey: String? = null,
     val attachmentUri: String? = null,
     val attachmentName: String? = null,
     val attachmentMimeType: String? = null,
