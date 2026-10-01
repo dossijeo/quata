@@ -5,6 +5,8 @@ import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.FileCacheService
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatConversationCursor
@@ -32,6 +34,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -45,9 +49,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /** Platform boundary for the authenticated RPC calls used by the shared PostgREST chat protocol. */
-interface ChatPostgrestTransport {
+fun interface ChatPostgrestTransport {
     suspend fun post(functionName: String, body: String): ChatPostgrestResponse
 }
 
@@ -76,18 +83,6 @@ data class UploadedChatAttachment(
     val extension: String,
 )
 
-private data class RetryableOutgoingMessage(
-    val conversationId: String,
-    val text: String,
-    val attachmentUri: String?,
-    val attachmentName: String?,
-    val attachmentMimeType: String?,
-    val replyToMessageId: Long?,
-    val clientMessageId: String,
-    val registeredAttachmentIds: List<Long>,
-    val expectedActorId: String?,
-)
-
 /**
  * Portable chat implementation for the existing PostgREST RPC contract.
  *
@@ -95,6 +90,7 @@ private data class RetryableOutgoingMessage(
  * this class sends the same authenticated RPCs Android uses.  Hosts may provide a realtime
  * transport later, but no mutation is hidden behind an unsupported placeholder.
  */
+@OptIn(ExperimentalTime::class)
 open class PostgrestChatRepository(
     private val transport: ChatPostgrestTransport,
     private val authenticatedUser: ChatAuthenticatedUserProvider,
@@ -102,6 +98,10 @@ open class PostgrestChatRepository(
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
     private val realtimeGateway: ChatRealtimeGateway? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val outgoingStore: ChatOutgoingStore = MemoryChatOutgoingStore(),
+    private val outboxFiles: FileCacheService = MemoryChatFileCacheService(),
+    private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    private val outgoingExecutionLock: ChatOutgoingExecutionLock = LocalChatOutgoingExecutionLock,
 ) : ChatRepository {
     private val conversations = MutableStateFlow<List<Conversation>>(emptyList())
     private val messagesByConversation = mutableMapOf<String, MutableStateFlow<List<Message>>>()
@@ -117,7 +117,9 @@ open class PostgrestChatRepository(
     private val networkAvailable: Boolean
         get() = isDeviceNetworkAvailable.value
     private var currentUserSnapshot: User? = null
-    private val retryableOutgoing = mutableMapOf<String, RetryableOutgoingMessage>()
+    private val retryableOutgoing = mutableMapOf<String, StoredChatOutgoing>()
+    private val outboxMutex = Mutex()
+    private var loadedOutboxActorId: String? = null
     private var loadedInboxPageCount: Int = 0
     private var networkRecoveryJob: Job? = null
     private val deliveryAcknowledgements = ChatDeliveryAcknowledgements(
@@ -179,7 +181,13 @@ open class PostgrestChatRepository(
     }
     private fun launchNetworkRecovery() {
         networkRecoveryJob?.cancel()
-        networkRecoveryJob = scope.launch(start = CoroutineStart.UNDISPATCHED) { refreshInbox() }
+        networkRecoveryJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            flushPendingMessages()
+            refreshInbox()
+            _activeConversationId.value
+                ?.takeIf { it != AppDestinations.FavoriteMessagesConversationId }
+                ?.let { refreshThread(it, ThreadPageSize) }
+        }
     }
     override fun currentUser(): User? = currentUserSnapshot
     override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId; realtimeGateway?.setVisibleConversation(conversationId) }
@@ -196,7 +204,10 @@ open class PostgrestChatRepository(
         val resumed = isForeground && !_isAppForeground.value
         _isAppForeground.value = isForeground
         realtimeGateway?.setForeground(isForeground)
-        if (resumed && networkAvailable) scope.launch { refreshInbox() }
+        if (resumed && networkAvailable) scope.launch {
+            flushPendingMessages()
+            refreshInbox()
+        }
     }
     override fun setTyping(conversationId: String, isTyping: Boolean) { realtimeGateway?.setTyping(conversationId, isTyping) }
     override fun cleanupEmptyConversation(conversationId: String) {
@@ -242,10 +253,15 @@ open class PostgrestChatRepository(
     }
     override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
         val state = messagesState(conversationId)
+        authenticatedActorId().let { actorId -> restoreOutbox(actorId) }
         while (currentCoroutineContext().isActive) {
             awaitForeground()
-            if (conversationId == AppDestinations.FavoriteMessagesConversationId) refreshFavorites().getOrThrow()
-            else { awaitActiveConversation(conversationId); refreshThread(conversationId, ThreadPageSize) }
+            if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                if (networkAvailable) refreshFavorites().getOrThrow()
+            } else {
+                awaitActiveConversation(conversationId)
+                if (networkAvailable) refreshThread(conversationId, ThreadPageSize)
+            }
             emit(state.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
         }
@@ -421,22 +437,37 @@ open class PostgrestChatRepository(
     }.onFailure { updateReadFailure() }
     override suspend fun flushPendingMessages(): Boolean {
         if (!networkAvailable) return false
-        return retryableOutgoing.keys.toList().all { retryPendingMessage(it).isSuccess }
+        val actorId = authenticatedUser.currentUserId() ?: return true
+        restoreOutbox(actorId, forceReload = true)
+        val pending = outboxMutex.withLock {
+            retryableOutgoing.values.sortedBy(StoredChatOutgoing::createdAtMillis)
+        }
+        var allSent = true
+        pending.forEach { outgoing ->
+            if ((!outgoing.deliveredAwaitingCleanup && !outgoing.orphanCleanupBlocked && outgoing.attempts >= MaxOutboxAttempts) ||
+                attemptOutgoing(outgoing).isFailure
+            ) {
+                allSent = false
+            }
+        }
+        return allSent
     }
     override suspend fun retryPendingMessage(clientMessageId: String): Result<Unit> {
-        val pending = retryableOutgoing[clientMessageId]
+        val actorId = authenticatedActorId()
+        restoreOutbox(actorId)
+        val pending = outboxMutex.withLock { retryableOutgoing[clientMessageId] }
             ?: return Result.failure(IllegalArgumentException("chat_retry_message_missing"))
-        return sendTextMessage(
-            conversationId = pending.conversationId,
-            text = pending.text,
-            attachmentUri = pending.attachmentUri,
-            attachmentName = pending.attachmentName,
-            attachmentMimeType = pending.attachmentMimeType,
-            replyToMessageId = pending.replyToMessageId,
-            clientMessageId = pending.clientMessageId,
-            expectedActorId = pending.expectedActorId,
-            registeredAttachmentIds = pending.registeredAttachmentIds,
-        )
+        if (pending.orphanCleanupBlocked) return attemptOutgoing(pending)
+        if (pending.deliveredAwaitingCleanup) return attemptOutgoing(pending)
+        projectPendingMessage(pending.copy(attempts = 0, lastError = null))
+        if (!networkAvailable) return Result.success(Unit)
+        return attemptOutgoing(pending, resetAttempts = true)
+    }
+
+    override suspend fun isMessagePending(clientMessageId: String): Boolean {
+        val actorId = authenticatedUser.currentUserId() ?: return false
+        restoreOutbox(actorId)
+        return outboxMutex.withLock { retryableOutgoing[clientMessageId]?.deliveredAwaitingCleanup == false }
     }
 
     private suspend fun refreshInbox(): Result<List<Conversation>> = runCatching {
@@ -515,29 +546,180 @@ open class PostgrestChatRepository(
         replyToMessageId: Long?,
         clientMessageId: String?,
         expectedActorId: String? = null,
-        registeredAttachmentIds: List<Long> = emptyList(),
-    ): Result<Unit> {
-        var reusableAttachmentIds = registeredAttachmentIds
-        return runCatching {
+    ): Result<Unit> = runCatching {
         require(text.isNotBlank() || !attachmentUri.isNullOrBlank()) { "web_chat_message_empty" }
-        val userId = currentUserId(expectedActorId); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        val fileIds = if (reusableAttachmentIds.isNotEmpty()) {
-            reusableAttachmentIds
+        conversationId.requirePostgrestThreadId()
+        val actorId = authenticatedActorId(expectedActorId)
+        restoreOutbox(actorId)
+        val stableClientMessageId = clientMessageId?.takeIf(String::isNotBlank) ?: newOutboxClientMessageId()
+        val existing = outboxMutex.withLock { retryableOutgoing[stableClientMessageId] }
+        val outgoing = existing ?: StoredChatOutgoing(
+            actorId = actorId,
+            conversationId = conversationId,
+            text = text,
+            attachmentCacheKey = attachmentUri?.takeIf(String::isNotBlank)?.let { reference ->
+                val cacheKey = attachmentCacheKey(stableClientMessageId)
+                when (val stored = outboxFiles.store(
+                    cacheKey,
+                    PlatformFile(reference, attachmentName, attachmentMimeType),
+                )) {
+                    is PlatformResult.Success -> cacheKey
+                    is PlatformResult.Failure -> error(stored.reason ?: "chat_outbox_attachment_store_failed")
+                    PlatformResult.Cancelled -> error("chat_outbox_attachment_store_cancelled")
+                    PlatformResult.Unsupported -> error("chat_outbox_attachment_store_unsupported")
+                }
+            },
+            attachmentName = attachmentName,
+            attachmentMimeType = attachmentMimeType,
+            replyToMessageId = replyToMessageId,
+            clientMessageId = stableClientMessageId,
+            createdAtMillis = nowMillis(),
+        )
+        require(outgoing.actorId == actorId && outgoing.conversationId == conversationId) {
+            "chat_outbox_client_message_conflict"
+        }
+        try {
+            if (existing == null && !insertOutgoing(outgoing)) error("chat_outbox_client_message_conflict")
+        } catch (error: Throwable) {
+            if (existing == null) outgoing.attachmentCacheKey?.let { outboxFiles.remove(it) }
+            throw error
+        }
+        projectPendingMessage(outgoing)
+        if (!networkAvailable) {
+            _syncStatus.value = ChatSyncStatus.Offline
+            return@runCatching
+        }
+        val attempt = attemptOutgoing(outgoing)
+        val failure = attempt.exceptionOrNull()
+        if (failure is AttachmentOrphanCleanupFailed) throw failure
+    }
+
+    private suspend fun attemptOutgoing(outgoing: StoredChatOutgoing, resetAttempts: Boolean = false): Result<Unit> =
+        outgoingExecutionLock.withLock(outgoing.actorId, outgoing.clientMessageId) {
+            attemptOutgoingLocked(outgoing, resetAttempts)
+        }
+
+    private suspend fun attemptOutgoingLocked(outgoing: StoredChatOutgoing, resetAttempts: Boolean): Result<Unit> {
+        val leaseToken = newOutboxLeaseToken()
+        val claimed = outgoingStore.claim(
+            outgoing.actorId,
+            outgoing.clientMessageId,
+            leaseToken,
+            nowMillis(),
+            nowMillis() + OutboxLeaseMillis,
+        ) ?: run {
+            val durable = outgoingStore.load(outgoing.actorId)
+                .firstOrNull { it.clientMessageId == outgoing.clientMessageId }
+            outboxMutex.withLock {
+                if (loadedOutboxActorId == outgoing.actorId) {
+                    if (durable == null) retryableOutgoing.remove(outgoing.clientMessageId)
+                    else retryableOutgoing[outgoing.clientMessageId] = durable
+                }
+            }
+            return if (durable == null) Result.success(Unit)
+            else Result.failure(OutboxMessageAlreadyClaimed())
+        }
+        var active = claimed
+        outboxMutex.withLock {
+            if (loadedOutboxActorId == claimed.actorId) retryableOutgoing[claimed.clientMessageId] = claimed
+        }
+        if (resetAttempts) {
+            active = active.copy(attempts = 0, lastError = null)
+            persistClaimed(active, leaseToken)
+        }
+        if (active.deliveredAwaitingCleanup) return cleanupDeliveredOutgoing(active, leaseToken)
+        return runCatching {
+        active = renewClaim(active, leaseToken)
+        if (active.orphanCleanupBlocked) {
+            val orphan = active.orphanedStoragePath ?: error("chat_outbox_orphan_path_missing")
+            val cleaned = attachmentUploader.deleteUploadedAttachment(
+                UploadedChatAttachment(
+                    storagePath = orphan,
+                    publicUrl = "",
+                    mimeType = active.attachmentMimeType.orEmpty(),
+                    sizeBytes = null,
+                    name = active.attachmentName.orEmpty(),
+                    extension = active.attachmentName?.substringAfterLast('.', "").orEmpty(),
+                ),
+            )
+            check(cleaned) { "chat_outbox_orphan_cleanup_still_failed" }
+            active = renewClaim(active, leaseToken).copy(
+                orphanCleanupBlocked = false,
+                orphanedStoragePath = null,
+                attempts = 0,
+                lastError = null,
+            )
+            persistClaimed(active, leaseToken)
+        }
+        check(networkAvailable) { "web_chat_offline" }
+        val actorId = authenticatedActorId(active.actorId)
+        val threadId = active.conversationId.requirePostgrestThreadId()
+        _syncStatus.value = ChatSyncStatus.Refreshing
+        val attachmentIds = if (active.registeredAttachmentIds.isNotEmpty()) {
+            active.registeredAttachmentIds
         } else {
-            attachmentUri?.takeIf { it.isNotBlank() }?.let { reference ->
-                listOf(uploadAndRegisterAttachment(userId, threadId, PlatformFile(reference, attachmentName, attachmentMimeType)))
-                    .also { reusableAttachmentIds = it }
+            active.attachmentCacheKey?.let { cacheKey ->
+                val file = when (val cached = outboxFiles.get(cacheKey)) {
+                    is PlatformResult.Success -> cached.value.copy(
+                        displayName = active.attachmentName,
+                        mimeType = active.attachmentMimeType,
+                    )
+                    is PlatformResult.Failure -> error(cached.reason ?: "chat_outbox_attachment_missing")
+                    PlatformResult.Cancelled -> error("chat_outbox_attachment_read_cancelled")
+                    PlatformResult.Unsupported -> error("chat_outbox_attachment_read_unsupported")
+                }
+                listOf(uploadAndRegisterAttachment(actorId, threadId, file)).also { registered ->
+                    active = renewClaim(active, leaseToken).copy(registeredAttachmentIds = registered)
+                    persistClaimed(active, leaseToken)
+                }
             }.orEmpty()
         }
-        val envelope = rpc("quata_chat_send_message", sendMessageRequest(userId, threadId, text.trim(), fileIds, replyToMessageId, clientMessageId))
-        mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId)); clientMessageId?.let(retryableOutgoing::remove); markRequestCompleted()
+        active = renewClaim(active, leaseToken)
+        val envelope = rpc(
+            "quata_chat_send_message",
+            sendMessageRequest(
+                actorId,
+                threadId,
+                active.text.trim(),
+                attachmentIds,
+                active.replyToMessageId,
+                active.clientMessageId,
+            ),
+        )
+        active = renewClaim(active, leaseToken)
+        val delivered = active.copy(
+                deliveredAwaitingCleanup = true,
+                lastError = null,
+            )
+        persistClaimed(delivered, leaseToken)
+        active = delivered
+        mergeConversations(envelope.toChatRpcConversations(actorId))
+        mergeMessages(envelope.toChatRpcMessages(actorId))
+        cleanupDeliveredOutgoing(delivered, leaseToken).getOrThrow()
+        markRequestCompleted()
     }.onFailure { error ->
-        clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
-            if (error is AttachmentOrphanCleanupFailed) {
-                retryableOutgoing.remove(id)
-            } else {
-                retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds, expectedActorId)
-            }
+        if (error is CancellationException) throw error
+        if (error is OutboxLeaseLost) return@onFailure
+        if (error is AttachmentOrphanCleanupFailed) {
+            val unsafeToRetry = active.copy(
+                orphanCleanupBlocked = true,
+                orphanedStoragePath = error.uploaded.storagePath,
+                attempts = MaxOutboxAttempts,
+                leaseToken = null,
+                leaseUntilMillis = null,
+                lastError = error.message,
+            )
+            persistClaimed(unsafeToRetry, leaseToken)
+            projectPendingMessage(unsafeToRetry)
+        } else {
+            val updated = active.copy(
+                attempts = if (active.deliveredAwaitingCleanup || active.orphanCleanupBlocked) active.attempts else active.attempts + 1,
+                lastError = error.message,
+                leaseToken = null,
+                leaseUntilMillis = null,
+            )
+            persistClaimed(updated, leaseToken)
+            if (!updated.deliveredAwaitingCleanup) projectPendingMessage(updated)
         }
         updateReadFailure()
     }
@@ -590,9 +772,9 @@ open class PostgrestChatRepository(
         } catch (error: Throwable) {
             val cleaned = runCatching { attachmentUploader.deleteUploadedAttachment(uploaded) }
                 .getOrElse { cleanupError ->
-                    throw AttachmentOrphanCleanupFailed(cleanupError)
+                    throw AttachmentOrphanCleanupFailed(uploaded, cleanupError)
                 }
-            if (!cleaned) throw AttachmentOrphanCleanupFailed()
+            if (!cleaned) throw AttachmentOrphanCleanupFailed(uploaded)
             throw error
         }
     }
@@ -618,14 +800,99 @@ open class PostgrestChatRepository(
     private fun acknowledgeDelivery(actor: String, incoming: List<Message>, source: String) {
         scope.launch { deliveryAcknowledgements.received(actor, incoming, source) }
     }
+    private suspend fun restoreOutbox(actorId: String, forceReload: Boolean = false) {
+        val restored = outboxMutex.withLock {
+            if (loadedOutboxActorId == actorId && !forceReload) return
+            val loaded = outgoingStore.load(actorId)
+            retryableOutgoing.clear()
+            loaded.associateByTo(retryableOutgoing, StoredChatOutgoing::clientMessageId)
+            loadedOutboxActorId = actorId
+            loaded
+        }
+        messagesByConversation.values.forEach { state ->
+            state.value = state.value.filterNot(Message::isLocalEcho)
+        }
+        restored.forEach(::projectPendingMessage)
+    }
+    private suspend fun insertOutgoing(outgoing: StoredChatOutgoing): Boolean {
+        if (!outgoingStore.insert(outgoing)) return false
+        outboxMutex.withLock {
+            check(loadedOutboxActorId == outgoing.actorId) { "chat_outbox_actor_not_loaded" }
+            retryableOutgoing[outgoing.clientMessageId] = outgoing
+        }
+        return true
+    }
+    private suspend fun persistClaimed(outgoing: StoredChatOutgoing, leaseToken: String) {
+        if (!outgoingStore.updateClaimed(outgoing, leaseToken)) throw OutboxLeaseLost()
+        outboxMutex.withLock {
+            if (loadedOutboxActorId == outgoing.actorId) retryableOutgoing[outgoing.clientMessageId] = outgoing
+        }
+    }
+    private suspend fun renewClaim(outgoing: StoredChatOutgoing, leaseToken: String): StoredChatOutgoing {
+        val leaseUntil = nowMillis() + OutboxLeaseMillis
+        if (!outgoingStore.renewClaim(outgoing.actorId, outgoing.clientMessageId, leaseToken, leaseUntil)) {
+            throw OutboxLeaseLost()
+        }
+        return outgoing.copy(leaseUntilMillis = leaseUntil)
+    }
+    private suspend fun removeOutgoingMetadata(outgoing: StoredChatOutgoing, leaseToken: String) {
+        if (!outgoingStore.removeClaimed(outgoing.actorId, outgoing.clientMessageId, leaseToken)) throw OutboxLeaseLost()
+        outboxMutex.withLock {
+            if (loadedOutboxActorId == outgoing.actorId) {
+                retryableOutgoing.remove(outgoing.clientMessageId)
+            }
+        }
+        val state = messagesState(outgoing.conversationId)
+        state.value = state.value.filterNot { message ->
+            message.isLocalEcho && message.clientMessageId == outgoing.clientMessageId
+        }
+    }
+    private suspend fun cleanupDeliveredOutgoing(outgoing: StoredChatOutgoing, leaseToken: String): Result<Unit> = runCatching {
+        outgoing.attachmentCacheKey?.let { cacheKey ->
+            when (val removed = outboxFiles.remove(cacheKey)) {
+                is PlatformResult.Success -> Unit
+                is PlatformResult.Failure -> error(removed.reason ?: "chat_outbox_attachment_cleanup_failed")
+                PlatformResult.Cancelled -> error("chat_outbox_attachment_cleanup_cancelled")
+                PlatformResult.Unsupported -> error("chat_outbox_attachment_cleanup_unsupported")
+            }
+        }
+        removeOutgoingMetadata(outgoing, leaseToken)
+    }
+    private fun projectPendingMessage(outgoing: StoredChatOutgoing) {
+        if (outgoing.deliveredAwaitingCleanup) return
+        val failed = outgoing.attempts >= MaxOutboxAttempts
+        val message = Message(
+            id = "local:${outgoing.clientMessageId}",
+            conversationId = outgoing.conversationId,
+            senderId = outgoing.actorId,
+            senderName = currentUserSnapshot?.displayName?.takeIf(String::isNotBlank) ?: "Usuario",
+            text = outgoing.text,
+            sentAt = outgoing.createdAtMillis.toString(),
+            sentAtMillis = outgoing.createdAtMillis,
+            isMine = true,
+            isRead = false,
+            replyToMessageId = outgoing.replyToMessageId?.toString(),
+            attachmentName = outgoing.attachmentName,
+            attachmentMimeType = outgoing.attachmentMimeType,
+            clientMessageId = outgoing.clientMessageId,
+            isPending = !failed,
+            isLocalEcho = true,
+            deliveryState = if (failed) com.quata.core.model.MessageDeliveryState.Failed
+            else com.quata.core.model.MessageDeliveryState.Pending,
+        )
+        val state = messagesState(outgoing.conversationId)
+        state.value = (state.value.filterNot { it.clientMessageId == outgoing.clientMessageId } + message)
+            .sortedBy { it.sentAtMillis ?: Long.MAX_VALUE }
+    }
+    private suspend fun authenticatedActorId(expectedActorId: String? = null): String {
+        val actorId = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
+        check(expectedActorId == null || actorId == expectedActorId) { "web_chat_session_actor_mismatch" }
+        if (currentUserSnapshot?.id != actorId) currentUserSnapshot = User(id = actorId, email = "", displayName = "")
+        return actorId
+    }
     private suspend fun currentUserId(expectedActorId: String? = null): String {
         if (!networkAvailable) throw IllegalStateException("web_chat_offline")
-        val id = authenticatedUser.currentUserId() ?: throw IllegalStateException("web_chat_session_missing")
-        check(expectedActorId == null || id == expectedActorId) { "web_chat_session_actor_mismatch" }
-        // Identity is the authenticated profile id.  Profile display information comes from the
-        // server payload; never invent a user/persona when the session only grants an id.
-        if (currentUserSnapshot?.id != id) currentUserSnapshot = User(id = id, email = "", displayName = "")
-        return id
+        return authenticatedActorId(expectedActorId)
     }
     private fun updateCurrentUserFrom(envelope: ChatRpcPayloadEnvelope, userId: String) {
         envelope.profileRecords().firstOrNull { it.id == userId }?.let { profile ->
@@ -656,8 +923,28 @@ open class PostgrestChatRepository(
     private fun sendMessageRequest(userId: String, threadId: Long, message: String, fileIds: List<Long>, replyTo: Long?, clientId: String?) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message", message); put("p_file_ids", JsonArray(fileIds.map(::JsonPrimitive))); put("p_reply_to_message_id", replyTo?.let(::JsonPrimitive) ?: JsonNull); put("p_client_message_id", clientId?.let(::JsonPrimitive) ?: JsonNull) }.toString()
     private fun threadActionRequest(userId: String, threadId: Long) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId) }.toString()
     private fun mutedRequest(userId: String, threadId: Long, muted: Boolean) = buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_muted", muted) }.toString()
-    private companion object { const val ConversationPrefix = "sb:"; const val InboxPageSize = 100; const val ThreadPageSize = 250; const val FavoritesPageSize = 250; const val CandidatePageSize = 100; const val DefaultPollIntervalMillis = 30_000L; const val MinimumPollIntervalMillis = 5_000L; const val ChatAttachmentsBucket = "chat-attachments" }
+    private fun newOutboxClientMessageId(): String =
+        "outbox-${nowMillis()}-${Random.nextLong().toString(16)}"
+    private fun newOutboxLeaseToken(): String =
+        "lease-${nowMillis()}-${Random.nextLong().toString(16)}"
+    private fun attachmentCacheKey(clientMessageId: String): String =
+        "chat-outbox-" + clientMessageId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(96)
+    private companion object {
+        const val ConversationPrefix = "sb:"
+        const val InboxPageSize = 100
+        const val ThreadPageSize = 250
+        const val FavoritesPageSize = 250
+        const val CandidatePageSize = 100
+        const val DefaultPollIntervalMillis = 30_000L
+        const val MinimumPollIntervalMillis = 5_000L
+        const val ChatAttachmentsBucket = "chat-attachments"
+        const val MaxOutboxAttempts = 5
+        const val OutboxLeaseMillis = 5 * 60_000L
+    }
 }
+
+private class OutboxMessageAlreadyClaimed : IllegalStateException("chat_outbox_message_already_claimed")
+private class OutboxLeaseLost : IllegalStateException("chat_outbox_lease_lost")
 
 internal fun shouldCleanupEmptyPrivateConversation(conversation: Conversation?, messages: List<Message>): Boolean =
     conversation?.isGroup != true && conversation?.isEmergency != true && messages.isEmpty()
@@ -666,7 +953,7 @@ private fun ChatPostgrestResponse.successOrThrow(): String = when (this) {
     is ChatPostgrestResponse.Success -> body
     is ChatPostgrestResponse.Failure -> throw cause
 }
-private class AttachmentOrphanCleanupFailed(cause: Throwable? = null) :
+private class AttachmentOrphanCleanupFailed(val uploaded: UploadedChatAttachment, cause: Throwable? = null) :
     IllegalStateException("web_chat_attachment_orphan_cleanup_failed", cause)
 
 internal fun parseChatForwardResult(payload: String, requestedCount: Int): ChatForwardResult {

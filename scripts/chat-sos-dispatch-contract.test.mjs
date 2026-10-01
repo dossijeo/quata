@@ -48,7 +48,7 @@ test("portable repositories and launchers preserve the real SOS transaction", as
     "expectedActorId = actor",
   ]) assert.ok(coordinator.includes(token), `missing coordinator contract: ${token}`);
   assert.match(portableRepository, /currentUserId\(expectedActorId\)/);
-  assert.match(portableRepository, /expectedActorId == null \|\| id == expectedActorId/);
+  assert.match(portableRepository, /expectedActorId == null \|\| actorId == expectedActorId/);
   assert.match(androidRepository, /expectedActorId == null \|\| session\.userId == expectedActorId/);
   assert.match(web, /sosCoordinator\.dispatch\(\)/);
   assert.match(web, /resumeAfterConfigurationSaved\(\)/);

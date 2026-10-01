@@ -12,6 +12,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
 import com.quata.core.platform.IosPreferenceStore
+import com.quata.core.platform.IosFileCacheService
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.data.IosChatAttachmentPreviewService
@@ -22,6 +23,7 @@ import com.quata.feature.chat.data.IosChatPostgrestTransport
 import com.quata.feature.chat.data.IosChatRuntimeConfiguration
 import com.quata.feature.chat.data.IosChatRealtimeGateway
 import com.quata.feature.chat.data.PostgrestChatRepository
+import com.quata.feature.chat.data.PreferenceChatOutgoingStore
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.Foundation.NSProcessInfo
@@ -55,6 +57,8 @@ class IosChatRuntimeBootstrap(
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
             realtimeGateway = realtimeGateway,
+            outgoingStore = PreferenceChatOutgoingStore(IosPreferenceStore()),
+            outboxFiles = IosFileCacheService(),
         )
     }
     private val attachmentDownloader: IosChatAttachmentDownloader by lazy {

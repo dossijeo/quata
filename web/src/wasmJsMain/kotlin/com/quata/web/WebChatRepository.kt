@@ -1,10 +1,13 @@
 package com.quata.web
 
+import com.quata.core.platform.BrowserFileCacheService
 import com.quata.feature.chat.data.ChatAttachmentUploader
 import com.quata.feature.chat.data.ChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.ChatPostgrestResponse
 import com.quata.feature.chat.data.ChatPostgrestTransport
 import com.quata.feature.chat.data.PostgrestChatRepository
+import com.quata.feature.chat.data.BrowserChatOutgoingStore
+import com.quata.feature.chat.data.BrowserChatOutgoingExecutionLock
 import com.quata.feature.chat.data.UploadedChatAttachment
 
 /**
@@ -33,6 +36,9 @@ class WebChatRepository(
     },
     pollIntervalMillis = pollIntervalMillis,
     realtimeGateway = WebChatRealtimeGateway(configuration, authRepository),
+    outgoingStore = BrowserChatOutgoingStore(),
+    outboxFiles = BrowserFileCacheService(),
+    outgoingExecutionLock = BrowserChatOutgoingExecutionLock(),
 ) {
     private companion object {
         const val DefaultPollIntervalMillis = 30_000L

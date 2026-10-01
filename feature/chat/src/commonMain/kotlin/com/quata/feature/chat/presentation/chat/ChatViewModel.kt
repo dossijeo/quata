@@ -298,7 +298,13 @@ class ChatViewModel(
         result
             .onSuccess {
                 repository.setTyping(conversationId, false)
-                optimisticMessage?.let(::markLocalEchoSent)
+                optimisticMessage?.let { message ->
+                    if (repository.isMessagePending(message.clientMessageId.orEmpty())) {
+                        markLocalEchoPending(message)
+                    } else {
+                        markLocalEchoSent(message)
+                    }
+                }
                 if (editingMessage != null) {
                     optimisticEditedMessages = optimisticEditedMessages.mapValues { (messageId, message) ->
                         if (messageId == editingMessage.id) message.copy(isPending = false) else message
@@ -383,6 +389,17 @@ class ChatViewModel(
             }
         }.filterNot { local ->
             backendMessages.any { remote -> remote.matchesLocalEcho(local) }
+        }
+        publishMessages(isLoading = false)
+    }
+
+    private fun markLocalEchoPending(message: Message) {
+        localEchoMessages = localEchoMessages.map { local ->
+            if (local.id == message.id) {
+                local.copy(isPending = true, deliveryState = MessageDeliveryState.Pending)
+            } else {
+                local
+            }
         }
         publishMessages(isLoading = false)
     }
