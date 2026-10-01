@@ -16,6 +16,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class ChatComposerDraftLease internal constructor(
     internal val actorId: String,
@@ -56,31 +60,39 @@ class ChatComposerDraftStore(
     private val preferences: PreferenceStore,
     private val attachmentFiles: FileCacheService = UnsupportedFileCacheService,
 ) {
-    private val retainedAttachmentKeys = mutableMapOf<String, Int>()
+    private val recordMutex = Mutex()
+    private val retainedAttachmentKeys = MutableStateFlow<Map<String, Int>>(emptyMap())
 
-    suspend fun open(actorId: String): ChatComposerDraftLease {
+    suspend fun open(actorId: String): ChatComposerDraftLease = recordMutex.withLock {
         val generation = currentGeneration(actorId)
         retryRetiredGenerationCleanup(actorId, generation)
         retryDetachedAttachmentCleanup(actorId, generation)
-        return ChatComposerDraftLease(actorId, generation)
+        ChatComposerDraftLease(actorId, generation)
     }
 
     fun retainAttachment(cacheKey: String) {
-        retainedAttachmentKeys[cacheKey] = retainedAttachmentKeys.getOrElse(cacheKey) { 0 } + 1
+        retainedAttachmentKeys.update { retained ->
+            retained + (cacheKey to (retained.getOrElse(cacheKey) { 0 } + 1))
+        }
     }
 
     suspend fun releaseAttachment(
         lease: ChatComposerDraftLease,
         conversationId: String,
         cacheKey: String,
-    ) {
-        val remainingRetainers = retainedAttachmentKeys.getOrElse(cacheKey) { 0 } - 1
-        if (remainingRetainers > 0) retainedAttachmentKeys[cacheKey] = remainingRetainers
-        else retainedAttachmentKeys.remove(cacheKey)
+    ): Unit = recordMutex.withLock {
+        retainedAttachmentKeys.update { retained ->
+            val remainingRetainers = retained.getOrElse(cacheKey) { 0 } - 1
+            if (remainingRetainers > 0) retained + (cacheKey to remainingRetainers)
+            else retained - cacheKey
+        }
         reconcileRecordCleanup(lease, conversationId)
     }
 
-    suspend fun readRecord(lease: ChatComposerDraftLease, conversationId: String): ChatComposerDraftRecord? {
+    suspend fun readRecord(lease: ChatComposerDraftLease, conversationId: String): ChatComposerDraftRecord? =
+        recordMutex.withLock { readRecordLocked(lease, conversationId) }
+
+    private suspend fun readRecordLocked(lease: ChatComposerDraftLease, conversationId: String): ChatComposerDraftRecord? {
         if (currentGeneration(lease.actorId) != lease.generation) return null
         val key = conversationKey(lease.actorId, lease.generation, conversationId)
         val raw = preferences.getString(key) ?: return null
@@ -103,7 +115,7 @@ class ChatComposerDraftStore(
             )
             is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> {
                 val recovered = stored.toDraftRecord(null)
-                writeRecord(lease, conversationId, recovered)
+                writeRecordLocked(lease, conversationId, recovered)
                 recovered.takeUnless(ChatComposerDraftRecord::isEmpty)
             }
         }
@@ -149,13 +161,20 @@ class ChatComposerDraftStore(
         }
     }
 
-    suspend fun discardStagedAttachment(lease: ChatComposerDraftLease, attachment: ChatComposerDraftAttachment) {
+    suspend fun discardStagedAttachment(lease: ChatComposerDraftLease, attachment: ChatComposerDraftAttachment) =
+        recordMutex.withLock {
         if (attachment.cacheKey.startsWith(attachmentGenerationPrefix(lease.actorId, lease.generation))) {
             queueDetachedAttachmentCleanup(lease, attachment.cacheKey)
         }
-    }
+        }
 
     suspend fun writeRecord(
+        lease: ChatComposerDraftLease,
+        conversationId: String,
+        draft: ChatComposerDraftRecord,
+    ) = recordMutex.withLock { writeRecordLocked(lease, conversationId, draft) }
+
+    private suspend fun writeRecordLocked(
         lease: ChatComposerDraftLease,
         conversationId: String,
         draft: ChatComposerDraftRecord,
@@ -226,11 +245,15 @@ class ChatComposerDraftStore(
         val stored = supplied ?: preferences.getString(key)?.toStoredDraftRecord() ?: return null
         val activeKey = stored.attachment?.cacheKey
         val remaining = stored.pendingCleanupKeys.filterTo(linkedSetOf()) { pendingKey ->
-            if (pendingKey == activeKey || pendingKey in retainedAttachmentKeys) return@filterTo true
+            if (pendingKey == activeKey || pendingKey in retainedAttachmentKeys.value) return@filterTo true
             attachmentFiles.remove(pendingKey) !is PlatformResult.Success
         }
+        if (currentGeneration(lease.actorId) != lease.generation) {
+            preferences.remove(key)
+            return null
+        }
         val reconciled = stored.copy(pendingCleanupKeys = remaining)
-        if (reconciled.toDraftRecord(null).isEmpty && remaining.isEmpty()) {
+        if (reconciled.toDraftRecord(null).isEmpty && reconciled.attachment == null && remaining.isEmpty()) {
             preferences.remove(key)
             return null
         }
@@ -248,7 +271,7 @@ class ChatComposerDraftStore(
     private suspend fun retryDetachedAttachmentCleanup(actorId: String, generation: Long) {
         val key = detachedCleanupKey(actorId, generation)
         val remaining = preferences.getString(key).decodeStrings().filterTo(linkedSetOf()) {
-            it in retainedAttachmentKeys || attachmentFiles.remove(it) !is PlatformResult.Success
+            it in retainedAttachmentKeys.value || attachmentFiles.remove(it) !is PlatformResult.Success
         }
         if (remaining.isEmpty()) preferences.remove(key)
         else preferences.putString(key, remaining.sorted().encodeStrings())

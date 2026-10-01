@@ -519,6 +519,28 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun attachmentOnlyDraftRestoresAcrossModels() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val files = ComposerMemoryFiles()
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val repository = RecordingChatRepository(emptyList())
+        val first = chatViewModel(repository, dispatcher, store)
+
+        first.onEvent(ChatUiEvent.AttachmentSelected("content://temporary/only", "only.jpg", "image/jpeg"))
+        testScheduler.advanceUntilIdle()
+        val stagedKey = assertNotNull(first.uiState.value.attachmentCacheKey)
+        first.close()
+
+        val restored = chatViewModel(repository, dispatcher, store)
+        testScheduler.advanceUntilIdle()
+        assertEquals("", restored.uiState.value.messageText)
+        assertEquals(stagedKey, restored.uiState.value.attachmentCacheKey)
+        assertEquals("only.jpg", restored.uiState.value.attachmentName)
+        assertTrue(files.contains(stagedKey))
+        restored.close()
+    }
+
+    @Test
     fun failedSendRestoresTheDurableAttachmentAndKeepsItForRetry() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val files = ComposerMemoryFiles()
@@ -629,6 +651,41 @@ class ChatViewModelComposerActionsTest {
         assertEquals(second.cacheKey, store.readRecord(lease, "conversation-1")?.attachment?.cacheKey)
         assertFalse(files.contains(first.cacheKey))
         assertTrue(files.contains(second.cacheKey))
+    }
+
+    @Test
+    fun suspendedCleanupCannotOverwriteANewerDraftRecord() = runTest {
+        val removeGate = CompletableDeferred<Unit>()
+        val files = ComposerMemoryFiles(removeGate = removeGate)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences(), files)
+        val lease = store.open("me")
+        val first = assertNotNull(
+            (store.stageAttachment(lease, "first", PlatformFile("content://first")) as? PlatformResult.Success)?.value,
+        )
+        val second = assertNotNull(
+            (store.stageAttachment(lease, "second", PlatformFile("content://second")) as? PlatformResult.Success)?.value,
+        )
+        val latest = assertNotNull(
+            (store.stageAttachment(lease, "latest", PlatformFile("content://latest")) as? PlatformResult.Success)?.value,
+        )
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("old", attachment = first))
+        store.retainAttachment(first.cacheKey)
+        store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("new", attachment = second))
+
+        val cleanup = async { store.releaseAttachment(lease, "conversation-1", first.cacheKey) }
+        testScheduler.runCurrent()
+        files.removeStarted.await()
+        val newerWrite = async {
+            store.writeRecord(lease, "conversation-1", ChatComposerDraftRecord("latest", attachment = latest))
+        }
+        testScheduler.runCurrent()
+
+        removeGate.complete(Unit)
+        cleanup.await()
+        newerWrite.await()
+        val persisted = assertNotNull(store.readRecord(lease, "conversation-1"))
+        assertEquals("latest", persisted.text)
+        assertEquals(latest.cacheKey, persisted.attachment?.cacheKey)
     }
 
     @Test
@@ -1049,11 +1106,13 @@ private open class ComposerMemoryPreferences(
 private class ComposerMemoryFiles(
     private val storeFailure: String? = null,
     val storeGate: CompletableDeferred<Unit>? = null,
+    val removeGate: CompletableDeferred<Unit>? = null,
     var removeFailuresRemaining: Int = 0,
     var prefixRemoveFailuresRemaining: Int = 0,
 ) : PrefixClearableFileCacheService {
     private val values = mutableMapOf<String, PlatformFile>()
     val storeStarted = CompletableDeferred<Unit>()
+    val removeStarted = CompletableDeferred<Unit>()
 
     fun contains(key: String): Boolean = key in values
 
@@ -1074,6 +1133,8 @@ private class ComposerMemoryFiles(
             removeFailuresRemaining -= 1
             return PlatformResult.Failure("remove failed")
         }
+        removeStarted.complete(Unit)
+        removeGate?.await()
         values.remove(cacheKey)
         return PlatformResult.Success(Unit)
     }
