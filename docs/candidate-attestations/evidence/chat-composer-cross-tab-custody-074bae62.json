@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "074bae62e7c0524969121bdf24386d5778dc3f93",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic attachment-send and retirement-cleanup custody for the shared Chat composer, with native Web Locks on Web and the shared in-process lock on Android and iOS; no backend mutation or visual E2E claim.",
+  "steps": [
+    "two_browser_lock_wrappers_serialize_the_same_actor_generation",
+    "cancelled_pending_browser_waiter_never_executes_later",
+    "cancelled_acquired_browser_effect_releases_the_lock",
+    "separate_store_cleanup_waits_for_the_attachment_effect",
+    "ios_direct_logout_cleanup_uses_the_same_generation_custody",
+    "retired_cleanup_cursor_migrates_v1_without_losing_a_newer_generation",
+    "failed_old_generation_cleanup_preserves_both_old_and_new_generation_custody",
+    "web_wasm_44_focal_composer_tests_passed",
+    "web_wasm_3_browser_lock_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_complete_focal_composer_class_passed",
+    "independent_review_go_no_p0_p2"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "webComposerTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "webLockTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.BrowserChatComposerAttachmentExecutionLockTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosTests": "JAVA_HOME=<installed-jdk-21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain"
+  },
+  "results": {
+    "webWasmComposerFocal": "44 tests passed in Chrome Headless",
+    "webWasmBrowserLockFocal": "3 tests passed in Chrome Headless",
+    "android": "BUILD SUCCESSFUL",
+    "iosX64Focal": "complete affected class passed; BUILD SUCCESSFUL"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "074bae62e7c0524969121bdf24386d5778dc3f93",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P1 pending Web Lock requests abort on coroutine cancellation",
+      "P1 iOS direct logout cleanup uses generation custody",
+      "P1 acquired Web Lock cancellation always releases the browser lock",
+      "P2 retired-generation cleanup no longer overwrites newer iOS custody",
+      "P2 stale iOS cursor initialization cannot skip legacy cleanup"
+    ]
+  },
+  "cleanup": {
+    "state": "not_required",
+    "mode": "local_app_owned_cache_only_no_credentials_no_remote_mutation"
+  },
+  "limits": [
+    "The browser tests use distinct lock wrappers sharing the native browser lock manager; they do not claim a visual two-tab E2E journey.",
+    "Android and iOS retain process-local exclusion; cross-process native coordination is outside this composer-cache design.",
+    "Final GitHub candidate certification remains pending behind the single active remote candidate."
+  ]
+}
