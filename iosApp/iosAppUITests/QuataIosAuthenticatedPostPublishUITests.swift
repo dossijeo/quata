@@ -8,6 +8,35 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         case captionStyleSelectionFailed(String)
     }
 
+    func testAuthenticatedComposerKeepsFocusedDraftAcrossRotation() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_LAYOUT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated iOS layout UI gate is opt-in.")
+        }
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+
+        let app = openComposer(mode: "text", locationLabel: "")
+        assertSharedComposerSurface(in: app)
+        tapTextType(in: app)
+        let marker = "layout-composer-\(UUID().uuidString)"
+        typeText(marker, into: "composer-text-input", in: app)
+        let input = app.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
+        assertDraftInput(input, contains: marker, aboveKeyboardIn: app, context: "composer portrait")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-composer-keyboard-portrait")
+
+        let window = app.windows.firstMatch
+        device.orientation = .landscapeLeft
+        waitForWindow(window, landscape: true, context: "composer landscape")
+        assertDraftInput(input, contains: marker, aboveKeyboardIn: app, context: "composer landscape")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-composer-keyboard-landscape")
+
+        device.orientation = .portrait
+        waitForWindow(window, landscape: false, context: "composer restored portrait")
+        assertDraftInput(input, contains: marker, aboveKeyboardIn: app, context: "composer restored portrait")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-composer-keyboard-restored-portrait")
+    }
+
     func testAuthenticatedSessionPublishesRealTextPost() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_POST_PUBLISH_UI_E2E"] == "1" else {
@@ -714,25 +743,75 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         [element.label, element.value as? String].compactMap { $0 }.joined(separator: " ")
     }
 
+    private func waitForWindow(_ window: XCUIElement, landscape: Bool, context: String) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                let frame = window.frame
+                return landscape ? frame.width > frame.height : frame.height > frame.width
+            },
+            object: window,
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed, "The app window must reach \(context).")
+    }
+
+    private func assertDraftInput(_ input: XCUIElement, contains marker: String, aboveKeyboardIn app: XCUIApplication, context: String) {
+        guard makeComposerInputHittable(input, in: app) else {
+            XCTFail("The composer draft input must become visible in \(context).")
+            return
+        }
+        XCTAssertTrue(elementText(input).contains(marker), "The exact composer draft must survive \(context).")
+        let visibleInputFrame = input.frame
+        XCTAssertFalse(visibleInputFrame.isEmpty, "The composer input must have visible bounds before restoring its keyboard in \(context).")
+        let keyboard = app.keyboards.firstMatch
+        if !keyboard.exists {
+            input.tap()
+        }
+        guard keyboard.waitForExistence(timeout: 10) else {
+            XCTFail("The software keyboard must be restorable in \(context).")
+            return
+        }
+        let focusedInput = app.descendants(matching: .any)
+            .matching(identifier: input.identifier)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        XCTAssertTrue(focusedInput.waitForExistence(timeout: 2), "The exact composer input must own keyboard focus in \(context).")
+        let observedInputFrame = focusedInput.frame
+        XCTAssertFalse(observedInputFrame.isEmpty, "The composer input must retain layout bounds in \(context).")
+        XCTAssertLessThanOrEqual(observedInputFrame.maxY, keyboard.frame.minY + 1, "The composer input must stay above the software keyboard in \(context).")
+    }
+
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any)
             .matching(identifier: identifier)
             .firstMatch
-        for attempt in 0..<12 {
-            if field.waitForExistence(timeout: 1), field.isHittable {
-                field.tap()
-                typeIntoFocusedElement(value, fallback: field, in: app)
-                return
-            }
-            if attempt < 5 {
-                app.swipeDown()
-            } else {
-                app.swipeUp()
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        guard makeComposerInputHittable(field, in: app) else {
+            XCTFail("Expected editable field \(identifier) to become hittable.")
+            return
         }
-        XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
+        field.tap()
         typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func makeComposerInputHittable(_ input: XCUIElement, in app: XCUIApplication) -> Bool {
+        let composerScroll = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-composer-host")
+            .firstMatch
+            .scrollViews
+            .firstMatch
+        for _ in 0..<24 {
+            if input.waitForExistence(timeout: 1), input.isHittable {
+                return true
+            }
+            if composerScroll.exists {
+                let start = composerScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+                let end = composerScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
+                start.press(forDuration: 0.01, thenDragTo: end)
+            } else {
+                app.swipeUp(velocity: .fast)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return input.exists && input.isHittable
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {

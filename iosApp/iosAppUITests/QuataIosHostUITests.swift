@@ -58,6 +58,37 @@ final class QuataIosHostUITests: XCTestCase {
         }
     }
 
+    func testAuthLaunchKeepsPhoneDraftAndKeyboardSafeAcrossRotation() {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+
+        let app = fixtureApp("auth-launch")
+        app.launch()
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 10), "The Auth fixture must expose an app window.")
+
+        let phone = app.descendants(matching: .any)
+            .matching(identifier: "auth.phone.input")
+            .firstMatch
+        XCTAssertTrue(phone.waitForExistence(timeout: 10), "The real shared Auth phone input must exist.")
+        let marker = "612345678"
+        phone.tap()
+        phone.typeText(marker)
+        assertFocusedInput(phone, containsDigits: marker, aboveKeyboardIn: app, context: "Auth portrait")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-keyboard-portrait")
+
+        device.orientation = .landscapeLeft
+        waitForWindow(window, toBeLandscape: true, context: "Auth landscape")
+        assertFocusedInput(phone, containsDigits: marker, aboveKeyboardIn: app, context: "Auth landscape")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-keyboard-landscape")
+
+        device.orientation = .portrait
+        waitForWindow(window, toBeLandscape: false, context: "Auth restored portrait")
+        assertFocusedInput(phone, containsDigits: marker, aboveKeyboardIn: app, context: "Auth restored portrait")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-keyboard-restored-portrait")
+    }
+
     func testAuthLaunchFixtureCanColdStartSharedRecoverySurface() {
         let app = fixtureApp("auth-launch", authDestination: "recovery")
         app.launch()
@@ -1226,6 +1257,47 @@ final class QuataIosHostUITests: XCTestCase {
             XCTWaiter.wait(for: [expectation], timeout: timeout),
             .completed,
             "The app window must reach \(context) before checking its safe viewport.",
+        )
+    }
+
+    private func assertFocusedInput(
+        _ input: XCUIElement,
+        containsDigits expectedDigits: String,
+        aboveKeyboardIn app: XCUIApplication,
+        context: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        guard input.waitForExistence(timeout: 10) else {
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-keyboard-missing-\(context.replacingOccurrences(of: " ", with: "-").lowercased())")
+            XCTFail("The focused input must remain mounted in \(context).", file: file, line: line)
+            return
+        }
+        let value = ((input.value as? String) ?? input.label).filter(\.isNumber)
+        XCTAssertTrue(value.contains(expectedDigits), "The exact Auth phone draft must survive \(context); value=\(value).", file: file, line: line)
+        let visibleInputFrame = input.frame
+        XCTAssertFalse(visibleInputFrame.isEmpty, "The Auth input must have visible bounds before restoring its keyboard in \(context).", file: file, line: line)
+        let keyboard = app.keyboards.firstMatch
+        if !keyboard.exists {
+            input.tap()
+        }
+        guard keyboard.waitForExistence(timeout: 10) else {
+            XCTFail("The software keyboard must be restorable in \(context).", file: file, line: line)
+            return
+        }
+        let focusedInput = app.descendants(matching: .any)
+            .matching(identifier: input.identifier)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        XCTAssertTrue(focusedInput.waitForExistence(timeout: 2), "The exact Auth input must own keyboard focus in \(context).", file: file, line: line)
+        let observedInputFrame = focusedInput.frame
+        XCTAssertFalse(observedInputFrame.isEmpty, "The focused input must have layout bounds in \(context).", file: file, line: line)
+        XCTAssertLessThanOrEqual(
+            observedInputFrame.maxY,
+            keyboard.frame.minY + 1,
+            "The focused Auth input must stay above the software keyboard in \(context).",
+            file: file,
+            line: line,
         )
     }
 

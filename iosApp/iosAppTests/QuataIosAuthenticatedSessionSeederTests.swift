@@ -43,6 +43,32 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
         XCTAssertEqual(completionCount, 1, "The seeder must issue exactly one login completion.")
         XCTAssertTrue(runtimeBootstrap.hasRestoredSession(), "The production runtime must restore the saved Keychain session.")
     }
+
+    func testClearAuthenticatedSessionAfterVisualGates() throws {
+        guard let feedConfiguration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+            throw XCTSkip("The app host has no valid public runtime configuration.")
+        }
+        let runtimeBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
+            configuration: feedConfiguration,
+        )
+        let session = runtimeBootstrap.authSessionForInteractiveLogin()
+        let repository = IosAuthRepositoryKt.createIosAuthRepository(
+            configuration: IosPublicRuntimeConfiguration.authConfiguration(from: feedConfiguration),
+            session: session,
+        )
+        let completed = expectation(description: "visual gate session cleanup")
+        completed.assertForOverFulfill = true
+        var completionCount = 0
+        repository.logout { error in
+            completionCount += 1
+            XCTAssertNil(error, "Visual-gate logout must complete even when remote retirement is unavailable.")
+            completed.fulfill()
+        }
+        wait(for: [completed], timeout: 45)
+        XCTAssertEqual(completionCount, 1, "Visual-gate cleanup must complete exactly once.")
+        XCTAssertNil(session.restoredSession(), "Visual-gate cleanup must remove the Keychain session.")
+        XCTAssertFalse(runtimeBootstrap.hasRestoredSession(), "The production runtime must return to anonymous state.")
+    }
 }
 
 private struct AuthSeederCredentials: Decodable {

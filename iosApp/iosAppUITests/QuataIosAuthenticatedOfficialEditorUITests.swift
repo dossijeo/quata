@@ -7,6 +7,41 @@ import XCTest
 final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     private static let realPublishOptIn = "I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION"
 
+    func testAuthenticatedOfficialEditorKeepsFocusedBodyAcrossRotation() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_LAYOUT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated iOS layout UI gate is opt-in.")
+        }
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+        let marker = "layout-official-\(UUID().uuidString)"
+        let app = openOfficialEditor(launchEnvironment: [
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_TITLE": "Layout focal",
+            "QUATA_IOS_OFFICIAL_EDITOR_PREFILL_SUMMARY": "Layout focal summary",
+        ])
+        let richTextField = openRichTextBodyEditor(in: app)
+        pasteText(marker, into: richTextField, in: app)
+        assertRichTextDraft(richTextField, contains: marker, aboveKeyboardIn: app, context: "Official portrait")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-official-editor-keyboard-portrait")
+
+        let window = app.windows.firstMatch
+        device.orientation = .landscapeLeft
+        waitForWindow(window, landscape: true, context: "Official landscape")
+        assertRichTextDraft(richTextField, contains: marker, aboveKeyboardIn: app, context: "Official landscape")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-official-editor-keyboard-landscape")
+
+        device.orientation = .portrait
+        waitForWindow(window, landscape: false, context: "Official restored portrait")
+        assertRichTextDraft(richTextField, contains: marker, aboveKeyboardIn: app, context: "Official restored portrait")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-official-editor-keyboard-restored-portrait")
+
+        dismissKeyboardIfPresent(in: app)
+        let save = app.descendants(matching: .any).matching(identifier: "official-editor-long-save").firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "The shared long-editor save action must remain available after rotation.")
+        save.tap()
+        assertDraftReady(in: app, marker: "Layout focal")
+    }
+
     func testAuthenticatedSessionOpensRealOfficialEditor() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated Official editor UI gate is opt-in.")
@@ -365,6 +400,22 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func typeRichTextBody(_ value: String, in app: XCUIApplication) {
+        let richTextField = openRichTextBodyEditor(in: app)
+        pasteText(value, into: richTextField, in: app)
+        dismissKeyboardIfPresent(in: app)
+        if let headingText = ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING"],
+           let heading = Int(headingText),
+           (1...6).contains(heading) {
+            applyRichTextHeading(heading, in: app)
+        }
+        let save = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-long-save")
+            .firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5), "Expected shared long-editor save action.")
+        save.tap()
+    }
+
+    private func openRichTextBodyEditor(in app: XCUIApplication) -> XCUIElement {
         dismissKeyboardIfPresent(in: app)
         for attempt in 0..<14 {
             let bodyAction = bodyEditorAction(in: app)
@@ -401,18 +452,42 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "Expected common portable rich-text field.")
         richTextField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-        pasteText(value, into: richTextField, in: app)
-        dismissKeyboardIfPresent(in: app)
-        if let headingText = ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_RICH_TEXT_HEADING"],
-           let heading = Int(headingText),
-           (1...6).contains(heading) {
-            applyRichTextHeading(heading, in: app)
+        return richTextField
+    }
+
+    private func waitForWindow(_ window: XCUIElement, landscape: Bool, context: String) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                let frame = window.frame
+                return landscape ? frame.width > frame.height : frame.height > frame.width
+            },
+            object: window,
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed, "The app window must reach \(context).")
+    }
+
+    private func assertRichTextDraft(_ input: XCUIElement, contains marker: String, aboveKeyboardIn app: XCUIApplication, context: String) {
+        XCTAssertTrue(input.waitForExistence(timeout: 10), "The Official body editor must remain mounted in \(context).")
+        let value = [input.label, input.value as? String].compactMap { $0 }.joined(separator: " ")
+        XCTAssertTrue(value.contains(marker), "The exact Official body draft must survive \(context).")
+        let visibleInputFrame = input.frame
+        XCTAssertFalse(visibleInputFrame.isEmpty, "The Official body must have visible bounds before restoring its keyboard in \(context).")
+        let keyboard = app.keyboards.firstMatch
+        if !keyboard.exists {
+            input.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
-        let save = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-long-save")
+        guard keyboard.waitForExistence(timeout: 10) else {
+            XCTFail("The software keyboard must be restorable in \(context).")
+            return
+        }
+        let focusedInput = app.descendants(matching: .any)
+            .matching(identifier: input.identifier)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
             .firstMatch
-        XCTAssertTrue(save.waitForExistence(timeout: 5), "Expected shared long-editor save action.")
-        save.tap()
+        XCTAssertTrue(focusedInput.waitForExistence(timeout: 2), "The exact Official body editor must own keyboard focus in \(context).")
+        let observedInputFrame = focusedInput.frame
+        XCTAssertFalse(observedInputFrame.isEmpty, "The Official body editor must retain layout bounds in \(context).")
+        XCTAssertLessThanOrEqual(observedInputFrame.maxY, keyboard.frame.minY + 1, "The Official body editor must stay above the software keyboard in \(context).")
     }
 
     private func applyRichTextHeading(_ level: Int, in app: XCUIApplication) {
