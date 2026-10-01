@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PrefixClearableFileCacheService
@@ -19,7 +20,7 @@ internal class AndroidChatComposerFileCacheService(context: Context) : PrefixCle
     override suspend fun store(cacheKey: String, file: PlatformFile): PlatformResult<PlatformFile> = withContext(Dispatchers.IO) {
         if (!cacheKey.isSafeCacheKey()) return@withContext PlatformResult.Failure("file_cache_key_invalid")
         val target = File(root.apply { mkdirs() }, "$cacheKey.bin")
-        val source = Uri.parse(file.reference)
+        val source = file.reference.toUri()
         val input = when (source.scheme?.lowercase()) {
             ContentResolver.SCHEME_FILE -> source.path?.let(::File)?.takeIf(File::isFile)?.let(::FileInputStream)
             else -> appContext.contentResolver.openInputStream(source)
