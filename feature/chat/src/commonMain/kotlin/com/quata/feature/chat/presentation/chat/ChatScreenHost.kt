@@ -73,6 +73,7 @@ fun ChatScreenHost(
         mutableStateOf(chatMessageDeepLinkRequest(focusedMessageId))
     }
     var historyPageRequested by remember(conversationId, focusedMessageId) { mutableStateOf(false) }
+    var viewportPageRequested by remember(conversationId) { mutableStateOf(false) }
     val resolvedDeepLinkRequest = resolveChatMessageDeepLinkRequest(
         request = deepLinkRequest,
         hasReceivedMessageSnapshot = state.hasReceivedMessageSnapshot,
@@ -94,6 +95,44 @@ fun ChatScreenHost(
     }
     val focusedMessage = (deepLinkRequest as? ChatMessageDeepLinkRequest.Focused)
         ?.let { focused -> state.messages.firstOrNull { it.id == focused.messageId } }
+    val viewportRestore = resolveChatViewportRestore(
+        storedViewport = state.restoredViewport,
+        storeReadComplete = state.isViewportRestoreReady,
+        focusedMessageId = focusedMessageId,
+        hasReceivedMessageSnapshot = state.hasReceivedMessageSnapshot,
+        messages = state.messages,
+        hasMoreHistory = state.hasMoreHistory,
+        messageLoadFailure = state.messageLoadFailure,
+    )
+
+    LaunchedEffect(viewportRestore.shouldConsumeStoredViewport) {
+        if (viewportRestore.shouldConsumeStoredViewport) {
+            model.consumeRestoredViewport(
+                preserveUntilUserScroll = viewportRestore.shouldPreserveStoredViewportUntilUserScroll,
+            )
+        }
+    }
+    LaunchedEffect(
+        viewportRestore.shouldLoadOlderMessages,
+        viewportRestore.shouldDiscardStoredViewport,
+        state.isLoadingOlderMessages,
+        viewportPageRequested,
+    ) {
+        if (viewportRestore.shouldDiscardStoredViewport) {
+            viewportPageRequested = false
+            model.discardRestoredViewport()
+            return@LaunchedEffect
+        }
+        if (!viewportRestore.shouldLoadOlderMessages) {
+            viewportPageRequested = false
+            return@LaunchedEffect
+        }
+        if (!viewportPageRequested) {
+            viewportPageRequested = model.loadOlderMessages()
+        } else if (!state.isLoadingOlderMessages) {
+            viewportPageRequested = false
+        }
+    }
 
     LaunchedEffect(state.shouldCloseConversation) {
         if (state.shouldCloseConversation) slots.onBack()
@@ -239,6 +278,14 @@ fun ChatScreenHost(
                         },
                         onLoadOlderMessages = model::loadOlderMessages,
                         isLoadingOlderMessages = state.isLoadingOlderMessages,
+                        initialViewport = viewportRestore.initialViewport,
+                        isInitialViewportReady = viewportRestore.isInitialViewportReady,
+                        preserveStoredViewportUntilUserScroll =
+                            viewportRestore.shouldPreserveStoredViewportUntilUserScroll ||
+                                state.isViewportFallbackProtected,
+                        onViewportUserScroll = model::allowViewportPersistenceAfterUserScroll,
+                        onInitialViewportApplied = model::consumeRestoredViewport,
+                        onViewportChanged = model::persistViewport,
                         focusedMessageId = focusedMessage?.id,
                         onFocusedMessageVisible = onFocusedMessageVisible,
                         onFocusedMessageHandled = {

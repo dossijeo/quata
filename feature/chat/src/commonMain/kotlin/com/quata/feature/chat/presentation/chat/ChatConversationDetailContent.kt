@@ -38,6 +38,9 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import com.quata.core.platform.PlatformFile
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 
 private const val FocusedMessageHighlightMillis = 8_000L
@@ -85,6 +88,12 @@ fun ChatConversationDetailContent(
     /** Real repository pagination; the root never manufactures history locally. */
     onLoadOlderMessages: () -> Boolean = { false },
     isLoadingOlderMessages: Boolean = false,
+    initialViewport: ChatConversationViewport? = null,
+    isInitialViewportReady: Boolean = true,
+    preserveStoredViewportUntilUserScroll: Boolean = false,
+    onViewportUserScroll: () -> Unit = {},
+    onInitialViewportApplied: () -> Unit = {},
+    onViewportChanged: (ChatConversationViewport) -> Unit = {},
     /** A host-provided message target. It is ignored safely until it is present in [messages]. */
     focusedMessageId: String? = null,
     onFocusedMessageVisible: (String) -> Unit = {},
@@ -96,6 +105,7 @@ fun ChatConversationDetailContent(
     var initialPositionReady by remember { mutableStateOf(false) }
     var highlightedMessageId by remember { mutableStateOf<String?>(null) }
     var userHasDetachedFromBottom by remember { mutableStateOf(false) }
+    var hasUserScrolledSinceFallback by remember { mutableStateOf(false) }
     var previousMessageLayout by remember { mutableStateOf(emptyList<ChatMessageLayoutKey>()) }
     val density = LocalDensity.current
     val focusedIndex = remember(focusedMessageId, messages) {
@@ -154,9 +164,35 @@ fun ChatConversationDetailContent(
         }
     }
     val currentMessageLayout = remember(messages) { messages.map(Message::chatLayoutKey) }
-    LaunchedEffect(currentMessageLayout, focusedMessageId) {
+    LaunchedEffect(
+        currentMessageLayout,
+        focusedMessageId,
+        initialViewport,
+        isInitialViewportReady,
+        isLoadingOlderMessages,
+    ) {
         if (currentMessageLayout.isEmpty()) {
             previousMessageLayout = emptyList()
+            return@LaunchedEffect
+        }
+        if (focusedMessageId == null && !initialPositionReady) {
+            if (!isInitialViewportReady || isLoadingOlderMessages) return@LaunchedEffect
+            when (val viewport = initialViewport) {
+                is ChatConversationViewport.Anchored -> {
+                    val index = messages.indexOfFirst { it.id == viewport.messageId && !it.isLocalEcho }
+                    if (index < 0) return@LaunchedEffect
+                    val offsetPx = with(density) { viewport.scrollOffsetDp.dp.roundToPx() }
+                    listState.scrollToItem(index, scrollOffset = offsetPx)
+                    userHasDetachedFromBottom = listState.canScrollForward
+                }
+                ChatConversationViewport.Latest, null -> {
+                    userHasDetachedFromBottom = false
+                    listState.scrollToItem(currentMessageLayout.lastIndex, scrollOffset = Int.MAX_VALUE)
+                }
+            }
+            previousMessageLayout = currentMessageLayout
+            initialPositionReady = true
+            if (initialViewport != null) onInitialViewportApplied()
             return@LaunchedEffect
         }
         val shouldFollowUpdate = shouldFollowChatLayoutUpdate(
@@ -169,17 +205,45 @@ fun ChatConversationDetailContent(
             listState.scrollToItem(currentMessageLayout.lastIndex, scrollOffset = Int.MAX_VALUE)
         }
         previousMessageLayout = currentMessageLayout
-        if (focusedMessageId == null) {
-            initialPositionReady = true
-        }
     }
     LaunchedEffect(listState, isUserDragging) {
         if (isUserDragging) {
+            hasUserScrolledSinceFallback = true
+            onViewportUserScroll()
             snapshotFlow { !listState.canScrollForward }
                 .collect { isAtBottom -> userHasDetachedFromBottom = !isAtBottom }
         } else if (!listState.canScrollForward) {
             userHasDetachedFromBottom = false
         }
+    }
+    LaunchedEffect(listState, initialPositionReady, focusedMessageId, messages, isLoadingOlderMessages, density) {
+        if (!initialPositionReady || focusedMessageId != null) return@LaunchedEffect
+        snapshotFlow {
+            if (
+                preserveStoredViewportUntilUserScroll && !hasUserScrolledSinceFallback ||
+                isLoadingOlderMessages ||
+                messages.isEmpty() ||
+                listState.layoutInfo.visibleItemsInfo.isEmpty()
+            ) {
+                null
+            } else if (!listState.canScrollForward) {
+                ChatConversationViewport.Latest
+            } else {
+                val index = listState.firstVisibleItemIndex
+                messages.getOrNull(index)
+                    ?.takeUnless { it.isLocalEcho || it.id.isBlank() }
+                    ?.let { message ->
+                        val offsetDp = with(density) { listState.firstVisibleItemScrollOffset.toDp().value }
+                        ChatConversationViewport.Anchored(message.id, offsetDp)
+                    }
+            }
+        }
+            .filterNotNull()
+            .distinctUntilChanged()
+            .collectLatest { viewport ->
+                delay(250L)
+                onViewportChanged(viewport)
+            }
     }
     LaunchedEffect(typingIndicator != null, messages.size, isLoadingOlderMessages) {
         if (typingIndicator != null && !userHasDetachedFromBottom) {

@@ -251,6 +251,79 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun viewportRestoresAcrossModelsAndPersistsAStableMessageAnchor() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = ChatComposerDraftStore(ComposerMemoryPreferences())
+        val lease = store.open("me")
+        val initial = ChatConversationViewport.Anchored("message-7", 18.5f)
+        store.writeViewport(lease, "conversation-1", initial)
+
+        val first = chatViewModel(RecordingChatRepository(listOf(otherMessage("message-7"))), dispatcher, store)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(first.uiState.value.isViewportRestoreReady)
+        assertEquals(initial, first.uiState.value.restoredViewport)
+        first.consumeRestoredViewport(preserveUntilUserScroll = true)
+        assertNull(first.uiState.value.restoredViewport)
+        assertTrue(first.uiState.value.isViewportFallbackProtected)
+        assertEquals(initial, store.readViewport(lease, "conversation-1"))
+
+        first.persistViewport(ChatConversationViewport.Latest)
+        testScheduler.advanceUntilIdle()
+        assertEquals(initial, store.readViewport(lease, "conversation-1"))
+        first.allowViewportPersistenceAfterUserScroll()
+        assertFalse(first.uiState.value.isViewportFallbackProtected)
+
+        val replacement = ChatConversationViewport.Anchored("message-5", 3.25f)
+        first.persistViewport(replacement)
+        first.close()
+        testScheduler.advanceUntilIdle()
+        assertEquals(replacement, store.readViewport(lease, "conversation-1"))
+
+        val restored = chatViewModel(RecordingChatRepository(listOf(otherMessage("message-5"))), dispatcher, store)
+        testScheduler.advanceUntilIdle()
+        assertEquals(replacement, restored.uiState.value.restoredViewport)
+        restored.close()
+    }
+
+    @Test
+    fun latestViewportAndDestructiveConversationActionsUseTheSameActorCustody() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        for (event in listOf(ChatUiEvent.LeaveConversation, ChatUiEvent.DeleteConversation)) {
+            val preferences = ComposerMemoryPreferences()
+            val store = ChatComposerDraftStore(preferences)
+            val lease = store.open("me")
+            store.writeViewport(lease, "conversation-1", ChatConversationViewport.Latest)
+            assertEquals(ChatConversationViewport.Latest, store.readViewport(lease, "conversation-1"))
+
+            val model = chatViewModel(RecordingChatRepository(emptyList()), dispatcher, store)
+            testScheduler.advanceUntilIdle()
+            model.onEvent(event)
+            testScheduler.advanceUntilIdle()
+
+            assertNull(store.readViewport(lease, "conversation-1"))
+            model.close()
+        }
+    }
+
+    @Test
+    fun viewportCorruptionAndActorRetirementFailClosed() = runTest {
+        val preferences = ComposerMemoryPreferences()
+        val store = ChatComposerDraftStore(preferences)
+        val lease = store.open("me")
+        val key = ChatComposerDraftStore.viewportKey("me", 0L, "conversation-1")
+        preferences.putString(key, "{\"generation\":0,\"kind\":\"anchored\",\"messageId\":\"\",\"scrollOffsetDp\":-1}")
+
+        assertNull(store.readViewport(lease, "conversation-1"))
+        assertNull(preferences.getString(key))
+
+        store.writeViewport(lease, "conversation-1", ChatConversationViewport.Latest)
+        store.clearActor("me")
+        assertNull(store.readViewport(lease, "conversation-1"))
+        assertNull(preferences.getString(key))
+    }
+
+    @Test
     fun composerInputWinsOverAConcurrentDelayedRestore() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val preferences = BlockingComposerPreferences(

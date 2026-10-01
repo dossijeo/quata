@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES"
+  ],
+  "status": "passed",
+  "productSha": "c2f0916eceea26f3e453c83f7296e38632707c25",
+  "certification": "hermetic-shared-chat-viewport-restoration-complete-affected-platform-validation-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "c2f0916eceea26f3e453c83f7296e38632707c25",
+      "report": "docs/candidate-attestations/evidence/chat-viewport-restoration-95b31dc8.json",
+      "reportSha256": "70d97e9794c80375566c7fa804c91efa4bbc7e3a06b9fcfa54202c7c5abc283b",
+      "reportStatus": "passed",
+      "reportGitHead": "95b31dc83265449c7e502ab9ec1c125cdc6d22aa",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "explicit_focused_message_takes_priority_over_stored_viewport",
+        "recoverable_read_failure_preserves_the_durable_anchor_and_blocks_automatic_latest_overwrite",
+        "explicit_user_scroll_reenables_viewport_persistence",
+        "web_wasm_focal_model_and_compose_ui_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "c2f0916eceea26f3e453c83f7296e38632707c25",
+      "report": "docs/candidate-attestations/evidence/chat-viewport-restoration-95b31dc8.json",
+      "reportSha256": "70d97e9794c80375566c7fa804c91efa4bbc7e3a06b9fcfa54202c7c5abc283b",
+      "reportStatus": "passed",
+      "reportGitHead": "95b31dc83265449c7e502ab9ec1c125cdc6d22aa",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "latest_and_stable_message_anchor_are_scoped_by_actor_generation_and_conversation",
+        "leave_delete_and_actor_retirement_clear_viewport_under_existing_actor_custody",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "c2f0916eceea26f3e453c83f7296e38632707c25",
+      "report": "docs/candidate-attestations/evidence/chat-viewport-restoration-95b31dc8.json",
+      "reportSha256": "70d97e9794c80375566c7fa804c91efa4bbc7e3a06b9fcfa54202c7c5abc283b",
+      "reportStatus": "passed",
+      "reportGitHead": "95b31dc83265449c7e502ab9ec1c125cdc6d22aa",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "older_pages_are_loaded_until_the_authoritative_anchor_is_present",
+        "close_waits_for_the_last_queued_viewport_write",
+        "ios_x64_focal_model_and_compose_ui_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check HEAD^..HEAD",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewportRestorationTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-daemon --console=plain",
+    "JAVA_HOME=<installed-jdk-21> bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewportRestorationTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-viewport-restoration.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "c2f0916eceea26f3e453c83f7296e38632707c25",
+    "blockingFindings": [],
+    "scopeLimit": "This closes durable viewport restoration inside Chat; unrelated screen state, IME behavior, authenticated backend behavior and cross-process browser coordination are not claimed."
+  },
+  "notes": [
+    "The shared Chat root stores either Latest or an authoritative non-local message anchor plus a density-independent offset under the existing actor-generation and conversation custody.",
+    "Restoration waits for the durable read. An explicit focused-message deep link wins, while a missing anchor pages through real history until it appears or history is authoritatively exhausted.",
+    "A recoverable history failure falls back visually without deleting or indirectly overwriting the durable anchor. ChatUiState keeps the protection across recomposition, and only an explicit user scroll re-enables persistence.",
+    "Leave, delete and actor retirement clear the viewport through the existing custody path, and close waits for the last queued viewport write.",
+    "The affected common model and Compose UI classes passed in Chrome Headless and iOS x64; the Android product compiled on the exact Product SHA. No backend state or credentials were used.",
+    "Independent review found and required fixes for recoverable-failure deletion, automatic Latest overwrite and host-recomposition loss. The final Product SHA received GO with no P0-P3 findings.",
+    "Product SHA c2f0916ec recomposes the unchanged viewport-restoration runtime onto main after #497 merged. All nine changed feature source and test paths are byte-identical to the preceding recomposed Product SHA 5116ac033 and the original reviewed Product SHA 5d28e420. The historical evidence report remains bound to report Git HEAD 95b31dc8; attestation bindings were renewed, and no platform matrix was repeated solely for the base advance."
+  ]
+}
