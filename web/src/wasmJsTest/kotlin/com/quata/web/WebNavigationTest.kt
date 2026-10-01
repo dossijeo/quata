@@ -66,7 +66,7 @@ class WebNavigationTest {
     @Test
     fun favoriteNavigationPreservesTheExactSourceMessage() {
         var browserFragment = ""
-        val controller = WebNavigationController("chat") { browserFragment = it }
+        val controller = WebNavigationController("chat", updateBrowserFragment = { browserFragment = it })
 
         controller.navigateConversation("sb:team/42", "msg 9")
 
@@ -78,7 +78,7 @@ class WebNavigationTest {
     @Test
     fun communityConversationReturnsToCommunitiesWhileOtherChatsReturnToTheInbox() {
         var browserFragment = "communities"
-        val controller = WebNavigationController("communities") { browserFragment = it }
+        val controller = WebNavigationController("communities", updateBrowserFragment = { browserFragment = it })
 
         controller.navigateConversation("sb:42", returnFragment = "communities")
         controller.navigateBackFromConversation()
@@ -94,9 +94,51 @@ class WebNavigationTest {
     }
 
     @Test
+    fun communityConversationReturnSurvivesAFullDocumentReload() {
+        var browserFragment = "communities"
+        var storedConversationId: String? = null
+        var storedReturnFragment: String? = null
+        val readReturn: (String) -> String? = { conversationId ->
+            storedReturnFragment.takeIf { storedConversationId == conversationId }
+        }
+        val writeReturn: (String, String) -> Unit = { conversationId, fragment ->
+            storedConversationId = conversationId
+            storedReturnFragment = fragment
+        }
+        val clearReturn: () -> Unit = {
+            storedConversationId = null
+            storedReturnFragment = null
+        }
+        val firstDocument = WebNavigationController(
+            initialFragment = "communities",
+            updateBrowserFragment = { browserFragment = it },
+            readConversationReturn = readReturn,
+            writeConversationReturn = writeReturn,
+            clearConversationReturn = clearReturn,
+        )
+        firstDocument.navigateConversation("sb:team/42", "message 9", returnFragment = "communities")
+
+        val reloadedDocument = WebNavigationController(
+            initialFragment = browserFragment,
+            updateBrowserFragment = { browserFragment = it },
+            readConversationReturn = readReturn,
+            writeConversationReturn = writeReturn,
+            clearConversationReturn = clearReturn,
+        )
+        assertEquals("sb:team/42", reloadedDocument.chatConversationId)
+        assertEquals("message 9", reloadedDocument.chatMessageId)
+        reloadedDocument.navigateBackFromConversation()
+
+        assertRoute("communities", reloadedDocument.state)
+        assertEquals("communities", browserFragment)
+        assertNull(storedConversationId)
+        assertNull(storedReturnFragment)
+    }
+
+    @Test
     fun changingTheCommunityConversationClearsItsReturnTarget() {
         var browserFragment = "communities"
-        val controller = WebNavigationController("communities") { browserFragment = it }
+        val controller = WebNavigationController("communities", updateBrowserFragment = { browserFragment = it })
 
         controller.navigateConversation("sb:42", returnFragment = "communities")
         controller.acceptBrowserFragment("chat-sb%3A43")
@@ -137,7 +179,10 @@ class WebNavigationTest {
     @Test
     fun retainsTheExactFragmentAcrossNavigationControllerUpdates() {
         var browserFragment = ""
-        val controller = WebNavigationController("chat-sb%3Ateam%2F42") { browserFragment = it }
+        val controller = WebNavigationController(
+            "chat-sb%3Ateam%2F42",
+            updateBrowserFragment = { browserFragment = it },
+        )
         assertEquals("chat-sb%3Ateam%2F42", controller.fragment)
         controller.navigate("official-bulletin-99")
         assertEquals("official-bulletin-99", controller.fragment)
@@ -157,7 +202,7 @@ class WebNavigationTest {
     @Test
     fun `anonymous Notifications back returns to the public Feed transport`() {
         var browserFragment = "notifications"
-        val controller = WebNavigationController("notifications") { browserFragment = it }
+        val controller = WebNavigationController("notifications", updateBrowserFragment = { browserFragment = it })
 
         controller.navigate("")
 

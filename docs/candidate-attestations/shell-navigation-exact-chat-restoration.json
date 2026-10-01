@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV",
+    "CHAT-FOCUSED-MESSAGE"
+  ],
+  "status": "passed",
+  "productSha": "bf7be2fb82ba070a2a7355652a3772b3845ebc36",
+  "certification": "focal-ios-web-exact-chat-restoration-complete-android-authenticated-runtime-pending-external-quota-final-ci-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "bf7be2fb82ba070a2a7355652a3772b3845ebc36",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-ios-ad3c8ee63.json",
+      "reportSha256": "d2cc2fbfa5ae2ff590274e92da459c3778ee035ec153d318d24fe16f44d9a26a",
+      "reportStatus": "passed",
+      "reportGitHead": "ad3c8ee636da8ecf1c33d1b8e91a5e2f45c27ad5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_chat_conversation_and_focused_message_selected",
+        "router_recreated_without_replaying_the_route",
+        "exact_chat_conversation_and_focused_message_restored",
+        "persisted_payload_contains_identifiers_only"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "bf7be2fb82ba070a2a7355652a3772b3845ebc36",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-web-ad3c8ee63.json",
+      "reportSha256": "b76497589e9dc18898bbce79a9946dd55ab3532069b2964d2875078a4cc7a53b",
+      "reportStatus": "passed",
+      "reportGitHead": "ad3c8ee636da8ecf1c33d1b8e91a5e2f45c27ad5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_chat_fragment_with_conversation_and_message_resolved",
+        "communities_return_scoped_to_matching_conversation",
+        "fresh_navigation_controller_reconstructed_from_exact_fragment",
+        "exact_chat_conversation_message_and_return_restored",
+        "mismatched_conversation_cleared_stored_return"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_browser_test_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs scripts/shell-navigation-android-process-death-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserTest :app:compileDebugKotlin --console=plain",
+    "xcodebuild ... -only-testing:QuataIosTests/QuataFeedFrameworkTests/testExactChatConversationAndFocusedMessageSurviveRouterRecreation test"
+  ],
+  "notes": [
+    "Android, iOS and Web now retain the exact Chat conversation and focused-message identifiers at their native restoration boundaries. The persisted values contain identifiers only; message content and composer drafts are not stored by this change.",
+    "Android keeps persisted focus separate from the one-shot active focus. Rendering acknowledgement clears only the active focus, while leaving Chat clears both persisted identifiers so a later unrelated Chat visit cannot inherit stale state.",
+    "The Android focal runner selects a real favorite, proves a distinct base intent would not preserve it, requires a replacement process ID, checks the exact conversation/message pair and fails closed during authenticated cleanup.",
+    "The authenticated Android run remains pending because the public Supabase endpoint returns 402 exceed_egress_quota. Static contracts and compilation pass, but this manifest does not attribute Android runtime acceptance while that external condition remains.",
+    "The iOS focal XCTest passed on Simulator with router recreation and identifier-only persistence. The Web browser suite passed 14 tests and proves exact-fragment reconstruction in a fresh controller with hermetic storage callbacks, plus a Communities return scoped to the matching conversation; it does not claim a real document reload.",
+    "This evidence closes exact Chat conversation/message restoration for the iOS router and Web navigation controller when final CI is complete. Android remains pending its authenticated runtime trial. It does not close scroll position, drafts, arbitrary secondary back stacks or internal state in other features.",
+    "Independent product review returned GO with no P0-P2 findings before this documentary attestation was added; the documentation and evidence binding require their own affected-contract check before promotion.",
+    "Product SHA bf7be2fb rebases the unchanged exact-restoration unit onto main b56b504a after #492. Every path changed by the original Product SHA ad3c8ee6 is byte-identical at the rebased Product SHA; the historical iOS and Web reports remain bound to ad3c8ee6 and no platform matrix was repeated solely for the base advance."
+  ]
+}

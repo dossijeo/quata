@@ -96,7 +96,10 @@ test("CHAT-COMMON-ROOT-001 is part of mandatory fast and Wave2 contracts", () =>
 
 test("Android, Wasm and iOS product routes mount ChatProductHostContent", () => {
   assert.match(appNavGraph, /import com\.quata\.feature\.chat\.presentation\.chat\.AndroidChatProductScreen/);
-  assert.match(appNavGraph, /AndroidChatProductScreen\([\s\S]*?focusedMessageId = chatFocusedMessageId[\s\S]*?onFocusedMessageHandled = \{ chatFocusedMessageId = null \}/);
+  assert.match(appNavGraph, /AndroidChatProductScreen\([\s\S]*?focusedMessageId = activeChatFocusedMessageId\.takeIf \{[\s\S]*?activeChatFocusConversationId == conversationId[\s\S]*?onFocusedMessageHandled = \{[\s\S]*?activeChatFocusConversationId = null[\s\S]*?activeChatFocusedMessageId = null/);
+  assert.match(appNavGraph, /var persistedChatFocusConversationId by rememberSaveable/);
+  assert.match(appNavGraph, /var persistedChatFocusedMessageId by rememberSaveable/);
+  assert.doesNotMatch(appNavGraph, /onFocusedMessageHandled = \{\s*persistedChatFocusedMessageId = null\s*\}/);
   assert.doesNotMatch(appNavGraph, /com\.quata\.feature\.chat\.presentation\.chat\.ChatScreen\b/);
 
   assert.match(androidHost, /fun AndroidChatProductScreen\(/);

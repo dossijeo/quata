@@ -1,0 +1,39 @@
+{
+  "check": "FLOW-SHELL-NAV-WEB-EXACT-CHAT-RESTORATION-001",
+  "status": "passed",
+  "candidateProductSha": "ad3c8ee636da8ecf1c33d1b8e91a5e2f45c27ad5",
+  "git": {
+    "head": "ad3c8ee636da8ecf1c33d1b8e91a5e2f45c27ad5",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "exact_chat_fragment_with_conversation_and_message_resolved",
+    "communities_return_scoped_to_matching_conversation",
+    "fresh_navigation_controller_reconstructed_from_exact_fragment",
+    "exact_chat_conversation_message_and_return_restored",
+    "mismatched_conversation_cleared_stored_return"
+  ],
+  "test": {
+    "task": ":web:wasmJsBrowserTest",
+    "suite": "wasmJsBrowserTest.com.quata.web.WebNavigationTest",
+    "browser": "ChromeHeadless154.0.0.0",
+    "testsExecuted": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "sourceSha256": {
+    "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt": "59691b2e1e9a931f1710357dfbfd1274def0ebdcdea0824c35f573eae8d659e6",
+    "web/src/wasmJsTest/kotlin/com/quata/web/WebNavigationTest.kt": "671886842edfdec5134d476e44e3497383647520c6e32538b77185d01b14c8a0"
+  },
+  "cleanup": {
+    "state": "hermetic_browser_test_complete",
+    "verified": true,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "limits": [
+    "The focal browser suite proves exact Chat route reconstruction in a fresh navigation controller with hermetic storage callbacks, plus a conversation-scoped Communities return; it does not prove a real document reload, scroll position, composer drafts or unrelated secondary destinations.",
+    "The return hint is allowlisted to Communities and is cleared when the active conversation no longer matches."
+  ]
+}

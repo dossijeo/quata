@@ -2834,6 +2834,43 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(restoredOfficial.view.accessibilityIdentifier, "quata-ios-official-host")
     }
 
+    func testExactChatConversationAndFocusedMessageSurviveRouterRecreation() {
+        let suiteName = "QuataFeedFrameworkTests.chat-route.relaunch.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let firstRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        firstRouter.disableStartupSplashForTesting()
+        firstRouter.loadViewIfNeeded()
+        firstRouter.installFeedFactory { _ in UIViewController() }
+        firstRouter.installChatFactory { _, _ in UIViewController() }
+        firstRouter.showChat(conversationId: "sb:team/42", messageId: "message 9/á")
+
+        let restoredRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredRouter.disableStartupSplashForTesting()
+        restoredRouter.loadViewIfNeeded()
+        restoredRouter.installFeedFactory { _ in UIViewController() }
+        var restoredConversationId: String?
+        var restoredMessageId: String?
+        let restoredChat = UIViewController()
+        restoredRouter.installChatFactory { conversationId, messageId in
+            restoredConversationId = conversationId
+            restoredMessageId = messageId
+            return restoredChat
+        }
+
+        XCTAssertEqual(restoredConversationId, "sb:team/42")
+        XCTAssertEqual(restoredMessageId, "message 9/á")
+        XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === restoredChat)
+        XCTAssertEqual(restoredChat.view.accessibilityValue, "chat:sb:team/42?message=message 9/á")
+    }
+
     func testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder() {
         let suiteName = "QuataFeedFrameworkTests.secondary-route.production-order.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

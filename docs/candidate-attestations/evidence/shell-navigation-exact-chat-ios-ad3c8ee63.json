@@ -1,0 +1,35 @@
+{
+  "check": "FLOW-SHELL-NAV-IOS-EXACT-CHAT-RESTORATION-001",
+  "status": "passed",
+  "candidateProductSha": "ad3c8ee636da8ecf1c33d1b8e91a5e2f45c27ad5",
+  "git": {
+    "head": "ad3c8ee636da8ecf1c33d1b8e91a5e2f45c27ad5",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "exact_chat_conversation_and_focused_message_selected",
+    "router_recreated_without_replaying_the_route",
+    "exact_chat_conversation_and_focused_message_restored",
+    "persisted_payload_contains_identifiers_only"
+  ],
+  "test": {
+    "target": "QuataIosTests/QuataFeedFrameworkTests/testExactChatConversationAndFocusedMessageSurviveRouterRecreation",
+    "result": "passed",
+    "testsExecuted": 1,
+    "failures": 0
+  },
+  "sourceSha256": {
+    "iosApp/iosApp/QuataIosApp.swift": "99d7e6c473ea6b84b9a1240ba88abc44fdb58de8166e2870a2e6897fcc30a569",
+    "iosApp/iosAppTests/QuataFeedFrameworkTests.swift": "3b757f1c0b0a2974fadf940fe6998a8f0a124f7b5445c0fa2a497e9222640dfd"
+  },
+  "cleanup": {
+    "state": "local_fixture_complete",
+    "verified": true,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "limits": [
+    "The focal XCTest proves router recreation with the exact Chat conversation and focused-message identifiers; it does not prove scroll position, composer drafts or other secondary destinations.",
+    "No APNs delivery, physical device or backend was required by this route-restoration test."
+  ]
+}
