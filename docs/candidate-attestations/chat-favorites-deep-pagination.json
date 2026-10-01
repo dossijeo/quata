@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-FAVORITES"
+  ],
+  "status": "passed",
+  "productSha": "10320a189d80f44edf3939d5feb4ac2e845a415d",
+  "certification": "hermetic-deep-favorites-pagination-complete-database-release-and-authenticated-postflight-pending",
+  "evidenceKind": "ADDITIVE_AUTHENTICATED_CURSOR_PAGINATION",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "10320a189d80f44edf3939d5feb4ac2e845a415d",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-bf584bab.json",
+      "reportSha256": "d19ec98fb0d021b86cd13043328ddc6c2f97a77289ded4c11e347ddf2810b573",
+      "reportStatus": "passed",
+      "reportGitHead": "bf584babe1a238ee2cd926feae1a4c23ebbd5552",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "first_page_contains_250_favorites_and_has_more_true",
+        "second_page_contains_250_favorites_and_has_more_true",
+        "final_page_contains_101_favorites_and_has_more_false",
+        "all_601_favorites_are_present_exactly_once",
+        "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+        "common_actor_switch_clears_previous_actor_while_offline",
+        "common_in_flight_response_cannot_cross_actor_boundary",
+        "common_refresh_and_older_page_load_are_serialized",
+        "web_wasm_repository_class_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "10320a189d80f44edf3939d5feb4ac2e845a415d",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-bf584bab.json",
+      "reportSha256": "d19ec98fb0d021b86cd13043328ddc6c2f97a77289ded4c11e347ddf2810b573",
+      "reportStatus": "passed",
+      "reportGitHead": "bf584babe1a238ee2cd926feae1a4c23ebbd5552",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "additive_favorites_page_rpc_preserves_legacy_v32_rpc",
+        "all_601_favorites_are_present_exactly_once",
+        "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+        "android_pager_executable_tests_passed",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "10320a189d80f44edf3939d5feb4ac2e845a415d",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-bf584bab.json",
+      "reportSha256": "d19ec98fb0d021b86cd13043328ddc6c2f97a77289ded4c11e347ddf2810b573",
+      "reportStatus": "passed",
+      "reportGitHead": "bf584babe1a238ee2cd926feae1a4c23ebbd5552",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "equal_timestamp_cursor_tie_breaks_by_descending_message_id",
+        "all_601_favorites_are_present_exactly_once",
+        "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+        "common_actor_switch_clears_previous_actor_while_offline",
+        "common_in_flight_response_cannot_cross_actor_boundary",
+        "common_refresh_and_older_page_load_are_serialized",
+        "ios_x64_four_focal_tests_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/selective-db-release-executor.mjs",
+    "node --test scripts/chat-favorites-pagination-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-chat-favorites-cursor-pagination.ps1",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatFavoritesPagerTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesCursorLoadsSixHundredAndOneMessagesAcrossThreeStablePages --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesActorSwitchClearsPreviousActorWhileOffline --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesInFlightResponseCannotCrossActorBoundary --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesRefreshSerializesWithOlderPageLoadWithoutTruncatingDepth --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-favorites-deep-pagination.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "377f8da231299672d7bea0127342b354df2289b0",
+    "recomposedProductSha": "10320a189d80f44edf3939d5feb4ac2e845a415d",
+    "blockingFindings": [],
+    "scopeLimit": "Review covers additive cursor pagination, actor isolation, refresh/load serialization, Android executable pager coverage, SQL claim boundaries, and exact-SHA affected-platform evidence; production deployment and authenticated postflight remain pending.",
+    "equivalence": "Every affected product, test and SQL blob is byte-identical between reviewed 377f8da2 and recomposed 10320a18."
+  },
+  "notes": [
+    "The previous favorites RPC capped every client at 250 rows and exposed no cursor. The new authenticated-only RPC uses the stable keyset (created_at DESC, id DESC), returns at most 250 rows plus has_more/next_cursor, and rejects partial cursors.",
+    "Web/Wasm and iOS use the shared Postgrest repository; Android keeps its native adapter. Both implementations serialize refresh and older-page loads, retain loaded depth, and clear actor-owned state before exposing a replacement session. In-flight responses are checked against the current actor before commit.",
+    "The legacy two-argument quata_chat_get_favorites RPC remains byte-for-byte unchanged and executable by its existing roles. This preserves the authorized Android v32 compatibility path while current authenticated clients move to the new endpoint.",
+    "Disposable PostgreSQL proves 250/250/101 pages over 601 equal-timestamp rows, complete uniqueness, stable ID tie-breaks, authenticated-only ACL, delegation to the integrated actor-boundary helper, an unchanged legacy-function fingerprint, rollback, and the selective-release postcondition contract. Actor mismatch rejection is proven by executable repository and pager tests, not attributed to the disposable SQL fixture.",
+    "The favorites product patch and every affected source/test/SQL blob are byte-identical between the originally certified bf584babe, reviewed Product SHA 377f8da23 and recomposed Product SHA 10320a18. The new base contributes only the separately attested Chat message stack and its reviewed documentation reconciliation, so the documented two-lane policy preserves the focused platform evidence without repeating full matrices solely for the changed commit identity.",
+    "No production backend mutation or credential was used. Deployment and an authenticated production RPC trial remain pending until the candidate is promoted and Supabase REST no longer returns 402 exceed_egress_quota."
+  ]
+}
