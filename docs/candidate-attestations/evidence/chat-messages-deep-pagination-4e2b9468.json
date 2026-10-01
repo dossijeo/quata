@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "4e2b94682c1fc39220945e8e510fb2a18a84420d",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic deep pagination of the shared Chat message repository over the deployed quata_chat_get_thread known-ID contract: 601 messages are exhausted as 250, 250 and 101, accumulated exactly once and exposed in chronological order on Web/Wasm and iOS x64; Android compiles the unchanged common runtime.",
+  "steps": [
+    "initial_page_contains_the_latest_250_messages",
+    "second_full_page_returns_has_more_true",
+    "final_partial_page_returns_has_more_false",
+    "known_message_id_counts_progress_as_0_250_500_601",
+    "all_601_messages_are_present_exactly_once",
+    "ids_are_permuted_independently_from_timestamps",
+    "final_cache_is_ordered_by_timestamp_not_id",
+    "refresh_after_exhaustion_preserves_all_deep_pages",
+    "web_wasm_24_repository_tests_passed",
+    "ios_x64_deep_pagination_test_passed_on_exact_product_sha",
+    "android_debug_compilation_passed",
+    "independent_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "webTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosFocal": "JAVA_HOME=<installed-quata-jbr21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.deepMessagePagingExhaustsEveryPageInChronologicalOrderWithoutDuplicates --no-configure-on-demand --max-workers=1 --no-daemon --console=plain"
+  },
+  "results": {
+    "webWasmRepository": "24 tests passed in Chrome Headless",
+    "android": "BUILD SUCCESSFUL",
+    "iosX64Focal": "deepMessagePagingExhaustsEveryPageInChronologicalOrderWithoutDuplicates passed; BUILD SUCCESSFUL",
+    "deployedBackendContract": "The selective database release postflight dated 2026-09-22 already verified both quata_chat_get_thread pagination orders on the deployed catalog"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4e2b94682c1fc39220945e8e510fb2a18a84420d",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2 the original fixture coupled message IDs and timestamps; the accepted fixture uses a complete modular ID permutation so ordering by ID would fail"
+    ]
+  },
+  "cleanup": {
+    "state": "not_required",
+    "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+  },
+  "preservedFailures": [
+    "The first iOS class-wide run compiled and executed 24 tests but the pre-existing inboxCursorAppendsDeepPageAndForegroundRefreshPreservesIt timed out in its foreground-resume wait; the new deep-pagination test did not fail.",
+    "The exact focal iOS rerun selected only the new deep-pagination method and passed without repeating the unrelated class matrix."
+  ],
+  "limits": [
+    "This unit proves client accumulation, ordering, uniqueness and termination hermetically and relies on the existing verified deployed function postflight; it does not create another destructive backend fixture while Supabase egress is unavailable.",
+    "It does not claim unrelated Chat network errors, deletion permissions, expired sessions or push transport."
+  ]
+}
