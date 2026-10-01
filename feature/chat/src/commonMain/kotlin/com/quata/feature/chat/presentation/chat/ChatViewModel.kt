@@ -350,25 +350,38 @@ class ChatViewModel(
                     publishMessages(isLoading = false)
                 }
 
-                val result = when {
-                    editingMessage != null -> repository.editMessage(editingMessage.id, text)
-                    replyToMessage != null -> repository.sendReply(
-                        conversationId = conversationId,
-                        text = text,
-                        replyTo = replyToMessage,
-                        attachmentUri = attachmentUri,
-                        attachmentName = attachmentName,
-                        attachmentMimeType = attachmentMimeType,
-                        clientMessageId = draft.clientMessageId
-                    )
-                    else -> repository.sendMessage(
-                        conversationId = conversationId,
-                        text = text,
-                        attachmentUri = attachmentUri,
-                        attachmentName = attachmentName,
-                        attachmentMimeType = attachmentMimeType,
-                        clientMessageId = draft.clientMessageId
-                    )
+                val sendOperation: suspend () -> Result<Unit> = {
+                    when {
+                        editingMessage != null -> repository.editMessage(editingMessage.id, text)
+                        replyToMessage != null -> repository.sendReply(
+                            conversationId = conversationId,
+                            text = text,
+                            replyTo = replyToMessage,
+                            attachmentUri = attachmentUri,
+                            attachmentName = attachmentName,
+                            attachmentMimeType = attachmentMimeType,
+                            clientMessageId = draft.clientMessageId
+                        )
+                        else -> repository.sendMessage(
+                            conversationId = conversationId,
+                            text = text,
+                            attachmentUri = attachmentUri,
+                            attachmentName = attachmentName,
+                            attachmentMimeType = attachmentMimeType,
+                            clientMessageId = draft.clientMessageId
+                        )
+                    }
+                }
+                val result = if (attachmentCacheKey != null) {
+                    val store = composerDraftStore
+                    val lease = composerDraftLease.await()
+                    if (store != null && lease != null) {
+                        store.withAttachmentCustody(lease, sendOperation)
+                    } else {
+                        sendOperation()
+                    }
+                } else {
+                    sendOperation()
                 }
                 result
                     .onSuccess {
