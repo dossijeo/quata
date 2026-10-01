@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "08494e8c05dbe1cf91d39e2de47365570cc4f95c",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic composer-draft lifecycle and platform compilation; no backend mutation and no authenticated E2E claim.",
+  "steps": [
+    "plain_text_draft_restored_across_chat_view_models",
+    "draft_scoped_by_actor_and_conversation",
+    "successful_send_leave_delete_logout_and_account_lifecycle_clear_draft",
+    "failed_send_preserves_draft",
+    "user_input_wins_delayed_restore",
+    "concurrent_conversation_writes_survive_separate_store_instances",
+    "retired_generation_write_cannot_overwrite_new_session_draft",
+    "late_actor_resolution_enables_persistence",
+    "web_wasm_browser_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_tests_and_swift_host_build_passed"
+  ],
+  "validation": {
+    "web": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest :web:compileKotlinWasmJs",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin",
+    "iosKotlin": "./gradlew :feature:chat:iosX64Test --tests *ChatViewModelComposerActionsTest*",
+    "iosHost": "bash scripts/build-ios-intel-simulator.sh"
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+  },
+  "limits": [
+    "Only plain composer text is durable.",
+    "Attachments, reply/edit context, scroll position and unrelated internal state remain transient.",
+    "The Android platform lane was compiled; the shared lifecycle regressions executed in the browser and iOS x64 runners.",
+    "No authenticated backend run was attempted while Supabase returned 402 exceed_egress_quota."
+  ]
+}

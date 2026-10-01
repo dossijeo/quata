@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER-DRAFTS"
+  ],
+  "status": "passed",
+  "productSha": "821079a0d4cc7646c8ec6c0cfffcdeb8f5c980f1",
+  "certification": "hermetic-draft-lifecycle-complete-platform-builds-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "821079a0d4cc7646c8ec6c0cfffcdeb8f5c980f1",
+      "report": "docs/candidate-attestations/evidence/chat-composer-draft-restoration-08494e8c.json",
+      "reportSha256": "0afb8bc5f1973163d9d76ff169e2b2a718fdd3dff6fe93bf5b6633eb3ce535d2",
+      "reportStatus": "passed",
+      "reportGitHead": "08494e8c05dbe1cf91d39e2de47365570cc4f95c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "plain_text_draft_restored_across_chat_view_models",
+        "retired_generation_write_cannot_overwrite_new_session_draft",
+        "web_wasm_browser_tests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "821079a0d4cc7646c8ec6c0cfffcdeb8f5c980f1",
+      "report": "docs/candidate-attestations/evidence/chat-composer-draft-restoration-08494e8c.json",
+      "reportSha256": "0afb8bc5f1973163d9d76ff169e2b2a718fdd3dff6fe93bf5b6633eb3ce535d2",
+      "reportStatus": "passed",
+      "reportGitHead": "08494e8c05dbe1cf91d39e2de47365570cc4f95c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "draft_scoped_by_actor_and_conversation",
+        "successful_send_leave_delete_logout_and_account_lifecycle_clear_draft",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "821079a0d4cc7646c8ec6c0cfffcdeb8f5c980f1",
+      "report": "docs/candidate-attestations/evidence/chat-composer-draft-restoration-08494e8c.json",
+      "reportSha256": "0afb8bc5f1973163d9d76ff169e2b2a718fdd3dff6fe93bf5b6633eb3ce535d2",
+      "reportStatus": "passed",
+      "reportGitHead": "08494e8c05dbe1cf91d39e2de47365570cc4f95c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "late_actor_resolution_enables_persistence",
+        "retired_generation_write_cannot_overwrite_new_session_draft",
+        "ios_x64_tests_and_swift_host_build_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest :web:compileKotlinWasmJs :app:compileDebugKotlin --no-daemon --console=plain",
+    "./gradlew :feature:chat:iosX64Test --tests *ChatViewModelComposerActionsTest*",
+    "bash scripts/build-ios-intel-simulator.sh",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-composer-draft-restoration.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "08494e8c05dbe1cf91d39e2de47365570cc4f95c",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common Chat ViewModel restores plain composer text per actor and conversation after host recreation. Empty text is not persisted.",
+    "Successful send and leaving or deleting the conversation clear that conversation draft. Logout and destructive account lifecycle retire the actor generation. Failed sends preserve the draft and user input wins a delayed restoration.",
+    "Generation is part of each storage key. A write from a retired session can delete only its own generation and cannot overwrite a draft saved by the next session, including for the same conversation.",
+    "Android uses committed SharedPreferences writes for draft and logout custody, Web enumerates matching localStorage keys and iOS synchronously retires the current NSUserDefaults generation before session teardown.",
+    "Attachments, reply/edit context, scroll position and unrelated internal state remain transient. This unit does not claim backend E2E or alter message delivery semantics.",
+    "The browser test suite, Android/Web compilation, iOS x64 focal tests and the complete Intel Simulator Swift host build passed on the exact Product SHA.",
+    "Independent review returned GO with no P0-P3 findings and specifically verified the blocked-old-write, logout, new-session-save and late-old-write regression.",
+    "Product SHA 821079a0 rebases the unchanged draft-restoration runtime onto main dc3c3c88 after #494. Every runtime source path is byte-identical to the original Product SHA 08494e8c; only the required reviewed capability hashes were renewed. The historical report remains bound to 08494e8c and no platform matrix was repeated solely for the base advance."
+  ]
+}
