@@ -43,11 +43,13 @@ test("common chat repository rolls back uploaded storage only when registration 
   assert.match(commonRepository, /val uploaded = attachmentUploader\.upload\(profileId, file\)/);
   assert.match(commonRepository, /transport\.post\("quata_chat_register_attachment", body\)\.successOrThrow\(\)/);
   assert.match(commonRepository, /catch \(error: Throwable\) \{[\s\S]*runCatching \{ attachmentUploader\.deleteUploadedAttachment\(uploaded\) \}[\s\S]*AttachmentOrphanCleanupFailed/s);
-  assert.match(commonRepository, /if \(error is AttachmentOrphanCleanupFailed\) \{\s*retryableOutgoing\.remove\(id\)/s);
-  assert.match(commonRepository, /else \{\s*retryableOutgoing\[id\] = RetryableOutgoingMessage/s);
+  assert.match(commonRepository, /if \(error is AttachmentOrphanCleanupFailed\) \{[\s\S]*orphanCleanupBlocked = true[\s\S]*attempts = MaxOutboxAttempts/s);
+  assert.match(commonRepository, /persistClaimed\(unsafeToRetry, leaseToken\)[\s\S]*projectPendingMessage\(unsafeToRetry\)/s);
+  assert.match(commonRepository, /else \{[\s\S]*persistClaimed\(updated, leaseToken\)[\s\S]*if \(!updated\.deliveredAwaitingCleanup\) projectPendingMessage\(updated\)/s);
   assert.match(commonRepositoryTest, /registerFailureAfterAttachmentUploadDeletesTheOrphanStorageObject/);
   assert.match(commonRepositoryTest, /registerFailureAfterAttachmentUploadFailsClosedWhenOrphanCleanupReturnsFalse/);
-  assert.match(commonRepositoryTest, /orphanCleanupFailureRemovesAnAlreadyQueuedRetry/);
+  assert.match(commonRepositoryTest, /orphanCleanupFailureBlocksAnAlreadyQueuedRetryWithoutReuploading/);
+  assert.match(commonRepositoryTest, /orphanCleanupIsReconciledBeforeAReplacementUploadCanSend/);
   assert.match(commonRepositoryTest, /retryPendingMessage\("client-cleanup-false"\)\.isFailure/);
   assert.match(commonRepositoryTest, /retryPendingMessage\("client-cleanup-throws"\)\.isFailure/);
   assert.match(commonRepositoryTest, /retryAfterSendFailureReusesRegisteredAttachment/);
