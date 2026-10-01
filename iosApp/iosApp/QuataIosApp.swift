@@ -328,6 +328,7 @@ private final class IosAppCompositionRoot {
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
     private var hasValidatedAuthenticatedSession = false
+    private var retiringChatDraftActorId: String?
     private let authenticatedSessionGeneration = IosAuthenticatedSessionGenerationGuard()
     private var hasEvaluatedWhatsNewStartup = false
 
@@ -1841,6 +1842,7 @@ private final class IosAppCompositionRoot {
                 )
                 return
             }
+            self?.prepareChatDraftRetirement()
             handler.perform(
                 action: action,
                 password: password,
@@ -1923,6 +1925,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installLogoutAction(
             { [weak self] completed in
                 guard let self else { return }
+                self.prepareChatDraftRetirement()
                 self.notificationReplyRuntime?.sessionEnded()
                 guard let apnsRuntime = self.apnsRuntime else {
                     logoutHandler.logout(onCompleted: completed)
@@ -1943,6 +1946,7 @@ private final class IosAppCompositionRoot {
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
+                self?.retirePreparedChatDraft()
                 self?.setValidatedAuthenticatedSession(false)
                 self?.authenticationContinuationCoordinator.clearAll()
                 self?.postComposerAuthenticationCoordinator.clear()
@@ -2033,6 +2037,28 @@ private final class IosAppCompositionRoot {
             session: renewableAuthSession,
             presenterProvider: platformServices,
         )
+    }
+
+    private func prepareChatDraftRetirement() {
+        if retiringChatDraftActorId == nil {
+            retiringChatDraftActorId = renewableAuthSession?.restoredSession()?.userId
+        }
+    }
+
+    private func retirePreparedChatDraft() {
+        guard let actorId = retiringChatDraftActorId else { return }
+        let defaults = UserDefaults.standard
+        let retirementKey = ChatComposerDraftStoreKt.chatComposerDraftRetirementKey(actorId: actorId)
+        let generation = Int64(defaults.string(forKey: retirementKey) ?? "0") ?? 0
+        defaults.set(String(generation + 1), forKey: retirementKey)
+        let generationPrefix = ChatComposerDraftStoreKt.chatComposerDraftGenerationPrefix(
+            actorId: actorId,
+            generation: generation
+        )
+        defaults.dictionaryRepresentation().keys
+            .filter { $0.hasPrefix(generationPrefix) }
+            .forEach(defaults.removeObject(forKey:))
+        retiringChatDraftActorId = nil
     }
 
     private func authRuntimeConfiguration(from configuration: IosFeedRuntimeConfiguration) -> IosAuthRuntimeConfiguration {

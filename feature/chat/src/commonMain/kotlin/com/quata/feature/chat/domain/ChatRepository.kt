@@ -66,6 +66,7 @@ interface ChatRepository {
     val syncStatus: StateFlow<ChatSyncStatus>
     fun setDeviceNetworkAvailable(isAvailable: Boolean)
     fun currentUser(): User?
+    suspend fun currentActorId(): String? = currentUser()?.id
     fun setActiveConversation(conversationId: String?)
     fun setConversationVisible(conversationId: String, visible: Boolean)
     fun setAppForeground(isForeground: Boolean)

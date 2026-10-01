@@ -47,6 +47,7 @@ import com.quata.feature.chat.presentation.chat.ChatDocumentAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatMediaAttachmentActions
 import com.quata.feature.chat.presentation.chat.ChatComposerActionCallbacks
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
+import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
 import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
 import com.quata.feature.chat.presentation.chat.chatTranslatorStringsForLanguage
@@ -110,6 +111,7 @@ fun WebChatHost(
             searchPreferences = ConversationSearchPreferences(preferences),
         )
     }
+    val composerDraftStore = remember(preferences) { ChatComposerDraftStore(preferences) }
     val clipboard = remember { BrowserClipboardService() }
     val translationGateway = remember {
         FangChatTranslationGateway(FangTranslationService(transport = BrowserTranslationHttpTransport()))
@@ -145,6 +147,7 @@ fun WebChatHost(
             }
         },
         conversationId = conversationId,
+        composerDraftStore = composerDraftStore,
         focusedMessageId = focusedMessageId,
         onFocusedMessageVisible = ::setWebChatFocusedMessageSelected,
         onFocusedMessageHandled = {
