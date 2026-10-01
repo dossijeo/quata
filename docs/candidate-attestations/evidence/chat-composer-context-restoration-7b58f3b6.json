@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "7b58f3b6209c92875b2fb0df8ee0860c554fdefd",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic plain/reply/edit composer restoration and affected platform validation; no backend mutation and no authenticated E2E claim.",
+  "steps": [
+    "legacy_plain_text_draft_remains_compatible",
+    "invalid_context_targets_fail_closed",
+    "context_scoped_by_actor_generation_and_conversation",
+    "reply_context_restored_only_after_authoritative_target_validation",
+    "edit_context_restored_only_for_authoritative_owned_target",
+    "reply_and_edit_context_persist_before_additional_input",
+    "missing_deleted_local_echo_and_unowned_targets_fail_closed",
+    "older_target_is_resolved_after_bounded_progress_paging",
+    "paging_stops_when_full_cache_receives_no_new_messages",
+    "user_input_cancels_suspended_restore_and_clears_loading_state",
+    "successful_reply_and_edit_use_the_restored_target_and_clear_the_draft",
+    "web_wasm_affected_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_affected_tests_passed",
+    "independent_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "web": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests *ChatViewModelComposerActionsTest* --tests *PostgrestChatRepositoryTest*",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin",
+    "ios": "bash ./gradlew :feature:chat:iosX64Test --tests *ChatViewModelComposerActionsTest.contextualRestorePagesHistoryUntilTheTargetIsInAnAuthoritativeSnapshot* --tests *ChatViewModelComposerActionsTest.userInputCancelsSuspendedContextRestoreWithoutLeavingHistoryLoadingStuck* --tests *PostgrestChatRepositoryTest.olderMessagePagingStopsWhenAnAlreadyFullCacheReceivesNoNewMessages*",
+    "diff": "git diff --check"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "7b58f3b6209c92875b2fb0df8ee0860c554fdefd",
+    "blockingFindings": []
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+  },
+  "preservedAttempt": {
+    "platform": "iosX64",
+    "scope": "two complete affected test classes",
+    "result": "failed_only_in_preexisting_unrelated_inbox_cursor_timeout",
+    "failedTest": "PostgrestChatRepositoryTest.inboxCursorAppendsDeepPageAndForegroundRefreshPreservesIt",
+    "followUp": "three_exact_affected_tests_passed"
+  },
+  "limits": [
+    "Attachments, scroll position and unrelated internal state remain transient.",
+    "No authenticated backend or visual host E2E is claimed.",
+    "Final GitHub candidate certification remains pending behind the single active remote candidate."
+  ]
+}
