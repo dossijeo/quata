@@ -145,4 +145,6 @@ interface ChatRepository {
     suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult>
     suspend fun flushPendingMessages(): Boolean
     suspend fun retryPendingMessage(clientMessageId: String): Result<Unit>
+    /** True only while this exact client id remains accepted by the actor-bound local outbox. */
+    suspend fun isMessagePending(clientMessageId: String): Boolean = false
 }

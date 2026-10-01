@@ -669,6 +669,12 @@ class ChatRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun isMessagePending(clientMessageId: String): Boolean {
+        if (AppConfig.USE_MOCK_BACKEND) return false
+        val session = sessionManager.currentSession() ?: return false
+        return cacheStore.pendingOutgoing(session.userId).any { it.clientMessageId == clientMessageId }
+    }
+
     private suspend fun markOutgoingFailed(outgoing: PendingOutgoingMessage) {
         val state = messagesState(outgoing.conversationId)
         state.value = state.value.map { message ->
