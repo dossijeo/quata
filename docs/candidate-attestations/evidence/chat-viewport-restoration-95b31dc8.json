@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "95b31dc83265449c7e502ab9ec1c125cdc6d22aa",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic restoration of the Chat conversation viewport in the shared Android, Web/Wasm and iOS product root; no backend mutation or authenticated remote E2E claim.",
+  "steps": [
+    "latest_and_stable_message_anchor_are_scoped_by_actor_generation_and_conversation",
+    "scroll_offset_is_persisted_in_density_independent_units",
+    "initial_position_waits_for_durable_store_read",
+    "explicit_focused_message_takes_priority_over_stored_viewport",
+    "older_pages_are_loaded_until_the_authoritative_anchor_is_present",
+    "local_echo_cannot_satisfy_a_durable_anchor",
+    "history_exhaustion_discards_a_stale_anchor",
+    "recoverable_read_failure_preserves_the_durable_anchor_and_blocks_automatic_latest_overwrite",
+    "explicit_user_scroll_reenables_viewport_persistence",
+    "leave_delete_and_actor_retirement_clear_viewport_under_existing_actor_custody",
+    "close_waits_for_the_last_queued_viewport_write",
+    "web_wasm_focal_model_and_compose_ui_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_focal_model_and_compose_ui_tests_passed",
+    "independent_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "diff": "git diff --check HEAD^..HEAD",
+    "webTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewportRestorationTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-daemon --console=plain",
+    "iosTests": "JAVA_HOME=<installed-jdk-21> bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatViewportRestorationTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --tests com.quata.feature.chat.presentation.chat.ChatConversationViewportUiTest --console=plain"
+  },
+  "results": {
+    "webWasmFocal": "three affected classes passed in Chrome Headless",
+    "android": "BUILD SUCCESSFUL",
+    "iosX64Focal": "three affected classes passed; BUILD SUCCESSFUL"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "95b31dc83265449c7e502ab9ec1c125cdc6d22aa",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2 recoverable pagination failure no longer deletes the durable anchor",
+      "P2 automatic Latest emission cannot overwrite a protected anchor before explicit user scroll",
+      "P2 fallback protection survives host recomposition in ChatUiState"
+    ]
+  },
+  "cleanup": {
+    "state": "not_required",
+    "mode": "local_preferences_only_no_credentials_no_remote_mutation"
+  },
+  "limits": [
+    "The evidence is hermetic and does not claim authenticated backend or visual host E2E.",
+    "The unit restores a Chat conversation viewport; unrelated screen state, IME behavior and cross-process browser coordination remain outside this claim.",
+    "Final GitHub candidate certification remains pending behind the single active remote candidate."
+  ]
+}
