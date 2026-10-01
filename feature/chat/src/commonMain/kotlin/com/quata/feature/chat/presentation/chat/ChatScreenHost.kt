@@ -216,12 +216,14 @@ fun ChatScreenHost(
                     message = focusedLoadFailure?.error ?: state.messageLoadFailure ?: text(ChatText.LoadMessages),
                     retryLabel = slots.chromeStrings.retryMessages,
                     onRetry = {
-                        if (focusedLoadFailure != null) {
-                            historyPageRequested = false
-                            deepLinkRequest = retryChatMessageDeepLinkRequest(deepLinkRequest)
-                        }
-                        model.retryMessageLoading()
-                    },
+                            if (focusedLoadFailure != null) {
+                                historyPageRequested = false
+                                deepLinkRequest = retryChatMessageDeepLinkRequest(deepLinkRequest)
+                                model.retryFocusedMessageLoading()
+                            } else {
+                                model.retryMessageLoading()
+                            }
+                        },
                 )
             }
             CompositionLocalProvider(LocalQuataTranslatableTextRegistry provides translatorRegistry) {

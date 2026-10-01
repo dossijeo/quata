@@ -52,6 +52,8 @@ class ChatViewModel(
     private val composerDraftLease = CompletableDeferred<ChatComposerDraftLease?>()
     private var pendingComposerRestore: PendingComposerRestore? = null
     private var lastQueuedViewport: ChatConversationViewport? = null
+    private var messageObservationFailure: String? = null
+    private var historyLoadFailure: String? = null
 
     init {
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
@@ -124,9 +126,10 @@ class ChatViewModel(
         messageObservationJob = scope.launch {
             repository.observeMessages(conversationId)
                 .catch {
+                    messageObservationFailure = text(ChatText.LoadMessages)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        messageLoadFailure = text(ChatText.LoadMessages),
+                        messageLoadFailure = currentMessageLoadFailure(),
                     )
                 }
                 .collect { messages ->
@@ -147,10 +150,11 @@ class ChatViewModel(
                             }
                     }
                     publishMessages(isLoading = false)
+                    messageObservationFailure = null
                     _uiState.value = _uiState.value.copy(
                         currentUser = repository.currentUser(),
                         hasReceivedMessageSnapshot = true,
-                        messageLoadFailure = null,
+                        messageLoadFailure = currentMessageLoadFailure(),
                     )
                     tryRestoreComposerDraft()
                     if (isConversationVisible && repository.isAppForeground.value) {
@@ -230,11 +234,19 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
         scope.launch {
             repository.loadOlderMessages(conversationId)
-                .onSuccess { hasMore -> _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false, hasMoreHistory = hasMore) }
-                .onFailure {
+                .onSuccess { hasMore ->
+                    historyLoadFailure = null
                     _uiState.value = _uiState.value.copy(
                         isLoadingOlderMessages = false,
-                        messageLoadFailure = text(ChatText.LoadMessages),
+                        hasMoreHistory = hasMore,
+                        messageLoadFailure = currentMessageLoadFailure(),
+                    )
+                }
+                .onFailure {
+                    historyLoadFailure = text(ChatText.LoadMessages)
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOlderMessages = false,
+                        messageLoadFailure = currentMessageLoadFailure(),
                     )
                 }
         }
@@ -242,10 +254,21 @@ class ChatViewModel(
     }
 
     /** Reattaches the authenticated message flow only after a user explicitly requests a retry. */
-    fun retryMessageLoading() {
+    fun retryMessageLoading() = retryMessageLoading(retryHistory = true)
+
+    fun retryFocusedMessageLoading() = retryMessageLoading(retryHistory = false)
+
+    private fun retryMessageLoading(retryHistory: Boolean) {
+        val retryObservation = messageObservationFailure != null
+        val retryOlderPage = historyLoadFailure != null
+        messageObservationFailure = null
+        historyLoadFailure = null
         _uiState.value = _uiState.value.copy(messageLoadFailure = null, error = null)
-        observeMessages()
+        if (retryObservation || !retryOlderPage) observeMessages()
+        if (retryOlderPage && retryHistory) loadOlderMessages()
     }
+
+    private fun currentMessageLoadFailure(): String? = messageObservationFailure ?: historyLoadFailure
 
     fun retryPendingMessage(clientMessageId: String) {
         scope.launch {
