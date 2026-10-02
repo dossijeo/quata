@@ -28,6 +28,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 class SupabaseApiException(message: String, val statusCode: Int? = null, val responseBody: String? = null) : Exception(message)
 
@@ -41,6 +42,7 @@ class SupabaseHttpClient(
     private val appJson = "application/json".toMediaType()
     private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val inFlightGetKeys = ConcurrentHashMap.newKeySet<String>()
+    private val cacheInvalidationGenerations = ConcurrentHashMap<String, AtomicLong>()
     @Volatile
     private var refreshBlockedUntilMillis: Long = 0L
 
@@ -58,6 +60,101 @@ class SupabaseHttpClient(
     ): List<T> {
         val body = execute("GET", restUrl(table, query), null, cacheTable = table, cacheQuery = query, cacheMode = cacheMode)
         return decodeList(serializer, body)
+    }
+
+    /** Public GET that always omits Authorization, even when a user session is present. */
+    internal suspend inline fun <reified T> getPublicList(
+        table: String,
+        query: Map<String, String?> = emptyMap(),
+        cacheTable: String = table,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+    ): List<T> = getPublicList(table, serializer(), query, cacheTable, cacheMode)
+
+    internal suspend fun <T> getPublicList(
+        table: String,
+        serializer: KSerializer<T>,
+        query: Map<String, String?> = emptyMap(),
+        cacheTable: String = table,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+    ): List<T> {
+        val language = QuataLanguageManager.currentLanguage.tag
+        val body = executePublicCachedGet(
+            url = restUrl(table, query),
+            tableName = cacheTable,
+            cacheMode = cacheMode,
+            officialLanguage = language,
+        )
+        return decodeList(serializer, body)
+    }
+
+    internal inline fun <reified T> observePublicList(
+        table: String,
+        query: Map<String, String?> = emptyMap(),
+        cacheTable: String = table,
+        emitUnchangedAfterInvalidation: Boolean = false,
+    ): Flow<List<T>> = observePublicList(
+        table = table,
+        serializer = serializer(),
+        query = query,
+        cacheTable = cacheTable,
+        emitUnchangedAfterInvalidation = emitUnchangedAfterInvalidation,
+    )
+
+    internal fun <T> observePublicList(
+        table: String,
+        serializer: KSerializer<T>,
+        query: Map<String, String?> = emptyMap(),
+        cacheTable: String = table,
+        emitUnchangedAfterInvalidation: Boolean = false,
+    ): Flow<List<T>> {
+        val url = restUrl(table, query)
+        val language = QuataLanguageManager.currentLanguage.tag
+        val store = cacheStore
+        if (store == null) {
+            return channelFlow {
+                send(decodeList(serializer, executePublicGet(url, language)))
+                close()
+            }
+        }
+        val key = publicCacheKey(url, language)
+        return channelFlow {
+            val emissionGate = CachedResponseEmissionGate()
+            suspend fun emitBody(body: String) {
+                if (emissionGate.accepts(body)) send(decodeList(serializer, body))
+            }
+            fun refreshNetwork() = launch {
+                val result = runCatching {
+                    refreshPublicCachedGet(key, url, cacheTable, language)
+                }
+                if (result.isFailure && !emissionGate.hasValue) close(result.exceptionOrNull())
+            }
+
+            val initialCache = store.read(key)
+            initialCache?.responseJson?.let { emitBody(it) }
+
+            val cacheJob = launch {
+                store.observe(key).collect { cached ->
+                    val body = cached?.responseJson
+                    if (body == null) {
+                        if (emissionGate.hasValue) {
+                            emissionGate.markInvalidated(emitUnchangedAfterInvalidation)
+                            refreshNetwork()
+                        }
+                        return@collect
+                    }
+                    emitBody(body)
+                }
+            }
+            val refreshJob = if (initialCache != null && initialCache.isFresh()) {
+                launch { }
+            } else {
+                refreshNetwork()
+            }
+            awaitClose {
+                cacheJob.cancel()
+                refreshJob.cancel()
+            }
+        }
     }
 
     internal inline fun <reified T> observeList(
@@ -230,7 +327,7 @@ class SupabaseHttpClient(
     }
 
     suspend fun invalidateTables(vararg tableNames: String) {
-        cacheStore?.invalidateTables(*tableNames)
+        tableNames.distinct().forEach { tableName -> invalidateCacheTable(tableName) }
     }
 
     suspend fun uploadObject(
@@ -397,14 +494,104 @@ class SupabaseHttpClient(
     private suspend fun executeGetRequest(url: String): String =
         executeRequest(baseRequest(url).get().build())
 
+    private suspend fun executePublicCachedGet(
+        url: String,
+        tableName: String,
+        cacheMode: SupabaseCacheMode,
+        officialLanguage: String,
+    ): String {
+        val store = cacheStore
+        if (store == null || cacheMode == SupabaseCacheMode.NETWORK_ONLY) {
+            return executePublicGet(url, officialLanguage)
+        }
+        val key = publicCacheKey(url, officialLanguage)
+        val cachedResponse = store.read(key)
+        if (cachedResponse != null) {
+            if (!cachedResponse.isFresh()) {
+                refreshScope.launch {
+                    runCatching { refreshPublicCachedGet(key, url, tableName, officialLanguage) }
+                }
+            }
+            return cachedResponse.responseJson
+        }
+        return refreshPublicCachedGet(key, url, tableName, officialLanguage)
+    }
+
+    private suspend fun refreshPublicCachedGet(
+        key: String,
+        url: String,
+        tableName: String,
+        officialLanguage: String,
+    ): String {
+        val store = cacheStore ?: return executePublicGet(url, officialLanguage)
+        val ownsRefresh = inFlightGetKeys.add(key)
+        if (!ownsRefresh) {
+            repeat(IN_FLIGHT_CACHE_WAIT_ATTEMPTS) {
+                store.read(key)?.let { return it.responseJson }
+                delay(IN_FLIGHT_CACHE_WAIT_DELAY_MILLIS)
+            }
+            store.read(key)?.let { return it.responseJson }
+            return executeGenerationStablePublicGet(url, tableName, officialLanguage)
+        }
+        try {
+            while (true) {
+                val generation = cacheInvalidationGeneration(tableName)
+                val response = executePublicGet(url, officialLanguage)
+                if (cacheInvalidationGeneration(tableName) != generation) continue
+                store.write(
+                    key = key,
+                    method = "GET",
+                    url = url,
+                    tableName = tableName,
+                    responseJson = response,
+                )
+                if (cacheInvalidationGeneration(tableName) == generation) return response
+                // The invalidation raced with this write. Remove only the stale entry
+                // before retrying under the newer table generation.
+                store.invalidateKey(key)
+            }
+        } finally {
+            inFlightGetKeys.remove(key)
+        }
+    }
+
+    private suspend fun executePublicGet(url: String, officialLanguage: String): String =
+        executeRequest(
+            request = baseRequest(url, officialLanguage = officialLanguage).get().build(),
+            apiKeyOverride = config.anonKey,
+        )
+
+    private suspend fun executeGenerationStablePublicGet(
+        url: String,
+        tableName: String,
+        officialLanguage: String,
+    ): String {
+        while (true) {
+            val generation = cacheInvalidationGeneration(tableName)
+            val response = executePublicGet(url, officialLanguage)
+            if (cacheInvalidationGeneration(tableName) == generation) return response
+        }
+    }
+
     private suspend fun invalidateTableAfterMutation(table: String) {
+        invalidateCacheTable(table)
+    }
+
+    private suspend fun invalidateCacheTable(table: String) {
+        cacheInvalidationGenerations.computeIfAbsent(table) { AtomicLong() }.incrementAndGet()
         cacheStore?.invalidateTable(table)
     }
+
+    private fun cacheInvalidationGeneration(table: String): Long =
+        cacheInvalidationGenerations[table]?.get() ?: 0L
 
     private fun <T> decodeList(serializer: KSerializer<T>, body: String): List<T> =
         json.decodeFromString(ListSerializer(serializer), body)
 
     private fun cacheKey(method: String, url: String): String = "$method $url"
+
+    private fun publicCacheKey(url: String, officialLanguage: String): String =
+        cacheKey("GET", "$url#public-language=${enc(officialLanguage.lowercase())}")
 
     private fun CachedSupabaseResponse.isFresh(): Boolean =
         System.currentTimeMillis() - updatedAtMillis < CACHE_FIRST_REFRESH_TTL_MILLIS
@@ -554,13 +741,17 @@ class SupabaseHttpClient(
         parts.size == 3 && parts.all(String::isNotBlank)
     }
 
-    private fun baseRequest(url: String, useContentProfile: Boolean = true): Request.Builder {
+    private fun baseRequest(
+        url: String,
+        useContentProfile: Boolean = true,
+        officialLanguage: String = QuataLanguageManager.currentLanguage.tag,
+    ): Request.Builder {
         val builder = Request.Builder()
         .url(url)
         .addHeader("apikey", config.anonKey)
         .addHeader("Accept", "application/json")
         .addHeader("x-quata-client-generation", "android-auth-boundary-v1")
-        .addHeader("x-quata-official-language", QuataLanguageManager.currentLanguage.tag)
+        .addHeader("x-quata-official-language", officialLanguage)
         if (useContentProfile) {
             builder
                 .addHeader("Content-Profile", config.schema)

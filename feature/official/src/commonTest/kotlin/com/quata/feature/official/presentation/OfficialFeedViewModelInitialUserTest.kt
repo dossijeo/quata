@@ -123,7 +123,7 @@ class OfficialFeedViewModelInitialUserTest {
         override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flowOf(Result.success(emptyList()))
         override suspend fun getOfficialFeed(): Result<List<OfficialPostItem>> = Result.success(emptyList())
         override suspend fun refreshOfficialFeed(): Result<List<OfficialPostItem>> = Result.success(emptyList())
-        override suspend fun loadOlderOfficialFeedPage(beforePublishedAt: String?, limit: Int): Result<List<OfficialPostItem>> = Result.success(emptyList())
+        override suspend fun loadOlderOfficialFeedPage(cursor: com.quata.feature.official.domain.OfficialFeedCursor, limit: Int): Result<List<OfficialPostItem>> = Result.success(emptyList())
         override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = Result.success(null)
         override suspend fun refreshCurrentUser(): Result<User?> = Result.failure(IllegalStateException("offline"))
         override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = Result.success(null)

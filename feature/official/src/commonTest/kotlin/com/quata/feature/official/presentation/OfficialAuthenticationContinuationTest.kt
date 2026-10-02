@@ -177,7 +177,7 @@ private fun continuationOfficialRepository(post: OfficialPostItem) = object : Of
     override fun observeOfficialFeed() = flowOf(Result.success(listOf(post)))
     override suspend fun getOfficialFeed() = Result.success(listOf(post))
     override suspend fun refreshOfficialFeed() = Result.success(listOf(post))
-    override suspend fun loadOlderOfficialFeedPage(beforePublishedAt: String?, limit: Int) = Result.success(emptyList<OfficialPostItem>())
+    override suspend fun loadOlderOfficialFeedPage(cursor: com.quata.feature.official.domain.OfficialFeedCursor, limit: Int) = Result.success(emptyList<OfficialPostItem>())
     override suspend fun getOfficialPost(postId: String) = Result.success(post.takeIf { it.id == postId })
     override suspend fun refreshCurrentUser() = Result.success<User?>(null)
     override suspend fun createPost(draft: OfficialPostDraft) = Result.success<OfficialPostItem?>(null)

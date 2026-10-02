@@ -110,6 +110,12 @@ class SupabaseResponseCacheStore(context: Context) {
         }
     }
 
+    suspend fun invalidateKey(key: String) = withContext(Dispatchers.IO) {
+        if (helper.writableDatabase.delete(TABLE_CACHE, "$COL_KEY = ?", arrayOf(key)) > 0) {
+            changes.tryEmit(key)
+        }
+    }
+
     suspend fun invalidateTables(vararg tableNames: String) {
         tableNames.distinct().forEach { tableName -> invalidateTable(tableName) }
     }

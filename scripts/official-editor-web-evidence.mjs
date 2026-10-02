@@ -5,6 +5,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promi
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
+import { officialFeedPageFixtureResponse } from "./official-editor-web-evidence-policy.mjs";
 
 const PROFILE_ID = "11111111-1111-4111-8111-111111111111";
 const ACCESS_TOKEN = "fixture.official.access.token";
@@ -132,6 +133,16 @@ try {
   if (!report.requests.some((entry) => entry.table === "community_profiles" && entry.authenticated)) {
     throw new Error("official_profile_permission_read_missing");
   }
+  if (!report.requests.some((entry) =>
+    entry.table === "rpc/quata_official_feed_page" &&
+    entry.method === "GET" &&
+    entry.authenticated === false &&
+    entry.authorizationPresent === false &&
+    entry.query?.p_limit === "50" &&
+    entry.statusCode === 200
+  )) {
+    throw new Error("official_feed_public_rpc_fixture_not_exercised");
+  }
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -242,9 +253,10 @@ async function startServer(root, requests) {
 
 function handleRest(url, request, response, requests) {
   const table = url.pathname.replace("/rest/v1/", "");
+  const authorizationPresent = typeof request.headers.authorization === "string" && request.headers.authorization.trim().length > 0;
   const authenticated = request.headers.authorization === `Bearer ${ACCESS_TOKEN}`;
   const query = Object.fromEntries(url.searchParams.entries());
-  const observed = { table, method: request.method, authenticated, query };
+  const observed = { table, method: request.method, authenticated, authorizationPresent, query };
   requests.push(observed);
   if (request.method === "POST" && table === "rpc/quata_chat_get_inbox") {
     if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
@@ -259,6 +271,14 @@ function handleRest(url, request, response, requests) {
       has_more: false,
       next_cursor: null,
     });
+  }
+  if (table === "rpc/quata_official_feed_page") {
+    const fixture = officialFeedPageFixtureResponse({
+      method: request.method,
+      authorization: request.headers.authorization,
+      query,
+    });
+    return observedJson(response, observed, fixture.status, fixture.body);
   }
   if (table === "official_posts" || table === "official_post_comments" || table === "official_post_likes") {
     if (request.method === "GET") return observedJson(response, observed, 200, []);
@@ -497,7 +517,8 @@ function safeFailure(error) {
     "pr_identity_missing_number", "pr_identity_missing_base", "pr_identity_missing_head",
     "pr_identity_missing_merge", "pr_identity_checkout_not_merge", "pr_identity_head_matches_base",
     "official_create_cta_not_visible", "browser_runtime_fault",
-    "official_profile_permission_read_missing", "official_editor_publish_fixture_not_denied",
+    "official_profile_permission_read_missing", "official_feed_public_rpc_fixture_not_exercised",
+    "official_editor_publish_fixture_not_denied",
     "request_not_observed", "official_feed_e2e_session_missing",
     "official_feed_e2e_state_timeout", "official_editor_e2e_state_timeout",
     "official_editor_body_input_not_committed", "official_editor_body_field_text_timeout",

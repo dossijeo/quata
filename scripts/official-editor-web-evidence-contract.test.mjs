@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { officialFeedPageFixtureResponse } from "./official-editor-web-evidence-policy.mjs";
 
 const runner = await readFile(new URL("./official-editor-web-evidence.mjs", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -24,6 +25,15 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   );
   assert.match(runner, /url\.searchParams\.get\("id"\) !== `in\.\(\$\{PROFILE_ID\}\)`/);
   assert.match(runner, /request\.headers\.authorization === `Bearer \$\{ACCESS_TOKEN\}`/);
+  assert.match(
+    runner,
+    /table === "rpc\/quata_official_feed_page"[\s\S]*?officialFeedPageFixtureResponse[\s\S]*?authorization: request\.headers\.authorization[\s\S]*?fixture\.status, fixture\.body/,
+  );
+  assert.match(
+    runner,
+    /entry\.table === "rpc\/quata_official_feed_page"[\s\S]*?entry\.method === "GET"[\s\S]*?entry\.authenticated === false[\s\S]*?entry\.authorizationPresent === false[\s\S]*?entry\.query\?\.p_limit === "50"[\s\S]*?entry\.statusCode === 200/,
+  );
+  assert.match(runner, /official_feed_public_rpc_fixture_not_exercised/);
   assert.match(runner, /is_official: "true"/);
   assert.match(runner, /quata-auth-e2e=1&quata-official-editor-e2e=1#official/);
   assert.match(runner, /__quataOfficialFeedE2eProduct\.create\(\)/);
@@ -57,6 +67,27 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /official_editor_publish_fixture_not_denied/);
   assert.match(runner, /fixture_mutation_forbidden/);
   assert.doesNotMatch(runner, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
+});
+
+test("Official editor Web evidence rejects every bearer on the public feed fixture", () => {
+  for (const authorization of [
+    "Bearer fixture.official.access.token",
+    "Bearer wrong-token",
+    "Bearer expired-token",
+  ]) {
+    assert.deepEqual(
+      officialFeedPageFixtureResponse({ method: "GET", authorization, query: { p_limit: "50" } }),
+      { status: 400, body: { error: "fixture_public_feed_bearer_forbidden" } },
+    );
+  }
+  assert.deepEqual(
+    officialFeedPageFixtureResponse({ method: "GET", query: { p_limit: "50" } }),
+    { status: 200, body: [] },
+  );
+  assert.deepEqual(
+    officialFeedPageFixtureResponse({ method: "GET", query: { p_limit: "50", p_before_id: "unexpected" } }),
+    { status: 400, body: { error: "fixture_public_feed_initial_page_required" } },
+  );
 });
 
 test("Official editor Web evidence runner and contract are callable from package scripts", () => {

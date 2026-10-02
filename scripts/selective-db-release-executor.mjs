@@ -122,6 +122,12 @@ const approvedReleases = [
       ["20261002010000", "749ff3d6f7748be355e4b7f88f77db1f4bdeb015689590b42c449f1d1e60753c"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261002013000", "64241db48e63ee41c599ed0c2ef53030c6857bd3b942dc44fbf86a991f04eb63"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -777,6 +783,62 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
         || normalizeSql(resolver.source) !== resolverSource || !resolver.public_execute
         || !resolver.anon_execute || !resolver.authenticated_execute) {
       throw new Error("selective_release_community_post_likes_resolver_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261002013000")) {
+    const functionRows = (await client.query(`
+      select l.lanname as language,
+             p.provolatile as volatility,
+             p.prosecdef as security_definer,
+             p.proretset as returns_set,
+             p.prorettype='public.official_posts'::regtype as returns_official_posts,
+             p.proconfig as configuration,
+             pg_get_functiondef(p.oid) as definition,
+             exists (
+               select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                where acl.grantee=0 and acl.privilege_type='EXECUTE'
+             ) as public_execute,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon_execute,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute
+        from pg_proc p
+        join pg_namespace n on n.oid=p.pronamespace
+        join pg_language l on l.oid=p.prolang
+       where n.nspname='public'
+         and p.proname='quata_official_feed_page'
+         and pg_get_function_identity_arguments(p.oid)='p_limit integer, p_before_sort_at timestamp with time zone, p_before_created_at timestamp with time zone, p_before_id uuid'
+    `)).rows;
+    const pageFunction = functionRows[0];
+    const definition = String(pageFunction?.definition ?? "").replace(/\s+/g, " ");
+    if (functionRows.length !== 1
+        || pageFunction.language !== "plpgsql" || pageFunction.volatility !== "s"
+        || pageFunction.security_definer || !pageFunction.returns_set || !pageFunction.returns_official_posts
+        || JSON.stringify(pageFunction.configuration) !== JSON.stringify(["search_path=public, pg_temp"])
+        || pageFunction.public_execute || !pageFunction.anon_execute || !pageFunction.authenticated_execute
+        || !/cursor_values not in \(0, 3\)/i.test(definition)
+        || !/partition by op\.translation_group_id/i.test(definition)
+        || !/coalesce\(chosen\.published_at, chosen\.created_at\).*chosen\.created_at.*chosen\.id.*<.*p_before_sort_at.*p_before_created_at.*p_before_id/is.test(definition)
+        || !/order by coalesce\(chosen\.published_at, chosen\.created_at\) desc, chosen\.created_at desc, chosen\.id desc/i.test(definition)) {
+      throw new Error("selective_release_official_feed_function_postcondition_failed");
+    }
+
+    const indexRows = (await client.query(`
+      select i.indisvalid as valid,
+             i.indisready as ready,
+             i.indisunique as unique,
+             pg_get_indexdef(i.indexrelid) as definition,
+             pg_get_expr(i.indpred, i.indrelid) as predicate
+        from pg_index i
+        join pg_class index_relation on index_relation.oid=i.indexrelid
+        join pg_namespace n on n.oid=index_relation.relnamespace
+       where n.nspname='public' and index_relation.relname='official_posts_public_total_order_idx'
+    `)).rows;
+    const feedIndex = indexRows[0];
+    const indexDefinition = String(feedIndex?.definition ?? "").replace(/\s+/g, " ");
+    const predicate = String(feedIndex?.predicate ?? "").replace(/\s+/g, " ");
+    if (indexRows.length !== 1 || !feedIndex.valid || !feedIndex.ready || feedIndex.unique
+        || !/\(language, COALESCE\(published_at, created_at\) DESC, created_at DESC, id DESC\) INCLUDE \(translation_group_id\)/i.test(indexDefinition)
+        || !/is_published = true/i.test(predicate) || !/deleted_at is null/i.test(predicate)) {
+      throw new Error("selective_release_official_feed_index_postcondition_failed");
     }
   }
   if (selectedVersions.includes("20260927100000")

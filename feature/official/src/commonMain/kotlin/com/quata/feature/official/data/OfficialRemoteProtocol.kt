@@ -224,6 +224,8 @@ fun OfficialRemotePost.toOfficialDomain(
         linkUrl = linkUrl,
         isLive = isLive,
         createdAt = publishedAt ?: createdAt.orEmpty(),
+        publishedAt = publishedAt ?: createdAt.orEmpty(),
+        sourceCreatedAt = createdAt ?: publishedAt.orEmpty(),
         likesCount = likesCount,
         commentsCount = comments.size,
         isLikedByCurrentUser = likedByCurrentUser,

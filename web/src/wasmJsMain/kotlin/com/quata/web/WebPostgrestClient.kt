@@ -77,13 +77,14 @@ class WebPostgrestClient(
         limit: Int? = null,
         offset: Int? = null,
         authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.SessionRequired,
+        officialLanguage: String? = null,
     ): WebPostgrestResult {
         val baseUrl = configuration.supabaseUrl?.trimEnd('/')
             ?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_url_missing")
         val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_publishable_key_missing")
-        if (!table.matches(PostgrestTableName)) {
+        if (!table.matches(PostgrestReadPath)) {
             return feedReadFailure(table, WebPostgrestFailureKind.Configuration, "postgrest_table_invalid")
         }
         val accessToken = resolveWebPostgrestReadAccessToken(
@@ -102,6 +103,7 @@ class WebPostgrestClient(
             url = "$baseUrl/rest/v1/$table${parameters.toQueryString()}",
             apiKey = apiKey,
             accessToken = accessToken,
+            officialLanguage = officialLanguage,
         )
         recordWebFeedReadResult(table, result)
         return result
@@ -167,6 +169,7 @@ class WebPostgrestClient(
 }
 
 private val PostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
+private val PostgrestReadPath = Regex("(?:rpc/)?[A-Za-z_][A-Za-z0-9_]*")
 
 private fun feedReadFailure(
     table: String,
@@ -213,11 +216,13 @@ private suspend fun browserPostgrestGet(
     url: String,
     apiKey: String,
     accessToken: String?,
+    officialLanguage: String?,
 ): WebPostgrestResult = suspendCoroutine { continuation ->
     browserPostgrestGetRequest(
         url = url,
         apiKey = apiKey,
         accessToken = accessToken,
+        officialLanguage = officialLanguage,
         onSuccess = { body, status, contentRange ->
             continuation.resume(WebPostgrestResult.Success(body, status, contentRange))
         },
@@ -242,6 +247,7 @@ private fun browserPostgrestGetRequest(
     url: String,
     apiKey: String,
     accessToken: String?,
+    officialLanguage: String?,
     onSuccess: (String, Int, String?) -> Unit,
     onFailure: (String?, Int?) -> Unit,
 ): Unit = js(
@@ -256,6 +262,7 @@ private fun browserPostgrestGetRequest(
       Accept: 'application/json',
     };
     if (accessToken) headers.Authorization = `Bearer ${'$'}{accessToken}`;
+    if (officialLanguage) headers['x-quata-official-language'] = officialLanguage;
     globalThis.fetch(url, {
       method: 'GET',
       headers,
