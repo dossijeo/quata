@@ -906,6 +906,83 @@ class PostgrestChatRepositoryTest {
     }
 
     @Test
+    fun exactMessageMutationsUseAuthenticatedV2ReceiptsAndStableRequestBodies() = runTest {
+        val calls = mutableListOf<Pair<String, String>>()
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                calls += functionName to body
+                ChatPostgrestResponse.Success(chatPayload(favorited = false))
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("attachment uploader should not be used") },
+            pollIntervalMillis = 5_000L,
+        )
+        repository.setActiveConversation("sb:77")
+        repository.observeMessages("sb:77").first()
+
+        assertTrue(
+            repository.editMessage(
+                messageId = "123",
+                text = "edited",
+                conversationId = "sb:77",
+                clientMutationId = "chat-mutation-edit-123456",
+                expectedActorId = "profile-1",
+            ).isSuccess,
+        )
+        assertTrue(
+            repository.deleteMessage(
+                messageId = "123",
+                conversationId = "sb:77",
+                clientMutationId = "chat-mutation-delete-123456",
+                expectedActorId = "profile-1",
+            ).isSuccess,
+        )
+        assertTrue(repository.reportMessage("123", expectedActorId = "profile-1").isSuccess)
+
+        val edit = calls.single { it.first == "quata_chat_edit_message_v2" }.second
+        assertTrue(edit.contains("\"p_actor_profile_id\":\"profile-1\""))
+        assertTrue(edit.contains("\"p_message_id\":123"))
+        assertTrue(edit.contains("\"p_message\":\"edited\""))
+        assertTrue(edit.contains("\"p_client_mutation_id\":\"chat-mutation-edit-123456\""))
+        val delete = calls.single { it.first == "quata_chat_delete_messages_v2" }.second
+        assertTrue(delete.contains("\"p_actor_profile_id\":\"profile-1\""))
+        assertTrue(delete.contains("\"p_message_ids\":[123]"))
+        assertTrue(delete.contains("\"p_client_mutation_id\":\"chat-mutation-delete-123456\""))
+        val report = calls.single { it.first == "quata_ugc_report" }.second
+        assertTrue(report.contains("\"p_target_type\":\"chat_message\""))
+        assertTrue(report.contains("\"p_reason\":\"other\""))
+        assertFalse(report.contains("user_report"))
+    }
+
+    @Test
+    fun exactDeleteRetryDoesNotDependOnTheMessageRemainingInTheLocalCache() = runTest {
+        val calls = mutableListOf<Pair<String, String>>()
+        val repository = PostgrestChatRepository(
+            transport = ChatPostgrestTransport { functionName, body ->
+                calls += functionName to body
+                ChatPostgrestResponse.Success(chatPayload(favorited = false))
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("attachment uploader should not be used") },
+            pollIntervalMillis = 5_000L,
+        )
+
+        assertTrue(
+            repository.deleteMessage(
+                messageId = "123",
+                conversationId = "sb:77",
+                clientMutationId = "chat-mutation-delete-no-cache",
+                expectedActorId = "profile-1",
+            ).isSuccess,
+        )
+
+        val delete = calls.first()
+        assertEquals("quata_chat_delete_messages_v2", delete.first)
+        assertTrue(delete.second.contains("\"p_thread_id\":77"))
+        assertTrue(delete.second.contains("\"p_message_ids\":[123]"))
+    }
+
+    @Test
     fun favoritesCursorLoadsSixHundredAndOneMessagesAcrossThreeStablePages() = runTest {
         val requests = mutableListOf<String>()
         val repository = PostgrestChatRepository(

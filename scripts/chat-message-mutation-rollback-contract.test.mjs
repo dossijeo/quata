@@ -12,7 +12,7 @@ test("message mutation failures roll common UI state back without changing produ
   ]);
 
   assert.match(viewModel, /optimisticEditedMessages = optimisticEditedMessages - editingMessage\.id[\s\S]*restoreEditDraftIfComposerIsEmpty\(editingMessage, text\)[\s\S]*publishMessages/);
-  assert.match(viewModel, /repository\.deleteMessage\(message\.id\)[\s\S]*onSuccess[\s\S]*selectedMessageId = null[\s\S]*onFailure[\s\S]*ChatText\.DeleteMessage/);
+  assert.match(viewModel, /SelectedMessageMutation\.Delete\([\s\S]*messageId = message\.id[\s\S]*repository\.deleteMessage\([\s\S]*clientMutationId = mutation\.clientMutationId[\s\S]*onSuccess[\s\S]*selectedMessageId = state\.selectedMessageId\.takeUnless[\s\S]*onFailure[\s\S]*ChatText\.DeleteMessage/);
   assert.match(chrome, /ChatMutationErrorTestTag = "chat\.mutation\.error"/);
   assert.match(host, /testTag = ChatMutationErrorTestTag[\s\S]*contentDescription = "\$ChatMutationErrorTestTag \$error"/);
 });
@@ -25,19 +25,21 @@ test("platform fault injection is explicit, bounded and consumed before backend 
   ]);
 
   assert.match(android, /I_ACCEPT_ANDROID_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE/);
-  assert.match(android, /consumeMessageMutationFailureForEvidence\("edit"\)[\s\S]*remote\.editChatMessage/);
-  assert.match(android, /consumeMessageMutationFailureForEvidence\("delete"\)[\s\S]*remote\.deleteChatMessages/);
+  assert.match(android, /override suspend fun editMessage\(messageId: String, text: String, conversationId: String, clientMutationId: String, expectedActorId: String\)[\s\S]*consumeMessageMutationFailureForEvidence\("edit"\)[\s\S]*remote\.editChatMessageV2/);
+  assert.match(android, /override suspend fun deleteMessage\(messageId: String, conversationId: String, clientMutationId: String, expectedActorId: String\)[\s\S]*consumeMessageMutationFailureForEvidence\("delete"\)[\s\S]*remote\.deleteChatMessagesV2/);
   assert.match(android, /remove\(CHAT_MUTATION_FAILURE_KEY\)/);
 
   assert.match(web, /host !== 'localhost' && host !== '127\.0\.0\.1'/);
   assert.match(web, /I_ACCEPT_WEB_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE/);
   assert.match(web, /__QUATA_CHAT_MUTATION_FORCE_FAILURE__ = null/);
+  assert.match(web, /functionName === 'quata_chat_edit_message_v2'/);
+  assert.match(web, /functionName === 'quata_chat_delete_messages_v2'/);
   assert.match(web, /consumeWebChatMutationFailure\(functionName\)[\s\S]*rpcClient\.post/);
 
   assert.match(ios, /I_ACCEPT_IOS_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE/);
   assert.match(ios, /mutationFailure = null[\s\S]*chat_message_mutation_e2e_forced_failure/);
-  assert.match(ios, /"quata_chat_edit_message" -> "edit"/);
-  assert.match(ios, /"quata_chat_delete_messages" -> "delete"/);
+  assert.match(ios, /"quata_chat_edit_message", "quata_chat_edit_message_v2" -> "edit"/);
+  assert.match(ios, /"quata_chat_delete_messages", "quata_chat_delete_messages_v2" -> "delete"/);
 });
 
 test("focal runners select the real shared UI rollback paths", async () => {

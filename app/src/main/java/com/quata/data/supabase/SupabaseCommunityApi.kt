@@ -1029,8 +1029,14 @@ class SupabaseCommunityApi(
     suspend fun editChatMessage(profileId: String, threadId: Long, messageId: Long, message: String): JsonElement =
         client.rpc<QuataChatEditMessageRequest, JsonElement>("quata_chat_edit_message", QuataChatEditMessageRequest(profileId, threadId, messageId, message))
 
+    suspend fun editChatMessageV2(profileId: String, threadId: Long, messageId: Long, message: String, clientMutationId: String): JsonElement =
+        client.rpc<QuataChatEditMessageV2Request, JsonElement>("quata_chat_edit_message_v2", QuataChatEditMessageV2Request(profileId, threadId, messageId, message, clientMutationId))
+
     suspend fun deleteChatMessages(profileId: String, threadId: Long, messageIds: List<Long>): JsonElement =
         client.rpc<QuataChatDeleteMessagesRequest, JsonElement>("quata_chat_delete_messages", QuataChatDeleteMessagesRequest(profileId, threadId, messageIds))
+
+    suspend fun deleteChatMessagesV2(profileId: String, threadId: Long, messageIds: List<Long>, clientMutationId: String): JsonElement =
+        client.rpc<QuataChatDeleteMessagesV2Request, JsonElement>("quata_chat_delete_messages_v2", QuataChatDeleteMessagesV2Request(profileId, threadId, messageIds, clientMutationId))
 
     suspend fun forwardChatMessage(profileId: String, messageId: Long, threadIds: List<Long>): JsonElement =
         client.rpc<QuataChatForwardMessageRequest, JsonElement>("quata_chat_forward_message", QuataChatForwardMessageRequest(profileId, messageId, threadIds))

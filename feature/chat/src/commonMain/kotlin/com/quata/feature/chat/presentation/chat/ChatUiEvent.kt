@@ -21,6 +21,7 @@ sealed class ChatUiEvent {
     data object ToggleFavoriteSelected : ChatUiEvent()
     data object DeleteSelectedMessage : ChatUiEvent()
     data object ReportSelectedMessage : ChatUiEvent()
+    data object RetryMessageMutation : ChatUiEvent()
     data object ClearNotice : ChatUiEvent()
     data object ClearError : ChatUiEvent()
     data class ShowNotice(val message: String) : ChatUiEvent()

@@ -110,6 +110,12 @@ const approvedReleases = [
       ["20261001211500", "50ef988f6b843ae921de5e41e69e739da443c737844159b2a8d5b064eea54f71"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261002003000", "89149300661e48f8a9ed210eff74d399f8949d34065bb7cecda98a094d59bf74"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -634,6 +640,58 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
             || second.messages.some(({ id }) => firstIds.has(String(id)))) {
           throw new Error("selective_release_favorites_pagination_second_page_postcondition_failed");
         }
+      }
+    }
+  }
+  if (selectedVersions.includes("20261002003000")) {
+    const mutationBoundary = (await client.query(`
+      select
+        relation.relrowsecurity as rls_enabled,
+        not has_table_privilege('anon', relation.oid, 'SELECT,INSERT,UPDATE,DELETE') as anon_table_denied,
+        not has_table_privilege('authenticated', relation.oid, 'SELECT,INSERT,UPDATE,DELETE') as authenticated_table_denied,
+        edit.prosecdef as edit_security_definer,
+        edit.proconfig as edit_configuration,
+        delete_function.prosecdef as delete_security_definer,
+        delete_function.proconfig as delete_configuration,
+        has_function_privilege('authenticated', edit.oid, 'EXECUTE') as authenticated_edit_execute,
+        has_function_privilege('authenticated', delete_function.oid, 'EXECUTE') as authenticated_delete_execute,
+        not has_function_privilege('anon', edit.oid, 'EXECUTE') as anon_edit_denied,
+        not has_function_privilege('anon', delete_function.oid, 'EXECUTE') as anon_delete_denied,
+        not exists (
+          select 1
+            from pg_proc function,
+                 lateral aclexplode(coalesce(function.proacl, acldefault('f', function.proowner))) acl
+           where function.oid in (edit.oid, delete_function.oid)
+             and acl.grantee=0
+             and acl.privilege_type='EXECUTE'
+        ) as public_execute_absent,
+        pg_get_functiondef(edit.oid) as edit_definition,
+        pg_get_functiondef(delete_function.oid) as delete_definition
+      from pg_class relation
+      join pg_namespace relation_namespace on relation_namespace.oid=relation.relnamespace
+      cross join pg_proc edit
+      cross join pg_proc delete_function
+      where relation_namespace.nspname='public'
+        and relation.relname='chat_message_mutation_receipts'
+        and edit.oid='public.quata_chat_edit_message_v2(uuid,bigint,bigint,text,text)'::regprocedure
+        and delete_function.oid='public.quata_chat_delete_messages_v2(uuid,bigint,bigint[],text)'::regprocedure
+    `)).rows;
+    if (mutationBoundary.length !== 1) throw new Error("selective_release_chat_mutation_boundary_missing");
+    const mutation = mutationBoundary[0];
+    if (!mutation.rls_enabled || !mutation.anon_table_denied || !mutation.authenticated_table_denied
+        || !mutation.edit_security_definer || !mutation.delete_security_definer
+        || !mutation.edit_configuration?.includes("search_path=public")
+        || !mutation.delete_configuration?.includes("search_path=public")
+        || !mutation.authenticated_edit_execute || !mutation.authenticated_delete_execute
+        || !mutation.anon_edit_denied || !mutation.anon_delete_denied || !mutation.public_execute_absent) {
+      throw new Error("selective_release_chat_mutation_security_failed");
+    }
+    for (const definition of [mutation.edit_definition, mutation.delete_definition]) {
+      if (!/insert into public\.chat_message_mutation_receipts/i.test(definition)
+          || !/client mutation id was reused for a different request/i.test(definition)
+          || !/on conflict \(actor_profile_id, client_mutation_id\) do nothing/i.test(definition)
+          || !/completed_at/i.test(definition)) {
+        throw new Error("selective_release_chat_mutation_definition_failed");
       }
     }
   }

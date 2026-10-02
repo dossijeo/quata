@@ -587,9 +587,13 @@ data class QuataChatFavoritesPageRequest(
 
 @Serializable
 data class QuataChatEditMessageRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_id: Long, val p_message: String)
+@Serializable
+data class QuataChatEditMessageV2Request(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_id: Long, val p_message: String, val p_client_mutation_id: String)
 
 @Serializable
 data class QuataChatDeleteMessagesRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_ids: List<Long>)
+@Serializable
+data class QuataChatDeleteMessagesV2Request(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_ids: List<Long>, val p_client_mutation_id: String)
 
 @Serializable
 data class QuataChatForwardMessageRequest(

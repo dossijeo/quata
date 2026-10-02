@@ -1181,6 +1181,234 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun deleteFailureExposesExactRetryAndReusesItsMutationReceipt() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-retry")
+        val repository = RecordingChatRepository(messages = listOf(own)).apply {
+            deleteMessageResult = Result.failure(IllegalStateException("lost response"))
+        }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        testScheduler.advanceUntilIdle()
+
+        val retry = assertNotNull(model.uiState.value.messageMutationRetry)
+        assertEquals(ChatMessageMutationKind.Delete, retry.kind)
+        assertEquals(own.id, retry.messageId)
+        assertEquals("delete-message", model.uiState.value.error)
+        val first = repository.deleteMessageMutationCalls.single()
+        assertEquals("me", first.expectedActorId)
+
+        repository.deleteMessageResult = Result.success(Unit)
+        model.onEvent(ChatUiEvent.RetryMessageMutation)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, repository.deleteMessageMutationCalls.size)
+        assertEquals(first.clientMutationId, repository.deleteMessageMutationCalls.last().clientMutationId)
+        assertNull(model.uiState.value.messageMutationRetry)
+        assertNull(model.uiState.value.selectedMessageId)
+        assertNull(model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun duplicateDeleteConfirmationIsSerializedWhileTheFirstRequestIsInFlight() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-serialized")
+        val gate = CompletableDeferred<Unit>()
+        val repository = RecordingChatRepository(messages = listOf(own)).apply { deleteMessageGate = gate }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        testScheduler.runCurrent()
+
+        assertTrue(model.uiState.value.isMessageMutationInProgress)
+        assertEquals(1, repository.deleteMessageMutationCalls.size)
+
+        gate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, repository.deleteMessageMutationCalls.size)
+        assertFalse(model.uiState.value.isMessageMutationInProgress)
+        model.close()
+    }
+
+    @Test
+    fun reportRetryKeepsTheExactFailedTargetAndPreservesANewerSelection() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-new-selection")
+        val other = otherMessage(id = "other-retry")
+        val repository = RecordingChatRepository(messages = listOf(other, own)).apply {
+            reportMessageResult = Result.failure(IllegalStateException("offline"))
+        }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(other.id))
+        model.onEvent(ChatUiEvent.ReportSelectedMessage)
+        testScheduler.advanceUntilIdle()
+        assertEquals(ChatMessageMutationKind.Report, model.uiState.value.messageMutationRetry?.kind)
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        repository.reportMessageResult = Result.success(Unit)
+        model.onEvent(ChatUiEvent.RetryMessageMutation)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(other.id, other.id), repository.reportMessageCalls)
+        assertEquals(listOf("me", "me"), repository.reportExpectedActorIds)
+        assertEquals(own.id, model.uiState.value.selectedMessageId)
+        assertEquals("report-sent", model.uiState.value.notice)
+        assertNull(model.uiState.value.messageMutationRetry)
+        model.close()
+    }
+
+    @Test
+    fun editDoubleSubmitIsSerializedAndItsRetryReusesTheMutationReceipt() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-edit-retry", text = "before")
+        val gate = CompletableDeferred<Unit>()
+        val repository = RecordingChatRepository(messages = listOf(own)).apply {
+            editMessageGate = gate
+            editMessageResult = Result.failure(IllegalStateException("lost response"))
+        }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.StartEdit)
+        model.onEvent(ChatUiEvent.MessageChanged("after"))
+        model.onEvent(ChatUiEvent.Send)
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.runCurrent()
+        assertEquals(1, repository.editMessageMutationCalls.size)
+
+        gate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertEquals("after", model.uiState.value.messageText)
+        assertEquals(own.id, model.uiState.value.editingMessage?.id)
+        val first = repository.editMessageMutationCalls.single()
+
+        repository.editMessageGate = null
+        repository.editMessageResult = Result.success(Unit)
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, repository.editMessageMutationCalls.size)
+        assertEquals(first.clientMutationId, repository.editMessageMutationCalls.last().clientMutationId)
+        assertNull(model.uiState.value.editingMessage)
+        assertEquals("", model.uiState.value.messageText)
+        model.close()
+    }
+
+    @Test
+    fun editCompletionFromAReplacedActorCannotChangeTheNewSessionComposer() = runTest {
+        listOf(Result.success(Unit), Result.failure(IllegalStateException("late failure"))).forEach { lateResult ->
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val own = ownMessage(id = "own-edit-old-actor", text = "before")
+            val gate = CompletableDeferred<Unit>()
+            val repository = RecordingChatRepository(messages = listOf(own)).apply {
+                editMessageGate = gate
+                editMessageResult = lateResult
+            }
+            val model = chatViewModel(repository, dispatcher)
+            testScheduler.advanceUntilIdle()
+
+            model.onEvent(ChatUiEvent.MessageSelected(own.id))
+            model.onEvent(ChatUiEvent.StartEdit)
+            model.onEvent(ChatUiEvent.MessageChanged("old actor edit"))
+            model.onEvent(ChatUiEvent.Send)
+            testScheduler.runCurrent()
+            assertEquals(1, repository.editMessageMutationCalls.size)
+            assertEquals("old actor edit", model.uiState.value.messages.single { it.id == own.id }.text)
+            assertTrue(model.uiState.value.messages.single { it.id == own.id }.isPending)
+
+            repository.actorId = "replacement"
+            model.onEvent(ChatUiEvent.MessageChanged("replacement draft"))
+            model.onEvent(ChatUiEvent.MessageSelected(own.id))
+            gate.complete(Unit)
+            testScheduler.advanceUntilIdle()
+
+            assertEquals("replacement draft", model.uiState.value.messageText)
+            assertEquals(own.id, model.uiState.value.selectedMessageId)
+            assertEquals("before", model.uiState.value.messages.single { it.id == own.id }.text)
+            assertFalse(model.uiState.value.messages.single { it.id == own.id }.isPending)
+            assertNull(model.uiState.value.error)
+            model.close()
+        }
+    }
+
+    @Test
+    fun editDeleteAndReportShareOneMutationLock() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-cross-serialized", text = "before")
+        val other = otherMessage(id = "other-cross-serialized")
+        val editGate = CompletableDeferred<Unit>()
+        val deleteGate = CompletableDeferred<Unit>()
+        val repository = RecordingChatRepository(messages = listOf(other, own)).apply {
+            editMessageGate = editGate
+            deleteMessageGate = deleteGate
+        }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.StartEdit)
+        model.onEvent(ChatUiEvent.MessageChanged("after"))
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.runCurrent()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        model.onEvent(ChatUiEvent.MessageSelected(other.id))
+        model.onEvent(ChatUiEvent.ReportSelectedMessage)
+        testScheduler.runCurrent()
+        assertTrue(repository.deleteMessageMutationCalls.isEmpty())
+        assertTrue(repository.reportMessageCalls.isEmpty())
+
+        editGate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        testScheduler.runCurrent()
+        assertEquals(1, repository.deleteMessageMutationCalls.size)
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.StartEdit)
+        assertNull(model.uiState.value.editingMessage)
+
+        deleteGate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        model.close()
+    }
+
+    @Test
+    fun completionFromAReplacedActorCannotClearSelectionOrOfferRetry() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-old-actor")
+        val gate = CompletableDeferred<Unit>()
+        val repository = RecordingChatRepository(messages = listOf(own)).apply { deleteMessageGate = gate }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        testScheduler.runCurrent()
+        repository.actorId = "replacement"
+        gate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(own.id, model.uiState.value.selectedMessageId)
+        assertNull(model.uiState.value.messageMutationRetry)
+        assertNull(model.uiState.value.error)
+        assertFalse(model.uiState.value.isMessageMutationInProgress)
+        model.close()
+    }
+
+    @Test
     fun failedMuteRestoresTheExactConversationAndSurfacesTheCommonError() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val repository = RecordingChatRepository(emptyList()).apply {
@@ -1571,6 +1799,19 @@ private data class SendReplyCall(
 )
 
 private data class EditMessageCall(val messageId: String, val text: String)
+private data class EditMessageMutationCall(
+    val messageId: String,
+    val conversationId: String,
+    val text: String,
+    val clientMutationId: String,
+    val expectedActorId: String,
+)
+private data class DeleteMessageMutationCall(
+    val messageId: String,
+    val conversationId: String,
+    val clientMutationId: String,
+    val expectedActorId: String,
+)
 private data class ForwardMessageCall(val messageId: String, val conversationIds: List<String>)
 private data class MuteCall(val conversationId: String, val muted: Boolean)
 
@@ -1600,8 +1841,11 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     val sendMessageCalls = mutableListOf<SendMessageCall>()
     val sendReplyCalls = mutableListOf<SendReplyCall>()
     val editMessageCalls = mutableListOf<EditMessageCall>()
+    val editMessageMutationCalls = mutableListOf<EditMessageMutationCall>()
     val deleteMessageCalls = mutableListOf<String>()
+    val deleteMessageMutationCalls = mutableListOf<DeleteMessageMutationCall>()
     val reportMessageCalls = mutableListOf<String>()
+    val reportExpectedActorIds = mutableListOf<String>()
     val toggleFavoriteMessageCalls = mutableListOf<String>()
     val openPrivateConversationCalls = mutableListOf<String>()
     val forwardMessageCalls = mutableListOf<ForwardMessageCall>()
@@ -1611,8 +1855,11 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     var sendMessageGate: CompletableDeferred<Unit>? = null
     var sendReplyResult: Result<Unit> = Result.success(Unit)
     var editMessageResult: Result<Unit> = Result.success(Unit)
+    var editMessageGate: CompletableDeferred<Unit>? = null
     var deleteMessageResult: Result<Unit> = Result.success(Unit)
+    var deleteMessageGate: CompletableDeferred<Unit>? = null
     var reportMessageResult: Result<Unit> = Result.success(Unit)
+    var actorId: String = "me"
     var toggleFavoriteMessageResult: Result<Unit> = Result.success(Unit)
     var forwardMessageResult: Result<ChatForwardResult>? = null
     var setConversationMutedResult: Result<Unit> = Result.success(Unit)
@@ -1629,7 +1876,8 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     val openPrivateConversationResults = mutableMapOf<String, Result<String>>()
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
-    override fun currentUser(): User = User("me", "me@example.invalid", "Me")
+    override fun currentUser(): User = User(actorId, "$actorId@example.invalid", actorId)
+    override suspend fun currentActorId(): String = actorId
     override fun setActiveConversation(conversationId: String?) {
         activeConversationId.value = conversationId
     }
@@ -1731,6 +1979,11 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
         reportMessageCalls += messageId
         return reportMessageResult
     }
+    override suspend fun reportMessage(messageId: String, expectedActorId: String): Result<Unit> {
+        reportMessageCalls += messageId
+        reportExpectedActorIds += expectedActorId
+        return reportMessageResult
+    }
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = Result.success(Unit)
     override suspend fun hideConversation(conversationId: String): Result<Unit> = Result.success(Unit)
     override suspend fun deleteConversation(conversationId: String): Result<Unit> = Result.success(Unit)
@@ -1740,8 +1993,20 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
         editMessageCalls += EditMessageCall(messageId, text)
         return editMessageResult
     }
+    override suspend fun editMessage(messageId: String, text: String, conversationId: String, clientMutationId: String, expectedActorId: String): Result<Unit> {
+        editMessageCalls += EditMessageCall(messageId, text)
+        editMessageMutationCalls += EditMessageMutationCall(messageId, conversationId, text, clientMutationId, expectedActorId)
+        editMessageGate?.await()
+        return editMessageResult
+    }
     override suspend fun deleteMessage(messageId: String): Result<Unit> {
         deleteMessageCalls += messageId
+        return deleteMessageResult
+    }
+    override suspend fun deleteMessage(messageId: String, conversationId: String, clientMutationId: String, expectedActorId: String): Result<Unit> {
+        deleteMessageCalls += messageId
+        deleteMessageMutationCalls += DeleteMessageMutationCall(messageId, conversationId, clientMutationId, expectedActorId)
+        deleteMessageGate?.await()
         return deleteMessageResult
     }
     override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> {

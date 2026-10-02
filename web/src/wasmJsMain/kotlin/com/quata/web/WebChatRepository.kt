@@ -69,7 +69,11 @@ private class WebChatPostgrestTransport(
   const host = globalThis.location?.hostname;
   if (host !== 'localhost' && host !== '127.0.0.1') return false;
   if (globalThis.__QUATA_CHAT_MUTATION_FAILURE_FIXTURE_OPT_IN__ !== 'I_ACCEPT_WEB_CHAT_MESSAGE_MUTATION_FAILURE_FIXTURE') return false;
-  const operation = functionName === 'quata_chat_edit_message' ? 'edit' : functionName === 'quata_chat_delete_messages' ? 'delete' : null;
+  const operation = functionName === 'quata_chat_edit_message' || functionName === 'quata_chat_edit_message_v2'
+    ? 'edit'
+    : functionName === 'quata_chat_delete_messages' || functionName === 'quata_chat_delete_messages_v2'
+      ? 'delete'
+      : null;
   if (!operation || globalThis.__QUATA_CHAT_MUTATION_FORCE_FAILURE__ !== operation) return false;
   globalThis.__QUATA_CHAT_MUTATION_FORCE_FAILURE__ = null;
   return true;

@@ -1,0 +1,112 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "8be929780437bcfaa3600e3f6980e6387652a94c",
+    "workingTreeDirty": false
+  },
+  "scope": "Retry-safe edit, delete and report behavior for CHAT-MESSAGE-ACTIONS, recomposed over current main with byte-equivalent product blobs and a committed selective production database release.",
+  "composition": {
+    "originalEvidence": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
+    "originalEvidenceSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
+    "originalProductSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+    "recomposedProductSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+    "affectedRuntimeBlobsEquivalent": true,
+    "migrationAndRollbackBlobsEquivalent": true
+  },
+  "steps": [
+    "delete_failure_exposes_exact_retry_with_stable_mutation_id",
+    "duplicate_delete_confirmation_is_serialized",
+    "report_retry_preserves_exact_failed_target_and_newer_selection",
+    "edit_double_submit_is_serialized_and_retry_reuses_mutation_id",
+    "replaced_actor_completion_cannot_mutate_new_session_ui",
+    "edit_completion_revalidates_exact_actor",
+    "edit_delete_and_report_share_one_mutation_lock",
+    "postgrest_v2_payloads_bind_actor_conversation_message_and_mutation_id",
+    "web_ios_fault_injectors_cover_v2_edit_and_delete",
+    "delete_retry_does_not_depend_on_local_message_cache",
+    "actor_replacement_republishes_backend_message_without_stale_overlay",
+    "web_wasm_84_affected_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_9_affected_tests_passed",
+    "fast_contracts_777_passed_on_recomposed_head",
+    "recomposed_product_blobs_verified_byte_equivalent",
+    "postgres_disposable_idempotency_fixture_passed",
+    "selective_release_executor_authorization_rollback_and_apply_fixture_passed",
+    "encrypted_full_logical_backup_created_and_ciphertext_hash_verified",
+    "selective_restore_drill_passed",
+    "remote_predeploy_migration_behavior_acl_and_zero_residue_passed",
+    "selective_release_snapshot_and_dry_run_passed",
+    "chat_mutation_migration_committed_transactionally",
+    "database_release_postflight_passed",
+    "remote_postdeploy_ledger_behavior_acl_and_zero_residue_passed"
+  ],
+  "validation": {
+    "affectedPlatformBaseline": "84 Web/Wasm tests, Android debug compilation and nine iOS x64 tests passed on the exact affected runtime blobs preserved at the recomposed head",
+    "recomposedFastContracts": {
+      "tests": 777,
+      "failures": 0
+    },
+    "focalContracts": {
+      "tests": 32,
+      "failures": 0
+    },
+    "disposablePostgresql": "CHAT_MESSAGE_MUTATION_IDEMPOTENCY_POSTGRES_PASS",
+    "selectiveReleaseExecutor": "read-only dry-run, authorization gate, atomic rollback and exact apply fixture passed",
+    "predeployProbe": "CHAT_MESSAGE_MUTATION_REMOTE_ROLLBACK_PASS",
+    "postdeployProbe": "CHAT_MESSAGE_MUTATION_REMOTE_POSTDEPLOY_PASS",
+    "diffCheck": "passed",
+    "releaseReconciliationContracts": {
+      "tests": 31,
+      "failures": 0
+    }
+  },
+  "database": {
+    "migrationVersion": "20261002003000",
+    "migrationName": "chat_message_mutation_idempotency",
+    "migrationSha256": "89149300661e48f8a9ed210eff74d399f8949d34065bb7cecda98a094d59bf74",
+    "releaseSourceCommit": "8be929780437bcfaa3600e3f6980e6387652a94c",
+    "dryRun": "passed_with_only_20261002003000_pending",
+    "deployment": {
+      "status": "passed",
+      "commitStatus": "committed"
+    },
+    "postflight": {
+      "status": "passed",
+      "remoteLedgerCount": 31,
+      "expectedMigrationPresent": true
+    },
+    "postdeploy": {
+      "status": "passed",
+      "ledgerAclBehaviorAndCleanup": "passed"
+    }
+  },
+  "backup": {
+    "set": "release-20261002T074125Z-d5e85050",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "ciphertextIntegrity": "passed",
+    "plaintextIntegrity": "passed",
+    "selectiveRestoreDrill": "passed",
+    "keyStoredSeparately": true,
+    "plaintextPersisted": false
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "failed release attempts rolled back atomically; predeploy and postdeploy fixtures rolled back; disposable restore target removed",
+    "productionFixtureResidue": 0,
+    "credentialsCommitted": false,
+    "connectionMaterialCommitted": false,
+    "backupOrKeyPathCommitted": false
+  },
+  "preservedFailures": [
+    "The first persistent release attempt failed closed because its catalog postcondition named the edit text argument incorrectly; commitStatus was rolled_back and a fresh predeploy probe proved the target objects and fixture remained absent.",
+    "The second persistent release attempt failed closed because its definition assertion did not match the exact versioned error phrase; commitStatus was rolled_back and a fresh predeploy probe again proved zero persistent target objects and fixture residue.",
+    "The first broad historical iOS run passed all 52 ChatViewModel tests while one unrelated inbox pagination repository test exhausted its virtual timeout; all nine changed mutation methods passed in the accepted focal run.",
+    "A general restore of a Supabase logical dump into vanilla PostgreSQL is not claimed because the target lacks managed Supabase roles and extensions; the fresh encrypted dump passed both hashes and the selective restore drill."
+  ],
+  "limits": [
+    "No platform matrix was repeated solely for the recomposed SHA: all affected runtime and migration blobs are byte-equivalent to the reviewed product baseline, while the changed release tooling, contracts, database path and exact production state were renewed.",
+    "This focal unit completes CHAT-MESSAGE-ACTIONS recovery and its production database boundary; it does not declare global SCR-CHAT acceptance or acceptance of actions owned by other subflows."
+  ]
+}

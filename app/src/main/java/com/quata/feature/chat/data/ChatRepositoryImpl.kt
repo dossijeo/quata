@@ -1008,6 +1008,13 @@ class ChatRepositoryImpl(
         remote.reportChatMessage(session.userId, messageId)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun reportMessage(messageId: String, expectedActorId: String): Result<Unit> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) return@runCatching
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        check(session.userId == expectedActorId) { "chat_message_actor_changed" }
+        remote.reportChatMessage(session.userId, messageId)
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.leaveConversation(conversationId, MockData.currentUser.id)
@@ -1071,6 +1078,26 @@ class ChatRepositoryImpl(
         refreshLoadedThreads()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
+    override suspend fun editMessage(messageId: String, text: String, conversationId: String, clientMutationId: String, expectedActorId: String): Result<Unit> = runCatching {
+        if (consumeMessageMutationFailureForEvidence("edit")) {
+            error("chat_message_edit_e2e_forced_failure")
+        }
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.editMessage(messageId, text)
+            refreshMockMessageStates()
+            return@runCatching
+        }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        check(session.userId == expectedActorId) { "chat_message_actor_changed" }
+        loadedMessages().firstOrNull { it.id == messageId }?.let { message ->
+            check(message.conversationId == conversationId) { "chat_message_conversation_changed" }
+        }
+        val threadId = conversationId.requireThreadId()
+        val payload = remote.editChatMessageV2(session.userId, threadId, messageId.toLongOrNull() ?: error("Mensaje no valido"), text, clientMutationId)
+        mergeChatPayload(payload, session.userId)
+        refreshLoadedThreads()
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
     override suspend fun deleteMessage(messageId: String): Result<Unit> = runCatching {
         if (consumeMessageMutationFailureForEvidence("delete")) {
             error("chat_message_delete_e2e_forced_failure")
@@ -1083,6 +1110,25 @@ class ChatRepositoryImpl(
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = messageThreadId(messageId)
         remote.deleteChatMessages(session.userId, threadId, listOf(messageId.toLongOrNull() ?: error("Mensaje no valido")))
+        refreshLoadedThreads()
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun deleteMessage(messageId: String, conversationId: String, clientMutationId: String, expectedActorId: String): Result<Unit> = runCatching {
+        if (consumeMessageMutationFailureForEvidence("delete")) {
+            error("chat_message_delete_e2e_forced_failure")
+        }
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.deleteMessage(messageId)
+            refreshMockMessageStates()
+            return@runCatching
+        }
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        check(session.userId == expectedActorId) { "chat_message_actor_changed" }
+        loadedMessages().firstOrNull { it.id == messageId }?.let { message ->
+            check(message.conversationId == conversationId) { "chat_message_conversation_changed" }
+        }
+        val threadId = conversationId.requireThreadId()
+        remote.deleteChatMessagesV2(session.userId, threadId, listOf(messageId.toLongOrNull() ?: error("Mensaje no valido")), clientMutationId)
         refreshLoadedThreads()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 

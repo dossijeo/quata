@@ -206,6 +206,13 @@ fun ChatScreenHost(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
                         Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
+                        if (state.messageMutationRetry != null) {
+                            Button(
+                                onClick = { model.onEvent(ChatUiEvent.RetryMessageMutation) },
+                                enabled = !state.isMessageMutationInProgress,
+                                modifier = Modifier.semantics { testTag = ChatMutationRetryTestTag },
+                            ) { Text(slots.chromeStrings.retry) }
+                        }
                         Button(onClick = { model.onEvent(ChatUiEvent.ClearError) }) { Text(slots.chromeStrings.close) }
                     }
                 }

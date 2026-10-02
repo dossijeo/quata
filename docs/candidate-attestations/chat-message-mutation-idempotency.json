@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGE-ACTIONS"
+  ],
+  "status": "passed",
+  "productSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+  "certification": "affected-platform-and-production-database-release-and-independent-review-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "5ab3d409f9d0eaf68a08e46cd5879bd90b04bca02926c04c48bfa575c42e2a5b",
+      "reportStatus": "passed",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_wasm_84_affected_tests_passed",
+        "edit_completion_revalidates_exact_actor",
+        "actor_replacement_republishes_backend_message_without_stale_overlay",
+        "edit_delete_and_report_share_one_mutation_lock",
+        "web_ios_fault_injectors_cover_v2_edit_and_delete",
+        "delete_failure_exposes_exact_retry_with_stable_mutation_id",
+        "postgrest_v2_payloads_bind_actor_conversation_message_and_mutation_id"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-browser-tests-no-backend-mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "5ab3d409f9d0eaf68a08e46cd5879bd90b04bca02926c04c48bfa575c42e2a5b",
+      "reportStatus": "passed",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_compilation_passed",
+        "fast_contracts_777_passed_on_recomposed_head",
+        "recomposed_product_blobs_verified_byte_equivalent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-contract-validation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "5ab3d409f9d0eaf68a08e46cd5879bd90b04bca02926c04c48bfa575c42e2a5b",
+      "reportStatus": "passed",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_x64_9_affected_tests_passed",
+        "edit_completion_revalidates_exact_actor",
+        "actor_replacement_republishes_backend_message_without_stale_overlay",
+        "edit_delete_and_report_share_one_mutation_lock",
+        "web_ios_fault_injectors_cover_v2_edit_and_delete",
+        "delete_retry_does_not_depend_on_local_message_cache"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-ios-x64-tests-no-backend-mutation"
+      }
+    },
+    "database": {
+      "status": "passed",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "5ab3d409f9d0eaf68a08e46cd5879bd90b04bca02926c04c48bfa575c42e2a5b",
+      "reportStatus": "passed",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "postgres_disposable_idempotency_fixture_passed",
+        "selective_release_executor_authorization_rollback_and_apply_fixture_passed",
+        "encrypted_full_logical_backup_created_and_ciphertext_hash_verified",
+        "selective_restore_drill_passed",
+        "remote_predeploy_migration_behavior_acl_and_zero_residue_passed",
+        "selective_release_snapshot_and_dry_run_passed",
+        "chat_mutation_migration_committed_transactionally",
+        "database_release_postflight_passed",
+        "remote_postdeploy_ledger_behavior_acl_and_zero_residue_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "release-committed-probe-fixtures-rolled-back-zero-residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "npm run test:ci-fast-contracts",
+    "node --test scripts/chat-message-mutation-idempotency-contract.test.mjs scripts/chat-message-mutation-remote-probe-contract.test.mjs scripts/chat-message-mutation-rollback-contract.test.mjs scripts/capability-matrix-contract.test.mjs (32/32)",
+    "node --test scripts/db-migration-reconciliation-contract.test.mjs (31/31)",
+    ".\\scripts\\test-chat-message-mutation-idempotency.ps1",
+    ".\\scripts\\test-selective-db-release-executor.ps1",
+    "node scripts/chat-message-mutation-remote-probe.mjs --mode predeploy --db-url-file <private-file> --tls-ca-file <private-file>",
+    "scripts/run-db-release-safety.ps1 snapshot and postflight for 20261002003000",
+    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for the exact frozen package",
+    "node scripts/chat-message-mutation-remote-probe.mjs --mode postdeploy --db-url-file <private-file> --tls-ca-file <private-file>",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-mutation-idempotency.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "9a627cfaca02c80191cb4f5ff07d7261aec0719a",
+    "productSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "scope": "Exact-head independent review covered product equivalence, v2/v1 boundaries, guarded selective release, predeploy/postdeploy custody, sanitized evidence, preserved rollback failures and both documentary remediations."
+  },
+  "notes": [
+    "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable and edit, delete and report share one mutation lock.",
+    "Edit completion revalidates the exact actor. When the actor changes, the old retry and optimistic overlay are removed and authoritative backend messages are republished before returning.",
+    "The authenticated v2 edit/delete functions atomically bind actor, conversation, message set and payload to a private receipt. Exact retries return the stored result and mutation-key reuse with another request fails with SQLSTATE 22023.",
+    "Legacy v1 edit/delete functions remain byte-equivalent for the explicitly isolated Android v32 compatibility branch.",
+    "All affected Android, Web/Wasm, iOS, migration and rollback blobs are exact to the independently reviewed f74af79b product baseline. The recomposed head renews only merged contracts and release custody, so platform matrices were not repeated solely for SHA identity.",
+    "A fresh encrypted full backup preceded every remote migration attempt. Its ciphertext and plaintext hashes passed and a selective restore drill completed in disposable PostgreSQL.",
+    "The first two release attempts failed closed on overly strict catalog assertions and both reported rolled_back. A fresh predeploy probe after each attempt proved the migration objects, ledger row and synthetic fixture had not persisted.",
+    "Migration 20261002003000 then committed atomically from the exact 8be92978 package. Global postflight and a separate postdeploy behavior/ACL/ledger probe passed with zero fixture residue.",
+    "The broad historical iOS failure remains preserved: all 52 ChatViewModel tests passed and one unrelated inbox-pagination virtual timeout failed; the nine changed mutation methods all passed in the accepted focal run.",
+    "The report is sanitized and contains no host address, private absolute path, credential, connection string, project fingerprint, backup key or business row count.",
+    "Independent review returned GO on 9a627cfa with no P0-P3 findings after the historical artifact and exact test-command traceability were verified. Final GitHub CI remains pending."
+  ]
+}

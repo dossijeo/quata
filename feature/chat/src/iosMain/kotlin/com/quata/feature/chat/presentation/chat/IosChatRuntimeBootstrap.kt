@@ -161,8 +161,8 @@ private fun iosChatEvidenceFaultingTransportIfRequested(
 
         override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
             val operation = when (functionName) {
-                "quata_chat_edit_message" -> "edit"
-                "quata_chat_delete_messages" -> "delete"
+                "quata_chat_edit_message", "quata_chat_edit_message_v2" -> "edit"
+                "quata_chat_delete_messages", "quata_chat_delete_messages_v2" -> "delete"
                 else -> null
             }
             return if (failAttachmentRegistration && functionName == "quata_chat_register_attachment") {
