@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "461c4298e5b91a75479e9f01fbacf4d157aff16c",
-  "certification": "isolated-real-postgrest-deep-pagination-shared-recovery-complete-rebase-review-pending-final-CI-pending",
+  "certification": "isolated-real-postgrest-deep-pagination-shared-recovery-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "ISOLATED_REAL_POSTGRES_POSTGREST_AND_SHARED_UI_RECOVERY",
   "evidence": {
     "backend": {
@@ -97,7 +97,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "09dbd72d446d4223739f65602a9bad24232e1091",
+    "reviewedSha": "39939274d6b1abe21f116b0a62370e4973b96b59",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2: the first UI spy counted only RetryOlderPage and could not detect an automatic LoadOlderPage; the accepted test counts both events and requires auto=0 before and after the explicit retry."
@@ -111,7 +111,7 @@
     "All 52 Official ChromeHeadless tests passed on the exact Product SHA. Android common runtime compilation and the iOS x64 test klibrary passed; those two gates are compile evidence and are not represented as native E2E.",
     "The PostgreSQL and PostgREST containers and their isolated network were removed with zero residue. No production database, inventory outside SCR-OFFICIAL, product mutation flow, credentials or remote session were touched.",
     "The first independent review returned NO-GO for the event-spy coverage gap. Product SHA 09dbd72d closes it without changing runtime; rereview returned GO with no P0-P3 findings.",
-    "Product SHA 461c4298 replays the two Official commits exactly on integrated main a4391972. Range-diff maps both commits one-to-one; the Official product, tests, runner and historical report blobs are unchanged from 09dbd72d/e2251d99. The intervening #511 changes only Android shell restoration, so affected evidence was not repeated solely for ancestry.",
+    "Product SHA 461c4298 replays the two Official commits exactly on integrated main a4391972. Range-diff maps both commits one-to-one; the Official product, tests, runner and historical report blobs are unchanged from 09dbd72d/e2251d99. The intervening #511 changes only Android shell restoration, so affected evidence was not repeated solely for ancestry. Independent review of 39939274 returned GO with no P0-P3 findings.",
     "A transport-specific socket failure injected independently into Android, Web and iOS remains outside this attestation. Detail, author, editor, comments, media, push and a global SCR-OFFICIAL GO retain their existing ownership."
   ]
 }
