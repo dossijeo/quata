@@ -2,7 +2,7 @@
   "version": 1,
   "status": "passed",
   "git": {
-    "head": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
+    "head": "cbf044037250c134f50dceedac2ac09dd29d991d",
     "workingTreeDirty": false,
     "cleanScope": "tracked-source-and-index"
   },
@@ -26,12 +26,32 @@
       "restoredPortrait"
     ]
   },
+  "evidenceBinding": {
+    "runtimeExecutionProductSha": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
+    "rebasedProductSha": "cbf044037250c134f50dceedac2ac09dd29d991d",
+    "integratedBaseSha": "20f7934addb907d2da54837dc58c93b9193e529a",
+    "bindingMethod": "all non-documentary unit blobs are byte-identical; affected contracts and compilation reran on the rebased product; final GitHub iOS certification remains required",
+    "identicalBlobs": {
+      "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorContent.kt": "5d840d8bb46514a7899d21bf4ceac03f78f1c5f2",
+      "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsMessageContent.kt": "6ad22d2d75599edd53503df0c37574870f2daca2",
+      "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsSelectionContent.kt": "78048995d2e2f87d67d586327c47f77a0c349c53",
+      "iosApp/iosApp/QuataIosApp.swift": "001b813b3c01d601369fca1829c502d6c16e2bba",
+      "iosApp/iosAppUITests/QuataIosHostUITests.swift": "53828627acc99b18841d0cfcc16012d75109c2a2",
+      "scripts/ios-shell-layout-contract.test.mjs": "ea74ff97634ef2f129fc3cd1480e4884f5847881"
+    },
+    "rebasedPreflights": {
+      "diffCheck": "passed",
+      "contracts": "25/25 passed",
+      "profileWasmCompilation": "passed"
+    }
+  },
   "result": {
     "test": "QuataIosUITests/QuataIosHostUITests/testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation",
     "passed": 1,
     "failed": 0,
     "skipped": 0,
     "durationSeconds": 184.678,
+    "executionProductSha": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
     "assertions": {
       "realSharedProfileSurfaceMounted": true,
       "searchDraftPreservedAcrossBothRotations": true,
@@ -72,13 +92,16 @@
     "exact_message_draft_preserved_across_both_orientation_changes_without_test_repair",
     "top_chrome_content_and_primary_navigation_containment_verified",
     "xctest_passed_once_with_zero_failures",
-    "five_named_screenshots_exported"
+    "five_named_screenshots_exported",
+    "rebased_non_documentary_unit_blobs_verified_identical",
+    "rebased_affected_contracts_and_profile_wasm_compilation_passed"
   ],
   "diagnosticHistory": [
     "At 4d3d1833 the first focal run preserved portrait input but lost focus and keyboard after rotation; the failing xcresult remains on the Mac.",
     "At 3fe86d1e focus, draft and keyboard survived rotation, while an equality assertion incorrectly compared the larger opaque backdrop with the narrower accessibility keyboard frame; that failing xcresult also remains on the Mac.",
     "At a717c456 the containment assertion passed, but independent review rejected IME visibility as sufficient authority to restore message focus and found that the XCTest could tap the message input after rotation.",
-    "At fc794f68 the product tracks whether Search or Message owns the keyboard session, the XCTest first proves Search retains its own focus, and all post-rotation assertions pass without tapping either input."
+    "At fc794f68 the product tracks whether Search or Message owns the keyboard session, the XCTest first proves Search retains its own focus, and all post-rotation assertions pass without tapping either input.",
+    "After comments pagination merged as 20f7934a, the unit rebased to cbf04403. All six non-documentary unit blobs remained identical; the 25 affected contracts and Profile Wasm compilation passed on the rebased product. The UI run remains attributed to fc794f68 and final GitHub iOS certification is required for the combined tree."
   ],
   "limitations": [
     "This closes the production shell's global keyboard-layout policy with the real shared Profile/SOS search and message inputs; it does not claim every feature-specific input path.",
