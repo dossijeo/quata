@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -25,7 +26,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -89,6 +93,7 @@ fun EmergencyContactsEditorContent(
     val messageScrollState = rememberScrollState()
     val contactsListState = rememberLazyListState()
     val messageBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val messageFocusRequester = remember { FocusRequester() }
     var isMessageFocused by remember { mutableStateOf(false) }
     val selectedIdSet = selectedIds.toSet()
     val visibleUsers = filterEmergencyContactCandidates(candidates, selectedIdSet, query)
@@ -98,6 +103,14 @@ fun EmergencyContactsEditorContent(
     }
     LaunchedEffect(isMessageFocused, isImeVisible) {
         if (isMessageFocused && isImeVisible) messageBringIntoViewRequester.bringIntoView()
+    }
+    val restoreMessageFocusAfterLayoutChange = isMessageFocused || isImeVisible
+    LaunchedEffect(isLandscapeLayout) {
+        if (restoreMessageFocusAfterLayoutChange) {
+            withFrameNanos { }
+            messageFocusRequester.requestFocus()
+            messageBringIntoViewRequester.bringIntoView()
+        }
     }
     LaunchedEffect(isImeVisible, selectedTab) {
         if (!isImeVisible && selectedTab == EmergencyContactsTab.Contacts) {
@@ -160,7 +173,7 @@ fun EmergencyContactsEditorContent(
                     )
                 },
                 message = { modifier ->
-                    Column(modifier.verticalScroll(messageScrollState)) {
+                    Column(modifier.verticalScroll(messageScrollState).imePadding()) {
                         EmergencyContactsLandscapeMessageIntroContent(
                             tabLabel = strings.header.messageTab,
                             description = strings.header.description,
@@ -177,6 +190,7 @@ fun EmergencyContactsEditorContent(
                                             testTag = ProfileSosMessageInputTestTag
                                             contentDescription = ProfileSosMessageInputTestTag
                                         }
+                                        .focusRequester(messageFocusRequester)
                                         .bringIntoViewRequester(messageBringIntoViewRequester)
                                         .onFocusChanged { isMessageFocused = it.isFocused },
                                     message,
@@ -230,6 +244,7 @@ fun EmergencyContactsEditorContent(
                                             testTag = ProfileSosMessageInputTestTag
                                             contentDescription = ProfileSosMessageInputTestTag
                                         }
+                                        .focusRequester(messageFocusRequester)
                                         .bringIntoViewRequester(messageBringIntoViewRequester)
                                         .onFocusChanged { isMessageFocused = it.isFocused },
                                     message,

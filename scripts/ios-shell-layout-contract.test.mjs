@@ -45,10 +45,12 @@ test("the authenticated shell keeps a real shared Profile draft above its global
   assert.match(uiTest, /hasKeyboardFocus == 1/);
   assert.match(uiTest, /quata-ios-keyboard-opaque-backdrop/);
   assert.match(uiTest, /abs\(actual - expected\)/);
+  assert.match(uiTest, /keyboardBackdropFrame\(from: backdrop/);
   assert.match(uiTest, /ios-profile-sos-global-keyboard-(?:portrait|landscape|restored-portrait)/);
   assert.match(appHost, /embeddedController: IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController/);
   assert.match(appHost, /-quata-ui-test-expose-keyboard-backdrop/);
   assert.match(appHost, /controller\.backdropView\.isAccessibilityElement = true/);
+  assert.match(appHost, /backdropView\.accessibilityValue = \[overlap\.minX, overlap\.minY, overlap\.width, overlap\.height\]/);
 });
 
 test("the real iOS shell contains every route layout variant in bounded focal tests", () => {

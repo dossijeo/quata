@@ -1427,11 +1427,12 @@ final class QuataIosHostUITests: XCTestCase {
             .matching(identifier: "quata-ios-keyboard-opaque-backdrop")
             .firstMatch
         XCTAssertTrue(backdrop.waitForExistence(timeout: 5), "The production router backdrop must be exposed while the keyboard is visible in \(context).", file: file, line: line)
+        let measuredFrame = keyboardBackdropFrame(from: backdrop, context: context, file: file, line: line)
         for (component, actual, expected) in [
-            ("minX", backdrop.frame.minX, keyboard.frame.minX),
-            ("minY", backdrop.frame.minY, keyboard.frame.minY),
-            ("width", backdrop.frame.width, keyboard.frame.width),
-            ("height", backdrop.frame.height, keyboard.frame.height),
+            ("minX", measuredFrame.minX, keyboard.frame.minX),
+            ("minY", measuredFrame.minY, keyboard.frame.minY),
+            ("width", measuredFrame.width, keyboard.frame.width),
+            ("height", measuredFrame.height, keyboard.frame.height),
         ] {
             XCTAssertLessThanOrEqual(
                 abs(actual - expected),
@@ -1441,6 +1442,22 @@ final class QuataIosHostUITests: XCTestCase {
                 line: line,
             )
         }
+    }
+
+    private func keyboardBackdropFrame(
+        from backdrop: XCUIElement,
+        context: String,
+        file: StaticString,
+        line: UInt,
+    ) -> CGRect {
+        let components = ((backdrop.value as? String) ?? "")
+            .split(separator: ",")
+            .compactMap { Double($0) }
+        guard components.count == 4 else {
+            XCTFail("The production keyboard backdrop must report its unclipped frame in \(context).", file: file, line: line)
+            return .zero
+        }
+        return CGRect(x: components[0], y: components[1], width: components[2], height: components[3])
     }
 
     private func assertAuthenticatedViewport(

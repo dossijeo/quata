@@ -2399,6 +2399,9 @@ final class IosKeyboardBackdropController {
         }
         backdropView.backgroundColor = Self.commonSurfaceRaisedColor(for: container.traitCollection)
         backdropView.frame = overlap
+        backdropView.accessibilityValue = [overlap.minX, overlap.minY, overlap.width, overlap.height]
+            .map { String(format: "%.3f", $0) }
+            .joined(separator: ",")
         backdropView.isHidden = false
         bringToFront()
     }
@@ -2409,6 +2412,7 @@ final class IosKeyboardBackdropController {
         latestKeyboardFrame = nil
         backdropView.isHidden = true
         backdropView.frame = .zero
+        backdropView.accessibilityValue = nil
     }
 
     func scheduleHide(after delay: TimeInterval) {
