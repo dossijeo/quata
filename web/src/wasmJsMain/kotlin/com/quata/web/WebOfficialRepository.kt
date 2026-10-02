@@ -25,7 +25,9 @@ import com.quata.feature.official.data.officialCommentPlan
 import com.quata.feature.official.data.officialSoftDeletePlan
 import com.quata.feature.official.data.officialPostCreatePlans
 import com.quata.feature.official.domain.OfficialPostDraft
+import com.quata.feature.official.domain.OfficialFeedCursor
 import com.quata.feature.official.domain.OfficialPostItem
+import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.postcomposer.data.ActorBoundComposerTransport
 import com.quata.feature.postcomposer.data.ComposerPreparedMedia
@@ -77,11 +79,11 @@ class WebOfficialRepository(
     override suspend fun refreshOfficialFeed(): Result<List<OfficialPostItem>> = loadFeed(limit = FeedPageSize)
 
     override suspend fun loadOlderOfficialFeedPage(
-        beforePublishedAt: String?,
+        cursor: OfficialFeedCursor,
         limit: Int,
     ): Result<List<OfficialPostItem>> = loadFeed(
         limit = limit.coerceAtLeast(1),
-        publishedBefore = beforePublishedAt?.takeIf(String::isNotBlank),
+        cursor = cursor,
     )
 
     override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = runCatching {
@@ -189,25 +191,42 @@ class WebOfficialRepository(
 
     private suspend fun loadFeed(
         limit: Int,
-        publishedBefore: String? = null,
+        cursor: OfficialFeedCursor? = null,
         postId: String? = null,
         authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.Public,
     ): Result<List<OfficialPostItem>> = runCatching {
-        val translation = officialTranslationReadPlan(currentWebOfficialLanguage(), limit, postId)
-        val posts = client.rows(
-            table = "official_posts",
-            query = buildMap {
-                put("select", PostSelect)
-                put("is_published", "eq.true")
-                put("deleted_at", "is.null")
-                put("order", "published_at.desc,created_at.desc")
-                putAll(translation.filters)
-                publishedBefore?.let { put("published_at", "lt.$it") }
-                postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
-            },
-            limit = translation.fetchLimit,
-            authMode = authMode,
-        ).map(JsonObject::toOfficialRemotePost).selectOfficialTranslations(currentWebOfficialLanguage())
+        val languageTag = currentWebOfficialLanguage()
+        val officialLanguage = OfficialPostLanguage.fromAppLanguage(languageTag?.substringBefore('-')).remoteValue
+        val posts = if (postId == null) {
+            client.rows(
+                table = "rpc/quata_official_feed_page",
+                query = buildMap {
+                    put("p_limit", limit.coerceIn(1, 100).toString())
+                    cursor?.let {
+                        put("p_before_sort_at", it.sortAt)
+                        put("p_before_created_at", it.createdAt)
+                        put("p_before_id", it.postId.requireOfficialPostgrestIdentifier())
+                    }
+                },
+                authMode = WebPostgrestAuthMode.Public,
+                officialLanguage = officialLanguage,
+            ).map(JsonObject::toOfficialRemotePost)
+        } else {
+            val translation = officialTranslationReadPlan(languageTag, limit, postId)
+            client.rows(
+                table = "official_posts",
+                query = buildMap {
+                    put("select", PostSelect)
+                    put("is_published", "eq.true")
+                    put("deleted_at", "is.null")
+                    putAll(translation.filters)
+                    put("id", "eq.${postId.requireOfficialPostgrestIdentifier()}")
+                },
+                limit = translation.fetchLimit,
+                authMode = authMode,
+                officialLanguage = officialLanguage,
+            ).map(JsonObject::toOfficialRemotePost).selectOfficialTranslations(languageTag)
+        }
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
@@ -259,7 +278,14 @@ class WebOfficialRepository(
         query: Map<String, String>,
         limit: Int? = null,
         authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.Public,
-    ): List<JsonObject> = when (val result = get(table = table, query = query, limit = limit, authMode = authMode)) {
+        officialLanguage: String? = null,
+    ): List<JsonObject> = when (val result = get(
+        table = table,
+        query = query,
+        limit = limit,
+        authMode = authMode,
+        officialLanguage = officialLanguage,
+    )) {
         is WebPostgrestResult.Success -> Json.parseToJsonElement(result.body).jsonArray.map { it.jsonObject }
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }

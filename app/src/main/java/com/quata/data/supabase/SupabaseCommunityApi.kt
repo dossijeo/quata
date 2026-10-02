@@ -384,6 +384,30 @@ class SupabaseCommunityApi(
         cacheMode = cacheMode
     )
 
+    suspend fun getOfficialFeedPage(
+        limit: Int,
+        beforeSortAt: String? = null,
+        beforeCreatedAt: String? = null,
+        beforeId: String? = null,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+    ): List<OfficialPost> = client.getPublicList(
+        "rpc/quata_official_feed_page",
+        mapOf(
+            "p_limit" to limit.coerceIn(1, 100).toString(),
+            "p_before_sort_at" to beforeSortAt,
+            "p_before_created_at" to beforeCreatedAt,
+            "p_before_id" to beforeId,
+        ),
+        cacheTable = "official_posts",
+        cacheMode = cacheMode,
+    )
+
+    fun observeOfficialFeedPage(limit: Int = 50): Flow<List<OfficialPost>> = client.observePublicList(
+        "rpc/quata_official_feed_page",
+        mapOf("p_limit" to limit.coerceIn(1, 100).toString()),
+        cacheTable = "official_posts",
+    )
+
     fun observeOfficialPosts(limit: Int = 50, offset: Int = 0, language: String? = null): Flow<List<OfficialPost>> = client.observeList(
         "official_posts",
         mapOf(

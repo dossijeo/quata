@@ -5,7 +5,9 @@ import com.quata.core.model.User
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
 import com.quata.feature.official.domain.OfficialPostDraft
+import com.quata.feature.official.domain.OfficialFeedCursor
 import com.quata.feature.official.domain.OfficialPostItem
+import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.postcomposer.data.ActorBoundComposerTransport
 import com.quata.feature.postcomposer.data.ComposerPreparedMedia
@@ -109,11 +111,11 @@ class IosOfficialReadRepository(
     override suspend fun refreshOfficialFeed(): Result<List<OfficialPostItem>> = loadFeed(limit = FeedPageSize)
 
     override suspend fun loadOlderOfficialFeedPage(
-        beforePublishedAt: String?,
+        cursor: OfficialFeedCursor,
         limit: Int,
     ): Result<List<OfficialPostItem>> = loadFeed(
         limit = limit.coerceAtLeast(1),
-        publishedBefore = beforePublishedAt?.takeIf(String::isNotBlank),
+        cursor = cursor,
     )
 
     override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = runCatching {
@@ -227,25 +229,43 @@ class IosOfficialReadRepository(
 
     private suspend fun loadFeed(
         limit: Int,
-        publishedBefore: String? = null,
+        cursor: OfficialFeedCursor? = null,
         postId: String? = null,
         authMode: IosOfficialReadAuthMode = IosOfficialReadAuthMode.Public,
     ): Result<List<OfficialPostItem>> = runCatching {
-        val translation = officialTranslationReadPlan(preferredLanguageTag, limit, postId)
-        val posts = readRows(
-            table = "official_posts",
-            query = buildMap {
-                put("select", PostSelect)
-                put("is_published", "eq.true")
-                put("deleted_at", "is.null")
-                put("order", "published_at.desc,created_at.desc")
-                putAll(translation.filters)
-                publishedBefore?.let { put("published_at", "lt.$it") }
-                postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
-            },
-            limit = translation.fetchLimit,
-            authMode = authMode,
-        ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(preferredLanguageTag)
+        val officialLanguage = OfficialPostLanguage.fromAppLanguage(
+            preferredLanguageTag?.substringBefore('-'),
+        ).remoteValue
+        val posts = if (postId == null) {
+            readRows(
+                table = "rpc/quata_official_feed_page",
+                query = buildMap {
+                    put("p_limit", limit.coerceIn(1, 100).toString())
+                    cursor?.let {
+                        put("p_before_sort_at", it.sortAt)
+                        put("p_before_created_at", it.createdAt)
+                        put("p_before_id", it.postId.requireOfficialPostgrestIdentifier())
+                    }
+                },
+                authMode = IosOfficialReadAuthMode.Public,
+                officialLanguage = officialLanguage,
+            ).map(Map<*, *>::toOfficialRemotePost)
+        } else {
+            val translation = officialTranslationReadPlan(preferredLanguageTag, limit, postId)
+            readRows(
+                table = "official_posts",
+                query = buildMap {
+                    put("select", PostSelect)
+                    put("is_published", "eq.true")
+                    put("deleted_at", "is.null")
+                    putAll(translation.filters)
+                    put("id", "eq.${postId.requireOfficialPostgrestIdentifier()}")
+                },
+                limit = translation.fetchLimit,
+                authMode = authMode,
+                officialLanguage = officialLanguage,
+            ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(preferredLanguageTag)
+        }
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
@@ -299,17 +319,28 @@ class IosOfficialReadRepository(
         query: Map<String, String>,
         limit: Int? = null,
         authMode: IosOfficialReadAuthMode = IosOfficialReadAuthMode.Public,
+        officialLanguage: String? = null,
     ): List<Map<*, *>> = when (authMode) {
-        IosOfficialReadAuthMode.Public -> rows(table, query, limit)
+        IosOfficialReadAuthMode.Public -> rows(table, query, limit, officialLanguage)
         IosOfficialReadAuthMode.SessionRequired -> authenticatedRows(
             table = table,
             query = query + listOfNotNull(limit?.let { "limit" to it.toString() }),
+            officialLanguage = officialLanguage,
         )
     }
 
-    private suspend fun rows(table: String, query: Map<String, String>, limit: Int? = null): List<Map<*, *>> {
-        require(table.matches(IosPostgrestTableName)) { "ios_official_table_invalid" }
-        val result = request(table, query + listOfNotNull(limit?.let { "limit" to it.toString() }))
+    private suspend fun rows(
+        table: String,
+        query: Map<String, String>,
+        limit: Int? = null,
+        officialLanguage: String? = null,
+    ): List<Map<*, *>> {
+        require(table.matches(IosPostgrestTableName) || table.matches(IosPostgrestRpcPath)) { "ios_official_table_invalid" }
+        val result = request(
+            table,
+            query + listOfNotNull(limit?.let { "limit" to it.toString() }),
+            officialLanguage,
+        )
         val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null)
             as? List<*> ?: throw IosOfficialReadException(
                 kind = IosOfficialReadFailureKind.Response,
@@ -323,7 +354,11 @@ class IosOfficialReadRepository(
         }
     }
 
-    private suspend fun request(table: String, query: Map<String, String>): NSData {
+    private suspend fun request(
+        table: String,
+        query: Map<String, String>,
+        officialLanguage: String? = null,
+    ): NSData {
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty)
             ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Configuration, reason = "supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
@@ -333,6 +368,7 @@ class IosOfficialReadRepository(
             publishableKey = publishableKey,
             table = table,
             query = query,
+            officialLanguage = officialLanguage,
         )
         val url = NSURL(string = publicRequest.url)
             ?: throw IosOfficialReadException(IosOfficialReadFailureKind.Configuration, reason = "postgrest_url_invalid")
@@ -341,8 +377,12 @@ class IosOfficialReadRepository(
         }.executeOfficialRead()
     }
 
-    private suspend fun authenticatedRows(table: String, query: Map<String, String>): List<Map<*, *>> {
-        val result = authenticatedRequest(table, "GET", query, null)
+    private suspend fun authenticatedRows(
+        table: String,
+        query: Map<String, String>,
+        officialLanguage: String? = null,
+    ): List<Map<*, *>> {
+        val result = authenticatedRequest(table, "GET", query, null, officialLanguage)
         val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*> ?: error("ios_official_response_not_array")
         return root.map { it as? Map<*, *> ?: error("ios_official_response_not_object") }
     }
@@ -351,7 +391,13 @@ class IosOfficialReadRepository(
         authenticatedRequest(table, method, query, body)
     }
 
-    private suspend fun authenticatedRequest(table: String, method: String, query: Map<String, String>, body: String?): NSData {
+    private suspend fun authenticatedRequest(
+        table: String,
+        method: String,
+        query: Map<String, String>,
+        body: String?,
+        officialLanguage: String? = null,
+    ): NSData {
         require(table.matches(IosPostgrestTableName) || table.matches(IosPostgrestRpcPath)) { "ios_official_table_invalid" }
         val session = authSession?.currentSession()?.takeIf { it.bearerToken.isNotBlank() } ?: error("ios_official_session_missing")
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_official_supabase_url_missing")
@@ -364,6 +410,9 @@ class IosOfficialReadRepository(
             setValue("Bearer ${session.bearerToken}", "Authorization")
             setValue("application/json", "Accept")
             setValue("return=representation", "Prefer")
+            officialLanguage?.takeIf(String::isNotBlank)?.let {
+                setValue(it, "x-quata-official-language")
+            }
             if (body != null) { setValue("application/json", "Content-Type"); setHTTPBody(body.encodeToByteArray().toFoundationData()) }
         }.executeOfficialRead()
     }
@@ -462,25 +511,32 @@ internal data class IosPublicOfficialRequest(
 )
 
 /** Anonymous Official reads are authenticated only with the client-safe publishable key. */
-internal fun iosOfficialPublicHeaders(publishableKey: String): Map<String, String> = mapOf(
-    "apikey" to publishableKey.trim(),
-    "Accept" to "application/json",
-)
+internal fun iosOfficialPublicHeaders(
+    publishableKey: String,
+    officialLanguage: String? = null,
+): Map<String, String> = buildMap {
+    put("apikey", publishableKey.trim())
+    put("Accept", "application/json")
+    officialLanguage?.trim()?.takeIf(String::isNotEmpty)?.let {
+        put("x-quata-official-language", it)
+    }
+}
 
 internal fun iosPublicOfficialRequest(
     baseUrl: String,
     publishableKey: String,
     table: String,
     query: Map<String, String>,
+    officialLanguage: String? = null,
 ): IosPublicOfficialRequest {
-    require(table.matches(IosPostgrestTableName)) { "ios_official_table_invalid" }
+    require(table.matches(IosPostgrestTableName) || table.matches(IosPostgrestRpcPath)) { "ios_official_table_invalid" }
     val encodedQuery = query.entries.joinToString("&") { (key, value) ->
         "${key.iosQueryComponent()}=${value.iosQueryComponent()}"
     }
     return IosPublicOfficialRequest(
         method = "GET",
         url = "${baseUrl.trim().trimEnd('/')}/rest/v1/$table?$encodedQuery",
-        headers = iosOfficialPublicHeaders(publishableKey),
+        headers = iosOfficialPublicHeaders(publishableKey, officialLanguage),
     )
 }
 

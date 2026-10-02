@@ -6,6 +6,7 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.official.domain.feedCursor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -149,14 +150,14 @@ class OfficialFeedViewModel(
         val state = _uiState.value
         if (loadOlderJob?.isActive == true) return
         if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
-        val beforePublishedAt = feedStore.olderCursor()
-        if (beforePublishedAt == null) {
+        val cursor = feedStore.items.lastOrNull()?.feedCursor()
+        if (cursor == null || cursor.sortAt.isBlank() || cursor.createdAt.isBlank() || cursor.postId.isBlank()) {
             _uiState.update { it.copy(hasMoreOlderPosts = false) }
             return
         }
         loadOlderJob = scope.launch {
             _uiState.update { state -> state.copy(isLoadingOlder = true, error = null) }
-            repository.loadOlderOfficialFeedPage(beforePublishedAt = beforePublishedAt, limit = OfficialFeedPageSize)
+            repository.loadOlderOfficialFeedPage(cursor = cursor, limit = OfficialFeedPageSize)
                 .onSuccess { posts ->
                     val mergedPosts = feedStore.appendOlder(posts)
                     val hasMoreOlderPosts = feedStore.hasMoreOlderItems
