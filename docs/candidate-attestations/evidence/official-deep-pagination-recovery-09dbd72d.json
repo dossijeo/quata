@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "09dbd72d446d4223739f65602a9bad24232e1091",
+  "git": {
+    "head": "09dbd72d446d4223739f65602a9bad24232e1091",
+    "workingTreeDirty": false
+  },
+  "executedAt": "2026-10-02T16:18:25.5176175Z",
+  "evidenceKind": "ISOLATED_REAL_POSTGRES_POSTGREST_AND_SHARED_UI_RECOVERY",
+  "steps": [
+    "exact_product_head_verified_clean",
+    "official_total_order_contracts_passed_7_of_7",
+    "isolated_postgresql_loaded_101_deep_official_posts",
+    "anonymous_postgrest_returned_deep_pages_50_50_1",
+    "deep_pages_contained_101_unique_posts_in_strict_total_order",
+    "language_selection_and_partial_cursor_rejection_preserved",
+    "shared_view_model_preserved_loaded_posts_after_older_page_failure",
+    "shared_view_model_retried_the_exact_failed_cursor_only_after_explicit_event",
+    "common_compose_blocked_automatic_prefetch_while_older_page_error_was_visible",
+    "common_compose_kept_content_visible_and_exposed_explicit_retry",
+    "chrome_headless_official_suite_passed_52_of_52",
+    "android_official_common_runtime_compiled",
+    "ios_x64_official_test_klibrary_compiled",
+    "isolated_docker_containers_and_network_removed"
+  ],
+  "results": {
+    "postgresPostgrest": {
+      "status": "passed",
+      "fixturePosts": 101,
+      "pageSizes": [50, 50, 1],
+      "uniquePosts": 101,
+      "order": "strict_descending_sort_at_created_at_id",
+      "authorizationHeader": "absent",
+      "cleanupResidue": 0
+    },
+    "webCommon": {
+      "status": "passed",
+      "runner": "ChromeHeadless 154 on Windows",
+      "suites": 15,
+      "tests": 52,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "paginationRecoveryTests": 1,
+      "rootStateTests": 3
+    },
+    "android": {
+      "status": "passed",
+      "gate": ":feature:official:compileAndroidMain"
+    },
+    "ios": {
+      "status": "passed",
+      "gate": ":feature:official:iosX64TestKlibrary"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "ephemeral-postgres-postgrest-containers-and-network",
+    "residueCounts": {
+      "containers": 0,
+      "networks": 0,
+      "volumes": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "The production Official RPC crosses two complete 50-item page boundaries and one partial page without skips or duplicates in an isolated real PostgreSQL and PostgREST runtime.",
+      "The shared Official ViewModel and Compose host preserve loaded content, stop automatic prefetch after an older-page failure and retry the identical cursor only after an explicit user action.",
+      "The affected shared runtime compiles for Android and the iOS x64 test klibrary."
+    ],
+    "doesNotProve": [
+      "A socket-level failure injected independently into every Android, Web and iOS transport adapter.",
+      "A full native-platform E2E matrix or unrelated Official detail, editor, comments, media and mutation flows.",
+      "A production Supabase data mutation or deployment change."
+    ]
+  }
+}

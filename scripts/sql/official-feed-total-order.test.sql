@@ -54,6 +54,25 @@ values
 ;
 update public.official_posts set deleted_at=now() where id='00000000-0000-0000-0000-000000000107';
 
+insert into public.official_posts(
+    id,
+    profile_id,
+    language,
+    translation_group_id,
+    title,
+    published_at,
+    created_at
+)
+select
+    ('10000000-0000-4000-8000-' || lpad(to_hex(sequence), 12, '0'))::uuid,
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    'en',
+    ('20000000-0000-4000-8000-' || lpad(to_hex(sequence), 12, '0'))::uuid,
+    'deep ' || sequence,
+    '2026-09-01 00:00:00+00'::timestamptz - make_interval(secs => sequence),
+    '2026-09-01 00:00:00+00'::timestamptz - make_interval(secs => sequence)
+from generate_series(1, 101) as sequence;
+
 set role anon;
 select set_config('request.headers', '{"x-quata-official-language":"en"}', false);
 
@@ -61,6 +80,15 @@ do $$
 declare
     first_page uuid[];
     second_page uuid[];
+    deep_first_count integer;
+    deep_second_count integer;
+    deep_final_count integer;
+    first_cursor_sort_at timestamptz;
+    first_cursor_created_at timestamptz;
+    first_cursor_id uuid;
+    second_cursor_sort_at timestamptz;
+    second_cursor_created_at timestamptz;
+    second_cursor_id uuid;
 begin
     select array_agg(id order by coalesce(published_at,created_at) desc, created_at desc, id desc)
       into first_page
@@ -73,7 +101,7 @@ begin
     select array_agg(id order by coalesce(published_at,created_at) desc, created_at desc, id desc)
       into second_page
       from public.quata_official_feed_page(
-          2,
+          1,
           '2026-10-02 09:00:00+00',
           '2026-10-02 08:00:00+00',
           '00000000-0000-0000-0000-000000000105'
@@ -82,9 +110,50 @@ begin
         '00000000-0000-0000-0000-000000000104'::uuid
     ] then raise exception 'unexpected second page: %', second_page; end if;
 
-    if (select count(*) from public.quata_official_feed_page(10, null, null, null)) <> 3 then
-        raise exception 'translation grouping or residue mismatch';
-    end if;
+    select count(*)
+      into deep_first_count
+      from public.quata_official_feed_page(
+          50,
+          '2026-10-02 09:00:00+00',
+          '2026-10-02 08:00:00+00',
+          '00000000-0000-0000-0000-000000000104'
+      );
+    if deep_first_count <> 50 then raise exception 'unexpected first deep page size: %', deep_first_count; end if;
+    select coalesce(published_at, created_at), created_at, id
+      into first_cursor_sort_at, first_cursor_created_at, first_cursor_id
+      from public.quata_official_feed_page(
+          50,
+          '2026-10-02 09:00:00+00',
+          '2026-10-02 08:00:00+00',
+          '00000000-0000-0000-0000-000000000104'
+      )
+     order by coalesce(published_at, created_at), created_at, id
+     limit 1;
+
+    select count(*)
+      into deep_second_count
+      from public.quata_official_feed_page(50, first_cursor_sort_at, first_cursor_created_at, first_cursor_id);
+    if deep_second_count <> 50 then raise exception 'unexpected second deep page size: %', deep_second_count; end if;
+    select coalesce(published_at, created_at), created_at, id
+      into second_cursor_sort_at, second_cursor_created_at, second_cursor_id
+      from public.quata_official_feed_page(50, first_cursor_sort_at, first_cursor_created_at, first_cursor_id)
+     order by coalesce(published_at, created_at), created_at, id
+     limit 1;
+
+    select count(*)
+      into deep_final_count
+      from public.quata_official_feed_page(50, second_cursor_sort_at, second_cursor_created_at, second_cursor_id);
+    if deep_final_count <> 1 then raise exception 'unexpected final deep page size: %', deep_final_count; end if;
+
+    if (
+        select count(*)
+          from public.quata_official_feed_page(
+              100,
+              '2026-10-02 09:00:00+00',
+              '2026-10-02 08:00:00+00',
+              '00000000-0000-0000-0000-000000000104'
+          )
+    ) <> 100 then raise exception 'deep full-page boundary mismatch'; end if;
 end;
 $$;
 

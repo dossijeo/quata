@@ -44,7 +44,7 @@ expect(cursor.published_at === "2026-10-02T09:00:00+00:00", "sort timestamp lost
 expect(cursor.created_at === "2026-10-02T08:00:00+00:00", "creation timestamp lost precision", cursor);
 
 const second = await request({
-  p_limit: "2",
+  p_limit: "1",
   p_before_sort_at: cursor.published_at,
   p_before_created_at: cursor.created_at,
   p_before_id: cursor.id,
@@ -54,6 +54,34 @@ expect(second.value.map(({ id }) => id).join(",") === "00000000-0000-0000-0000-0
 
 const all = [...first.value, ...second.value];
 expect(all.length === 3 && new Set(all.map(({ id }) => id)).size === 3, "pages are not unique and complete", all);
+
+const deepPages = [];
+let deepCursor = second.value.at(-1);
+for (const expectedSize of [50, 50, 1]) {
+  const page = await request({
+    p_limit: "50",
+    p_before_sort_at: deepCursor.published_at,
+    p_before_created_at: deepCursor.created_at,
+    p_before_id: deepCursor.id,
+  });
+  expect(page.status === 200, "deep anonymous page failed", page);
+  expect(page.value.length === expectedSize, "deep page boundary changed", { expectedSize, page });
+  deepPages.push(...page.value);
+  deepCursor = page.value.at(-1);
+}
+expect(deepPages.length === 101, "deep pagination did not cross two full client pages", deepPages.length);
+expect(new Set(deepPages.map(({ id }) => id)).size === 101, "deep pagination duplicated a post", deepPages);
+expect(deepPages.every(({ title }) => title.startsWith("deep ")), "deep pagination escaped its fixture", deepPages);
+for (let index = 1; index < deepPages.length; index += 1) {
+  const previous = deepPages[index - 1];
+  const current = deepPages[index];
+  const previousTuple = [previous.published_at, previous.created_at, previous.id];
+  const currentTuple = [current.published_at, current.created_at, current.id];
+  expect(previousTuple.join("\u0000") > currentTuple.join("\u0000"), "deep page order is not strictly descending", {
+    previous: previousTuple,
+    current: currentTuple,
+  });
+}
 
 const french = await request({ p_limit: "10" }, "fr");
 expect(french.status === 200, "French anonymous page failed", french);
