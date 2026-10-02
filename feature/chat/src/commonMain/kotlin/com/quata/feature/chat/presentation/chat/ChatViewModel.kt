@@ -450,6 +450,7 @@ class ChatViewModel(
                     if (!actorStillMatches) {
                         pendingEditMutationRetry = null
                         optimisticEditedMessages = optimisticEditedMessages - editMutation.messageId
+                        publishMessages(isLoading = false)
                         return@launch
                     }
                 }

@@ -20,7 +20,7 @@ test("shared message mutations serialize duplicate intent and retain one exact r
   assert.match(viewModel, /pendingEditMutationRetry[\s\S]*clientMutationId = newMessageMutationId\(\)/);
   assert.match(viewModel, /pendingSelectedMessageMutationRetry = mutation/);
   assert.match(viewModel, /repository\.currentActorId\(\)[\s\S]*== mutation\.actorId/);
-  assert.match(viewModel, /repository\.currentActorId\(\)[\s\S]*== editMutation\.actorId[\s\S]*optimisticEditedMessages = optimisticEditedMessages - editMutation\.messageId/);
+  assert.match(viewModel, /repository\.currentActorId\(\)[\s\S]*== editMutation\.actorId[\s\S]*optimisticEditedMessages = optimisticEditedMessages - editMutation\.messageId[\s\S]*publishMessages\(isLoading = false\)[\s\S]*return@launch/);
   assert.match(state, /messageMutationRetry: ChatMessageMutationRetry\?/);
   assert.match(event, /RetryMessageMutation/);
   assert.match(host, /ChatUiEvent\.RetryMessageMutation[\s\S]*ChatMutationRetryTestTag/);

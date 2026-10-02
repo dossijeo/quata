@@ -1323,6 +1323,8 @@ class ChatViewModelComposerActionsTest {
             model.onEvent(ChatUiEvent.Send)
             testScheduler.runCurrent()
             assertEquals(1, repository.editMessageMutationCalls.size)
+            assertEquals("old actor edit", model.uiState.value.messages.single { it.id == own.id }.text)
+            assertTrue(model.uiState.value.messages.single { it.id == own.id }.isPending)
 
             repository.actorId = "replacement"
             model.onEvent(ChatUiEvent.MessageChanged("replacement draft"))
@@ -1332,6 +1334,8 @@ class ChatViewModelComposerActionsTest {
 
             assertEquals("replacement draft", model.uiState.value.messageText)
             assertEquals(own.id, model.uiState.value.selectedMessageId)
+            assertEquals("before", model.uiState.value.messages.single { it.id == own.id }.text)
+            assertFalse(model.uiState.value.messages.single { it.id == own.id }.isPending)
             assertNull(model.uiState.value.error)
             model.close()
         }
