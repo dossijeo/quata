@@ -4,16 +4,16 @@
     "CHAT-MESSAGE-ACTIONS"
   ],
   "status": "passed",
-  "productSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-  "certification": "affected-platform-and-database-safety-validation-and-independent-review-complete-final-ci-pending",
+  "productSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+  "certification": "affected-platform-and-production-database-release-complete-independent-review-pending-final-ci",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "9e7d496049d8147df291429acfc11d793d0ecd459baa705f42678613aa498c02",
       "reportStatus": "passed",
-      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -32,16 +32,17 @@
     },
     "android": {
       "status": "passed",
-      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "9e7d496049d8147df291429acfc11d793d0ecd459baa705f42678613aa498c02",
       "reportStatus": "passed",
-      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "android_debug_compilation_passed",
-        "fast_contracts_773_passed"
+        "fast_contracts_777_passed_on_recomposed_head",
+        "recomposed_product_blobs_verified_byte_equivalent"
       ],
       "cleanup": {
         "verified": true,
@@ -50,11 +51,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "9e7d496049d8147df291429acfc11d793d0ecd459baa705f42678613aa498c02",
       "reportStatus": "passed",
-      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -72,60 +73,60 @@
     },
     "database": {
       "status": "passed",
-      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
+      "sha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-8be92978.json",
+      "reportSha256": "9e7d496049d8147df291429acfc11d793d0ecd459baa705f42678613aa498c02",
       "reportStatus": "passed",
-      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "reportGitHead": "8be929780437bcfaa3600e3f6980e6387652a94c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "postgres_disposable_idempotency_fixture_passed",
-        "remote_migration_behavior_and_acl_probe_passed_inside_rollback",
-        "remote_probe_verified_zero_persistent_target_objects_and_fixtures",
+        "selective_release_executor_authorization_rollback_and_apply_fixture_passed",
         "encrypted_full_logical_backup_created_and_ciphertext_hash_verified",
-        "selective_restore_drill_passed"
+        "selective_restore_drill_passed",
+        "remote_predeploy_migration_behavior_acl_and_zero_residue_passed",
+        "selective_release_snapshot_and_dry_run_passed",
+        "chat_mutation_migration_committed_transactionally",
+        "database_release_postflight_passed",
+        "remote_postdeploy_ledger_behavior_acl_and_zero_residue_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "remote-outer-transaction-rollback-and-zero-fixture-residue"
+        "mode": "release-committed-probe-fixtures-rolled-back-zero-residue"
       }
     }
   },
   "preflight": [
     "git diff --check",
     "npm run test:ci-fast-contracts",
-    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
-    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
-    "macOS :feature:chat:iosX64Test with the nine changed mutation methods",
+    "node --test scripts/chat-message-mutation-idempotency-contract.test.mjs scripts/chat-message-mutation-remote-probe-contract.test.mjs scripts/db-migration-reconciliation-contract.test.mjs",
     ".\\scripts\\test-chat-message-mutation-idempotency.ps1",
-    "node scripts/chat-message-mutation-remote-probe.mjs --db-url-file <private-file> --tls-ca-file <private-file>",
+    ".\\scripts\\test-selective-db-release-executor.ps1",
+    "node scripts/chat-message-mutation-remote-probe.mjs --mode predeploy --db-url-file <private-file> --tls-ca-file <private-file>",
+    "scripts/run-db-release-safety.ps1 snapshot and postflight for 20261002003000",
+    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for the exact frozen package",
+    "node scripts/chat-message-mutation-remote-probe.mjs --mode postdeploy --db-url-file <private-file> --tls-ca-file <private-file>",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-mutation-idempotency.json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-    "reviewedAttestationSha": "8e4a1bf5e26c22fb93e4916de2bb325b6723b454",
+    "status": "PENDING",
+    "reviewedProductBaselineSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+    "recomposedProductSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
     "blockingFindings": [],
-    "findingCounts": {
-      "P0": 0,
-      "P1": 0,
-      "P2": 0,
-      "P3": 0
-    }
+    "pendingScope": "Independent exact-head review of recomposition, guarded release tooling, sanitized evidence and committed production state."
   },
   "notes": [
-    "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable and edit/delete/report share one mutation lock.",
-    "An Edit completion revalidates the exact actor. If the actor changed, the old retry and optimistic overlay are removed and backend messages are republished before returning, so old text or pending state cannot remain visible in the replacement session.",
-    "The v2 edit/delete functions atomically bind actor, conversation, message set and payload to a private receipt. Repeating the same key returns the stored result; changing its request fails with SQLSTATE 22023.",
-    "Legacy v1 edit/delete functions remain byte-for-byte compatible for the explicitly isolated Android v32 path.",
-    "The production probe validated migration behavior, RLS and EXECUTE ACLs inside an outer transaction, then rolled back and verified that target functions, receipt table and synthetic fixture were absent.",
-    "A full encrypted logical backup was created before the probe. Its ciphertext hash and separate key custody were verified. A general restore into vanilla PostgreSQL was not accepted because managed Supabase roles and extensions are absent; the selective affected-object restore drill passed.",
-    "The first broad iOS run passed all 52 ChatViewModel tests while one unrelated historical inbox pagination repository test exhausted its virtual timeout. The accepted baseline iOS run selected the nine changed mutation methods; all nine passed without failures, errors or skips.",
-    "The first independent review returned NO-GO for actor validation, v2 fault injection and cross-action locking. b487a484 closed the latter two and added actor revalidation. The remediation review found that actor mismatch removed the internal overlay without republishing messages; f74af79b fixes that residual and asserts message text and pending state.",
-    "The 84-test Web and nine-test iOS baselines ran on b487a484; a5133995 changed only capability hashes. The exact reviewer fix passed on Web and is recorded for iOS at f74af79b; Android compilation, 773 fast contracts and 22 capability tests passed on f74af79b.",
-    "Final independent review returned GO on Product f74af79b and attestation HEAD 8e4a1bf5 with no P0-P3 findings.",
-    "The report is sanitized: it contains no host address, absolute private path, credential, connection string, backup key or business row count.",
-    "The candidate remains local until its predecessor candidates merge; persistent database deployment is not claimed by this attestation."
+    "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable and edit, delete and report share one mutation lock.",
+    "Edit completion revalidates the exact actor. When the actor changes, the old retry and optimistic overlay are removed and authoritative backend messages are republished before returning.",
+    "The authenticated v2 edit/delete functions atomically bind actor, conversation, message set and payload to a private receipt. Exact retries return the stored result and mutation-key reuse with another request fails with SQLSTATE 22023.",
+    "Legacy v1 edit/delete functions remain byte-equivalent for the explicitly isolated Android v32 compatibility branch.",
+    "All affected Android, Web/Wasm, iOS, migration and rollback blobs are exact to the independently reviewed f74af79b product baseline. The recomposed head renews only merged contracts and release custody, so platform matrices were not repeated solely for SHA identity.",
+    "A fresh encrypted full backup preceded every remote migration attempt. Its ciphertext and plaintext hashes passed and a selective restore drill completed in disposable PostgreSQL.",
+    "The first two release attempts failed closed on overly strict catalog assertions and both reported rolled_back. A fresh predeploy probe after each attempt proved the migration objects, ledger row and synthetic fixture had not persisted.",
+    "Migration 20261002003000 then committed atomically from the exact 8be92978 package. Global postflight and a separate postdeploy behavior/ACL/ledger probe passed with zero fixture residue.",
+    "The broad historical iOS failure remains preserved: all 52 ChatViewModel tests passed and one unrelated inbox-pagination virtual timeout failed; the nine changed mutation methods all passed in the accepted focal run.",
+    "The report is sanitized and contains no host address, private absolute path, credential, connection string, project fingerprint, backup key or business row count.",
+    "Independent exact-head review and final CI remain pending."
   ]
 }
