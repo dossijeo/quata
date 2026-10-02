@@ -93,6 +93,7 @@ test("database receipts commit atomically, reject key reuse and roll back withou
   assert.match(releaseExecutor, /selectedVersions\.includes\("20261002003000"\)/);
   assert.match(releaseExecutor, /quata_chat_edit_message_v2\(uuid,bigint,bigint,text,text\)'::regprocedure/);
   assert.ok(releaseExecutor.includes("on conflict \\(actor_profile_id, client_mutation_id\\) do nothing"));
+  assert.match(releaseExecutor, /client mutation id was reused for a different request/);
   assert.match(releaseExecutor, /selective_release_chat_mutation_boundary_missing/);
   assert.match(releaseExecutor, /selective_release_chat_mutation_security_failed/);
   assert.match(releaseExecutor, /selective_release_chat_mutation_definition_failed/);

@@ -688,7 +688,7 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     }
     for (const definition of [mutation.edit_definition, mutation.delete_definition]) {
       if (!/insert into public\.chat_message_mutation_receipts/i.test(definition)
-          || !/client mutation id reuse/i.test(definition)
+          || !/client mutation id was reused for a different request/i.test(definition)
           || !/on conflict \(actor_profile_id, client_mutation_id\) do nothing/i.test(definition)
           || !/completed_at/i.test(definition)) {
         throw new Error("selective_release_chat_mutation_definition_failed");
