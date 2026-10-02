@@ -4,21 +4,22 @@
     "CHAT-MESSAGE-ACTIONS"
   ],
   "status": "passed",
-  "productSha": "a51339950e746fa89d3a1ecba0baacefd2c503af",
+  "productSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
   "certification": "affected-platform-and-database-safety-validation-complete-independent-review-and-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "a51339950e746fa89d3a1ecba0baacefd2c503af",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-a5133995.json",
-      "reportSha256": "95b4a346f1ce33119e3eb3965b2d626e9fa0a4ff6e3b641dcf2e0a6b97be892b",
+      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
+      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
       "reportStatus": "passed",
-      "reportGitHead": "a51339950e746fa89d3a1ecba0baacefd2c503af",
+      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "web_wasm_84_affected_tests_passed",
         "edit_completion_revalidates_exact_actor",
+        "actor_replacement_republishes_backend_message_without_stale_overlay",
         "edit_delete_and_report_share_one_mutation_lock",
         "web_ios_fault_injectors_cover_v2_edit_and_delete",
         "delete_failure_exposes_exact_retry_with_stable_mutation_id",
@@ -31,11 +32,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "a51339950e746fa89d3a1ecba0baacefd2c503af",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-a5133995.json",
-      "reportSha256": "95b4a346f1ce33119e3eb3965b2d626e9fa0a4ff6e3b641dcf2e0a6b97be892b",
+      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
+      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
       "reportStatus": "passed",
-      "reportGitHead": "a51339950e746fa89d3a1ecba0baacefd2c503af",
+      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -49,16 +50,17 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a51339950e746fa89d3a1ecba0baacefd2c503af",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-a5133995.json",
-      "reportSha256": "95b4a346f1ce33119e3eb3965b2d626e9fa0a4ff6e3b641dcf2e0a6b97be892b",
+      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
+      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
       "reportStatus": "passed",
-      "reportGitHead": "a51339950e746fa89d3a1ecba0baacefd2c503af",
+      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "ios_x64_9_affected_tests_passed",
         "edit_completion_revalidates_exact_actor",
+        "actor_replacement_republishes_backend_message_without_stale_overlay",
         "edit_delete_and_report_share_one_mutation_lock",
         "web_ios_fault_injectors_cover_v2_edit_and_delete",
         "delete_retry_does_not_depend_on_local_message_cache"
@@ -70,11 +72,11 @@
     },
     "database": {
       "status": "passed",
-      "sha": "a51339950e746fa89d3a1ecba0baacefd2c503af",
-      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-a5133995.json",
-      "reportSha256": "95b4a346f1ce33119e3eb3965b2d626e9fa0a4ff6e3b641dcf2e0a6b97be892b",
+      "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
+      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
       "reportStatus": "passed",
-      "reportGitHead": "a51339950e746fa89d3a1ecba0baacefd2c503af",
+      "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -106,14 +108,15 @@
     "blockingFindings": []
   },
   "notes": [
-    "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable, edit/delete/report share one mutation lock and an edit completion revalidates the exact actor before changing UI state.",
+    "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable and edit/delete/report share one mutation lock.",
+    "An Edit completion revalidates the exact actor. If the actor changed, the old retry and optimistic overlay are removed and backend messages are republished before returning, so old text or pending state cannot remain visible in the replacement session.",
     "The v2 edit/delete functions atomically bind actor, conversation, message set and payload to a private receipt. Repeating the same key returns the stored result; changing its request fails with SQLSTATE 22023.",
     "Legacy v1 edit/delete functions remain byte-for-byte compatible for the explicitly isolated Android v32 path.",
     "The production probe validated migration behavior, RLS and EXECUTE ACLs inside an outer transaction, then rolled back and verified that target functions, receipt table and synthetic fixture were absent.",
     "A full encrypted logical backup was created before the probe. Its ciphertext hash and separate key custody were verified. A general restore into vanilla PostgreSQL was not accepted because managed Supabase roles and extensions are absent; the selective affected-object restore drill passed.",
-    "The first broad iOS run passed all 52 ChatViewModel tests while one unrelated historical inbox pagination repository test exhausted its virtual timeout. The accepted iOS run selects only the nine changed mutation methods; all nine passed without failures, errors or skips.",
-    "The first independent review returned NO-GO because edit completion did not revalidate the actor, Web/iOS fault injectors recognized only v1 RPC names and edit could overlap delete/report. Product SHA b487a484 closes all three findings with executable tests and v2 contracts.",
-    "Runtime evidence was executed on b487a484e9851a3d496d2fc86aec07ca1bebe9b3. Final Product SHA a51339950e746fa89d3a1ecba0baacefd2c503af changes only the recorded iOS Chat capability source hash; fast contracts and the capability-matrix contract passed on the final Product SHA.",
+    "The first broad iOS run passed all 52 ChatViewModel tests while one unrelated historical inbox pagination repository test exhausted its virtual timeout. The accepted baseline iOS run selected the nine changed mutation methods; all nine passed without failures, errors or skips.",
+    "The first independent review returned NO-GO for actor validation, v2 fault injection and cross-action locking. b487a484 closed the latter two and added actor revalidation. The remediation review found that actor mismatch removed the internal overlay without republishing messages; f74af79b fixes that residual and asserts message text and pending state.",
+    "The 84-test Web and nine-test iOS baselines ran on b487a484; a5133995 changed only capability hashes. The exact reviewer fix passed on Web and is recorded for iOS at f74af79b; Android compilation, 773 fast contracts and 22 capability tests passed on f74af79b.",
     "The report is sanitized: it contains no host address, absolute private path, credential, connection string, backup key or business row count.",
     "The candidate remains local until its predecessor candidates merge; persistent database deployment is not claimed by this attestation."
   ]
