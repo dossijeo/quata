@@ -10,17 +10,29 @@ import kotlin.coroutines.suspendCoroutine
  * Callers own the function-specific JSON contract; this class deliberately exposes no endpoint
  * names or domain mapping.
  */
-class WebPostgrestRpcClient(
+class WebPostgrestRpcClient private constructor(
     private val configuration: WebRuntimeConfiguration,
     private val authRepository: WebAuthRepository,
+    private val request: WebPostgrestRpcRequest,
 ) {
+    constructor(
+        configuration: WebRuntimeConfiguration,
+        authRepository: WebAuthRepository,
+    ) : this(configuration, authRepository, BrowserWebPostgrestRpcRequest)
+
+    internal constructor(
+        configuration: WebRuntimeConfiguration,
+        authRepository: WebAuthRepository,
+        post: suspend (String, String, String, String) -> WebPostgrestResult,
+    ) : this(configuration, authRepository, WebPostgrestRpcRequest(post))
+
     suspend fun post(functionName: String, body: String): WebPostgrestResult {
         val baseUrl = configuration.supabaseUrl?.trimEnd('/')
             ?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_url_missing")
         val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "supabase_publishable_key_missing")
-        val accessToken = authRepository.currentWebPushCredentials()?.accessToken
+        val session = authRepository.sessionForAuthenticatedRequest()
             ?: return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_missing")
         if (!functionName.matches(PostgrestRpcFunctionName)) {
             return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "postgrest_rpc_function_invalid")
@@ -28,14 +40,34 @@ class WebPostgrestRpcClient(
         if (body.isBlank()) {
             return WebPostgrestResult.Failure(WebPostgrestFailureKind.Configuration, "postgrest_rpc_body_missing")
         }
-        return browserPostgrestRpcPost(
+        val first = request.post(
             url = "$baseUrl/rest/v1/rpc/$functionName",
             apiKey = apiKey,
-            accessToken = accessToken,
+            accessToken = session.accessToken,
+            body = body,
+        )
+        if (first !is WebPostgrestResult.Failure || first.kind != WebPostgrestFailureKind.Unauthorized) {
+            return first
+        }
+        val recovered = authRepository.sessionAfterUnauthorized(session.accessToken) ?: return first
+        if (recovered.userId != session.userId) {
+            return WebPostgrestResult.Failure(WebPostgrestFailureKind.Session, "web_session_changed")
+        }
+        if (recovered.accessToken == session.accessToken) return first
+        return request.post(
+            url = "$baseUrl/rest/v1/rpc/$functionName",
+            apiKey = apiKey,
+            accessToken = recovered.accessToken,
             body = body,
         )
     }
 }
+
+internal fun interface WebPostgrestRpcRequest {
+    suspend fun post(url: String, apiKey: String, accessToken: String, body: String): WebPostgrestResult
+}
+
+private val BrowserWebPostgrestRpcRequest = WebPostgrestRpcRequest(::browserPostgrestRpcPost)
 
 private val PostgrestRpcFunctionName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 

@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES"
+  ],
+  "status": "passed",
+  "productSha": "64d23f696ec50972eeaa964fe7cd11fc641cb9ee",
+  "certification": "chat-message-session-recovery-complete-affected-platform-validation-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "64d23f696ec50972eeaa964fe7cd11fc641cb9ee",
+      "report": "docs/candidate-attestations/evidence/chat-message-session-recovery-f1711117.json",
+      "reportSha256": "3115846509106e682d4df8f969e5d4a14030a7b7f4fe64d249c890b4965a7ccf",
+      "reportStatus": "passed",
+      "reportGitHead": "f1711117d1fa381f7942aaeda3be4d05c628e341",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_rpc_401_refreshes_and_retries_once_with_the_new_token",
+        "web_second_401_is_terminal_without_a_third_request",
+        "web_terminal_refresh_rejection_retires_only_the_exact_session",
+        "web_late_successful_refresh_cannot_overwrite_a_concurrent_login",
+        "web_actor_change_prevents_old_request_replay",
+        "web_wasm_9_session_recovery_tests_passed_on_exact_product_sha"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_tests_no_credentials_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "64d23f696ec50972eeaa964fe7cd11fc641cb9ee",
+      "report": "docs/candidate-attestations/evidence/chat-message-session-recovery-f1711117.json",
+      "reportSha256": "3115846509106e682d4df8f969e5d4a14030a7b7f4fe64d249c890b4965a7ccf",
+      "reportStatus": "passed",
+      "reportGitHead": "f1711117d1fa381f7942aaeda3be4d05c628e341",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_rpc_401_refreshes_and_retries_once_with_the_new_token",
+        "ios_concurrent_same_actor_replacement_is_used_without_refreshing_it",
+        "ios_actor_change_fails_closed_before_replay",
+        "ios_non_401_and_unchanged_token_are_not_replayed",
+        "ios_x64_4_session_recovery_tests_passed_before_web_only_race_fix"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "selective_gate_reuse_ios_tree_unchanged_after_81dd1de7"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "64d23f696ec50972eeaa964fe7cd11fc641cb9ee",
+      "report": "docs/candidate-attestations/evidence/chat-message-session-recovery-f1711117.json",
+      "reportSha256": "3115846509106e682d4df8f969e5d4a14030a7b7f4fe64d249c890b4965a7ccf",
+      "reportStatus": "passed",
+      "reportGitHead": "f1711117d1fa381f7942aaeda3be4d05c628e341",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_existing_forced_refresh_and_single_retry_contract_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "selective_gate_reuse_android_and_common_sources_unchanged"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebPostgrestRpcSessionRecoveryTest --tests com.quata.web.WebAuthRefreshRejectionTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "JAVA_HOME=<installed-quata-jbr21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatPostgrestTransportSessionRecoveryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-session-recovery.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "6e7de836a8e717c4a96140ed705d18e5da001b9b",
+    "recomposedProductSha": "64d23f696ec50972eeaa964fe7cd11fc641cb9ee",
+    "blockingFindings": [],
+    "scopeLimit": "HTTP 401 refresh and single replay are proven for Chat transport with actor custody. Mutation authorization, deletion permissions, live Supabase replay and push transport remain separate scopes.",
+    "equivalence": "All five affected product/test blobs are byte-identical between reviewed 6e7de836 and recomposed 64d23f69."
+  },
+  "notes": [
+    "Web and iOS now match Android's existing forced refresh and one-retry behavior after HTTP 401.",
+    "A request is never replayed under a different actor. Login, logout, refresh commit and terminal retirement share one Web session-mutation boundary.",
+    "A second 401 is terminal. Refresh rejection retires only the exact credentials that produced it; transient refresh failure preserves them for a later attempt.",
+    "The first review found a P1 late-successful-refresh race. The gated regression test now proves that login B survives refresh A and that actor A is not replayed.",
+    "The final fix after the iOS run changed only Web source and tests. Per the two-lane selective-gate policy, the four-test iOS result was retained because the iOS and common trees are identical; Android was also unaffected.",
+    "No credentials or backend state were used. The temporary macOS worktree and bundle were removed after the iOS run.",
+    "Product SHA 64d23f69 recomposes the byte-identical session-recovery product patch onto merged network-recovery main 9b0d72a2. All five affected source/test blobs are identical to reviewed Product 6e7de836; only the Git parent and composed documentation changed. Per the selective-gate policy, platform matrices are not repeated solely for this base advance."
+  ]
+}

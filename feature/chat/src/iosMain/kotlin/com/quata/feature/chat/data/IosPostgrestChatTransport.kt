@@ -1,6 +1,7 @@
 package com.quata.feature.chat.data
 
 import com.quata.core.platform.PlatformFile
+import com.quata.core.model.AuthSession
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -52,22 +53,30 @@ class IosChatPostgrestTransport(
 ) : ChatPostgrestTransport {
     override suspend fun post(functionName: String, body: String): ChatPostgrestResponse = runCatching {
         require(functionName.matches(IosRpcName)) { "ios_chat_rpc_name_invalid" }
-        val request = authenticatedRequest("${configuration.restBaseUrl()}/rpc/$functionName").apply {
-            setHTTPMethod("POST")
-            setHTTPBody(body.encodeToByteArray().toIosData())
-            setValue("application/json", "Content-Type")
+        val initialSession = currentSession()
+        executeIosChatRequestWithSingleRefresh(
+            initialSession = initialSession,
+            expectedProfileId = expectedProfileId,
+            latestSession = authSession::restoredSession,
+            forceRefresh = { authSession.currentSession(forceRefresh = true) },
+        ) { session ->
+            authenticatedRequest("${configuration.restBaseUrl()}/rpc/$functionName", session).apply {
+                setHTTPMethod("POST")
+                setHTTPBody(body.encodeToByteArray().toIosData())
+                setValue("application/json", "Content-Type")
+            }.execute(requestTimeoutMillis).body.toIosString()
         }
-        request.execute(requestTimeoutMillis).body.toIosString()
     }.fold(
         onSuccess = ChatPostgrestResponse::Success,
         onFailure = ChatPostgrestResponse::Failure,
     )
 
-    private suspend fun authenticatedRequest(urlString: String): NSMutableURLRequest {
+    private suspend fun currentSession(): AuthSession = authSession.currentSession()
+        ?.takeIf { it.bearerToken.isNotBlank() }
+        ?: error("ios_chat_session_missing")
+
+    private fun authenticatedRequest(urlString: String, session: AuthSession): NSMutableURLRequest {
         val url = NSURL(string = urlString) ?: error("ios_chat_url_invalid")
-        val session = authSession.currentSession()
-            ?.takeIf { it.bearerToken.isNotBlank() }
-            ?: error("ios_chat_session_missing")
         check(expectedProfileId == null || session.userId == expectedProfileId) {
             "ios_chat_session_changed"
         }
@@ -176,6 +185,32 @@ class IosChatAttachmentUploader(
 
 private data class IosChatHttpResponse(val body: NSData)
 
+internal class IosChatHttpStatusException(
+    val status: Int?,
+) : RuntimeException("ios_chat_http_${status ?: "unknown"}")
+
+internal suspend fun executeIosChatRequestWithSingleRefresh(
+    initialSession: AuthSession,
+    expectedProfileId: String?,
+    latestSession: () -> AuthSession?,
+    forceRefresh: suspend () -> AuthSession?,
+    execute: suspend (AuthSession) -> String,
+): String = try {
+    execute(initialSession)
+} catch (failure: IosChatHttpStatusException) {
+    if (failure.status != 401) throw failure
+    val latest = latestSession()
+    val recovered = if (latest != null && latest.bearerToken != initialSession.bearerToken) {
+        latest
+    } else {
+        forceRefresh()
+    } ?: throw failure
+    check(recovered.userId == initialSession.userId) { "ios_chat_session_changed" }
+    check(expectedProfileId == null || recovered.userId == expectedProfileId) { "ios_chat_session_changed" }
+    if (recovered.bearerToken == initialSession.bearerToken) throw failure
+    execute(recovered)
+}
+
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun NSMutableURLRequest.execute(timeoutMillis: Long): IosChatHttpResponse {
     require(timeoutMillis > 0L) { "ios_chat_timeout_invalid" }
@@ -217,7 +252,7 @@ private class IosChatDataTaskDelegate(
         }
         val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
-            continuation.resumeWithException(IllegalStateException("ios_chat_http_${status ?: "unknown"}"))
+            continuation.resumeWithException(IosChatHttpStatusException(status))
             return
         }
         continuation.resume(IosChatHttpResponse(chunks.toIosData()))

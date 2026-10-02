@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "f1711117d1fa381f7942aaeda3be4d05c628e341",
+    "workingTreeDirty": false
+  },
+  "scope": "A Chat PostgREST request rejected with HTTP 401 renews the exact persisted session and retries once on Web and iOS, matching the existing Android transport. Concurrent login/logout cannot be overwritten and an actor change prevents replay.",
+  "steps": [
+    "web_rpc_401_refreshes_and_retries_once_with_the_new_token",
+    "web_second_401_is_terminal_without_a_third_request",
+    "web_terminal_refresh_rejection_retires_only_the_exact_session",
+    "web_late_successful_refresh_cannot_overwrite_a_concurrent_login",
+    "web_actor_change_prevents_old_request_replay",
+    "web_existing_refresh_rejection_and_race_suite_preserved",
+    "ios_rpc_401_refreshes_and_retries_once_with_the_new_token",
+    "ios_concurrent_same_actor_replacement_is_used_without_refreshing_it",
+    "ios_actor_change_fails_closed_before_replay",
+    "ios_non_401_and_unchanged_token_are_not_replayed",
+    "android_existing_forced_refresh_and_single_retry_contract_preserved",
+    "web_wasm_9_session_recovery_tests_passed_on_exact_product_sha",
+    "ios_x64_4_session_recovery_tests_passed_before_web_only_race_fix",
+    "independent_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "web": ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebPostgrestRpcSessionRecoveryTest --tests com.quata.web.WebAuthRefreshRejectionTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "ios": "JAVA_HOME=<installed-quata-jbr21> bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatPostgrestTransportSessionRecoveryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": "Selective gate reuse: Android sources and common runtime were unchanged; SupabaseHttpClient.executeRequest already forces refresh on 401 and retries once."
+  },
+  "results": {
+    "webWasm": "9 tests passed in Chrome Headless on f1711117d1fa381f7942aaeda3be4d05c628e341",
+    "iosX64": "4 tests passed; BUILD SUCCESSFUL on 81dd1de7304bffbb2359acbf77f3467609a7057f, whose iOS and common trees are identical to the final product SHA",
+    "android": "Existing platform-owned 401 refresh/retry path inspected; no affected Android gate repeated"
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "f1711117d1fa381f7942aaeda3be4d05c628e341",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P1 the first Web implementation could let a late successful refresh overwrite a concurrent login and replay under the old actor; all session commits now share a mutation boundary and the exact gated race is covered"
+    ]
+  },
+  "cleanup": {
+    "state": "complete",
+    "mode": "hermetic_transport_tests_no_credentials_no_backend_mutation",
+    "macTemporaryWorktreeRemoved": true
+  },
+  "limits": [
+    "The result proves transport and session-custody behavior with hermetic HTTP responses; Supabase remained unavailable for a live expired-token replay because the project is over its egress quota.",
+    "Message mutation authorization, deletion permissions and push transport remain separate scopes."
+  ]
+}
