@@ -14,6 +14,7 @@ const postgrestSetup = read("scripts/sql/community-post-likes-postgrest.setup.sq
 const postgrestTest = read("scripts/community-post-likes-postgrest.test.mjs");
 const postgrestRunner = read("scripts/run-community-post-likes-postgrest-test.ps1");
 const releasePostflight = read("scripts/community-post-likes-release-postflight.mjs");
+const transactionalProbe = read("scripts/community-post-likes-transactional-probe.mjs");
 const restoreDrill = read("scripts/restore-db-logical-backup-drill.ps1");
 const androidRepository = read("app/src/main/java/com/quata/feature/feed/data/FeedRepositoryImpl.kt");
 const androidApi = read("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
@@ -134,6 +135,23 @@ test("production postflight is read-only, TLS-verified and emits metadata only",
   assert.match(releasePostflight, /postflight_failed_redacted/);
   assert.doesNotMatch(releasePostflight, /select\s+\*\s+from\s+public\.community_post_likes/i);
   assert.doesNotMatch(releasePostflight, /console\.(?:log|error)/);
+});
+
+test("production compatibility probe applies only inside rollback custody", () => {
+  assert.match(transactionalProbe, /--db-url-file/);
+  assert.match(transactionalProbe, /--tls-ca-file/);
+  assert.match(transactionalProbe, /sslmode[\s\S]*verify-full/);
+  assert.match(transactionalProbe, /rejectUnauthorized:\s*true/);
+  assert.match(transactionalProbe, /await client\.query\("begin"\)/);
+  assert.match(transactionalProbe, /await client\.query\(migration\)/);
+  assert.match(transactionalProbe, /assertForward\(await snapshot\(client\)\)/);
+  assert.match(transactionalProbe, /await client\.query\("rollback"\)/);
+  assert.equal((transactionalProbe.match(/assertBaseline\(await snapshot\(client\)\)/g) ?? []).length, 2);
+  assert.match(transactionalProbe, /COMMUNITY_POST_LIKES_TRANSACTIONAL_PROBE_PASS/);
+  assert.match(transactionalProbe, /probe_failed_redacted/);
+  assert.doesNotMatch(transactionalProbe, /client\.query\(["']commit["']\)/i);
+  assert.doesNotMatch(transactionalProbe, /select\s+\*\s+from\s+public\.community_post_likes/i);
+  assert.doesNotMatch(transactionalProbe, /console\.(?:log|error)/);
 });
 
 test("the focal contract is present in both fast suites", () => {
