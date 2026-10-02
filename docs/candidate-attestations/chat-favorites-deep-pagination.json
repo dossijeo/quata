@@ -122,12 +122,12 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-favorites-deep-pagination.json"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+    "status": "GO",
+    "reviewedSha": "c38d803dca8456b7c4382c16a11c820f9c9cff76",
     "recomposedProductSha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
     "blockingFindings": [],
-    "scopeLimit": "Pending independent review of the capability-matrix hash rebinding at the exact candidate cutoff; prior Favorites runtime, database and release review remains GO.",
-    "equivalence": "The 19 runtime and release blobs remain byte-identical to the prior reviewed product. The additional product change is limited to SHA-256 declarations for the three decisive sources changed by this unit."
+    "scopeLimit": "Independent review covers the exact capability-matrix rebinding, all prior Favorites runtime/database evidence and the attestation at c38d803d; no P0-P3 findings remain.",
+    "equivalence": "All 19 previously reviewed runtime and release blobs remain exact. Product commit a8d26fba changes exactly 11 SHA-256 declarations for only the three decisive Favorites sources, with zero state, operation or semantic change."
   },
   "notes": [
     "The previous favorites RPC capped every client at 250 rows and exposed no cursor. The new authenticated-only RPC uses the stable keyset (created_at DESC, id DESC), returns at most 250 rows plus has_more/next_cursor, and rejects partial cursors.",
@@ -137,6 +137,7 @@
     "A fresh encrypted full backup preceded the transaction. Migration 20261001211500 committed and its ledger, function, ACL, cursor and data postconditions passed. The full vanilla PostgreSQL restore still rejects Supabase pg_cron, while decryption, hashes and the affected-table restore drill pass.",
     "The authenticated REST trial stopped at quata-auth-bridge HTTP 402 before session creation or RPC execution. This external limit is preserved explicitly and does not undo the committed database release or hermetic cross-platform pagination proof.",
     "The final independent review of 807d5785a returned GO with no P0-P3 findings after verifying all 19 frozen blobs, range-diff equivalence, focal contracts, the evidence hash and the already committed production release. A fresh read-only production inventory still contains ledger version 20261001211500 with no missing Android RPC or table; its global blocked_compatibility status is the existing historical db-push prohibition, not a Favorites postflight failure.",
-    "The first candidate-final run exposed stale capability declarations for SupabaseCommunityApi.kt, ChatRepositoryImpl.kt and PostgrestChatRepository.kt. Product commit a8d26fba7 rebinds every occurrence to the exact normalized source hash; the complete 22-test matrix contract, including decisive-source and APNs negative controls, passes."
+    "The first candidate-final run exposed stale capability declarations for SupabaseCommunityApi.kt, ChatRepositoryImpl.kt and PostgrestChatRepository.kt. Product commit a8d26fba7 rebinds every occurrence to the exact normalized source hash; the complete 22-test matrix contract, including decisive-source and APNs negative controls, passes.",
+    "Independent review of c38d803d returned GO with no P0-P3 findings: 11 declaration fields across 5/2/4 occurrences bind exactly to the three normalized sources, all 105 matrix file bindings pass, both negative controls execute their intended target, and the 19 frozen runtime/release blobs remain exact."
   ]
 }
