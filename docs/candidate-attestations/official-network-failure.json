@@ -82,10 +82,12 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "953d2487e89d52ef12183844832ddd0f5b995759",
+    "reviewedSha": "d9edef11b5cf828ee35a7df820c02e716ba5420f",
     "blockingFindings": [],
     "resolvedFindings": [
-      "P2: the first report and manifest exposed the private macOS JBR path; the accepted evidence uses the neutral <JBR_21_HOME> selector and renews the report hash."
+      "P2: the first report and manifest exposed the private macOS JBR path; the accepted evidence uses the neutral <JBR_21_HOME> selector and renews the report hash.",
+      "P2: the first inventory reconciliation attributed every root state and populated content to all three platforms; the accepted row separates Web, Android instrumented and iOS authenticated observations.",
+      "P2: the first board reconciliation removed the retained iOS SKIPPED diagnostic; the accepted row preserves the missing-xcconfig attempt and the later pass with the same product tree."
     ],
     "scopeLimit": "This focal attestation closes the independently injected adapter transport-failure limitation for Android, Web and iOS. It does not claim a global SCR-OFFICIAL UI acceptance or unrelated Official flows."
   },
