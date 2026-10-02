@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
-  "certification": "affected-platform-and-production-database-release-complete-independent-review-pending-final-ci",
+  "certification": "affected-platform-and-production-database-release-and-independent-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -111,11 +111,17 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-mutation-idempotency.json"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedProductBaselineSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-    "recomposedProductSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
+    "status": "GO",
+    "reviewedSha": "9a627cfaca02c80191cb4f5ff07d7261aec0719a",
+    "productSha": "8be929780437bcfaa3600e3f6980e6387652a94c",
     "blockingFindings": [],
-    "pendingScope": "Independent exact-head review of recomposition, guarded release tooling, sanitized evidence and committed production state."
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "scope": "Exact-head independent review covered product equivalence, v2/v1 boundaries, guarded selective release, predeploy/postdeploy custody, sanitized evidence, preserved rollback failures and both documentary remediations."
   },
   "notes": [
     "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable and edit, delete and report share one mutation lock.",
@@ -128,6 +134,6 @@
     "Migration 20261002003000 then committed atomically from the exact 8be92978 package. Global postflight and a separate postdeploy behavior/ACL/ledger probe passed with zero fixture residue.",
     "The broad historical iOS failure remains preserved: all 52 ChatViewModel tests passed and one unrelated inbox-pagination virtual timeout failed; the nine changed mutation methods all passed in the accepted focal run.",
     "The report is sanitized and contains no host address, private absolute path, credential, connection string, project fingerprint, backup key or business row count.",
-    "Independent exact-head review and final CI remain pending."
+    "Independent review returned GO on 9a627cfa with no P0-P3 findings after the historical artifact and exact test-command traceability were verified. Final GitHub CI remains pending."
   ]
 }
