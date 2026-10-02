@@ -39,6 +39,8 @@ const UGC_TERMS_ACCEPTANCE_READ_STAGES = Object.freeze([
   "authenticated_navigation_stress",
 ]);
 
+const HERMETIC_EXACT_CHAT_STAGE = "authenticated_exact_chat_document_reload";
+
 const AUTH_LOGIN_STAGES = Object.freeze([
   "native_auth_control_login",
   "compose_auth_bridge_login",
@@ -103,7 +105,7 @@ export function loadRealAuthConfiguration(environment) {
   };
 }
 
-export function backendBrowserRequestDecision({ backend, url, method, stage, body }) {
+export function backendBrowserRequestDecision({ backend, url, method, stage, body, hermeticFixture = false }) {
   let parsed;
   try {
     parsed = new URL(url);
@@ -118,6 +120,7 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (!backendApi) return Object.freeze({ backendApi: false, allowed: true, reason: "non_api_asset" });
 
   const normalizedMethod = method.toUpperCase();
+  const hermeticExactChatStage = hermeticFixture === true && stage === HERMETIC_EXACT_CHAT_STAGE;
   if (["GET", "HEAD", "OPTIONS"].includes(normalizedMethod)) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "read_only_method" });
   }
@@ -125,7 +128,7 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (
     normalizedMethod === "POST" &&
     parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox" &&
-    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage))
+    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage) || hermeticExactChatStage)
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_read" });
   }
@@ -133,7 +136,7 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (
     normalizedMethod === "POST" &&
     parsed.pathname === "/rest/v1/rpc/quata_chat_get_inbox_page" &&
-    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage)) &&
+    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage) || hermeticExactChatStage) &&
     isConversationInboxPageReadBody(body)
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_page_read" });
@@ -142,10 +145,28 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   if (
     normalizedMethod === "POST" &&
     parsed.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates" &&
-    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage)) &&
+    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage) || hermeticExactChatStage) &&
     isConversationCandidateReadBody(body)
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_chat_candidate_directory_read" });
+  }
+
+  if (
+    hermeticExactChatStage &&
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_chat_get_thread" &&
+    isExactChatThreadReadBody(body)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_hermetic_exact_chat_thread_read" });
+  }
+
+  if (
+    hermeticExactChatStage &&
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_chat_mark_thread_read" &&
+    isExactChatMarkReadBody(body)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_hermetic_exact_chat_read_receipt" });
   }
 
   if (
@@ -213,6 +234,27 @@ function isConversationCandidateReadBody(value) {
     typeof parsed.p_query === "string" &&
     Number.isInteger(parsed.p_limit) && parsed.p_limit >= 1 && parsed.p_limit <= 50 &&
     Number.isInteger(parsed.p_offset) && parsed.p_offset >= 0;
+}
+
+function isExactChatThreadReadBody(value) {
+  const parsed = safeJson(value);
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") return false;
+  const keys = Object.keys(parsed).sort();
+  const expected = ["p_actor_profile_id", "p_known_message_ids", "p_limit", "p_thread_id"];
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.p_actor_profile_id) &&
+    parsed.p_thread_id === 42 && parsed.p_limit === 250 && Array.isArray(parsed.p_known_message_ids) &&
+    parsed.p_known_message_ids.every(id => id === 9);
+}
+
+function isExactChatMarkReadBody(value) {
+  const parsed = safeJson(value);
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") return false;
+  const keys = Object.keys(parsed).sort();
+  const expected = ["p_actor_profile_id", "p_thread_id"];
+  return keys.length === expected.length && keys.every((key, index) => key === expected[index]) &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.p_actor_profile_id) &&
+    parsed.p_thread_id === 42;
 }
 
 function isConversationInboxPageReadBody(value) {
