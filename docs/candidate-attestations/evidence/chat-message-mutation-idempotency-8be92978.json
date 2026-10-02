@@ -54,7 +54,11 @@
     "selectiveReleaseExecutor": "read-only dry-run, authorization gate, atomic rollback and exact apply fixture passed",
     "predeployProbe": "CHAT_MESSAGE_MUTATION_REMOTE_ROLLBACK_PASS",
     "postdeployProbe": "CHAT_MESSAGE_MUTATION_REMOTE_POSTDEPLOY_PASS",
-    "diffCheck": "passed"
+    "diffCheck": "passed",
+    "releaseReconciliationContracts": {
+      "tests": 31,
+      "failures": 0
+    }
   },
   "database": {
     "migrationVersion": "20261002003000",
