@@ -12,7 +12,7 @@ test("message mutation failures roll common UI state back without changing produ
   ]);
 
   assert.match(viewModel, /optimisticEditedMessages = optimisticEditedMessages - editingMessage\.id[\s\S]*restoreEditDraftIfComposerIsEmpty\(editingMessage, text\)[\s\S]*publishMessages/);
-  assert.match(viewModel, /repository\.deleteMessage\(message\.id\)[\s\S]*onSuccess[\s\S]*selectedMessageId = null[\s\S]*onFailure[\s\S]*ChatText\.DeleteMessage/);
+  assert.match(viewModel, /SelectedMessageMutation\.Delete\([\s\S]*messageId = message\.id[\s\S]*repository\.deleteMessage\([\s\S]*clientMutationId = mutation\.clientMutationId[\s\S]*onSuccess[\s\S]*selectedMessageId = state\.selectedMessageId\.takeUnless[\s\S]*onFailure[\s\S]*ChatText\.DeleteMessage/);
   assert.match(chrome, /ChatMutationErrorTestTag = "chat\.mutation\.error"/);
   assert.match(host, /testTag = ChatMutationErrorTestTag[\s\S]*contentDescription = "\$ChatMutationErrorTestTag \$error"/);
 });

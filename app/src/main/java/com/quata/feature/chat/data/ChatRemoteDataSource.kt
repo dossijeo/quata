@@ -68,7 +68,9 @@ class ChatRemoteDataSource(
         beforeMessageId: Long? = null,
     ) = supabaseApi.getChatFavoritesPage(profileId, limit, beforeCreatedAt, beforeMessageId)
     suspend fun editChatMessage(profileId: String, threadId: Long, messageId: Long, message: String) = supabaseApi.editChatMessage(profileId, threadId, messageId, message)
+    suspend fun editChatMessageV2(profileId: String, threadId: Long, messageId: Long, message: String, clientMutationId: String) = supabaseApi.editChatMessageV2(profileId, threadId, messageId, message, clientMutationId)
     suspend fun deleteChatMessages(profileId: String, threadId: Long, messageIds: List<Long>) = supabaseApi.deleteChatMessages(profileId, threadId, messageIds)
+    suspend fun deleteChatMessagesV2(profileId: String, threadId: Long, messageIds: List<Long>, clientMutationId: String) = supabaseApi.deleteChatMessagesV2(profileId, threadId, messageIds, clientMutationId)
     suspend fun forwardChatMessage(profileId: String, messageId: Long, threadIds: List<Long>) = supabaseApi.forwardChatMessage(profileId, messageId, threadIds)
     suspend fun markChatThreadRead(profileId: String, threadId: Long) = supabaseApi.markChatThreadRead(profileId, threadId)
     suspend fun markChatMessagesState(profileId: String, messageIds: List<Long>, status: String, source: String = "client") =

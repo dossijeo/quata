@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -54,6 +55,10 @@ class ChatViewModel(
     private var lastQueuedViewport: ChatConversationViewport? = null
     private var messageObservationFailure: String? = null
     private var historyLoadFailure: String? = null
+    private var activeSelectedMessageMutation: SelectedMessageMutation? = null
+    private var pendingSelectedMessageMutationRetry: SelectedMessageMutation? = null
+    private var activeEditMutation: EditMessageMutation? = null
+    private var pendingEditMutationRetry: EditMessageMutation? = null
 
     init {
         _uiState.value = _uiState.value.copy(currentUser = repository.currentUser())
@@ -189,13 +194,18 @@ class ChatViewModel(
             ChatUiEvent.StartEdit -> startEdit()
             ChatUiEvent.CancelEdit -> {
                 _uiState.value = _uiState.value.copy(editingMessage = null, messageText = "")
+                pendingEditMutationRetry = null
                 persistPlainComposerDraft("")
             }
             ChatUiEvent.ToggleFavoriteSelected -> toggleFavoriteSelected()
             ChatUiEvent.DeleteSelectedMessage -> deleteSelectedMessage()
             ChatUiEvent.ReportSelectedMessage -> reportSelectedMessage()
+            ChatUiEvent.RetryMessageMutation -> retryMessageMutation()
             ChatUiEvent.ClearNotice -> _uiState.value = _uiState.value.copy(notice = null)
-            ChatUiEvent.ClearError -> _uiState.value = _uiState.value.copy(error = null)
+            ChatUiEvent.ClearError -> {
+                pendingSelectedMessageMutationRetry = null
+                _uiState.value = _uiState.value.copy(error = null, messageMutationRetry = null)
+            }
             is ChatUiEvent.ShowNotice -> _uiState.value = _uiState.value.copy(notice = event.message, error = null)
             is ChatUiEvent.ShowError -> _uiState.value = _uiState.value.copy(error = event.message)
             ChatUiEvent.OpenForwardDialog -> openForwardPicker()
@@ -326,11 +336,28 @@ class ChatViewModel(
             return
         }
 
+        val editingMessage = stateAtSend.editingMessage
+        val editMutation = if (editingMessage != null) {
+            val actorId = currentUserId ?: return
+            if (activeEditMutation != null) return
+            pendingEditMutationRetry
+                ?.takeIf { it.matches(editingMessage.id, editingMessage.conversationId, text, actorId) }
+                ?: EditMessageMutation(
+                    messageId = editingMessage.id,
+                    conversationId = editingMessage.conversationId,
+                    text = text,
+                    actorId = actorId,
+                    clientMutationId = newMessageMutationId(),
+                )
+        } else {
+            null
+        }
+        if (editMutation != null) activeEditMutation = editMutation
+
         val sendRevision = composerRevision
         attachmentCacheKey?.let { composerDraftStore?.retainAttachment(it) }
         scope.launch {
             try {
-                val editingMessage = stateAtSend.editingMessage
                 val replyToMessage = stateAtSend.replyToMessage
                 val draft = retryDraft
                     ?.takeIf { it.matches(text, attachmentCacheKey, attachmentUri, attachmentName, attachmentMimeType, replyToMessage) }
@@ -375,7 +402,13 @@ class ChatViewModel(
 
                 val sendOperation: suspend () -> Result<Unit> = {
                     when {
-                        editingMessage != null -> repository.editMessage(editingMessage.id, text)
+                        editMutation != null -> repository.editMessage(
+                            messageId = editMutation.messageId,
+                            text = editMutation.text,
+                            conversationId = editMutation.conversationId,
+                            clientMutationId = editMutation.clientMutationId,
+                            expectedActorId = editMutation.actorId,
+                        )
                         replyToMessage != null -> repository.sendReply(
                             conversationId = conversationId,
                             text = text,
@@ -395,16 +428,22 @@ class ChatViewModel(
                         )
                     }
                 }
-                val result = if (attachmentCacheKey != null) {
-                    val store = composerDraftStore
-                    val lease = composerDraftLease.await()
-                    if (store != null && lease != null) {
-                        store.withAttachmentCustody(lease, sendOperation)
+                val result = try {
+                    if (attachmentCacheKey != null) {
+                        val store = composerDraftStore
+                        val lease = composerDraftLease.await()
+                        if (store != null && lease != null) {
+                            store.withAttachmentCustody(lease, sendOperation)
+                        } else {
+                            sendOperation()
+                        }
                     } else {
                         sendOperation()
                     }
-                } else {
-                    sendOperation()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    Result.failure(error)
                 }
                 result
                     .onSuccess {
@@ -418,6 +457,7 @@ class ChatViewModel(
                             }
                         }
                         if (editingMessage != null) {
+                            pendingEditMutationRetry = null
                             optimisticEditedMessages = optimisticEditedMessages.mapValues { (messageId, message) ->
                                 if (messageId == editingMessage.id) message.copy(isPending = false) else message
                             }
@@ -440,6 +480,7 @@ class ChatViewModel(
                             publishMessages(isLoading = false)
                         }
                         if (editingMessage != null) {
+                            pendingEditMutationRetry = editMutation
                             optimisticEditedMessages = optimisticEditedMessages - editingMessage.id
                             restoreEditDraftIfComposerIsEmpty(editingMessage, text)
                             publishMessages(isLoading = false)
@@ -447,6 +488,7 @@ class ChatViewModel(
                         _uiState.value = _uiState.value.copy(error = text(ChatText.Send))
                     }
             } finally {
+                if (activeEditMutation === editMutation) activeEditMutation = null
                 if (attachmentCacheKey != null) {
                     withContext(NonCancellable) {
                         val store = composerDraftStore
@@ -1194,24 +1236,116 @@ class ChatViewModel(
 
     private fun deleteSelectedMessage() {
         val message = selectedMessage()?.takeIf { it.isMine && !it.isDeleted && !it.isLocalEcho } ?: return
-        scope.launch {
-            repository.deleteMessage(message.id)
-                .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
-                .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.DeleteMessage)) }
-        }
+        val actorId = _uiState.value.currentUser?.id ?: return
+        runSelectedMessageMutation(
+            SelectedMessageMutation.Delete(
+                messageId = message.id,
+                conversationId = message.conversationId,
+                actorId = actorId,
+                clientMutationId = newMessageMutationId(),
+            ),
+        )
     }
 
     private fun reportSelectedMessage() {
         val message = selectedMessage()?.takeIf { !it.isMine && !it.isDeleted && !it.isLocalEcho } ?: return
+        val actorId = _uiState.value.currentUser?.id ?: return
+        runSelectedMessageMutation(
+            SelectedMessageMutation.Report(
+                messageId = message.id,
+                conversationId = message.conversationId,
+                actorId = actorId,
+            ),
+        )
+    }
+
+    private fun retryMessageMutation() {
+        val mutation = pendingSelectedMessageMutationRetry ?: return
+        runSelectedMessageMutation(mutation)
+    }
+
+    private fun runSelectedMessageMutation(mutation: SelectedMessageMutation) {
+        if (activeSelectedMessageMutation != null) return
+        if (_uiState.value.currentUser?.id != mutation.actorId) {
+            pendingSelectedMessageMutationRetry = null
+            _uiState.value = _uiState.value.copy(messageMutationRetry = null, error = null)
+            return
+        }
+        val loadedConversationId = _uiState.value.messages
+            .firstOrNull { it.id == mutation.messageId }
+            ?.conversationId
+        if (loadedConversationId != null && loadedConversationId != mutation.conversationId) {
+            pendingSelectedMessageMutationRetry = null
+            _uiState.value = _uiState.value.copy(messageMutationRetry = null, error = null)
+            return
+        }
+        activeSelectedMessageMutation = mutation
+        pendingSelectedMessageMutationRetry = null
+        _uiState.value = _uiState.value.copy(
+            isMessageMutationInProgress = true,
+            messageMutationRetry = null,
+            error = null,
+        )
         scope.launch {
-            repository.reportMessage(message.id)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        selectedMessageId = null,
-                        notice = text(ChatText.ReportSent)
-                    )
+            try {
+                val result = try {
+                    when (mutation) {
+                        is SelectedMessageMutation.Delete -> repository.deleteMessage(
+                            messageId = mutation.messageId,
+                            conversationId = mutation.conversationId,
+                            clientMutationId = mutation.clientMutationId,
+                            expectedActorId = mutation.actorId,
+                        )
+                        is SelectedMessageMutation.Report -> repository.reportMessage(
+                            messageId = mutation.messageId,
+                            expectedActorId = mutation.actorId,
+                        )
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    Result.failure(error)
                 }
-                .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.ReportMessage)) }
+                val actorStillMatches = runCatching { repository.currentActorId() }.getOrNull() == mutation.actorId
+                if (!actorStillMatches) {
+                    pendingSelectedMessageMutationRetry = null
+                    _uiState.value = _uiState.value.copy(
+                        isMessageMutationInProgress = false,
+                        messageMutationRetry = null,
+                        error = null,
+                    )
+                    return@launch
+                }
+                result
+                    .onSuccess {
+                        val state = _uiState.value
+                        _uiState.value = state.copy(
+                            selectedMessageId = state.selectedMessageId.takeUnless { it == mutation.messageId },
+                            isMessageMutationInProgress = false,
+                            messageMutationRetry = null,
+                            notice = if (mutation is SelectedMessageMutation.Report) text(ChatText.ReportSent) else state.notice,
+                            error = null,
+                        )
+                    }
+                    .onFailure {
+                        pendingSelectedMessageMutationRetry = mutation
+                        _uiState.value = _uiState.value.copy(
+                            isMessageMutationInProgress = false,
+                            messageMutationRetry = mutation.toRetryState(),
+                            error = text(
+                                if (mutation is SelectedMessageMutation.Delete) {
+                                    ChatText.DeleteMessage
+                                } else {
+                                    ChatText.ReportMessage
+                                },
+                            ),
+                        )
+                    }
+            } finally {
+                if (activeSelectedMessageMutation === mutation) {
+                    activeSelectedMessageMutation = null
+                }
+            }
         }
     }
 
@@ -1360,6 +1494,43 @@ private data class OutgoingDraft(
             this.attachmentMimeType == attachmentMimeType &&
             this.replyToMessage?.id == replyToMessage?.id
 }
+
+private sealed interface SelectedMessageMutation {
+    val messageId: String
+    val conversationId: String
+    val actorId: String
+
+    data class Delete(
+        override val messageId: String,
+        override val conversationId: String,
+        override val actorId: String,
+        val clientMutationId: String,
+    ) : SelectedMessageMutation
+
+    data class Report(
+        override val messageId: String,
+        override val conversationId: String,
+        override val actorId: String,
+    ) : SelectedMessageMutation
+}
+
+private fun SelectedMessageMutation.toRetryState() = ChatMessageMutationRetry(
+    kind = if (this is SelectedMessageMutation.Delete) ChatMessageMutationKind.Delete else ChatMessageMutationKind.Report,
+    messageId = messageId,
+)
+
+private data class EditMessageMutation(
+    val messageId: String,
+    val conversationId: String,
+    val text: String,
+    val actorId: String,
+    val clientMutationId: String,
+) {
+    fun matches(messageId: String, conversationId: String, text: String, actorId: String): Boolean =
+        this.messageId == messageId && this.conversationId == conversationId && this.text == text && this.actorId == actorId
+}
+
+private fun newMessageMutationId(): String = "chat-mutation-${newClientMessageId()}"
 
 private data class PendingComposerRestore(
     val draft: ChatComposerDraftRecord,

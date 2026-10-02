@@ -140,13 +140,28 @@ interface ChatRepository {
     suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit>
     suspend fun blockParticipant(conversationId: String, userId: String): Result<Unit>
     suspend fun reportMessage(messageId: String): Result<Unit>
+    suspend fun reportMessage(messageId: String, expectedActorId: String): Result<Unit> =
+        reportMessage(messageId)
     suspend fun leaveConversation(conversationId: String): Result<Unit>
     suspend fun hideConversation(conversationId: String): Result<Unit>
     suspend fun deleteConversation(conversationId: String): Result<Unit>
     suspend fun restorePendingDeletedConversation(): Result<Unit>
     suspend fun finalizePendingDeletedConversation(): Result<Unit>
     suspend fun editMessage(messageId: String, text: String): Result<Unit>
+    suspend fun editMessage(
+        messageId: String,
+        text: String,
+        conversationId: String,
+        clientMutationId: String,
+        expectedActorId: String,
+    ): Result<Unit> = editMessage(messageId, text)
     suspend fun deleteMessage(messageId: String): Result<Unit>
+    suspend fun deleteMessage(
+        messageId: String,
+        conversationId: String,
+        clientMutationId: String,
+        expectedActorId: String,
+    ): Result<Unit> = deleteMessage(messageId)
     suspend fun toggleFavoriteMessage(messageId: String): Result<Unit>
     suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult>
     suspend fun flushPendingMessages(): Boolean

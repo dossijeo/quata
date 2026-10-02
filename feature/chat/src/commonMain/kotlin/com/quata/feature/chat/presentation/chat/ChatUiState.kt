@@ -56,7 +56,16 @@ data class ChatUiState(
     val typingProfileIds: Set<String> = emptySet(),
     val syncStatus: ChatSyncStatus = ChatSyncStatus.Refreshing,
     val isConversationActionInProgress: Boolean = false,
+    val isMessageMutationInProgress: Boolean = false,
+    val messageMutationRetry: ChatMessageMutationRetry? = null,
     val shouldCloseConversation: Boolean = false,
     val notice: String? = null,
     val error: String? = null
+)
+
+enum class ChatMessageMutationKind { Delete, Report }
+
+data class ChatMessageMutationRetry(
+    val kind: ChatMessageMutationKind,
+    val messageId: String,
 )

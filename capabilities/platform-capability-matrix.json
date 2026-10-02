@@ -167,7 +167,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f32b117cf7d33e8d66fb816b8366441fbb390e6db1855da0997ee258dad1fbe2",
+              "sha256": "607a2144fb9f7902090cce7a4a0fe8f64d04938015285103ed50d6fedc3e732f",
               "role": "implementation"
             }
           ]
@@ -228,7 +228,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f32b117cf7d33e8d66fb816b8366441fbb390e6db1855da0997ee258dad1fbe2",
+              "sha256": "607a2144fb9f7902090cce7a4a0fe8f64d04938015285103ed50d6fedc3e732f",
               "role": "implementation"
             }
           ]
@@ -287,7 +287,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f32b117cf7d33e8d66fb816b8366441fbb390e6db1855da0997ee258dad1fbe2",
+              "sha256": "607a2144fb9f7902090cce7a4a0fe8f64d04938015285103ed50d6fedc3e732f",
               "role": "implementation"
             }
           ]
@@ -370,7 +370,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f32b117cf7d33e8d66fb816b8366441fbb390e6db1855da0997ee258dad1fbe2",
+              "sha256": "607a2144fb9f7902090cce7a4a0fe8f64d04938015285103ed50d6fedc3e732f",
               "role": "implementation"
             }
           ]
@@ -434,7 +434,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f32b117cf7d33e8d66fb816b8366441fbb390e6db1855da0997ee258dad1fbe2",
+              "sha256": "607a2144fb9f7902090cce7a4a0fe8f64d04938015285103ed50d6fedc3e732f",
               "role": "implementation"
             }
           ]
@@ -492,7 +492,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt",
-              "sha256": "0cb3eabef40ba1325cbae8a7ebd7a757aad4149433411b25e67e1969c558c2d8",
+              "sha256": "1bbb0bf3da886b156ab017b9a4fdf1a8ed478d2f61141fb5a7db96eb7b4b0cfd",
               "role": "implementation"
             }
           ]
@@ -512,7 +512,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "61f03c81f10293ac24de28067bb44b800dcdf80208e1ab6f143b4a1693051976",
+              "sha256": "e2c5652be94cb1e8605b321a7f5b960533ff3064d3f17f9e1be2264c42961b2f",
               "role": "implementation"
             }
           ]
@@ -537,7 +537,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "61f03c81f10293ac24de28067bb44b800dcdf80208e1ab6f143b4a1693051976",
+              "sha256": "e2c5652be94cb1e8605b321a7f5b960533ff3064d3f17f9e1be2264c42961b2f",
               "role": "implementation"
             }
           ]
@@ -565,7 +565,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt",
-              "sha256": "0cb3eabef40ba1325cbae8a7ebd7a757aad4149433411b25e67e1969c558c2d8",
+              "sha256": "1bbb0bf3da886b156ab017b9a4fdf1a8ed478d2f61141fb5a7db96eb7b4b0cfd",
               "role": "implementation"
             }
           ]
@@ -585,7 +585,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "61f03c81f10293ac24de28067bb44b800dcdf80208e1ab6f143b4a1693051976",
+              "sha256": "e2c5652be94cb1e8605b321a7f5b960533ff3064d3f17f9e1be2264c42961b2f",
               "role": "implementation"
             }
           ]
@@ -610,7 +610,7 @@
             },
             {
               "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt",
-              "sha256": "61f03c81f10293ac24de28067bb44b800dcdf80208e1ab6f143b4a1693051976",
+              "sha256": "e2c5652be94cb1e8605b321a7f5b960533ff3064d3f17f9e1be2264c42961b2f",
               "role": "implementation"
             }
           ]

@@ -431,7 +431,13 @@ open class PostgrestChatRepository(
     override suspend fun reportMessage(messageId: String): Result<Unit> = runCatching {
         val userId = currentUserId()
         rpc("quata_ugc_report", buildJsonObject {
-            put("p_actor_profile_id", userId); put("p_target_type", "chat_message"); put("p_target_id", messageId); put("p_reason", "user_report"); put("p_details", JsonNull)
+            put("p_actor_profile_id", userId); put("p_target_type", "chat_message"); put("p_target_id", messageId); put("p_reason", "other"); put("p_details", JsonNull)
+        }.toString()); markRequestCompleted()
+    }.onFailure { updateReadFailure() }
+    override suspend fun reportMessage(messageId: String, expectedActorId: String): Result<Unit> = runCatching {
+        val userId = currentUserId(expectedActorId)
+        rpc("quata_ugc_report", buildJsonObject {
+            put("p_actor_profile_id", userId); put("p_target_type", "chat_message"); put("p_target_id", messageId); put("p_reason", "other"); put("p_details", JsonNull)
         }.toString()); markRequestCompleted()
     }.onFailure { updateReadFailure() }
     override suspend fun leaveConversation(conversationId: String): Result<Unit> = removeThreadFromInbox("quata_chat_leave_thread", conversationId, retainUndo = false)
@@ -457,9 +463,23 @@ open class PostgrestChatRepository(
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = messageMutation("quata_chat_edit_message", messageId) { userId, threadId, numericMessageId ->
         buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message_id", numericMessageId); put("p_message", text.trim()) }.toString()
     }
+    override suspend fun editMessage(messageId: String, text: String, conversationId: String, clientMutationId: String, expectedActorId: String): Result<Unit> =
+        messageMutation("quata_chat_edit_message_v2", messageId, conversationId, expectedActorId) { userId, threadId, numericMessageId ->
+            buildJsonObject {
+                put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message_id", numericMessageId)
+                put("p_message", text.trim()); put("p_client_mutation_id", clientMutationId)
+            }.toString()
+        }
     override suspend fun deleteMessage(messageId: String): Result<Unit> = messageMutation("quata_chat_delete_messages", messageId) { userId, threadId, numericMessageId ->
         buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message_ids", JsonArray(listOf(JsonPrimitive(numericMessageId)))) }.toString()
     }
+    override suspend fun deleteMessage(messageId: String, conversationId: String, clientMutationId: String, expectedActorId: String): Result<Unit> =
+        messageMutation("quata_chat_delete_messages_v2", messageId, conversationId, expectedActorId) { userId, threadId, numericMessageId ->
+            buildJsonObject {
+                put("p_actor_profile_id", userId); put("p_thread_id", threadId)
+                put("p_message_ids", JsonArray(listOf(JsonPrimitive(numericMessageId)))); put("p_client_mutation_id", clientMutationId)
+            }.toString()
+        }
     override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> = runCatching {
         val message = allMessages().firstOrNull { it.id == messageId } ?: throw IllegalArgumentException("chat_message_not_loaded")
         val userId = currentUserId(); val threadId = message.conversationId.requirePostgrestThreadId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
@@ -794,11 +814,28 @@ open class PostgrestChatRepository(
     private suspend fun messageMutation(
         functionName: String,
         messageId: String,
+        expectedActorId: String? = null,
         body: (String, Long, Long) -> String,
     ): Result<Unit> = runCatching {
         val message = allMessages().firstOrNull { it.id == messageId } ?: throw IllegalArgumentException("chat_message_not_loaded")
-        val userId = currentUserId(); val threadId = message.conversationId.requirePostgrestThreadId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
+        val userId = currentUserId(expectedActorId); val threadId = message.conversationId.requirePostgrestThreadId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
         rpc(functionName, body(userId, threadId, numericMessageId)); refreshThread(message.conversationId, ThreadPageSize).getOrThrow(); markRequestCompleted()
+    }.onFailure { updateReadFailure() }
+    private suspend fun messageMutation(
+        functionName: String,
+        messageId: String,
+        conversationId: String,
+        expectedActorId: String,
+        body: (String, Long, Long) -> String,
+    ): Result<Unit> = runCatching {
+        val loadedMessage = allMessages().firstOrNull { it.id == messageId }
+        require(loadedMessage == null || loadedMessage.conversationId == conversationId) { "chat_message_conversation_changed" }
+        val userId = currentUserId(expectedActorId)
+        val threadId = conversationId.requirePostgrestThreadId()
+        val numericMessageId = messageId.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
+        rpc(functionName, body(userId, threadId, numericMessageId))
+        refreshThread(conversationId, ThreadPageSize).getOrThrow()
+        markRequestCompleted()
     }.onFailure { updateReadFailure() }
     private fun allMessages(): List<Message> = messagesByConversation.values.flatMap { it.value }
     private suspend fun uploadAndRegisterAttachment(profileId: String, threadId: Long, file: PlatformFile): Long {
