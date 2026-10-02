@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "06cf574b3a80b2783d4661c024a4344c905c5250",
-  "certification": "affected-local-gates-complete-independent-review-pending-final-CI-pending",
+  "certification": "affected-local-gates-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_DEEP_COMMENT_KEYSET_AND_THREE_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
@@ -42,9 +42,10 @@
     ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.data.RemoteFeedReadRepositoryTest :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.data.OfficialRemoteProtocolTest --stacktrace"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
-    "blockingFindings": []
+    "status": "GO",
+    "reviewedSha": "c4e458da8c4b4e3c7c9325383ffa2c5b65355d9a",
+    "blockingFindings": [],
+    "reviewHead": "c4e458da8c4b4e3c7c9325383ffa2c5b65355d9a"
   },
   "notes": [
     "Feed, Official and public-profile comments now exhaust strict id keysets in pages of 500 on Android, Web/Wasm and iOS, then restore the stable visible order created_at,id.",
