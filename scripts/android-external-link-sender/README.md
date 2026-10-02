@@ -45,6 +45,15 @@ selects its "Wait" action once. It neither starts nor interacts with Qüata. Rec
 such recovery and require a healthy launcher before a new cold run. Boot completion
 alone does not prove launcher readiness or absence of a background product process.
 
+`PublicLinkTest#openExactFavoriteForProcessDeathProbe` is an external UIAutomator
+observer for the authenticated shell-restoration focal. Qüata and the exact Favorites
+message must already be visible. The observer accepts only an opt-in flag, a numeric
+message ID and a synthetic marker, finds the marker in the accessibility tree, invokes
+`ACTION_CLICK` on its enabled clickable ancestor and waits until that same marker is
+selected. It does not authenticate, send an Intent, mutate the backend, read private
+files or terminate Qüata. Running from the sender UID leaves Qüata's task alive for the
+coordinator to perform and verify the subsequent Android process death.
+
 The optional session custody instrumentation is test-only and is not the sender.
 Build it with `:app:assembleDebugAndroidTest -PquataDeepLinkCustody=true`; this selects
 `DeepLinkSessionCustodyRunner` only for the test APK. Normal test builds retain their

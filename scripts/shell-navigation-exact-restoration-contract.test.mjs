@@ -24,10 +24,12 @@ test("Android retains the exact focused Chat message in saveable shell state and
   assert.match(android, /lastObservedRoute == AppDestinations\.Chat\.route && currentRoute != AppDestinations\.Chat\.route/);
   assert.match(android, /persistedChatFocusConversationId = null[\s\S]*persistedChatFocusedMessageId = null[\s\S]*lastObservedRoute = currentRoute/);
   assert.match(androidRunner, /--exact-chat-only/);
-  assert.match(androidRunner, /exact_chat_target_selected_after_distinct_task_base_intent/);
+  assert.match(androidRunner, /exact_chat_target_selected_by_uiautomator_after_distinct_task_base_intent/);
   assert.match(androidRunner, /exact_chat_differential_base_intent_not_preserved/);
   assert.match(androidRunner, /quata_chat_get_favorites/);
-  assert.match(androidRunner, /clickResource\(favoriteResource\)/);
+  assert.match(androidRunner, /PublicLinkTest#openExactFavoriteForProcessDeathProbe/);
+  assert.match(androidRunner, /exact_chat_favorite_opened_by_accessibility_action/);
+  assert.match(androidRunner, /clickResource\(`chat\.message\.\$\{exactChatTarget\.messageId\}`\)/);
   assert.match(androidRunner, /exact_chat_session_still_refreshable/);
   assert.match(androidRunner, /Promise\.allSettled\(\[webCleanup\(\), authCleanup\(\)\]\)/);
   assert.match(androidRunner, /auxiliarySessionRevoked/);

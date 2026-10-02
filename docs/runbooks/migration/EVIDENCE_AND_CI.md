@@ -58,6 +58,30 @@ Para PRs realmente `docs_only`, CI ejecuta solo el camino barato: checkout, `dif
 
 Los runners E2E de plataforma no deben copiar helpers backend comunes. La plataforma lanza la app, navega, interactua y captura evidencia; los fixtures backend reutilizables viven en `scripts/e2e-fixtures/` y registran cleanup antes de mutaciones remotas cuando sea posible. Si un runner necesita documento/audio/chat/storage, primero extiende la libreria comun y sus contratos.
 
+#### Android autenticado sobre una restauración local aislada
+
+Cuando un límite externo del proyecto productivo impide crear una sesión antes de alcanzar el flujo
+Android que se quiere observar, `shell-navigation-android-process-death-evidence.mjs` puede ejecutar
+su modo focal `--exact-chat-only` contra una instancia Supabase local aislada. El archivo privado de
+configuración declara la URL host `127.0.0.1`, la URL del emulador `10.0.2.2`, la publishable key
+local y el SHA-256 del backup lógico restaurado. El runner rechaza otros hosts, protocolos, puertos
+implícitos, claves con forma distinta y el uso del override fuera de ese modo focal.
+
+La copia local conserva esquema y datos de Chat, pero no importa identidades Auth productivas. El
+operador crea una identidad Auth efímera local, enlaza únicamente el perfil actor de la prueba y deja
+las demás identidades sin enlace. El runner inicia sesión por Auth local, resuelve el actor mediante
+el RPC productivo, crea un mensaje sintético idempotente mediante `quata_chat_send_message`, lo marca
+favorito con `quata_chat_set_favorite` y verifica su lectura paginada. La interacción ocurre sobre la
+app Android real; el helper externo abre el favorito por accesibilidad, Android mata el proceso en
+segundo plano y la app debe restaurar conversación y mensaje exactos con un PID nuevo.
+
+El override sólo existe en `debug`: Release sigue leyendo `QuataPublicBackendConfig`. El cleartext se
+limita en el manifest debug a `10.0.2.2`. Ni la publishable key local, ni tokens, ni credenciales ni el
+archivo de configuración se copian a informes. El informe registra hashes de configuración, backup,
+actor lógico y destino, captura únicamente el mensaje sintético, revoca la sesión Auth y limpia los
+datos de la app. Esta evidencia acredita el runtime Android y el contrato restaurado; no afirma que
+el endpoint productivo haya dejado de responder con su límite externo.
+
 GitHub Actions es la **certificación final en runners limpios**, no el primer lugar donde descubrir
 que una implementación no compila ni funciona. Si CI revela un defecto reproducible localmente, el
 informe lo clasifica como **DEFECTO ESCAPADO DEL PREFLIGHT LOCAL** e incorpora obligatoriamente el

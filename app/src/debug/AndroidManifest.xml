@@ -5,7 +5,7 @@
         android:name="com.google.android.c2dm.permission.RECEIVE"
         tools:node="remove" />
 
-    <application>
+    <application android:networkSecurityConfig="@xml/quata_debug_network_security_config">
         <!--
             Evidence/instrumented debug builds must not be woken by queued FCM broadcasts while
             UIAutomator owns the process. Release keeps the Firebase messaging services declared

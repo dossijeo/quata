@@ -1,3 +1,4 @@
+import java.net.URI
 import java.util.Properties
 import java.util.zip.ZipFile
 
@@ -29,6 +30,29 @@ fun localOrEnvironmentValue(propertyName: String, environmentName: String): Stri
     localProperties.getProperty(propertyName)
         ?: providers.gradleProperty(propertyName).orNull
         ?: providers.environmentVariable(environmentName).orNull
+
+fun buildConfigString(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val evidenceBackendOverride = providers.gradleProperty("quata.evidenceBackendOverride")
+    .orElse("false")
+    .get()
+    .toBooleanStrictOrNull()
+    ?: error("quata.evidenceBackendOverride must be true or false")
+val evidenceSupabaseUrl = providers.gradleProperty("quata.evidenceSupabaseUrl").orElse("").get().trim()
+val evidenceSupabasePublishableKey = providers.gradleProperty("quata.evidenceSupabasePublishableKey").orElse("").get().trim()
+if (evidenceBackendOverride) {
+    val uri = URI(evidenceSupabaseUrl)
+    require(
+        uri.scheme == "http" && uri.host == "10.0.2.2" && uri.port in 1..65535 &&
+            uri.userInfo == null && uri.query == null && uri.fragment == null &&
+            evidenceSupabasePublishableKey.startsWith("sb_publishable_")
+    ) { "evidence backend override must target explicit emulator loopback with a local publishable key" }
+} else {
+    require(evidenceSupabaseUrl.isEmpty() && evidenceSupabasePublishableKey.isEmpty()) {
+        "evidence backend values require -Pquata.evidenceBackendOverride=true"
+    }
+}
 
 val releaseStoreFile = releaseSigningValue("storeFile", "QUATA_SIGNING_STORE_FILE")
 val releaseStorePassword = releaseSigningValue("storePassword", "QUATA_SIGNING_STORE_PASSWORD")
@@ -70,6 +94,9 @@ android {
         // Shadow-only boundary validation. It never changes the endpoint, request, or login result.
         val authBoundaryShadow = providers.gradleProperty("quata.authBoundaryShadow").orElse("false").get()
         buildConfigField("boolean", "AUTH_BOUNDARY_SHADOW", authBoundaryShadow)
+        buildConfigField("boolean", "EVIDENCE_BACKEND_OVERRIDE_ENABLED", "false")
+        buildConfigField("String", "EVIDENCE_SUPABASE_URL", "\"\"")
+        buildConfigField("String", "EVIDENCE_SUPABASE_PUBLISHABLE_KEY", "\"\"")
         buildConfigField(
             "String",
             "TURNSTILE_SITE_KEY",
@@ -121,6 +148,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (evidenceBackendOverride) {
+                buildConfigField("boolean", "EVIDENCE_BACKEND_OVERRIDE_ENABLED", "true")
+                buildConfigField("String", "EVIDENCE_SUPABASE_URL", buildConfigString(evidenceSupabaseUrl))
+                buildConfigField(
+                    "String",
+                    "EVIDENCE_SUPABASE_PUBLISHABLE_KEY",
+                    buildConfigString(evidenceSupabasePublishableKey),
+                )
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

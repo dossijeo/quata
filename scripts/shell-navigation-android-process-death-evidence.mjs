@@ -5,12 +5,21 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import { parsePidObservation } from "./shell-navigation-android-process-death-utils.mjs";
+import {
+  authenticateExactChatActor,
+  fetchNoRedirect,
+  jsonRequestNoRedirect,
+} from "./shell-navigation-local-backend-utils.mjs";
 
 const execFileAsync = promisify(execFile);
 const CHECK = "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001";
 const PACKAGE = "com.quata";
 const TEST_PACKAGE = "com.quata.test";
+const INTERACTION_TEST_PACKAGE = "com.quata.deeplinksender.test";
+const INTERACTION_APK = "scripts/android-external-link-sender/build/outputs/apk/debug/QuataExternalLinkSender-debug.apk";
+const INTERACTION_TEST_APK = "scripts/android-external-link-sender/build/outputs/apk/androidTest/debug/QuataExternalLinkSender-debug-androidTest.apk";
 const DEVICE_CREDENTIAL = "/data/user/0/com.quata/files/shell-process-death-credentials.json";
+const DEVICE_SESSION = "/data/user/0/com.quata/files/shell-process-death-session.json";
 const PRIMARY_ROOTS = [
   { route: "neighborhoods", resource: "neighborhood.directory.root", launchRoute: "conversations", launchResource: "conversations.root" },
   { route: "conversations", resource: "conversations.root", launchRoute: "official", launchResource: "official-feed-common-root" },
@@ -46,15 +55,42 @@ try {
   const emulator = await captureAdb(["shell", "getprop", "ro.kernel.qemu"]);
   if (emulator.trim() !== "1") throw new Error("shell_process_death_requires_emulator");
   const credentials = await loadCredentials(options.credentialsFile);
+  const backend = options.backendConfigFile ? await loadBackendConfig(options.backendConfigFile) : null;
+  if (backend && !options.exactChatOnly) throw new Error("evidence_backend_override_requires_exact_chat_mode");
+  if (backend && options.skipBuild) throw new Error("evidence_backend_override_requires_fresh_build");
+  const exactChatTarget = options.exactChatOnly ? await findExactChatTarget(credentials, backend) : null;
+  if (backend) {
+    report.backend = {
+      mode: backend.mode,
+      configSha256: backend.configSha256,
+      sourceBackupPlaintextSha256: backend.sourceBackupPlaintextSha256,
+      deviceOrigin: "android_emulator_loopback",
+    };
+    report.steps.push("restored_local_supabase_auth_and_postgrest_preflight_passed");
+  }
 
   if (!options.skipBuild) {
     const gradle = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-    await run(gradle, [
+    const gradleArguments = [
       ":app:assembleDebug",
       ":app:assembleDebugAndroidTest",
       ":vosk_model_en:assembleDebug",
       "--console=plain",
-    ]);
+    ];
+    if (backend) {
+      gradleArguments.push(
+        "-Pquata.evidenceBackendOverride=true",
+        `-Pquata.evidenceSupabaseUrl=${backend.deviceBaseUrl}`,
+        `-Pquata.evidenceSupabasePublishableKey=${backend.publishableKey}`,
+      );
+    }
+    await run(gradle, gradleArguments);
+    if (exactChatTarget?.marker) {
+      await run(gradle, [
+        "-p", "scripts/android-external-link-sender",
+        "assembleDebug", "assembleDebugAndroidTest", "--console=plain",
+      ]);
+    }
     report.steps.push("affected_android_apks_built");
   }
 
@@ -62,17 +98,28 @@ try {
   appTouched = true;
   report.cleanup.environmentAcquired = true;
   await runAdb(["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  if (exactChatTarget?.marker) {
+    await runAdb(["install", "-r", INTERACTION_APK]);
+    await runAdb(["install", "-r", "-t", INTERACTION_TEST_APK]);
+  }
   report.steps.push("base_split_and_test_apks_installed");
 
   await runAdb(["shell", "pm", "clear", PACKAGE]);
   await runAdb(["shell", "run-as", PACKAGE, "mkdir", "-p", `/data/user/0/${PACKAGE}/files`]);
-  await writeDeviceCredential(credentials);
-  report.steps.push("private_credentials_staged_without_logging");
-
+  const authenticationArguments = [];
+  if (backend) {
+    await writeDeviceJson(DEVICE_SESSION, exactChatSession.deviceSession);
+    authenticationArguments.push("-e", "quataShellNavigationSessionFile", "app-internal:shell-process-death-session.json");
+    report.steps.push("private_real_session_staged_without_logging");
+  } else {
+    await writeDeviceJson(DEVICE_CREDENTIAL, credentials);
+    authenticationArguments.push("-e", "quataShellNavigationCredentialsFile", "app-internal:shell-process-death-credentials.json");
+    report.steps.push("private_credentials_staged_without_logging");
+  }
   const instrumentation = await captureAdb([
     "shell", "am", "instrument", "-w", "-r",
     "-e", "class", "com.quata.core.navigation.ShellNavigationPolicyInstrumentedTest#authenticateForProcessDeathProbe",
-    "-e", "quataShellNavigationCredentialsFile", "app-internal:shell-process-death-credentials.json",
+    ...authenticationArguments,
     "-e", "quataShellNavigationProcessDeathEvidence", "1",
     `${TEST_PACKAGE}/androidx.test.runner.AndroidJUnitRunner`,
   ], { timeout: 60_000 });
@@ -82,7 +129,28 @@ try {
   report.steps.push("real_authenticated_session_persisted");
 
   if (options.exactChatOnly) {
-    const target = await findExactChatTarget(credentials);
+    await runAdb(["shell", "am", "force-stop", PACKAGE]);
+    await runAdb(["shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", "https://egquata.com/#chat-__favorite_messages__", "-p", PACKAGE]);
+    await waitForResource(`chat.message.${exactChatTarget.messageId}`);
+    if (exactChatTarget.marker) {
+      const interaction = await captureAdb([
+        "shell", "am", "instrument", "-w", "-r",
+        "-e", "class", "com.quata.deeplinksender.PublicLinkTest#openExactFavoriteForProcessDeathProbe",
+        "-e", "quataShellNavigationTargetMessageId", exactChatTarget.messageId,
+        "-e", "quataShellNavigationTargetMarker", exactChatTarget.marker,
+        "-e", "quataShellNavigationProcessDeathEvidence", "1",
+        `${INTERACTION_TEST_PACKAGE}/androidx.test.runner.AndroidJUnitRunner`,
+      ], { timeout: 120_000 });
+      if (!/OK \(1 test\)/.test(interaction) || /FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(interaction)) {
+        throw new Error("shell_process_death_favorite_interaction_preflight_failed");
+      }
+      report.favoriteMessageInteraction = { accessibilityAction: true, targetValidated: true };
+      report.steps.push("exact_chat_favorite_opened_by_accessibility_action");
+    } else {
+      report.favoriteMessageInteraction = await clickResource(`chat.message.${exactChatTarget.messageId}`);
+      report.steps.push("exact_chat_favorite_opened_by_existing_coordinate_probe");
+    }
+    const target = exactChatTarget ?? await findExactChatTarget(credentials);
     const process = await verifyExactChatProcessDeath(target);
     report.process = process;
     report.status = "passed";
@@ -136,6 +204,9 @@ try {
     report.status = "passed";
   }
 } catch (error) {
+  if (appTouched) {
+    report.uiDiagnostics = await collectSafeUiDiagnostics().catch(() => ({ unavailable: true }));
+  }
   report.error = safeFailure(error);
 } finally {
   if (exactChatSession) {
@@ -151,15 +222,18 @@ try {
   }
   if (appTouched) {
     await runAdb(["shell", "run-as", PACKAGE, "rm", "-f", DEVICE_CREDENTIAL]).catch(() => {});
+    await runAdb(["shell", "run-as", PACKAGE, "rm", "-f", DEVICE_SESSION]).catch(() => {});
     try {
-      report.cleanup.credentialsRemoved = !(await deviceCredentialExists());
+      report.cleanup.credentialsRemoved = !(await devicePrivateFileExists(DEVICE_CREDENTIAL))
+        && !(await devicePrivateFileExists(DEVICE_SESSION));
     } catch {}
     let clearSucceeded = false;
     try {
       const { stdout } = await runAdb(["shell", "pm", "clear", PACKAGE]);
       clearSucceeded = String(stdout).trim() === "Success";
       report.cleanup.appDataCleared = clearSucceeded
-        && !(await deviceCredentialExists())
+        && !(await devicePrivateFileExists(DEVICE_CREDENTIAL))
+        && !(await devicePrivateFileExists(DEVICE_SESSION))
         && !(await currentPid());
     } catch {}
     report.cleanup.state = report.cleanup.credentialsRemoved
@@ -185,6 +259,7 @@ function parseArgs(args) {
     credentialsFile: process.env.QUATA_CHAT_GROUP_CREDENTIALS_FILE?.trim(),
     output: resolve("build-reports/android/shell-navigation-process-death-evidence.json"),
     screenshotDir: resolve("build-reports/android/shell-navigation-process-death"),
+    backendConfigFile: process.env.QUATA_SHELL_PROCESS_DEATH_BACKEND_CONFIG_FILE?.trim(),
     skipBuild: false,
     exactChatOnly: false,
   };
@@ -196,6 +271,7 @@ function parseArgs(args) {
     if (!value || value.startsWith("--")) throw new Error(`invalid_argument:${key}`);
     if (key === "--serial") parsed.serial = value;
     else if (key === "--credentials-file") parsed.credentialsFile = value;
+    else if (key === "--backend-config-file") parsed.backendConfigFile = resolve(value);
     else if (key === "--out") parsed.output = resolve(value);
     else if (key === "--screenshot-dir") parsed.screenshotDir = resolve(value);
     else throw new Error(`invalid_argument:${key}`);
@@ -214,10 +290,47 @@ async function loadCredentials(path) {
   return { country_code: actor.country_code, phone: actor.phone, password: actor.password };
 }
 
-async function findExactChatTarget(credentials) {
-  const source = await readFile("core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt", "utf8");
-  const baseUrl = source.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1]?.replace(/\/+$/, "");
-  const key = source.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/)?.[1];
+async function loadBackendConfig(path) {
+  const source = await readFile(path, "utf8");
+  const value = JSON.parse(source);
+  const allowed = [
+    "version", "mode", "hostBaseUrl", "deviceBaseUrl", "publishableKey",
+    "sourceBackupPlaintextSha256",
+  ];
+  if (
+    Object.keys(value).some((key) => !allowed.includes(key)) ||
+    value.version !== 1 ||
+    value.mode !== "restored_local_supabase" ||
+    !/^sb_publishable_[A-Za-z0-9_-]{20,}$/.test(value.publishableKey ?? "") ||
+    !/^[a-f0-9]{64}$/.test(value.sourceBackupPlaintextSha256 ?? "")
+  ) {
+    throw new Error("evidence_backend_configuration_invalid");
+  }
+  const host = new URL(value.hostBaseUrl);
+  const device = new URL(value.deviceBaseUrl);
+  if (
+    host.protocol !== "http:" || host.hostname !== "127.0.0.1" || !host.port || host.username || host.password || host.search || host.hash ||
+    device.protocol !== "http:" || device.hostname !== "10.0.2.2" || !device.port || device.username || device.password || device.search || device.hash ||
+    host.port !== device.port || host.pathname !== "/" || device.pathname !== "/"
+  ) {
+    throw new Error("evidence_backend_origin_invalid");
+  }
+  return {
+    ...value,
+    hostBaseUrl: host.toString().replace(/\/$/, ""),
+    deviceBaseUrl: device.toString(),
+    configSha256: sha256(source),
+  };
+}
+
+async function findExactChatTarget(credentials, backend = null) {
+  const source = backend
+    ? null
+    : await readFile("core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt", "utf8");
+  const baseUrl = backend?.hostBaseUrl
+    ?? source?.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1]?.replace(/\/+$/, "");
+  const key = backend?.publishableKey
+    ?? source?.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/)?.[1];
   if (!baseUrl || !key || !key.startsWith("sb_publishable_")) throw new Error("public_backend_configuration_invalid");
   exactChatSession = {
     baseUrl,
@@ -226,33 +339,117 @@ async function findExactChatTarget(credentials) {
     refreshToken: null,
     webSessionToken: null,
   };
-  const auth = await jsonRequest(`${baseUrl}/functions/v1/quata-auth-bridge`, {
-    method: "POST",
-    headers: { apikey: key, "content-type": "application/json" },
-    body: JSON.stringify({
-      action: "web_login",
-      country_code: credentials.country_code,
-      phone_local: credentials.phone,
-      password: credentials.password,
-      client_instance_id: `shell-process-death-${Date.now()}`,
-    }),
-  }, "exact_chat_auth");
-  const profileId = auth?.profile?.id;
-  const token = auth?.session?.access_token;
-  const refreshToken = auth?.session?.refresh_token;
-  const webSessionToken = auth?.web_session?.token;
+  const authenticated = await authenticateExactChatActor({
+    backend,
+    baseUrl,
+    key,
+    credentials,
+    request: jsonRequest,
+    captureCustody: (custody) => {
+      exactChatSession = { ...exactChatSession, ...custody };
+    },
+  });
+  const { auth, accessToken: token, refreshToken, webSessionToken, profileId, phoneEmail } = authenticated;
+  const authUserId = auth?.user?.id;
+  let deviceSession = null;
+  if (backend) {
+    const profiles = await jsonRequest(
+      `${baseUrl}/rest/v1/community_profiles?id=eq.${encodeURIComponent(profileId)}&select=id,display_name,is_official`,
+      { headers: { apikey: key, authorization: `Bearer ${token}` } },
+      "exact_chat_profile",
+    );
+    const profile = Array.isArray(profiles) && profiles.length === 1 ? profiles[0] : null;
+    const expiresAt = Number(auth?.expires_at ?? (Math.floor(Date.now() / 1000) + Number(auth?.expires_in ?? 0)));
+    if (!profile || !authUserId || !Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) {
+      throw new Error("exact_chat_direct_auth_binding_invalid");
+    }
+    deviceSession = {
+      token,
+      userId: profileId,
+      authUserId,
+      accessToken: token,
+      refreshToken,
+      expiresAt,
+      email: auth?.user?.email ?? phoneEmail,
+      displayName: String(profile.display_name ?? "Usuario"),
+      isOfficial: profile.is_official === true,
+    };
+  }
   exactChatSession = {
     ...exactChatSession,
     accessToken: token ?? null,
     refreshToken: refreshToken ?? null,
     webSessionToken: webSessionToken ?? null,
+    deviceSession,
   };
-  if (!profileId || !token || !refreshToken || !webSessionToken) throw new Error("exact_chat_auth_response_invalid");
-  const favorites = await jsonRequest(`${baseUrl}/rest/v1/rpc/quata_chat_get_favorites`, {
-    method: "POST",
-    headers: { apikey: key, authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({ p_actor_profile_id: profileId, p_limit: 100 }),
-  }, "exact_chat_favorites");
+  const authenticatedHeaders = { apikey: key, authorization: `Bearer ${token}`, "content-type": "application/json" };
+  let favorites = await jsonRequest(
+    `${baseUrl}/rest/v1/rpc/${backend ? "quata_chat_get_favorites_page" : "quata_chat_get_favorites"}`,
+    {
+      method: "POST",
+      headers: authenticatedHeaders,
+      body: JSON.stringify(backend
+        ? { p_actor_profile_id: profileId, p_limit: 100, p_before_created_at: null, p_before_message_id: null }
+        : { p_actor_profile_id: profileId, p_limit: 100 }),
+    },
+    "exact_chat_favorites",
+  );
+  if (backend) {
+    const seedTarget = exactChatTargetFromFavorites(favorites);
+    if (!seedTarget) throw new Error("exact_chat_favorite_target_missing");
+    const fixtureMarker = `QUATA_SHELL_NAV_LOCAL_${report.git.head.slice(0, 12)}`;
+    const sent = await jsonRequest(`${baseUrl}/rest/v1/rpc/quata_chat_send_message`, {
+      method: "POST",
+      headers: authenticatedHeaders,
+      body: JSON.stringify({
+        p_actor_profile_id: profileId,
+        p_thread_id: Number(seedTarget.threadId),
+        p_message: fixtureMarker,
+        p_file_ids: [],
+        p_reply_to_message_id: null,
+        p_client_message_id: `shell-nav-local-${report.git.head.slice(0, 24)}`,
+      }),
+    }, "exact_chat_local_fixture_send");
+    const fixtureMessageId = String(sent?.message_id ?? "");
+    if (!/^[1-9]\d{0,15}$/.test(fixtureMessageId)) throw new Error("exact_chat_local_fixture_send_invalid");
+    await jsonRequest(`${baseUrl}/rest/v1/rpc/quata_chat_set_favorite`, {
+      method: "POST",
+      headers: authenticatedHeaders,
+      body: JSON.stringify({
+        p_actor_profile_id: profileId,
+        p_thread_id: Number(seedTarget.threadId),
+        p_message_id: Number(fixtureMessageId),
+        p_favorite: true,
+      }),
+    }, "exact_chat_local_fixture_favorite");
+    favorites = await jsonRequest(`${baseUrl}/rest/v1/rpc/quata_chat_get_favorites_page`, {
+      method: "POST",
+      headers: authenticatedHeaders,
+      body: JSON.stringify({
+        p_actor_profile_id: profileId,
+        p_limit: 100,
+        p_before_created_at: null,
+        p_before_message_id: null,
+      }),
+    }, "exact_chat_local_fixture_verify");
+    const verifiedTarget = exactChatTargetFromFavorites(favorites, fixtureMessageId);
+    if (!verifiedTarget) throw new Error("exact_chat_local_fixture_not_visible");
+    report.steps.push("synthetic_local_chat_fixture_staged_via_product_rpcs");
+    return {
+      conversationId: `sb:${verifiedTarget.threadId}`,
+      messageId: verifiedTarget.messageId,
+      marker: fixtureMarker,
+    };
+  }
+  const target = exactChatTargetFromFavorites(favorites);
+  if (!target) throw new Error("exact_chat_favorite_target_missing");
+  return {
+    conversationId: `sb:${target.threadId}`,
+    messageId: target.messageId,
+  };
+}
+
+function exactChatTargetFromFavorites(favorites, requiredMessageId = null) {
   const messages = Array.isArray(favorites)
     ? favorites
     : Array.isArray(favorites?.favorites)
@@ -262,35 +459,20 @@ async function findExactChatTarget(credentials) {
         : Array.isArray(favorites?.messages)
           ? favorites.messages
           : [];
-  const target = messages
+  return messages
     .map((message) => ({
       messageId: String(message?.id ?? ""),
       threadId: String(message?.thread_id ?? message?.conversation_id ?? ""),
     }))
     .find((candidate) =>
       /^[1-9]\d{0,15}$/.test(candidate.messageId) &&
-      /^[1-9]\d{0,15}$/.test(candidate.threadId)
+      /^[1-9]\d{0,15}$/.test(candidate.threadId) &&
+      (requiredMessageId === null || candidate.messageId === requiredMessageId)
     );
-  if (!target) throw new Error("exact_chat_favorite_target_missing");
-  return {
-    conversationId: `sb:${target.threadId}`,
-    messageId: target.messageId,
-  };
 }
 
 async function jsonRequest(url, init, failure) {
-  let response;
-  try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
-  } catch {
-    throw new Error(`${failure}_network_failed`);
-  }
-  if (!response.ok) throw new Error(`${failure}_http_${response.status}`);
-  try {
-    return await response.json();
-  } catch {
-    throw new Error(`${failure}_invalid_json`);
-  }
+  return jsonRequestNoRedirect(url, init, failure);
 }
 
 async function revokeExactChatSession(session) {
@@ -307,7 +489,7 @@ async function revokeExactChatSession(session) {
       refreshToken = renewal?.refresh_token ?? refreshToken;
     }
     if (!accessToken || !refreshToken) throw new Error("exact_chat_auth_session_custody_incomplete");
-    const logout = await fetch(`${session.baseUrl}/auth/v1/logout?scope=local`, {
+    const logout = await fetchNoRedirect(`${session.baseUrl}/auth/v1/logout?scope=local`, {
       method: "POST",
       headers: {
         apikey: session.key,
@@ -315,21 +497,20 @@ async function revokeExactChatSession(session) {
         "content-type": "application/json",
       },
       body: "{}",
-      signal: AbortSignal.timeout(20_000),
     });
     if (!logout.ok) throw new Error(`exact_chat_auth_logout_http_${logout.status}`);
-    const verification = await fetch(`${session.baseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    const verification = await fetchNoRedirect(`${session.baseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
       headers: { apikey: session.key, "content-type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
-      signal: AbortSignal.timeout(20_000),
     });
     if (![400, 401].includes(verification.status)) {
       throw new Error(`exact_chat_session_still_refreshable_http_${verification.status}`);
     }
   };
   const webCleanup = async () => {
-    if (!session.accessToken || !session.webSessionToken) {
+    if (!session.webSessionToken) return;
+    if (!session.accessToken) {
       throw new Error("exact_chat_web_session_custody_incomplete");
     }
     await jsonRequest(`${session.baseUrl}/functions/v1/quata-web-push`, {
@@ -353,25 +534,19 @@ async function revokeExactChatSession(session) {
 }
 
 async function verifyExactChatProcessDeath(target) {
-  const favoritesUrl = "https://egquata.com/#chat-__favorite_messages__";
-  const targetIntentMarker = `message=${encodeURIComponent(target.messageId)}`;
-  const favoriteResource = `chat.message.${target.messageId}`;
   const selectedResource = `chat.message.${target.messageId}.selected`;
-  await runAdb(["shell", "am", "force-stop", PACKAGE]);
-  await runAdb(["shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", favoritesUrl, "-p", PACKAGE]);
-  await waitForResource(favoriteResource);
-  await clickResource(favoriteResource);
   await waitForResource("chat.conversation.titlebar");
   await waitForResource(selectedResource);
   const activityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
   const baseIntentLine = activityState.split(/\r?\n/).find((line) =>
-    line.includes("intent={") && line.includes(PACKAGE) && line.includes("chat-__favorite_messages__")
+    /intent/i.test(line) && line.includes(PACKAGE) && line.includes("chat-__favorite_messages__")
   );
+  const targetIntentMarker = `message=${encodeURIComponent(target.messageId)}`;
   if (!baseIntentLine || baseIntentLine.includes(targetIntentMarker)) {
     throw new Error("exact_chat_differential_base_intent_not_preserved");
   }
   await captureScreenshot("exact-chat-message-before-process-death");
-  report.steps.push("exact_chat_target_selected_after_distinct_task_base_intent");
+  report.steps.push("exact_chat_target_selected_by_uiautomator_after_distinct_task_base_intent");
   const pidBefore = await currentPid();
   if (!pidBefore) throw new Error("exact_chat_pid_missing_before_kill");
   await runAdb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
@@ -396,15 +571,15 @@ async function verifyExactChatProcessDeath(target) {
   };
 }
 
-async function writeDeviceCredential(credentials) {
+async function writeDeviceJson(path, value) {
   const child = spawnWithInput(adb, [
     "-s", options.serial, "shell",
-    `run-as ${PACKAGE} sh -c 'cat > ${DEVICE_CREDENTIAL}'`,
+    `run-as ${PACKAGE} sh -c 'cat > ${path}'`,
   ]);
-  child.stdin.end(`${JSON.stringify(credentials)}\n`);
+  child.stdin.end(`${JSON.stringify(value)}\n`);
   await child.completed;
-  if (child.code !== 0) throw new Error("device_credential_stage_failed");
-  await runAdb(["shell", "run-as", PACKAGE, "chmod", "600", DEVICE_CREDENTIAL]);
+  if (child.code !== 0) throw new Error("device_private_file_stage_failed");
+  await runAdb(["shell", "run-as", PACKAGE, "chmod", "600", path]);
 }
 
 function spawnWithInput(command, args) {
@@ -518,6 +693,30 @@ async function clickResource(resourceId) {
   const x = Math.floor((Number(bounds[1]) + Number(bounds[3])) / 2);
   const y = Math.floor((Number(bounds[2]) + Number(bounds[4])) / 2);
   await runAdb(["shell", "input", "tap", String(x), String(y)]);
+  return {
+    clickable: /clickable="true"/.test(node),
+    enabled: /enabled="true"/.test(node),
+    width: Number(bounds[3]) - Number(bounds[1]),
+    height: Number(bounds[4]) - Number(bounds[2]),
+  };
+}
+
+async function collectSafeUiDiagnostics() {
+  const xml = await dumpHierarchy().catch(() => "");
+  const resourceIds = [...xml.matchAll(/resource-id="([^"]+)"/g)].map((match) => match[1]);
+  const activity = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 }).catch(() => "");
+  return {
+    hierarchyAvailable: xml.length > 0,
+    activityStateAvailable: activity.length > 0,
+    favoriteMessageCount: resourceIds.filter((id) => id.startsWith("chat.message.") && !id.endsWith(".selected")).length,
+    selectedMessageCount: resourceIds.filter((id) => id.startsWith("chat.message.") && id.endsWith(".selected")).length,
+    conversationTitleBarVisible: resourceIds.includes("chat.conversation.titlebar"),
+    favoritesHeaderVisible: resourceIds.some((id) => id.startsWith("chat.favorites.")),
+    conversationsRootVisible: resourceIds.includes("conversations.root"),
+    retryControlVisible: resourceIds.some((id) => id.includes("retry")),
+    packageResumed: activity.includes(`mResumedActivity`) && activity.includes(PACKAGE),
+    favoritesIntentPresent: activity.includes("chat-__favorite_messages__"),
+  };
 }
 
 async function captureScreenshot(name) {
@@ -530,10 +729,10 @@ async function captureScreenshot(name) {
   report.screenshots.push(`${name}.png`);
 }
 
-async function deviceCredentialExists() {
+async function devicePrivateFileExists(path) {
   const output = (await captureAdb([
     "shell",
-    `run-as ${PACKAGE} sh -c 'if [ -e ${DEVICE_CREDENTIAL} ]; then echo __QUATA_CREDENTIAL_PRESENT__; else echo __QUATA_CREDENTIAL_ABSENT__; fi'`,
+    `run-as ${PACKAGE} sh -c 'if [ -e ${path} ]; then echo __QUATA_CREDENTIAL_PRESENT__; else echo __QUATA_CREDENTIAL_ABSENT__; fi'`,
   ], { timeout: 10_000 })).trim();
   if (output === "__QUATA_CREDENTIAL_PRESENT__") return true;
   if (output === "__QUATA_CREDENTIAL_ABSENT__") return false;
@@ -547,7 +746,11 @@ async function gitMetadata() {
 }
 
 function safeFailure(error) {
-  const message = String(error?.message ?? error).replaceAll(options.credentialsFile, "[credentials-file]");
+  let message = String(error?.message ?? error);
+  for (const path of [options.credentialsFile, options.backendConfigFile].filter(Boolean)) {
+    message = message.replaceAll(path, "[private-file]");
+  }
+  message = message.replace(/sb_publishable_[A-Za-z0-9_-]{20,}/g, "[publishable-key]");
   return { message: message.slice(0, 500) };
 }
 
