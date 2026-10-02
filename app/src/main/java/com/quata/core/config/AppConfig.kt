@@ -24,8 +24,18 @@ object AppConfig {
     const val QUATA_WORDPRESS_BASE_URL = "https://egquata.com/"
 
     /** Supabase */
-    const val SUPABASE_URL = QuataPublicBackendConfig.SUPABASE_URL
-    const val SUPABASE_ANON_KEY = QuataPublicBackendConfig.SUPABASE_PUBLISHABLE_KEY
+    val SUPABASE_URL: String
+        get() = if (BuildConfig.EVIDENCE_BACKEND_OVERRIDE_ENABLED) {
+            BuildConfig.EVIDENCE_SUPABASE_URL
+        } else {
+            QuataPublicBackendConfig.SUPABASE_URL
+        }
+    val SUPABASE_ANON_KEY: String
+        get() = if (BuildConfig.EVIDENCE_BACKEND_OVERRIDE_ENABLED) {
+            BuildConfig.EVIDENCE_SUPABASE_PUBLISHABLE_KEY
+        } else {
+            QuataPublicBackendConfig.SUPABASE_PUBLISHABLE_KEY
+        }
     val REGISTRATION_API_KEY: String get() = BuildConfig.REGISTRATION_API_KEY
     val TURNSTILE_SITE_KEY: String get() = BuildConfig.TURNSTILE_SITE_KEY
     val TURNSTILE_ALLOWED_ORIGIN: String get() = BuildConfig.TURNSTILE_ALLOWED_ORIGIN

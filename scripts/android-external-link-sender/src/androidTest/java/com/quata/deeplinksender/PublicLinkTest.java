@@ -5,11 +5,13 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
+import android.view.accessibility.AccessibilityNodeInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
@@ -26,6 +28,68 @@ import static org.junit.Assert.*;
 /** Separate package/UID. Public resolver delivery only; no product dependency or shell launch. */
 @RunWith(AndroidJUnit4.class)
 public final class PublicLinkTest {
+    @Test(timeout = 60000)
+    public void openExactFavoriteForProcessDeathProbe() throws Exception {
+        Bundle arguments = InstrumentationRegistry.getArguments();
+        assertEquals("1", arguments.getString("quataShellNavigationProcessDeathEvidence"));
+        String messageId = arguments.getString("quataShellNavigationTargetMessageId", "");
+        String marker = arguments.getString("quataShellNavigationTargetMarker", "").trim();
+        assertTrue("Invalid target message", messageId.matches("^[1-9]\\d{0,15}$"));
+        assertFalse("Missing synthetic marker", marker.isEmpty());
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertEquals("com.quata", device.getCurrentPackageName());
+        long deadline = SystemClock.elapsedRealtime() + 30000;
+        AccessibilityNodeInfo clickable = null;
+        while (SystemClock.elapsedRealtime() < deadline && clickable == null) {
+            AccessibilityNodeInfo root = InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation().getRootInActiveWindow();
+            AccessibilityNodeInfo markerNode = findMarkerNode(root, marker);
+            for (AccessibilityNodeInfo candidate = markerNode; candidate != null; candidate = candidate.getParent()) {
+                if (candidate.isEnabled() && candidate.isClickable()) {
+                    clickable = candidate;
+                    break;
+                }
+            }
+            if (clickable == null) SystemClock.sleep(250);
+        }
+        assertNotNull("Exact favorite action missing", clickable);
+        assertTrue("Exact favorite action rejected", clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK));
+        deadline = SystemClock.elapsedRealtime() + 25000;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            AccessibilityNodeInfo root = InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation().getRootInActiveWindow();
+            if (hasSelectedMarker(root, marker)) return;
+            SystemClock.sleep(250);
+        }
+        fail("Exact favorite did not become selected: " + messageId);
+    }
+
+    private static AccessibilityNodeInfo findMarkerNode(AccessibilityNodeInfo node, String marker) {
+        if (node == null) return null;
+        if ((node.getText() != null && node.getText().toString().contains(marker)) ||
+                (node.getContentDescription() != null && node.getContentDescription().toString().contains(marker))) {
+            return node;
+        }
+        for (int index = 0; index < node.getChildCount(); index++) {
+            AccessibilityNodeInfo found = findMarkerNode(node.getChild(index), marker);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static boolean hasSelectedMarker(AccessibilityNodeInfo node, String marker) {
+        if (node == null) return false;
+        CharSequence state = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                ? node.getStateDescription()
+                : null;
+        if ((node.isSelected() || (state != null && "selected".contentEquals(state))) &&
+                findMarkerNode(node, marker) != null) return true;
+        for (int index = 0; index < node.getChildCount(); index++) {
+            if (hasSelectedMarker(node.getChild(index), marker)) return true;
+        }
+        return false;
+    }
+
     /** Environment recovery only: acknowledges the observed Android System UI ANR, not Qüata UI. */
     @Test(timeout = 45000)
     public void acknowledgeSystemUiAnr() throws Exception {

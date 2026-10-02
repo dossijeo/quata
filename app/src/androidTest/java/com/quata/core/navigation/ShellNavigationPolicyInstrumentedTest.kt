@@ -19,6 +19,7 @@ import androidx.test.uiautomator.Until
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.R
+import com.quata.core.model.AuthSession
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -155,15 +156,25 @@ class ShellNavigationPolicyInstrumentedTest {
     @Test
     fun authenticateForProcessDeathProbe() = runBlocking {
         val credentialsFile = optionalArgument("quataShellNavigationCredentialsFile")
+        val sessionFile = optionalArgument("quataShellNavigationSessionFile")
         assumeTrue(
-            "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001 is opt-in and requires local credentials.",
-            !credentialsFile.isNullOrBlank() && optionalArgument("quataShellNavigationProcessDeathEvidence") == "1",
+            "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001 is opt-in and requires exactly one private authentication input.",
+            (!credentialsFile.isNullOrBlank() xor !sessionFile.isNullOrBlank()) &&
+                optionalArgument("quataShellNavigationProcessDeathEvidence") == "1",
         )
-        val credentials = credentialsFromFile(credentialsFile.orEmpty())
         suppressStartupPrompts()
-        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        if (sessionFile != null) {
+            app.container.sessionManager.setSession(sessionFromFile(sessionFile))
+        } else {
+            val credentials = credentialsFromFile(credentialsFile.orEmpty())
+            app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        }
         val session = app.container.sessionManager.currentSession()
         assertTrue("android_shell_process_death_real_session_missing", session?.isSupabaseAuthenticated() == true)
+        assertTrue(
+            "android_shell_process_death_actor_binding_missing",
+            session?.userId?.isNotBlank() == true && session.authUserId?.isNotBlank() == true,
+        )
     }
 
     private fun startIntent(route: String): Intent =
@@ -284,14 +295,40 @@ class ShellNavigationPolicyInstrumentedTest {
         arguments.getString(name)?.trim()?.takeIf(String::isNotEmpty)
 
     private fun credentialsFromFile(path: String): Credentials {
-        val file = if (path.startsWith("app-internal:")) {
+        val json = JSONObject(privateInputFile(path).readText())
+        return Credentials(json.getString("country_code"), json.getString("phone"), json.getString("password"))
+    }
+
+    private fun sessionFromFile(path: String): AuthSession {
+        val json = JSONObject(privateInputFile(path).readText())
+        val expected = setOf(
+            "token", "userId", "authUserId", "accessToken", "refreshToken",
+            "expiresAt", "email", "displayName", "isOfficial",
+        )
+        check(json.keys().asSequence().toSet() == expected) { "android_shell_process_death_session_shape_invalid" }
+        return AuthSession(
+            token = json.getString("token"),
+            userId = json.getString("userId"),
+            authUserId = json.getString("authUserId"),
+            accessToken = json.getString("accessToken"),
+            refreshToken = json.getString("refreshToken"),
+            expiresAt = json.getLong("expiresAt"),
+            email = json.getString("email"),
+            displayName = json.getString("displayName"),
+            isOfficial = json.getBoolean("isOfficial"),
+        ).also { session ->
+            check(session.isSupabaseAuthenticated() && !session.shouldRefresh()) {
+                "android_shell_process_death_session_invalid"
+            }
+        }
+    }
+
+    private fun privateInputFile(path: String): File =
+        if (path.startsWith("app-internal:")) {
             File(targetContext.filesDir, path.removePrefix("app-internal:"))
         } else {
             File(path)
         }
-        val json = JSONObject(file.readText())
-        return Credentials(json.getString("country_code"), json.getString("phone"), json.getString("password"))
-    }
 
     private fun sha256(value: String): String = java.security.MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
