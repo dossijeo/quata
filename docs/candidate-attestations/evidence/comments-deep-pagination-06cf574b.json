@@ -1,8 +1,10 @@
 {
   "version": 1,
   "status": "passed",
-  "gitHead": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
-  "workingTreeDirty": false,
+  "git": {
+    "head": "06cf574b3a80b2783d4661c024a4344c905c5250",
+    "workingTreeDirty": false
+  },
   "scope": [
     "Feed comments",
     "Official comments",
@@ -35,6 +37,12 @@
       "webWasm": "passed",
       "iosKotlinNative": "passed"
     },
+    "androidQueryRegression": {
+      "status": "passed",
+      "suite": "CommentsKeysetQueryTest",
+      "officialSoftDeleteFilter": true,
+      "communityFilterUnchanged": true
+    },
     "focusedWasmTests": {
       "status": "passed",
       "feedSuite": "RemoteFeedReadRepositoryTest",
@@ -42,11 +50,25 @@
     },
     "contract": {
       "status": "passed",
-      "assertions": 5
+      "assertions": 6
     }
   },
   "limitations": [
     "This unit removes the documented deep-pagination transport ceiling only.",
     "Previously certified UI interaction matrices were not repeated because the runtime presentation path did not change."
-  ]
+  ],
+  "steps": [
+    "feed_common_loader_returned_all_1205_comments_in_500_500_205_pages",
+    "official_common_loader_returned_all_1101_comments_in_500_500_101_pages",
+    "android_off_window_invalidation_reloaded_complete_comment_sets",
+    "real_postgrest_returned_1205_unique_rows_per_table_in_500_500_205_pages",
+    "official_deleted_comment_was_excluded",
+    "chronological_created_at_id_presentation_order_was_restored",
+    "android_web_wasm_and_ios_affected_compilation_passed",
+    "focused_feed_and_official_wasm_tests_passed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "isolated-containers-and-network-removed-no-remote-mutation"
+  }
 }

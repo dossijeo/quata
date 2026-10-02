@@ -4,17 +4,17 @@
     "OVR-COMMENTS"
   ],
   "status": "passed",
-  "productSha": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
+  "productSha": "06cf574b3a80b2783d4661c024a4344c905c5250",
   "certification": "affected-local-gates-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "HERMETIC_DEEP_COMMENT_KEYSET_AND_THREE_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
-      "report": "docs/candidate-attestations/evidence/comments-deep-pagination-70e5c54b.json",
-      "reportSha256": "3f48d0bab0349509ceb04cf06cbea13aaf775819a4acddbcf0087307558bad1f",
+      "sha": "06cf574b3a80b2783d4661c024a4344c905c5250",
+      "report": "docs/candidate-attestations/evidence/comments-deep-pagination-06cf574b.json",
+      "reportSha256": "6386780df0e94c7852c0da667619566b3e66f103ea851cf224aabf09755df1ee",
       "reportStatus": "passed",
-      "reportGitHead": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
+      "reportGitHead": "06cf574b3a80b2783d4661c024a4344c905c5250",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -26,8 +26,7 @@
         "official_deleted_comment_was_excluded",
         "chronological_created_at_id_presentation_order_was_restored",
         "android_web_wasm_and_ios_affected_compilation_passed",
-        "focused_feed_and_official_wasm_tests_passed",
-        "independent_review_returned_go_without_p0_p3_findings"
+        "focused_feed_and_official_wasm_tests_passed"
       ],
       "cleanup": {
         "verified": true,

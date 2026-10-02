@@ -96,7 +96,7 @@ forzado (`flow-emoji-error-rollback.json`); y vacío/error/retry del selector
 (`flow-emoji-selector-states.json`). Todas esas rutas tienen evidencia Web/Android/iOS y cleanup
 físico cero en sus Product/Evidence SHA respectivos.
 
-El candidato `70e5c54ba2dd773359ba0c5fa3c52be49569a4f0` elimina el límite de transporte de la paginación
+El candidato `06cf574b3a80b2783d4661c024a4344c905c5250` elimina el límite de transporte de la paginación
 profunda en los tres productores de comentarios registrados: Feed, Official y perfil público.
 Android, Web/Wasm e iOS agotan páginas keyset estrictas por `id` de 500 filas y restauran después
 el orden visible total `created_at,id`. Android vuelve a hidratar el conjunto completo tras una
