@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CHAT",
+    "CHAT-MESSAGES",
+    "CHAT-NOTIFICATIONS",
+    "CHAT-FOCUSED-MESSAGE"
+  ],
+  "status": "passed",
+  "productSha": "28072f699412c35c33b0a626f6a28b0b443fb6f8",
+  "certification": "documentation-ownership-reconciliation-complete-final-ci-pending",
+  "evidence": {
+    "documentation": {
+      "status": "passed",
+      "sha": "28072f699412c35c33b0a626f6a28b0b443fb6f8",
+      "report": "docs/candidate-attestations/evidence/chat-message-limit-reconciliation-8370762e.json",
+      "reportSha256": "b905989d062819648970e321af158ca8729f59b6ab7800bb73999035b97b85e8",
+      "reportStatus": "passed",
+      "reportGitHead": "8370762eb682ef14aabc7c6c177bd331825ca55e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "reconciliation_contracts_21_of_21_passed",
+        "ci_fast_contracts_764_of_764_passed",
+        "diff_check_passed",
+        "added_lines_private_scan_passed",
+        "independent_review_go_no_p0_p3"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_only_no_runtime_or_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-common-root-contract.test.mjs scripts/chat-notification-inbox-propagation-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-limit-reconciliation.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "8370762eb682ef14aabc7c6c177bd331825ca55e",
+    "recomposedProductSha": "28072f699412c35c33b0a626f6a28b0b443fb6f8",
+    "blockingFindings": [],
+    "scopeLimit": "The change reassigns already-certified coverage and residual limits to their owning units. It adds no runtime behavior, platform evidence, operating rule or global Chat GO.",
+    "equivalence": "All three affected documentation/contract blobs are byte-identical between reviewed 8370762e and recomposed 28072f69."
+  },
+  "notes": [
+    "SCR-CHAT remains a common root with limits and derives behavior from its focal CHAT units instead of duplicating their acceptance state.",
+    "CHAT-MESSAGES no longer lists edit/delete permissions as pending because #404/#405 already certified them; push transport and unrelated mutation-network failures remain separate.",
+    "CHAT-NOTIFICATIONS owns mute/unmute and inbox propagation only. Device tokens, providers, system delivery and notification reply remain in FLOW-PUSH-LIFECYCLE and FLOW-NOTIFICATION-REPLY.",
+    "CHAT-FOCUSED-MESSAGE consumes the integrated FLOW-DEEP-LINKS acceptance without claiming Universal Links, APNs, push delivery or a global lifecycle closure.",
+    "No platform matrix was repeated because this candidate changes only inventory prose and executable documentation contracts.",
+    "Product SHA 28072f69 recomposes the byte-identical reviewed documentation patch onto merged #503 main 5b5ff0e1; only Git ancestry changed."
+  ]
+}
