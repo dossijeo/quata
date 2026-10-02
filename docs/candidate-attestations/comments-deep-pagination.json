@@ -44,10 +44,10 @@
     ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.data.RemoteFeedReadRepositoryTest :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.data.OfficialRemoteProtocolTest --stacktrace"
   ],
   "review": {
-    "status": "PENDING_REBASE_REVIEW",
-    "reviewedSha": "265cdaf67c8ea11b3362c37ce9f04e29889ae557",
+    "status": "GO",
+    "reviewedSha": "03b98599f8928c6f44db26105fee5d9c35f178f6",
     "blockingFindings": [],
-    "reviewHead": "265cdaf67c8ea11b3362c37ce9f04e29889ae557"
+    "reviewHead": "03b98599f8928c6f44db26105fee5d9c35f178f6"
   },
   "notes": [
     "Feed, Official and public-profile comments now exhaust strict id keysets in pages of 500 on Android, Web/Wasm and iOS, then restore the stable visible order created_at,id.",
@@ -56,6 +56,7 @@
     "No schema, RLS, production data, credentials, published-client contract or comment mutation semantics changed.",
     "The broad allTests aggregation encountered an unrelated Skiko runner failure loading skiko.wasm and one pre-existing media-viewer test. Both new focal suites passed when selected directly in Chrome Headless, and all affected platform compilation gates passed.",
     "Previously accepted interaction matrices were not repeated solely because the product SHA changed. Final GitHub jobs remain responsible for complete candidate recertification.",
-    "After rebasing onto main with Official pagination recovery, all 14 runtime and focal-gate blobs in this unit remain byte-identical to the previously reviewed candidate. The affected Android/Web compilation, 6/6 contract, 22/22 capability checks, 17/17 attestation checks, isolated PostgreSQL/PostgREST gate and both focal Wasm suites were rerun on execution head 265cdaf6; required final GitHub jobs will compile the rebased iOS candidate."
+    "After rebasing onto main with Official pagination recovery, all 14 runtime and focal-gate blobs in this unit remain byte-identical to the previously reviewed candidate. The affected Android/Web compilation, 6/6 contract, 22/22 capability checks, 17/17 attestation checks, isolated PostgreSQL/PostgREST gate and both focal Wasm suites were rerun on execution head 265cdaf6; required final GitHub jobs will compile the rebased iOS candidate.",
+    "Independent review of exact head 03b98599f returned GO with no P0-P3 findings and reproduced diff-check, the focal and capability contracts (28/28), and the attestation validator."
   ]
 }
