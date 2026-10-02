@@ -20,8 +20,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 
@@ -492,6 +494,131 @@ class ChatViewModelComposerActionsTest {
             assertEquals("load-messages", model.uiState.value.messageLoadFailure)
             assertEquals("send", model.uiState.value.error)
             assertFalse(model.uiState.value.isLoadingOlderMessages)
+        } finally { model.close() }
+    }
+
+    @Test
+    fun historySuccessCannotHideAConcurrentTerminalObservationFailure() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val visibleMessage = otherMessage(id = "visible-message")
+        val failObservation = CompletableDeferred<Unit>()
+        val finishHistory = CompletableDeferred<Unit>()
+        var subscriptions = 0
+        val repository = object : ChatRepository by RecordingChatRepository(listOf(visibleMessage)) {
+            override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
+                subscriptions += 1
+                emit(listOf(visibleMessage))
+                if (subscriptions == 1) {
+                    failObservation.await()
+                    error("network_unavailable")
+                }
+                awaitCancellation()
+            }
+
+            override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> {
+                finishHistory.await()
+                return Result.success(false)
+            }
+        }
+        val model = ChatViewModel(
+            "conversation-1",
+            repository,
+            text = { "load-messages" },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        try {
+            testScheduler.advanceUntilIdle()
+            assertTrue(model.loadOlderMessages())
+            failObservation.complete(Unit)
+            testScheduler.runCurrent()
+            assertEquals("load-messages", model.uiState.value.messageLoadFailure)
+
+            finishHistory.complete(Unit)
+            testScheduler.advanceUntilIdle()
+
+            assertEquals("load-messages", model.uiState.value.messageLoadFailure)
+            assertEquals(listOf("visible-message"), model.uiState.value.messages.map(Message::id))
+
+            model.retryMessageLoading()
+            testScheduler.runCurrent()
+            assertEquals(2, subscriptions)
+            assertNull(model.uiState.value.messageLoadFailure)
+        } finally { model.close() }
+    }
+
+    @Test
+    fun initialNetworkFailureRequiresExplicitRetryAndThenRecoversWithoutLosingTheDraft() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val recoveredMessage = otherMessage(id = "recovered-message")
+        var subscriptions = 0
+        val repository = object : ChatRepository by RecordingChatRepository(emptyList()) {
+            override fun observeMessages(conversationId: String): Flow<List<Message>> = flow {
+                subscriptions += 1
+                if (subscriptions == 1) error("network_unavailable")
+                emit(listOf(recoveredMessage))
+            }
+        }
+        val model = ChatViewModel(
+            "conversation-1",
+            repository,
+            text = { "load-messages" },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        try {
+            testScheduler.advanceUntilIdle()
+            assertEquals(1, subscriptions)
+            assertEquals("load-messages", model.uiState.value.messageLoadFailure)
+
+            model.onEvent(ChatUiEvent.MessageChanged("draft survives retry"))
+            testScheduler.advanceUntilIdle()
+            assertEquals(1, subscriptions)
+
+            model.retryMessageLoading()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(2, subscriptions)
+            assertNull(model.uiState.value.messageLoadFailure)
+            assertEquals("draft survives retry", model.uiState.value.messageText)
+            assertEquals(listOf("recovered-message"), model.uiState.value.messages.map(Message::id))
+        } finally { model.close() }
+    }
+
+    @Test
+    fun successfulHistoryRetryClearsTheFailureWithoutDroppingLoadedMessages() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val visibleMessage = otherMessage(id = "visible-message")
+        val base = RecordingChatRepository(listOf(visibleMessage))
+        var historyAttempts = 0
+        val repository = object : ChatRepository by base {
+            override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> {
+                historyAttempts += 1
+                return if (historyAttempts == 1) {
+                    Result.failure(IllegalStateException("network_unavailable"))
+                } else {
+                    Result.success(false)
+                }
+            }
+        }
+        val model = ChatViewModel(
+            "conversation-1",
+            repository,
+            text = { "load-messages" },
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        try {
+            testScheduler.advanceUntilIdle()
+            assertTrue(model.loadOlderMessages())
+            testScheduler.advanceUntilIdle()
+            assertEquals("load-messages", model.uiState.value.messageLoadFailure)
+            assertEquals(listOf("visible-message"), model.uiState.value.messages.map(Message::id))
+
+            model.retryMessageLoading()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(2, historyAttempts)
+            assertNull(model.uiState.value.messageLoadFailure)
+            assertFalse(model.uiState.value.hasMoreHistory)
+            assertEquals(listOf("visible-message"), model.uiState.value.messages.map(Message::id))
         } finally { model.close() }
     }
 
