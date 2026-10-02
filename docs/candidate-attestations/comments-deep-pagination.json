@@ -4,13 +4,13 @@
     "OVR-COMMENTS"
   ],
   "status": "passed",
-  "productSha": "06cf574b3a80b2783d4661c024a4344c905c5250",
+  "productSha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
   "certification": "affected-local-gates-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_DEEP_COMMENT_KEYSET_AND_THREE_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "06cf574b3a80b2783d4661c024a4344c905c5250",
+      "sha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
       "report": "docs/candidate-attestations/evidence/comments-deep-pagination-06cf574b.json",
       "reportSha256": "6386780df0e94c7852c0da667619566b3e66f103ea851cf224aabf09755df1ee",
       "reportStatus": "passed",
@@ -43,9 +43,9 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "c4e458da8c4b4e3c7c9325383ffa2c5b65355d9a",
+    "reviewedSha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
     "blockingFindings": [],
-    "reviewHead": "c4e458da8c4b4e3c7c9325383ffa2c5b65355d9a"
+    "reviewHead": "b4caef0bb064dfb35a0cba444880615b16fef85f"
   },
   "notes": [
     "Feed, Official and public-profile comments now exhaust strict id keysets in pages of 500 on Android, Web/Wasm and iOS, then restore the stable visible order created_at,id.",
@@ -53,6 +53,7 @@
     "The isolated PostgreSQL 17 and PostgREST 12.2.3 gate configures a real 500-row maximum and proves 1205 unique visible rows per comment table in pages 500/500/205. It also proves Official soft-deleted rows remain excluded.",
     "No schema, RLS, production data, credentials, published-client contract or comment mutation semantics changed.",
     "The broad allTests aggregation encountered an unrelated Skiko runner failure loading skiko.wasm and one pre-existing media-viewer test. Both new focal suites passed when selected directly in Chrome Headless, and all affected platform compilation gates passed.",
-    "Previously accepted interaction matrices were not repeated solely because the product SHA changed. Final GitHub jobs remain responsible for complete candidate recertification."
+    "Previously accepted interaction matrices were not repeated solely because the product SHA changed. Final GitHub jobs remain responsible for complete candidate recertification.",
+    "Product SHA b4caef0b changes no runtime: it updates 13 capability declarations to the normalized hashes of the already-reviewed comment sources. The complete capability contract passed 22/22, including decisive-source and APNs negative controls; independent rereview returned GO with no P0-P3 findings. The platform and PostgREST report remains bound to its exact execution head 06cf574b."
   ]
 }
