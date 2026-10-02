@@ -1,0 +1,113 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+    "workingTreeDirty": false
+  },
+  "scope": "Authenticated actor guard for Community post likes, including exact Android, Web/Wasm and iOS client compatibility, guarded production release and rollback custody.",
+  "steps": [
+    "android_v32_like_mutation_requires_authenticated_session_and_actor",
+    "web_like_mutation_requires_current_authenticated_user",
+    "ios_like_mutation_requires_current_authenticated_user",
+    "anonymous_public_like_reads_preserved",
+    "anonymous_like_insert_and_delete_revoked",
+    "authenticated_own_like_insert_and_delete_allowed",
+    "cross_actor_like_insert_and_delete_rejected",
+    "postgres_disposable_migration_rollback_reapply_passed",
+    "postgrest_actor_boundary_passed",
+    "selective_release_executor_exact_postconditions_passed",
+    "encrypted_full_logical_backup_created",
+    "community_post_likes_selective_restore_drill_passed",
+    "remote_predeploy_transactional_probe_rolled_back",
+    "selective_release_snapshot_and_dry_run_passed",
+    "community_post_likes_migration_committed_transactionally",
+    "database_release_postflight_passed",
+    "community_post_likes_catalog_postflight_passed",
+    "remote_postdeploy_behavior_probe_rolled_back_zero_residue",
+    "independent_exact_head_review_go_no_p0_p3"
+  ],
+  "validation": {
+    "diffCheck": "passed",
+    "focalContracts": {
+      "tests": 15,
+      "failures": 0
+    },
+    "affectedContractsBeforeRestoreNarrowing": {
+      "tests": 109,
+      "failures": 0,
+      "scope": "Release executor, database reconciliation and Community post likes contracts; the final delta changed only the focal restore TOC filter and its contract."
+    },
+    "disposablePostgresql": "community_post_likes_actor_guard_postgres_pass",
+    "isolatedPostgrest": "COMMUNITY_POST_LIKES_POSTGREST_TEST_OK",
+    "predeployProbe": "COMMUNITY_POST_LIKES_TRANSACTIONAL_PROBE_PASS",
+    "postdeployProbe": "COMMUNITY_POST_LIKES_POSTDEPLOY_PASS",
+    "restoreDrill": "logical_backup_restore_drill_passed",
+    "independentReview": {
+      "status": "GO",
+      "reviewedHead": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "findings": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    }
+  },
+  "database": {
+    "migrationVersion": "20261002010000",
+    "migrationName": "community_post_likes_actor_guard",
+    "migrationSha256": "749ff3d6f7748be355e4b7f88f77db1f4bdeb015689590b42c449f1d1e60753c",
+    "releaseSourceCommit": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+    "releaseManifestSha256": "9b28666c83d7936b445eff6bd7f4d921940bf9f9dc2db9f375a661a1286ff236",
+    "snapshotSha256": "2253bd5bdbae5283109e49f11cc16ea4b78ec1c1a8b01181d694ef8f8a87d5b9",
+    "dryRunSha256": "89b464e36628b16c0292eba5cddd3af05831ec21302f823af989ca43524d33e8",
+    "applySha256": "5131b2241f5a29e3d7f01a3eca80427e733912a62a4ec720887b3073ea6c17f3",
+    "globalPostflightSha256": "09e94efe81d206309645c3d94d01893e4cbb9caed55f9905db0567795f7bc8d3",
+    "focalPostflightSha256": "b8d86e3d2e239b14778d8577a0f964a0ba6c1fa5d28836098624f99f1326122e",
+    "dryRun": "passed_with_only_20261002010000_pending",
+    "deployment": {
+      "status": "passed",
+      "commitStatus": "committed"
+    },
+    "postflight": {
+      "status": "passed",
+      "ledgerExact": true,
+      "rlsPoliciesGrantsResolverAndTriggersExact": true
+    }
+  },
+  "platformCompatibility": {
+    "android": "Published v32 and current client both require a live authenticated session and bind the like mutation to the session user; no anonymous compatibility branch was added.",
+    "web": "The current Web/Wasm repository requires a restored authenticated user before every like mutation.",
+    "ios": "The current iOS repository obtains the authenticated transport user before every like mutation.",
+    "runtimeSourcesChanged": false
+  },
+  "backup": {
+    "set": "release-20261002T091244Z-af275e34",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "ciphertextIntegrity": "passed",
+    "plaintextIntegrity": "passed",
+    "selectiveRestoreDrill": "passed",
+    "keyStoredSeparately": true,
+    "plaintextPersisted": false
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "Predeploy and postdeploy behavior probes ran inside rolled-back transactions; disposable PostgreSQL and PostgREST targets were removed.",
+    "residueCounts": {
+      "productionProbeLikes": 0
+    },
+    "credentialsCommitted": false,
+    "connectionMaterialCommitted": false,
+    "backupOrKeyPathCommitted": false
+  },
+  "preservedFailures": [
+    "The first restore drill failed closed because its focal TOC filter selected managed Supabase ACL entries that vanilla PostgreSQL cannot restore. The exact filter was narrowed to definitions only for dependencies while retaining the complete Community likes security state; the focal restore then passed.",
+    "The elevated Windows helper remained unavailable during this release, but no release, test or backup operation in this unit required administrative privileges."
+  ],
+  "limits": [
+    "No full platform E2E matrix was repeated solely for the recomposed SHA because no Android, Web/Wasm or iOS runtime source changed. Exact platform authentication contracts, database gates and final GitHub certification cover the affected surface.",
+    "This unit closes the Community post likes actor boundary. It does not claim completion of unrelated Community, Official or account migration units."
+  ]
+}

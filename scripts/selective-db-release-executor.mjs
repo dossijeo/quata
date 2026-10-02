@@ -116,6 +116,12 @@ const approvedReleases = [
       ["20261002003000", "89149300661e48f8a9ed210eff74d399f8949d34065bb7cecda98a094d59bf74"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261002010000", "749ff3d6f7748be355e4b7f88f77db1f4bdeb015689590b42c449f1d1e60753c"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -693,6 +699,84 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
           || !/completed_at/i.test(definition)) {
         throw new Error("selective_release_chat_mutation_definition_failed");
       }
+    }
+  }
+  if (selectedVersions.includes("20261002010000")) {
+    const relation = (await client.query(`
+      select c.relrowsecurity as rls_enabled,
+             count(t.oid) filter (where not t.tgisinternal)::int as user_trigger_count
+        from pg_class c
+        join pg_namespace n on n.oid=c.relnamespace
+        left join pg_trigger t on t.tgrelid=c.oid
+       where n.nspname='public' and c.relname='community_post_likes'
+       group by c.oid
+    `)).rows;
+    if (relation.length !== 1 || !relation[0].rls_enabled || relation[0].user_trigger_count !== 0) {
+      throw new Error("selective_release_community_post_likes_relation_postcondition_failed");
+    }
+
+    const policies = (await client.query(`
+      select policyname, roles::text, cmd, qual, with_check
+        from pg_catalog.pg_policies
+       where schemaname='public' and tablename='community_post_likes'
+       order by policyname
+    `)).rows;
+    const policyByName = new Map(policies.map((row) => [row.policyname, row]));
+    const normalizeSql = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+    const actorExpression = "((( SELECT quata_chat_auth_profile_id() AS quata_chat_auth_profile_id) IS NOT NULL) AND (profile_id = ( SELECT quata_chat_auth_profile_id() AS quata_chat_auth_profile_id)))";
+    const readPolicy = policyByName.get("community_post_likes_public_read");
+    const insertPolicy = policyByName.get("community_post_likes_insert_own");
+    const deletePolicy = policyByName.get("community_post_likes_delete_own");
+    if (policies.length !== 3
+        || readPolicy?.roles !== "{public}" || readPolicy?.cmd !== "SELECT"
+        || normalizeSql(readPolicy?.qual) !== "true" || readPolicy?.with_check !== null
+        || insertPolicy?.roles !== "{authenticated}" || insertPolicy?.cmd !== "INSERT"
+        || normalizeSql(insertPolicy?.with_check) !== actorExpression || insertPolicy?.qual !== null
+        || deletePolicy?.roles !== "{authenticated}" || deletePolicy?.cmd !== "DELETE"
+        || normalizeSql(deletePolicy?.qual) !== actorExpression || deletePolicy?.with_check !== null) {
+      throw new Error("selective_release_community_post_likes_policy_postcondition_failed");
+    }
+
+    const grantRows = (await client.query(`
+      select grantee, privilege_type
+        from information_schema.role_table_grants
+       where table_schema='public' and table_name='community_post_likes'
+         and grantee in ('PUBLIC', 'anon', 'authenticated')
+       order by grantee, privilege_type
+    `)).rows;
+    const grants = new Map();
+    for (const row of grantRows) {
+      if (!grants.has(row.grantee)) grants.set(row.grantee, []);
+      grants.get(row.grantee).push(row.privilege_type);
+    }
+    if (JSON.stringify(grants.get("anon") ?? []) !== JSON.stringify(["SELECT"])
+        || JSON.stringify(grants.get("authenticated") ?? []) !== JSON.stringify(["DELETE", "INSERT", "SELECT"])
+        || (grants.get("PUBLIC") ?? []).length !== 0) {
+      throw new Error("selective_release_community_post_likes_grant_postcondition_failed");
+    }
+
+    const resolverRows = (await client.query(`
+      select l.lanname as language, p.provolatile as volatility,
+             p.prosecdef as security_definer, p.proconfig as configuration, p.prosrc as source,
+             exists (
+               select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                where acl.grantee=0 and acl.privilege_type='EXECUTE'
+             ) as public_execute,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon_execute,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute
+        from pg_proc p
+        join pg_namespace n on n.oid=p.pronamespace
+        join pg_language l on l.oid=p.prolang
+       where n.nspname='public' and p.proname='quata_chat_auth_profile_id' and p.pronargs=0
+    `)).rows;
+    const resolver = resolverRows[0];
+    const resolverSource = "select cp.id from public.community_profiles cp where auth.uid() is not null and cp.account_status = 'active' and (cp.id = auth.uid() or cp.auth_user_id = auth.uid()) limit 1";
+    if (resolverRows.length !== 1 || resolver.language !== "sql" || resolver.volatility !== "s"
+        || !resolver.security_definer
+        || JSON.stringify(resolver.configuration) !== JSON.stringify(["search_path=public, auth"])
+        || normalizeSql(resolver.source) !== resolverSource || !resolver.public_execute
+        || !resolver.anon_execute || !resolver.authenticated_execute) {
+      throw new Error("selective_release_community_post_likes_resolver_postcondition_failed");
     }
   }
   if (selectedVersions.includes("20260927100000")
