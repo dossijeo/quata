@@ -37,6 +37,29 @@ class IosOfficialPublicReadPolicyTest {
     }
 
     @Test
+    fun publicOfficialFeedRpcCarriesLanguageAndCompositeCursorWithoutBearer() {
+        val request = iosPublicOfficialRequest(
+            baseUrl = "https://project.supabase.co",
+            publishableKey = "public-client-key",
+            table = "rpc/quata_official_feed_page",
+            query = mapOf(
+                "p_limit" to "25",
+                "p_before_sort_at" to "2026-10-02T09:00:00Z",
+                "p_before_created_at" to "2026-10-02T08:00:00Z",
+                "p_before_id" to "00000000-0000-0000-0000-000000000105",
+            ),
+            officialLanguage = "en",
+        )
+
+        assertEquals("en", request.headers["x-quata-official-language"])
+        assertFalse(request.headers.keys.any { it.equals("Authorization", ignoreCase = true) })
+        assertTrue(request.url.startsWith("https://project.supabase.co/rest/v1/rpc/quata_official_feed_page?"))
+        assertTrue(request.url.contains("p_before_sort_at=2026-10-02T09%3A00%3A00Z"))
+        assertTrue(request.url.contains("p_before_created_at=2026-10-02T08%3A00%3A00Z"))
+        assertTrue(request.url.contains("p_before_id=00000000-0000-0000-0000-000000000105"))
+    }
+
+    @Test
     fun invalidTableFailsClosedBeforeAnyUrlSessionRequestCanExist() {
         assertFailsWith<IllegalArgumentException> {
             iosPublicOfficialRequest(

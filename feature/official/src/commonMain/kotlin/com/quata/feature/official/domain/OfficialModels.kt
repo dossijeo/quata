@@ -19,10 +19,18 @@ data class OfficialPostItem(
     val linkUrl: String? = null,
     val isLive: Boolean = false,
     val createdAt: String,
+    val publishedAt: String = createdAt,
+    val sourceCreatedAt: String = createdAt,
     val likesCount: Int = 0,
     val commentsCount: Int = 0,
     val isLikedByCurrentUser: Boolean = false,
     val comments: List<PostComment> = emptyList()
+)
+
+fun OfficialPostItem.feedCursor(): OfficialFeedCursor = OfficialFeedCursor(
+    sortAt = publishedAt.ifBlank { sourceCreatedAt },
+    createdAt = sourceCreatedAt,
+    postId = id,
 )
 
 enum class OfficialPostType(val remoteValue: String) {

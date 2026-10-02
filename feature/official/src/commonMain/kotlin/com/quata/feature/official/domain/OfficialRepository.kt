@@ -4,11 +4,17 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import kotlinx.coroutines.flow.Flow
 
+data class OfficialFeedCursor(
+    val sortAt: String,
+    val createdAt: String,
+    val postId: String,
+)
+
 interface OfficialRepository {
     fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>>
     suspend fun getOfficialFeed(): Result<List<OfficialPostItem>>
     suspend fun refreshOfficialFeed(): Result<List<OfficialPostItem>>
-    suspend fun loadOlderOfficialFeedPage(beforePublishedAt: String?, limit: Int): Result<List<OfficialPostItem>>
+    suspend fun loadOlderOfficialFeedPage(cursor: OfficialFeedCursor, limit: Int): Result<List<OfficialPostItem>>
     suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?>
     suspend fun refreshCurrentUser(): Result<User?>
     suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?>

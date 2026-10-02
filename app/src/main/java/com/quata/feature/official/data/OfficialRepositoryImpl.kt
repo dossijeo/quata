@@ -22,6 +22,7 @@ import com.quata.data.supabase.SupabaseCacheMode
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.feed.data.toDomainUser
 import com.quata.feature.official.domain.OfficialMediaType
+import com.quata.feature.official.domain.OfficialFeedCursor
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialPostLanguage
@@ -52,8 +53,7 @@ class OfficialRepositoryImpl(
         if (AppConfig.USE_MOCK_BACKEND) {
             mockPostsState.map { Result.success(it) }
         } else {
-            supabaseApi.observeOfficialPosts(language = currentOfficialLanguage().remoteValue)
-                .map { posts -> posts.selectPreferredTranslations(currentOfficialLanguage()) }
+            supabaseApi.observeOfficialFeedPage(limit = OfficialFeedPageSize)
                 .flatMapLatest { posts ->
                     val postIds = posts.map { it.id }
                     if (postIds.isEmpty()) {
@@ -91,13 +91,10 @@ class OfficialRepositoryImpl(
         runCatching { loadOfficialFeed(SupabaseCacheMode.NETWORK_ONLY, OfficialFeedPageSize) }
             .mapFailureToUserFacing(appContext, R.string.error_load_official_feed)
 
-    override suspend fun loadOlderOfficialFeedPage(beforePublishedAt: String?, limit: Int): Result<List<OfficialPostItem>> =
+    override suspend fun loadOlderOfficialFeedPage(cursor: OfficialFeedCursor, limit: Int): Result<List<OfficialPostItem>> =
         runCatching {
             if (AppConfig.USE_MOCK_BACKEND) {
-                val cursorIndex = beforePublishedAt
-                    ?.let { cursor -> mockPostsState.value.indexOfFirst { it.createdAt == cursor } }
-                    ?.takeIf { it >= 0 }
-                    ?: -1
+                val cursorIndex = mockPostsState.value.indexOfFirst { it.id == cursor.postId }
                 mockPostsState.value
                     .drop(cursorIndex + 1)
                     .take(limit.coerceAtLeast(1))
@@ -105,7 +102,7 @@ class OfficialRepositoryImpl(
                 loadOfficialFeed(
                     cacheMode = SupabaseCacheMode.CACHE_FIRST,
                     limit = limit.coerceAtLeast(1),
-                    publishedBefore = beforePublishedAt
+                    cursor = cursor
                 )
             }
         }
@@ -315,15 +312,16 @@ class OfficialRepositoryImpl(
     private suspend fun loadOfficialFeed(
         cacheMode: SupabaseCacheMode,
         limit: Int,
-        publishedBefore: String? = null
+        cursor: OfficialFeedCursor? = null,
     ): List<OfficialPostItem> {
         if (AppConfig.USE_MOCK_BACKEND) return mockPostsState.value.take(limit.coerceAtLeast(1))
-        val posts = supabaseApi.getOfficialPosts(
+        val posts = supabaseApi.getOfficialFeedPage(
             limit = limit,
-            publishedBefore = publishedBefore,
-            language = currentOfficialLanguage().remoteValue,
-            cacheMode = cacheMode
-        ).selectPreferredTranslations(currentOfficialLanguage())
+            beforeSortAt = cursor?.sortAt,
+            beforeCreatedAt = cursor?.createdAt,
+            beforeId = cursor?.postId,
+            cacheMode = cacheMode,
+        )
         val postIds = posts.map { it.id }
         val likes = supabaseApi.getOfficialLikes(postIds, cacheMode)
         val comments = supabaseApi.getOfficialComments(postIds, cacheMode)
