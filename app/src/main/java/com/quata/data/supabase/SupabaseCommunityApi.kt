@@ -499,12 +499,13 @@ class SupabaseCommunityApi(
         ) { afterIdExclusive, limit ->
             client.getList(
                 "official_post_comments",
-                mapOf(
-                    "select" to OFFICIAL_COMMENT_SELECT,
-                    "official_post_id" to distinctPostIds.toInFilter(),
-                    "id" to afterIdExclusive?.let { "gt.$it" },
-                    "order" to "id.asc",
-                    "limit" to limit.toString(),
+                commentsKeysetQuery(
+                    select = OFFICIAL_COMMENT_SELECT,
+                    postIdColumn = "official_post_id",
+                    postIds = distinctPostIds,
+                    afterIdExclusive = afterIdExclusive,
+                    limit = limit,
+                    excludeSoftDeleted = true,
                 ),
                 cacheMode = cacheMode,
             )
@@ -516,11 +517,13 @@ class SupabaseCommunityApi(
         val distinctPostIds = postIds.distinct()
         return client.observeList<OfficialPostComment>(
             "official_post_comments",
-            mapOf(
-                "select" to "id",
-                "official_post_id" to distinctPostIds.toInFilter(),
-                "order" to "id.asc",
-                "limit" to "1",
+            commentsKeysetQuery(
+                select = "id",
+                postIdColumn = "official_post_id",
+                postIds = distinctPostIds,
+                afterIdExclusive = null,
+                limit = 1,
+                excludeSoftDeleted = true,
             ),
             emitUnchangedAfterInvalidation = true,
         ).map { getOfficialComments(distinctPostIds, SupabaseCacheMode.NETWORK_ONLY) }
@@ -567,12 +570,13 @@ class SupabaseCommunityApi(
         ) { afterIdExclusive, limit ->
             client.getList(
                 "community_comments",
-                mapOf(
-                    "select" to COMMENT_SELECT,
-                    "post_id" to distinctPostIds.toInFilter(),
-                    "id" to afterIdExclusive?.let { "gt.$it" },
-                    "order" to "id.asc",
-                    "limit" to limit.toString(),
+                commentsKeysetQuery(
+                    select = COMMENT_SELECT,
+                    postIdColumn = "post_id",
+                    postIds = distinctPostIds,
+                    afterIdExclusive = afterIdExclusive,
+                    limit = limit,
+                    excludeSoftDeleted = false,
                 ),
                 cacheMode = cacheMode,
             )
@@ -584,11 +588,13 @@ class SupabaseCommunityApi(
         val distinctPostIds = postIds.distinct()
         return client.observeList<CommunityComment>(
             "community_comments",
-            mapOf(
-                "select" to "id",
-                "post_id" to distinctPostIds.toInFilter(),
-                "order" to "id.asc",
-                "limit" to "1",
+            commentsKeysetQuery(
+                select = "id",
+                postIdColumn = "post_id",
+                postIds = distinctPostIds,
+                afterIdExclusive = null,
+                limit = 1,
+                excludeSoftDeleted = false,
             ),
             emitUnchangedAfterInvalidation = true,
         ).map { getComments(distinctPostIds, SupabaseCacheMode.NETWORK_ONLY) }
@@ -1248,4 +1254,25 @@ class SupabaseCommunityApi(
         const val OFFICIAL_LIKE_SELECT = "id,official_post_id,profile_id,created_at"
         const val OFFICIAL_COMMENT_SELECT = "id,official_post_id,profile_id,body,created_at"
     }
+}
+
+internal fun commentsKeysetQuery(
+    select: String,
+    postIdColumn: String,
+    postIds: Collection<String>,
+    afterIdExclusive: String?,
+    limit: Int,
+    excludeSoftDeleted: Boolean,
+): Map<String, String?> {
+    require(postIds.isNotEmpty()) { "comments_post_ids_empty" }
+    require(limit > 0) { "comments_page_limit_invalid" }
+    require(postIdColumn == "post_id" || postIdColumn == "official_post_id") { "comments_post_id_column_invalid" }
+    return mapOf(
+        "select" to select,
+        postIdColumn to postIds.distinct().joinToString(separator = ",", prefix = "in.(", postfix = ")"),
+        "deleted_at" to if (excludeSoftDeleted) "is.null" else null,
+        "id" to afterIdExclusive?.let { "gt.$it" },
+        "order" to "id.asc",
+        "limit" to limit.toString(),
+    )
 }

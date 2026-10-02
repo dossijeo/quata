@@ -16,8 +16,10 @@ const [
   webOfficial,
   iosOfficial,
   androidApi,
+  androidQueryTest,
   postgrestProbe,
   postgrestRunner,
+  packageJson,
 ] = await Promise.all([
   source("core/src/commonMain/kotlin/com/quata/core/data/KeysetPageLoader.kt"),
   source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/data/RemoteFeedReadRepository.kt"),
@@ -29,8 +31,10 @@ const [
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt"),
   source("feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt"),
   source("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt"),
+  source("app/src/test/java/com/quata/data/supabase/CommentsKeysetQueryTest.kt"),
   source("scripts/comments-deep-pagination-postgrest.test.mjs"),
   source("scripts/run-comments-deep-pagination-test.ps1"),
+  source("package.json"),
 ]);
 
 test("shared Feed and Official loaders exhaust strict keyset pages", () => {
@@ -61,12 +65,16 @@ for (const [platform, feed, official] of [
 test("Android drains both tables and rehydrates complete snapshots after invalidation", () => {
   assert.match(androidApi, /getOfficialComments[\s\S]*loadCompleteKeyset\(/);
   assert.match(androidApi, /getComments\([\s\S]*loadCompleteKeyset\(/);
-  assert.ok((androidApi.match(/"id" to afterIdExclusive\?\.let \{ "gt\.\$it" \}/g) ?? []).length >= 2);
-  assert.ok((androidApi.match(/"order" to "id\.asc"/g) ?? []).length >= 4);
+  assert.match(androidApi, /commentsKeysetQuery[\s\S]*"deleted_at" to if \(excludeSoftDeleted\) "is\.null" else null/);
+  assert.ok((androidApi.match(/excludeSoftDeleted = true/g) ?? []).length >= 2);
+  assert.ok((androidApi.match(/excludeSoftDeleted = false/g) ?? []).length >= 2);
   assert.ok((androidApi.match(/emitUnchangedAfterInvalidation = true/g) ?? []).length >= 2);
   assert.match(androidApi, /getOfficialComments\(distinctPostIds, SupabaseCacheMode\.NETWORK_ONLY\)/);
   assert.match(androidApi, /getComments\(distinctPostIds, SupabaseCacheMode\.NETWORK_ONLY\)/);
   assert.match(androidApi, /CommentPageSize = 500/);
+  assert.match(androidQueryTest, /officialPagesAndInvalidationTriggersExcludeSoftDeletedRows/);
+  assert.match(androidQueryTest, /assertEquals\("is\.null", page\["deleted_at"\]\)/);
+  assert.match(androidQueryTest, /communityPagesDoNotReferenceAColumnAbsentFromTheirSchema/);
 });
 
 test("isolated PostgreSQL and real PostgREST cross the configured 500-row ceiling", () => {
@@ -76,4 +84,11 @@ test("isolated PostgreSQL and real PostgREST cross the configured 500-row ceilin
   assert.match(postgrestProbe, /pageSizes\.join\(","\) === "500,500,205"/);
   assert.match(postgrestProbe, /new Set\(rows\.map/);
   assert.match(postgrestProbe, /deleted_at/);
+});
+
+test("mandatory fast suites retain the comments pagination contract", () => {
+  const scripts = JSON.parse(packageJson).scripts;
+  assert.match(scripts["test:ci-fast-contracts"], /scripts\/comments-deep-pagination-contract\.test\.mjs/);
+  assert.match(scripts["test:web-wave2-contracts"], /scripts\/comments-deep-pagination-contract\.test\.mjs/);
+  assert.equal(scripts["test:comments-deep-pagination-isolated"], "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-comments-deep-pagination-test.ps1");
 });
