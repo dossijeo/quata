@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-OFFICIAL"
+  ],
+  "status": "passed",
+  "productSha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+  "certification": "platform-adapter-network-failure-focal-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "REAL_OFFICIAL_TRANSPORT_NETWORK_FAILURE_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "report": "docs/candidate-attestations/evidence/official-network-failure-2dacc769.json",
+      "reportSha256": "fe962c1f127a866c8068982e95f9bf63b489b930306564acb026a1d4000474b5",
+      "reportStatus": "passed",
+      "reportGitHead": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_actual_official_repository_network_failure_and_exact_retry_passed",
+        "no_authorization_header_sent_by_public_android_and_web_reads",
+        "no_backend_or_remote_state_mutated"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-local-http-failure-no-backend"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "report": "docs/candidate-attestations/evidence/official-network-failure-2dacc769.json",
+      "reportSha256": "fe962c1f127a866c8068982e95f9bf63b489b930306564acb026a1d4000474b5",
+      "reportStatus": "passed",
+      "reportGitHead": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_actual_official_repository_fetch_rejection_mapped_to_network",
+        "web_fetch_override_restored",
+        "no_authorization_header_sent_by_public_android_and_web_reads"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-fetch-rejection-and-restore"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "report": "docs/candidate-attestations/evidence/official-network-failure-2dacc769.json",
+      "reportSha256": "fe962c1f127a866c8068982e95f9bf63b489b930306564acb026a1d4000474b5",
+      "reportStatus": "passed",
+      "reportGitHead": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_actual_official_repository_urlsession_rejection_mapped_to_network",
+        "temporary_mac_worktree_removed",
+        "no_backend_or_remote_state_mutated"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-mac-worktree-removed-no-backend"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/official-feed-total-order-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.data.supabase.OfficialFeedNetworkFailureTest --no-daemon --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebOfficialNetworkFailureTest --no-daemon --console=plain",
+    "JAVA_HOME=/Users/gabriel/.jdks/jbr-21.jdk/Contents/Home PATH=$JAVA_HOME/bin:$PATH bash gradlew :feature:official:iosX64Test --tests com.quata.feature.official.data.IosOfficialPublicReadPolicyTest.actualRepositoryMapsRejectedOlderPageUrlSessionToNetworkFailure --configure-on-demand --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-network-failure.json --head HEAD"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "resolvedFindings": [],
+    "scopeLimit": "This focal attestation closes the independently injected adapter transport-failure limitation for Android, Web and iOS. It does not claim a global SCR-OFFICIAL UI acceptance or unrelated Official flows."
+  },
+  "notes": [
+    "The three focal tests exercise the production platform repositories and transport clients. They do not substitute a fake result above the adapter boundary.",
+    "Android proves an IOException on the first real client call and an explicit retry with the identical cursor, limit and RPC request. Android and Web prove public Official reads omit Authorization.",
+    "Web proves a rejected fetch maps to Network with the original reason and restores the previous global fetch implementation.",
+    "iOS proves the actual URLSession-backed repository maps an unreachable endpoint to IosOfficialReadException kind Network with no HTTP status.",
+    "All faults are hermetic and local. No production backend, database row, credentials, authenticated session or remote product state was mutated.",
+    "Three macOS setup failures occurred before the focal test: missing gradlew execute permission, a Java 17 host-architecture bootstrap failure, and unrelated Android project evaluation. The accepted JBR 21 command used --configure-on-demand and passed the exact filtered test; the diagnostic failures remain explicit in the report.",
+    "The temporary macOS worktree was verified clean and removed."
+  ]
+}
