@@ -339,7 +339,7 @@ class ChatViewModel(
         val editingMessage = stateAtSend.editingMessage
         val editMutation = if (editingMessage != null) {
             val actorId = currentUserId ?: return
-            if (activeEditMutation != null) return
+            if (activeEditMutation != null || activeSelectedMessageMutation != null) return
             pendingEditMutationRetry
                 ?.takeIf { it.matches(editingMessage.id, editingMessage.conversationId, text, actorId) }
                 ?: EditMessageMutation(
@@ -444,6 +444,14 @@ class ChatViewModel(
                     throw cancelled
                 } catch (error: Throwable) {
                     Result.failure(error)
+                }
+                if (editMutation != null) {
+                    val actorStillMatches = runCatching { repository.currentActorId() }.getOrNull() == editMutation.actorId
+                    if (!actorStillMatches) {
+                        pendingEditMutationRetry = null
+                        optimisticEditedMessages = optimisticEditedMessages - editMutation.messageId
+                        return@launch
+                    }
                 }
                 result
                     .onSuccess {
@@ -1215,6 +1223,7 @@ class ChatViewModel(
     }
 
     private fun startEdit() {
+        if (activeEditMutation != null || activeSelectedMessageMutation != null) return
         selectedMessage()?.takeIf { it.isMine && !it.isDeleted && !it.isLocalEcho }?.let { message ->
             _uiState.value = _uiState.value.copy(
                 editingMessage = message,
@@ -1265,7 +1274,7 @@ class ChatViewModel(
     }
 
     private fun runSelectedMessageMutation(mutation: SelectedMessageMutation) {
-        if (activeSelectedMessageMutation != null) return
+        if (activeSelectedMessageMutation != null || activeEditMutation != null) return
         if (_uiState.value.currentUser?.id != mutation.actorId) {
             pendingSelectedMessageMutationRetry = null
             _uiState.value = _uiState.value.copy(messageMutationRetry = null, error = null)

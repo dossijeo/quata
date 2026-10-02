@@ -16,11 +16,11 @@ test("shared message mutations serialize duplicate intent and retain one exact r
 
   assert.match(repository, /editMessage\([\s\S]*clientMutationId: String,[\s\S]*expectedActorId: String/);
   assert.match(repository, /deleteMessage\([\s\S]*clientMutationId: String,[\s\S]*expectedActorId: String/);
-  assert.match(viewModel, /if \(activeEditMutation != null\) return/);
-  assert.match(viewModel, /if \(activeSelectedMessageMutation != null\) return/);
+  assert.match(viewModel, /if \(activeEditMutation != null \|\| activeSelectedMessageMutation != null\) return/);
   assert.match(viewModel, /pendingEditMutationRetry[\s\S]*clientMutationId = newMessageMutationId\(\)/);
   assert.match(viewModel, /pendingSelectedMessageMutationRetry = mutation/);
   assert.match(viewModel, /repository\.currentActorId\(\)[\s\S]*== mutation\.actorId/);
+  assert.match(viewModel, /repository\.currentActorId\(\)[\s\S]*== editMutation\.actorId[\s\S]*optimisticEditedMessages = optimisticEditedMessages - editMutation\.messageId/);
   assert.match(state, /messageMutationRetry: ChatMessageMutationRetry\?/);
   assert.match(event, /RetryMessageMutation/);
   assert.match(host, /ChatUiEvent\.RetryMessageMutation[\s\S]*ChatMutationRetryTestTag/);
@@ -29,6 +29,8 @@ test("shared message mutations serialize duplicate intent and retain one exact r
     "duplicateDeleteConfirmationIsSerializedWhileTheFirstRequestIsInFlight",
     "reportRetryKeepsTheExactFailedTargetAndPreservesANewerSelection",
     "editDoubleSubmitIsSerializedAndItsRetryReusesTheMutationReceipt",
+    "editCompletionFromAReplacedActorCannotChangeTheNewSessionComposer",
+    "editDeleteAndReportShareOneMutationLock",
     "completionFromAReplacedActorCannotClearSelectionOrOfferRetry",
   ]) assert.match(tests, new RegExp(name));
 });

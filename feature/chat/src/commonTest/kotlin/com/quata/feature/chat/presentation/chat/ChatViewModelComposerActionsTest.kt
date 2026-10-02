@@ -1305,6 +1305,83 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun editCompletionFromAReplacedActorCannotChangeTheNewSessionComposer() = runTest {
+        listOf(Result.success(Unit), Result.failure(IllegalStateException("late failure"))).forEach { lateResult ->
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val own = ownMessage(id = "own-edit-old-actor", text = "before")
+            val gate = CompletableDeferred<Unit>()
+            val repository = RecordingChatRepository(messages = listOf(own)).apply {
+                editMessageGate = gate
+                editMessageResult = lateResult
+            }
+            val model = chatViewModel(repository, dispatcher)
+            testScheduler.advanceUntilIdle()
+
+            model.onEvent(ChatUiEvent.MessageSelected(own.id))
+            model.onEvent(ChatUiEvent.StartEdit)
+            model.onEvent(ChatUiEvent.MessageChanged("old actor edit"))
+            model.onEvent(ChatUiEvent.Send)
+            testScheduler.runCurrent()
+            assertEquals(1, repository.editMessageMutationCalls.size)
+
+            repository.actorId = "replacement"
+            model.onEvent(ChatUiEvent.MessageChanged("replacement draft"))
+            model.onEvent(ChatUiEvent.MessageSelected(own.id))
+            gate.complete(Unit)
+            testScheduler.advanceUntilIdle()
+
+            assertEquals("replacement draft", model.uiState.value.messageText)
+            assertEquals(own.id, model.uiState.value.selectedMessageId)
+            assertNull(model.uiState.value.error)
+            model.close()
+        }
+    }
+
+    @Test
+    fun editDeleteAndReportShareOneMutationLock() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "own-cross-serialized", text = "before")
+        val other = otherMessage(id = "other-cross-serialized")
+        val editGate = CompletableDeferred<Unit>()
+        val deleteGate = CompletableDeferred<Unit>()
+        val repository = RecordingChatRepository(messages = listOf(other, own)).apply {
+            editMessageGate = editGate
+            deleteMessageGate = deleteGate
+        }
+        val model = chatViewModel(repository, dispatcher)
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.StartEdit)
+        model.onEvent(ChatUiEvent.MessageChanged("after"))
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.runCurrent()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        model.onEvent(ChatUiEvent.MessageSelected(other.id))
+        model.onEvent(ChatUiEvent.ReportSelectedMessage)
+        testScheduler.runCurrent()
+        assertTrue(repository.deleteMessageMutationCalls.isEmpty())
+        assertTrue(repository.reportMessageCalls.isEmpty())
+
+        editGate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        testScheduler.runCurrent()
+        assertEquals(1, repository.deleteMessageMutationCalls.size)
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.StartEdit)
+        assertNull(model.uiState.value.editingMessage)
+
+        deleteGate.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        model.close()
+    }
+
+    @Test
     fun completionFromAReplacedActorCannotClearSelectionOrOfferRetry() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val own = ownMessage(id = "own-old-actor")
