@@ -4,13 +4,13 @@
     "SCR-OFFICIAL"
   ],
   "status": "passed",
-  "productSha": "09dbd72d446d4223739f65602a9bad24232e1091",
-  "certification": "isolated-real-postgrest-deep-pagination-shared-recovery-complete-independent-review-approved-final-CI-pending",
+  "productSha": "461c4298e9f6487f2c89888b7de5d07e7153016d",
+  "certification": "isolated-real-postgrest-deep-pagination-shared-recovery-complete-rebase-review-pending-final-CI-pending",
   "evidenceKind": "ISOLATED_REAL_POSTGRES_POSTGREST_AND_SHARED_UI_RECOVERY",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "sha": "461c4298e9f6487f2c89888b7de5d07e7153016d",
       "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
       "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
       "reportStatus": "passed",
@@ -33,7 +33,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "sha": "461c4298e9f6487f2c89888b7de5d07e7153016d",
       "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
       "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
       "reportStatus": "passed",
@@ -54,7 +54,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "sha": "461c4298e9f6487f2c89888b7de5d07e7153016d",
       "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
       "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
       "reportStatus": "passed",
@@ -71,7 +71,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "sha": "461c4298e9f6487f2c89888b7de5d07e7153016d",
       "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
       "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
       "reportStatus": "passed",
@@ -111,6 +111,7 @@
     "All 52 Official ChromeHeadless tests passed on the exact Product SHA. Android common runtime compilation and the iOS x64 test klibrary passed; those two gates are compile evidence and are not represented as native E2E.",
     "The PostgreSQL and PostgREST containers and their isolated network were removed with zero residue. No production database, inventory outside SCR-OFFICIAL, product mutation flow, credentials or remote session were touched.",
     "The first independent review returned NO-GO for the event-spy coverage gap. Product SHA 09dbd72d closes it without changing runtime; rereview returned GO with no P0-P3 findings.",
+    "Product SHA 461c4298 replays the two Official commits exactly on integrated main a4391972. Range-diff maps both commits one-to-one; the Official product, tests, runner and historical report blobs are unchanged from 09dbd72d/e2251d99. The intervening #511 changes only Android shell restoration, so affected evidence was not repeated solely for ancestry.",
     "A transport-specific socket failure injected independently into Android, Web and iOS remains outside this attestation. Detail, author, editor, comments, media, push and a global SCR-OFFICIAL GO retain their existing ownership."
   ]
 }
