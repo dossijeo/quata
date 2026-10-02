@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN"
+  ],
+  "status": "passed",
+  "productSha": "abb6fc46a1dcd88c7d5614d17c6fe639bacf11f7",
+  "certification": "ios-nonresponsive-remote-logout-latency-bounded-local-evidence-passed-independent-review-and-final-ci-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "abb6fc46a1dcd88c7d5614d17c6fe639bacf11f7",
+      "report": "docs/candidate-attestations/evidence/auth-logout-latency-ios-abb6fc46.json",
+      "reportSha256": "530cb8eb588d95353e415566f37d587b66a5d3df782d45124e733034098dbe18",
+      "reportStatus": "passed",
+      "reportGitHead": "abb6fc46a1dcd88c7d5614d17c6fe639bacf11f7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "ios_x64_product_and_test_sources_compiled",
+        "nonresponsive_remote_cancelled_at_15000_milliseconds",
+        "timeout_completed_logout_without_propagating_cancellation",
+        "local_keychain_session_cleared_after_timeout",
+        "external_cancellation_still_propagated_after_local_retirement",
+        "existing_success_http_failure_and_transport_exception_policies_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary_mac_worktrees_and_focal_settings_removed_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/auth-login-logout-postflight-contract.test.mjs",
+    ".\\gradlew.bat :feature:auth:compileKotlinIosX64 :feature:auth:compileTestKotlinIosX64 --console=plain --no-daemon",
+    "bash ./gradlew :feature:auth:iosX64Test --tests *IosAuthLogoutOrderingTest* --console=plain --no-daemon (macOS Intel focal project selection)"
+  ],
+  "notes": [
+    "IosAuthRepository bounds only the authenticated Supabase logout attempt to 15000 milliseconds. A timeout cancels the transport, then the existing finally block retires the Keychain-backed session and lets logout complete.",
+    "TimeoutCancellationException is handled before CancellationException. The internal deadline is best-effort remote failure; cancellation from the caller still propagates after local retirement.",
+    "The exact-SHA Kotlin/Native iosX64 suite passed 7/7 on the macOS Intel host and covers success ordering, HTTP failure, transport exception, nonresponsive timeout and external cancellation.",
+    "The full root Gradle invocation remains unable to compile the unrelated Android :app build script on this Mac. The passing focal invocation selected core, designsystem and feature:auth without changing any tracked source or build script; this diagnostic is preserved in the evidence report.",
+    "This evidence removes only the documented unbounded iOS repository logout latency. It does not attribute backend revocation to one UI gesture, recertify routes outside logout or change APNs, Android or Web runtime.",
+    "No backend row, credential, token or remote object was read or mutated by this hermetic test.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
