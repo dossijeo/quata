@@ -15,6 +15,7 @@ const postgrestTest = read("scripts/community-post-likes-postgrest.test.mjs");
 const postgrestRunner = read("scripts/run-community-post-likes-postgrest-test.ps1");
 const releasePostflight = read("scripts/community-post-likes-release-postflight.mjs");
 const transactionalProbe = read("scripts/community-post-likes-transactional-probe.mjs");
+const selectiveExecutor = read("scripts/selective-db-release-executor.mjs");
 const restoreDrill = read("scripts/restore-db-logical-backup-drill.ps1");
 const androidRepository = read("app/src/main/java/com/quata/feature/feed/data/FeedRepositoryImpl.kt");
 const androidApi = read("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
@@ -195,4 +196,43 @@ test("the focal contract is present in both fast suites", () => {
   assert.match(packageJson.scripts["test:community-post-likes-actor-guard"], /community-post-likes-actor-guard-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /community-post-likes-actor-guard-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /community-post-likes-actor-guard-contract\.test\.mjs/);
+});
+
+test("selective release allowlist binds the exact migration byte SHA-256", () => {
+  assert.match(selectiveExecutor, /20261002010000[\s\S]*749ff3d6f7748be355e4b7f88f77db1f4bdeb015689590b42c449f1d1e60753c/);
+  assert.doesNotMatch(selectiveExecutor, /dc46d2e38227b3d52a73f21200bb68481fdaa576/);
+});
+
+test("selective release postconditions require the exact relation boundary", () => {
+  assert.match(selectiveExecutor, /selectedVersions\.includes\("20261002010000"\)/);
+  assert.match(selectiveExecutor, /relrowsecurity as rls_enabled/);
+  assert.match(selectiveExecutor, /user_trigger_count !== 0/);
+  assert.match(selectiveExecutor, /selective_release_community_post_likes_relation_postcondition_failed/);
+});
+
+test("selective release pins policies and least-privilege grants", () => {
+  for (const token of [
+    "community_post_likes_public_read",
+    "community_post_likes_insert_own",
+    "community_post_likes_delete_own",
+    "{public}",
+    "{authenticated}",
+    "quata_chat_auth_profile_id",
+  ]) assert.ok(selectiveExecutor.includes(token), `missing ${token}`);
+  assert.match(selectiveExecutor, /policies\.length !== 3/);
+  assert.match(selectiveExecutor, /grants\.get\("anon"\)[\s\S]*\["SELECT"\]/);
+  assert.match(selectiveExecutor, /grants\.get\("authenticated"\)[\s\S]*\["DELETE", "INSERT", "SELECT"\]/);
+  assert.match(selectiveExecutor, /grants\.get\("PUBLIC"\)/);
+  assert.match(selectiveExecutor, /selective_release_community_post_likes_policy_postcondition_failed/);
+  assert.match(selectiveExecutor, /selective_release_community_post_likes_grant_postcondition_failed/);
+});
+
+test("selective release pins resolver definition, security and execution ACL", () => {
+  assert.match(selectiveExecutor, /p\.prosecdef as security_definer/);
+  assert.match(selectiveExecutor, /search_path=public, auth/);
+  assert.match(selectiveExecutor, /cp\.account_status = 'active'/);
+  assert.match(selectiveExecutor, /resolver\.public_execute/);
+  assert.match(selectiveExecutor, /resolver\.anon_execute/);
+  assert.match(selectiveExecutor, /resolver\.authenticated_execute/);
+  assert.match(selectiveExecutor, /selective_release_community_post_likes_resolver_postcondition_failed/);
 });
