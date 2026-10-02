@@ -1,0 +1,85 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "23a866512da437424ca57d6611c8767218af7e34",
+    "workingTreeDirty": false
+  },
+  "scope": "Retry-safe edit, delete and report behavior for CHAT-MESSAGE-ACTIONS. The shared ViewModel serializes each mutation, preserves the exact failed request and actor, and exposes an explicit retry. Web/iOS PostgREST and Android use authenticated v2 edit/delete RPCs with atomic mutation receipts while the v1 Android v32 compatibility path remains unchanged.",
+  "steps": [
+    "delete_failure_exposes_exact_retry_with_stable_mutation_id",
+    "duplicate_delete_confirmation_is_serialized",
+    "report_retry_preserves_exact_failed_target_and_newer_selection",
+    "edit_double_submit_is_serialized_and_retry_reuses_mutation_id",
+    "replaced_actor_completion_cannot_mutate_new_session_ui",
+    "postgrest_v2_payloads_bind_actor_conversation_message_and_mutation_id",
+    "delete_retry_does_not_depend_on_local_message_cache",
+    "web_wasm_82_affected_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_7_affected_tests_passed",
+    "fast_contracts_773_passed",
+    "postgres_disposable_idempotency_fixture_passed",
+    "remote_migration_behavior_and_acl_probe_passed_inside_rollback",
+    "remote_probe_verified_zero_persistent_target_objects_and_fixtures",
+    "encrypted_full_logical_backup_created_and_ciphertext_hash_verified",
+    "selective_restore_drill_passed"
+  ],
+  "validation": {
+    "diff": "git diff --check",
+    "fastContracts": "npm run test:ci-fast-contracts",
+    "webAffected": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatViewModelComposerActionsTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosAffected": "bash ./gradlew :feature:chat:iosX64Test with the seven changed mutation test methods selected explicitly",
+    "postgres": ".\\scripts\\test-chat-message-mutation-idempotency.ps1",
+    "remoteProbe": "node scripts/chat-message-mutation-remote-probe.mjs with private DB URL and CA file inputs"
+  },
+  "results": {
+    "webWasm": {
+      "tests": 82,
+      "failures": 0,
+      "errors": 0,
+      "classes": {
+        "ChatViewModelComposerActionsTest": 52,
+        "PostgrestChatRepositoryTest": 30
+      }
+    },
+    "android": "BUILD SUCCESSFUL",
+    "iosX64Affected": {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0
+    },
+    "fastContracts": {
+      "tests": 773,
+      "failures": 0
+    },
+    "postgresDisposable": "CHAT_MESSAGE_MUTATION_IDEMPOTENCY_POSTGRES_PASS",
+    "remoteRollbackProbe": "CHAT_MESSAGE_MUTATION_REMOTE_ROLLBACK_PASS"
+  },
+  "databaseSafety": {
+    "logicalBackupId": "release-20261002T012637Z-9f90f026",
+    "format": "quata-logical-backup-v1",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full-explicit-ca",
+    "ciphertextHashVerified": true,
+    "plaintextPersisted": false,
+    "keyStoredSeparately": true,
+    "fullRestoreIntoVanillaPostgres": "not_accepted_managed_roles_and_extensions_missing",
+    "selectiveAffectedObjectRestoreDrill": "passed",
+    "persistentMigrationApplied": false
+  },
+  "cleanup": {
+    "state": "complete",
+    "mode": "disposable-postgres-and-remote-outer-transaction-rollback",
+    "remoteBaselinePreserved": true,
+    "credentialsCommitted": false,
+    "connectionMaterialCommitted": false,
+    "backupOrKeyPathCommitted": false
+  },
+  "limits": [
+    "The first broad iOS run retained as failed evidence: an unrelated historical inbox pagination test exhausted its virtual five-second timeout; all seven changed mutation tests passed in the accepted focal rerun.",
+    "The full logical backup cannot be called generally restorable into vanilla PostgreSQL because the managed Supabase roles and extensions are absent there. The selective affected-object restore drill passed.",
+    "The remote database probe applied the migration only inside an outer transaction and rolled it back. Persistent deployment follows candidate promotion and its guarded release procedure.",
+    "This focal unit does not declare global SCR-CHAT acceptance or acceptance of actions owned by other subflows."
+  ]
+}
