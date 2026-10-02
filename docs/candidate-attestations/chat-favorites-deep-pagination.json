@@ -122,10 +122,10 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "377f8da231299672d7bea0127342b354df2289b0",
+    "reviewedSha": "690ee3f0c0afa520bfed9578fc6700255d9aaa98",
     "recomposedProductSha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
     "blockingFindings": [],
-    "scopeLimit": "Review covers additive cursor pagination, actor isolation, refresh/load serialization, Android pager coverage, SQL boundaries and exact runtime/SQL blob equivalence. Production release is committed; the REST trial remains externally blocked before authentication by HTTP 402.",
+    "scopeLimit": "Review covers additive cursor pagination, actor isolation, refresh/load serialization, Android pager coverage, SQL boundaries and exact runtime/SQL blob equivalence. Production release is committed; the REST trial remains externally blocked before authentication by HTTP 402 exceed_egress_quota.",
     "equivalence": "Every affected runtime and database blob is byte-identical between the certified 10320a18 and recomposed da1dedcc. The new base contributes only the separately reviewed visibility-boundary successor."
   },
   "notes": [
