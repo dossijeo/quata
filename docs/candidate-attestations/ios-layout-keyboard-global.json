@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "02e9ab60ecf3be2f5039c83d90479fede6efe3f4",
-  "certification": "ci-entry-interaction-corrected-affected-gates-complete-independent-rereview-pending-final-CI-pending",
+  "certification": "ci-entry-interaction-corrected-affected-gates-complete-independent-rereview-go-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
@@ -54,8 +54,8 @@
     "xcrun xcresulttool export attachments"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "447d683968cca8a15d7d74e723b2c0aa97998551",
     "blockingFindings": []
   },
   "notes": [
@@ -67,6 +67,7 @@
     "Independent exact-SHA review on f40768ff1 returned GO with no P0-P3 findings and reproduced the 8/8 focal contract, attestation validator and diff check.",
     "After #513 merged, the unit rebased to cbf044037 and Product SHA f1be9a64 refreshed only the four reviewed capability-matrix references to the already-changed QuataIosApp.swift source. All six non-documentary unit blobs were byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, 22/22 capability contracts, the eight focal shell-layout contracts, diff check and Profile Wasm compilation passed on the composed tree. Independent exact-SHA rereview on a2814956f returned GO with no P0-P3 findings.",
     "Final iOS CI on 5ffecbaf reached the focal test but the full-frame noninteractive shell marker made XCTest reject openSos.tap() as non-hittable before rotation. Product SHA 02e9ab60 replaces only that entry gesture with a center coordinate on the already-resolved visible element; the destination search remains the immediate fail-closed assertion and the product runtime is unchanged. The runtime rotation evidence remains attributed to fc794f68; final GitHub iOS certification must validate this corrected combined candidate.",
+    "Independent static rereview on 447d68396 returned GO with no P0-P3 findings and reproduced the shell/capability contracts, attestation validator and diff check. The reviewer confirmed that the gesture is anchored to the identified visible control and immediately requires the expected production destination.",
     "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation."
   ]
 }
