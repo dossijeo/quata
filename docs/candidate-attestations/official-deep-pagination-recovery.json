@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-OFFICIAL"
+  ],
+  "status": "passed",
+  "productSha": "09dbd72d446d4223739f65602a9bad24232e1091",
+  "certification": "isolated-real-postgrest-deep-pagination-shared-recovery-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "ISOLATED_REAL_POSTGRES_POSTGREST_AND_SHARED_UI_RECOVERY",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
+      "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
+      "reportStatus": "passed",
+      "reportGitHead": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "isolated_postgresql_loaded_101_deep_official_posts",
+        "anonymous_postgrest_returned_deep_pages_50_50_1",
+        "deep_pages_contained_101_unique_posts_in_strict_total_order",
+        "language_selection_and_partial_cursor_rejection_preserved",
+        "isolated_docker_containers_and_network_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "ephemeral-postgres-postgrest-containers-and-network"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
+      "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
+      "reportStatus": "passed",
+      "reportGitHead": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "shared_view_model_preserved_loaded_posts_after_older_page_failure",
+        "shared_view_model_retried_the_exact_failed_cursor_only_after_explicit_event",
+        "common_compose_blocked_automatic_prefetch_while_older_page_error_was_visible",
+        "common_compose_kept_content_visible_and_exposed_explicit_retry",
+        "chrome_headless_official_suite_passed_52_of_52"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-compose-state-and-browser-test"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
+      "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
+      "reportStatus": "passed",
+      "reportGitHead": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_official_common_runtime_compiled"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-only-no-device-or-backend-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "report": "docs/candidate-attestations/evidence/official-deep-pagination-recovery-09dbd72d.json",
+      "reportSha256": "fc8f0f1ece47c33b25e845a215da0cbf091e9c842d62029ff85db5525e88b4ca",
+      "reportStatus": "passed",
+      "reportGitHead": "09dbd72d446d4223739f65602a9bad24232e1091",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_x64_official_test_klibrary_compiled"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-only-no-simulator-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/official-feed-total-order-contract.test.mjs",
+    ".\\scripts\\run-official-feed-total-order-test.ps1",
+    "CHROME_BIN=<installed Chrome> .\\gradlew.bat :feature:official:cleanAllTests :feature:official:wasmJsBrowserTest --no-daemon --max-workers=1 --console=plain",
+    ".\\gradlew.bat :feature:official:compileAndroidMain :feature:official:iosX64TestKlibrary --no-daemon --max-workers=2 --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-deep-pagination-recovery.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "09dbd72d446d4223739f65602a9bad24232e1091",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2: the first UI spy counted only RetryOlderPage and could not detect an automatic LoadOlderPage; the accepted test counts both events and requires auto=0 before and after the explicit retry."
+    ],
+    "scopeLimit": "The accepted evidence proves the shared recovery path in Chrome, real isolated PostgreSQL/PostgREST pagination, and affected Android/iOS compilation. It does not claim native-platform E2E or socket-level failure injection in every transport adapter."
+  },
+  "notes": [
+    "The isolated production RPC fixture contains 101 older Official posts and returns them as 50, 50 and 1. The probe checks strict descending composite order, exact uniqueness, language selection, absence of Authorization and fail-closed rejection of a partial cursor.",
+    "The shared ViewModel retains the loaded posts and hasMore state on an older-page failure, records the failure outside the root error, and retries the same composite cursor only after RetryOlderPage.",
+    "The common host disables automatic prefetch while olderPageError is present and overlays a visible retry without replacing the current post. The accepted browser test observes zero automatic LoadOlderPage events before and after one explicit retry.",
+    "All 52 Official ChromeHeadless tests passed on the exact Product SHA. Android common runtime compilation and the iOS x64 test klibrary passed; those two gates are compile evidence and are not represented as native E2E.",
+    "The PostgreSQL and PostgREST containers and their isolated network were removed with zero residue. No production database, inventory outside SCR-OFFICIAL, product mutation flow, credentials or remote session were touched.",
+    "The first independent review returned NO-GO for the event-spy coverage gap. Product SHA 09dbd72d closes it without changing runtime; rereview returned GO with no P0-P3 findings.",
+    "A transport-specific socket failure injected independently into Android, Web and iOS remains outside this attestation. Detail, author, editor, comments, media, push and a global SCR-OFFICIAL GO retain their existing ownership."
+  ]
+}
