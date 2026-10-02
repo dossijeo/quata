@@ -1,0 +1,103 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+    "workingTreeDirty": false
+  },
+  "scope": "Deep Chat favorites pagination recomposed over merged #505, with 19 affected Android, Web/Wasm, iOS and release blobs byte-identical to the already certified and deployed product, plus reviewed capability-matrix bindings for the three decisive sources changed by this unit.",
+  "composition": {
+    "originalEvidence": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-da1dedcc.json",
+    "originalEvidenceSha256": "6013d3f8136ad73bb84835bc1fe69cc937033d77c4bdc3fd5208730e7b058925",
+    "originalEvidenceHead": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+    "originalProductSha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+    "recomposedProductSha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+    "runtimeBlobsEquivalent": true,
+    "databaseBlobsEquivalent": true,
+    "mergedBaseSha": "7630605381fe1c57aa2972faa41a95da2f3f6617"
+  },
+  "steps": [
+    "additive_favorites_page_rpc_preserves_legacy_v32_rpc",
+    "authenticated_only_acl_and_delegation_to_integrated_actor_boundary",
+    "equal_timestamp_cursor_tie_breaks_by_descending_message_id",
+    "first_page_contains_250_favorites_and_has_more_true",
+    "second_page_contains_250_favorites_and_has_more_true",
+    "final_page_contains_101_favorites_and_has_more_false",
+    "all_601_favorites_are_present_exactly_once",
+    "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+    "common_actor_switch_clears_previous_actor_while_offline",
+    "common_in_flight_response_cannot_cross_actor_boundary",
+    "common_refresh_and_older_page_load_are_serialized",
+    "web_wasm_repository_class_passed",
+    "android_pager_executable_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_four_focal_tests_passed_on_exact_equivalent_product_blobs",
+    "recomposed_runtime_and_database_blobs_verified_byte_equivalent",
+    "combined_favorites_visibility_and_reconciliation_contracts_passed",
+    "disposable_postgresql_apply_assert_rollback_passed",
+    "selective_release_executor_authorization_rollback_and_apply_fixture_passed",
+    "full_encrypted_logical_backup_created",
+    "backup_ciphertext_and_plaintext_integrity_verified",
+    "affected_tables_restore_drill_completed",
+    "selective_release_snapshot_and_dry_run_passed",
+    "favorites_migration_committed_transactionally",
+    "production_ledger_function_acl_cursor_and_data_postconditions_passed",
+    "authenticated_rest_trial_attempted_without_backend_mutation",
+    "capability_matrix_hashes_rebound_for_all_changed_decisive_sources"
+  ],
+  "validation": {
+    "focusedContracts": "54/54 passed",
+    "databaseFixture": "CHAT_FAVORITES_CURSOR_PAGINATION_POSTGRES_PASS",
+    "selectiveReleaseExecutor": "read-only dry-run, authorization gate, atomic rollback and exact apply fixture passed",
+    "runtimeEquivalence": "All 11 affected runtime/test blobs remain byte-identical between da1dedcc5 and be797d3a0; a8d26fba7 changes only their reviewed capability declarations after that product commit",
+    "databaseEquivalence": "All 8 release, migration, rollback and disposable PostgreSQL fixture blobs remain byte-identical between da1dedcc5, be797d3a0 and a8d26fba7",
+    "diffCheck": "passed",
+    "capabilityMatrix": "22/22 passed, including decisive-source and APNs negative controls"
+  },
+  "database": {
+    "migrationVersion": "20261001211500",
+    "migrationSha256": "50ef988f6b843ae921de5e41e69e739da443c737844159b2a8d5b064eea54f71",
+    "dryRun": "passed_with_only_20261001211500_pending",
+    "deployment": {
+      "status": "passed",
+      "commitStatus": "committed"
+    },
+    "postflight": {
+      "status": "passed",
+      "ledgerPresent": true,
+      "functionAclCursorAndDataChecks": "passed"
+    },
+    "authenticatedRestTrial": {
+      "status": "externally_blocked",
+      "stage": "authentication_before_rpc",
+      "result": "http_402",
+      "sessionCreated": false,
+      "businessMutation": false
+    }
+  },
+  "backup": {
+    "set": "release-20261002T051119Z-f116cf02",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "ciphertextIntegrity": "passed",
+    "plaintextIntegrity": "passed",
+    "affectedTablesRestoreDrill": "passed",
+    "fullVanillaPostgresqlRestoreDrill": "failed_on_missing_supabase_pg_cron_extension"
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "disposable_postgresql_removed; authenticated REST trial stopped before session creation; no business data created"
+  },
+  "preservedFailures": [
+    "The first Favorites release attempt rolled back because the executor selected the obsolete account-deactivation fingerprint from selected migrations instead of the installed ledger.",
+    "The second Favorites release attempt rolled back because its global postcondition exposed recurring active NULL visibility boundaries. No Favorites migration or ledger row persisted in either failed attempt.",
+    "The first recomposed dry-run used an incorrectly expanded abbreviated commit and failed closed with selective_release_manifest_invalid before SQL execution.",
+    "The authenticated REST trial stopped at quata-auth-bridge with HTTP 402 before a session or RPC call existed.",
+    "A full restore into vanilla PostgreSQL rejected the Supabase pg_cron extension. The encrypted full backup remains intact; decryption, both hashes and the affected-tables restore drill passed.",
+    "The first candidate-final run at f6965a7e failed the shared capability-matrix gate because the Favorites unit changed three decisive sources without rebinding their reviewed SHA-256 declarations; the runtime, database and pagination tests were not the cause."
+  ],
+  "limits": [
+    "The production migration and direct database postconditions are complete. The authenticated REST path remains unobserved because the public authentication edge currently returns HTTP 402 before issuing a session.",
+    "The recomposition does not repeat platform matrices solely for commit identity: affected runtime and SQL blobs are exact, and the fresh checks cover only the merged release contracts and database path."
+  ]
+}
