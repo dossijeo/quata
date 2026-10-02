@@ -856,7 +856,14 @@ private final class IosAppCompositionRoot {
                 makeShellLayoutFixtureViewController(route: "notifications")
             }
             router.installProfileSosFactory {
-                makeShellLayoutFixtureViewController(route: "profile-sos")
+                makeShellLayoutFixtureViewController(
+                    route: "profile-sos",
+                    embeddedController: IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
+                        languageCode: Locale.preferredLanguages.first,
+                        onOpened: { _ in },
+                        forceSosSaveError: false,
+                    ),
+                )
             }
             router.installCommunitiesFactory {
                 makeShellLayoutFixtureViewController(route: "communities")
@@ -2146,6 +2153,7 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
 
 private func makeShellLayoutFixtureViewController(
     route: String,
+    embeddedController: UIViewController? = nil,
     onReconnect: (() -> Void)? = nil
 ) -> UIViewController {
     let controller = UIViewController()
@@ -2159,6 +2167,15 @@ private func makeShellLayoutFixtureViewController(
     marker.text = "\(route) layout fixture"
     marker.alpha = 0.01
     controller.view.addSubview(marker)
+
+    if let embeddedController {
+        controller.addChild(embeddedController)
+        embeddedController.view.frame = controller.view.bounds
+        embeddedController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        embeddedController.view.isAccessibilityElement = false
+        controller.view.insertSubview(embeddedController.view, belowSubview: marker)
+        embeddedController.didMove(toParent: controller)
+    }
 
     guard let onReconnect else { return controller }
     // Fixture-only control that sends the same availability update as the production
@@ -2712,6 +2729,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func installKeyboardBackdrop() {
         let controller = IosKeyboardBackdropController(hostView: view)
+        if ProcessInfo.processInfo.arguments.contains("-quata-ui-test-expose-keyboard-backdrop") {
+            controller.backdropView.isAccessibilityElement = true
+            controller.backdropView.accessibilityLabel = "Quata opaque keyboard backdrop"
+        }
         controller.install()
         keyboardBackdropController = controller
     }

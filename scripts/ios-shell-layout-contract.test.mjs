@@ -38,6 +38,19 @@ test("the focal iOS shell test observes the real authenticated host across rotat
   assert.match(uiTest, /ios-shell-layout-restored-online/);
 });
 
+test("the authenticated shell keeps a real shared Profile draft above its global keyboard backdrop", () => {
+  assert.match(uiTest, /func testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation\(\)/);
+  assert.match(uiTest, /fixtureApp\([\s\S]{0,180}"shell-layout"[\s\S]{0,180}shellRoute: "profile-sos"[\s\S]{0,180}exposeKeyboardBackdrop: true/);
+  assert.match(uiTest, /profile\.sos\.message\.input/);
+  assert.match(uiTest, /hasKeyboardFocus == 1/);
+  assert.match(uiTest, /quata-ios-keyboard-opaque-backdrop/);
+  assert.match(uiTest, /abs\(actual - expected\)/);
+  assert.match(uiTest, /ios-profile-sos-global-keyboard-(?:portrait|landscape|restored-portrait)/);
+  assert.match(appHost, /embeddedController: IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController/);
+  assert.match(appHost, /-quata-ui-test-expose-keyboard-backdrop/);
+  assert.match(appHost, /controller\.backdropView\.isAccessibilityElement = true/);
+});
+
 test("the real iOS shell contains every route layout variant in bounded focal tests", () => {
   assert.match(uiTest, /func testAuthenticatedShellContainsPrimaryRouteLayoutVariants\(\)/);
   assert.match(uiTest, /func testAuthenticatedShellContainsSecondaryRouteLayoutVariants\(\)/);
