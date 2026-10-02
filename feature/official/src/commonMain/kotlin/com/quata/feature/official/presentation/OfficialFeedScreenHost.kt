@@ -453,7 +453,7 @@ fun OfficialFeedScreenHost(
                 padding = viewportPadding,
                 pagerState = pagerState,
                 posts = visiblePosts,
-                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts,
+                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts && state.olderPageError == null,
                 isLoadingOlder = state.isLoadingOlder,
                 isInitialLoading = state.isLoading || focusedPostPending,
                 onLoadOlder = { if (activeFocusedPostId == null) viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
@@ -542,6 +542,14 @@ fun OfficialFeedScreenHost(
             ) {
                 QuataFeedPullRefreshIndicator(pullRefresh, state.isRefreshing && pagerState.currentPage == 0, strings.refresh, Modifier.align(Alignment.TopCenter))
                 if (state.isLoadingOlder) OfficialOlderPostsLoadingContent(Modifier.align(Alignment.BottomCenter))
+                state.olderPageError?.let { failure ->
+                    OfficialOlderPostsFailureContent(
+                        message = failure.takeUnless { it == OfficialFeedMessages.OlderPageLoadFailed } ?: strings.loadingError,
+                        retryLabel = strings.retry,
+                        onRetry = { viewModel.onEvent(OfficialFeedUiEvent.RetryOlderPage) },
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
             }
         }
             if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))

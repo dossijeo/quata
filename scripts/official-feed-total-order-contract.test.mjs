@@ -79,12 +79,37 @@ test("Android anonymous RPC preserves language-scoped cache and observation", ()
 test("isolated runner exercises SQL and real anonymous PostgREST", () => {
   const runner = read("scripts/run-official-feed-total-order-test.ps1");
   const probe = read("scripts/official-feed-total-order-postgrest.test.mjs");
+  const fixture = read("scripts/sql/official-feed-total-order.test.sql");
   assert.match(runner, /official-feed-total-order\.test\.sql/);
   assert.match(runner, /postgrest\/postgrest:v12\.2\.3/);
   assert.match(runner, /official-feed-total-order-postgrest\.test\.mjs/);
   assert.match(probe, /anonymous Official feed probe must not send Authorization/);
   assert.match(probe, /new Set\(all\.map/);
+  assert.match(probe, /\[50, 50, 1\]/);
+  assert.match(probe, /deepPages\.length === 101/);
+  assert.match(probe, /new Set\(deepPages\.map/);
+  assert.match(fixture, /generate_series\(1, 101\)/);
+  assert.match(fixture, /deep_first_count <> 50/);
+  assert.match(fixture, /deep_second_count <> 50/);
+  assert.match(fixture, /deep_final_count <> 1/);
   assert.match(probe, /incomplete\.status === 400 && incomplete\.value\?\.code === "22023"/);
+});
+
+test("shared Official UI preserves loaded pages and exposes only explicit retry after failure", () => {
+  const state = read("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedUiState.kt");
+  const viewModel = read("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedViewModel.kt");
+  const host = read("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
+  const recovery = read("feature/official/src/commonTest/kotlin/com/quata/feature/official/presentation/OfficialFeedPaginationRecoveryTest.kt");
+  const rootStates = read("feature/official/src/commonTest/kotlin/com/quata/feature/official/presentation/OfficialRootStatesTest.kt");
+
+  assert.match(state, /olderPageError: String\? = null/);
+  assert.match(viewModel, /olderPageError = error\.message \?: OfficialFeedMessages\.OlderPageLoadFailed/);
+  assert.match(host, /state\.hasMoreOlderPosts && state\.olderPageError == null/);
+  assert.match(host, /OfficialOlderPostsFailureContent[\s\S]*?OfficialFeedUiEvent\.RetryOlderPage/);
+  assert.match(recovery, /failedOlderPageKeepsContentAndRetriesTheSameCursorOnlyWhenRequested/);
+  assert.match(recovery, /assertEquals\(repository\.cursors\.first\(\), repository\.cursors\.last\(\)\)/);
+  assert.match(rootStates, /populatedRootShowsOlderPageFailureAndWaitsForExplicitRetry/);
+  assert.match(rootStates, /assertEquals\(0, holder\.automaticOlderPageLoads\)[\s\S]*?assertEquals\(0, holder\.explicitOlderPageRetries\)[\s\S]*?performClick\(\)[\s\S]*?assertEquals\(0, holder\.automaticOlderPageLoads\)[\s\S]*?assertEquals\(1, holder\.explicitOlderPageRetries\)/);
 });
 
 test("selective release pins the exact migration and production postconditions", () => {

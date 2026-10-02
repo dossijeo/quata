@@ -6,6 +6,7 @@ import com.quata.feature.official.domain.OfficialPostDraft
 sealed class OfficialFeedUiEvent {
     data object Refresh : OfficialFeedUiEvent()
     data object LoadOlderPage : OfficialFeedUiEvent()
+    data object RetryOlderPage : OfficialFeedUiEvent()
     data object ClearMessage : OfficialFeedUiEvent()
     data class ToggleLike(val postId: String) : OfficialFeedUiEvent()
     data class AddComment(val postId: String, val comment: PostComment) : OfficialFeedUiEvent()

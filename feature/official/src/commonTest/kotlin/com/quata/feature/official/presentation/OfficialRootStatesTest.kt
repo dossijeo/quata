@@ -60,6 +60,35 @@ class OfficialRootStatesTest {
         onAllNodesWithTag(OfficialFeedErrorMessageTestTag).assertCountEquals(0)
         onAllNodesWithTag(OfficialFeedRetryTestTag).assertCountEquals(0)
     }
+
+    @Test
+    fun populatedRootShowsOlderPageFailureAndWaitsForExplicitRetry() = runComposeUiTest {
+        val holder = RootOfficialStateHolder(
+            OfficialFeedUiState(
+                isLoading = false,
+                posts = listOf(officialRootPost()),
+                hasMoreOlderPosts = true,
+                olderPageError = "forced-older-page-error",
+            ),
+        )
+        setContent { OfficialRootFixture(holder) }
+
+        onNodeWithText("official-root-visible").assertIsDisplayed()
+        onNodeWithTag(OfficialOlderPostsErrorTestTag).assertIsDisplayed()
+        onNodeWithTag(OfficialOlderPostsRetryTestTag).assertIsDisplayed()
+        runOnIdle {
+            assertEquals(0, holder.automaticOlderPageLoads)
+            assertEquals(0, holder.explicitOlderPageRetries)
+        }
+
+        onNodeWithTag(OfficialOlderPostsRetryTestTag).performClick()
+
+        runOnIdle {
+            assertEquals(0, holder.automaticOlderPageLoads)
+            assertEquals(1, holder.explicitOlderPageRetries)
+        }
+        onNodeWithText("official-root-visible").assertIsDisplayed()
+    }
 }
 
 @androidx.compose.runtime.Composable
@@ -96,11 +125,21 @@ private fun OfficialRootFixture(holder: OfficialFeedStateHolder) {
 private class RootOfficialStateHolder(initial: OfficialFeedUiState) : OfficialFeedStateHolder {
     val state = MutableStateFlow(initial)
     var refreshes = 0
+    var automaticOlderPageLoads = 0
+    var explicitOlderPageRetries = 0
     override val uiState = state
     override fun onEvent(event: OfficialFeedUiEvent) {
         if (event == OfficialFeedUiEvent.Refresh) {
             refreshes += 1
             state.value = OfficialFeedUiState(isLoading = false)
+        }
+        if (event == OfficialFeedUiEvent.LoadOlderPage) {
+            automaticOlderPageLoads += 1
+            state.value = state.value.copy(isLoadingOlder = true)
+        }
+        if (event == OfficialFeedUiEvent.RetryOlderPage) {
+            explicitOlderPageRetries += 1
+            state.value = state.value.copy(isLoadingOlder = true, olderPageError = null)
         }
     }
     override fun refreshCurrentUser() = Unit

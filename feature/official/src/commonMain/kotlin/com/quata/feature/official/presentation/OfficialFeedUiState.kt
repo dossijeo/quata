@@ -8,6 +8,7 @@ data class OfficialFeedUiState(
     val isRefreshing: Boolean = false,
     val isLoadingOlder: Boolean = false,
     val hasMoreOlderPosts: Boolean = true,
+    val olderPageError: String? = null,
     val posts: List<OfficialPostItem> = emptyList(),
     val focusedPostLoads: Map<String, OfficialFocusedPostLoad> = emptyMap(),
     val currentUser: User? = null,
@@ -23,6 +24,7 @@ data class OfficialFeedUiState(
 enum class OfficialFocusedPostLoad { Loading, Loaded, NotFound, Failed }
 
 object OfficialFeedMessages {
+    const val OlderPageLoadFailed = "older_page_load_failed"
     const val CommentReported = "comment_reported"
     const val CommentReportFailed = "comment_report_failed"
     const val PostCreated = "post_created"
