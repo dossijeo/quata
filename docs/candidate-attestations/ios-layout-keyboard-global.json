@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "status": "passed",
+  "productSha": "a717c456447fd2f1a8ca6c42cf61fc553e5eb521",
+  "certification": "affected-local-gates-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "a717c456447fd2f1a8ca6c42cf61fc553e5eb521",
+      "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-a717c456.json",
+      "reportSha256": "7ffc0d9f3793fc13e7ab6057764b359edeb7357deec5adf117d7f4b23963c14a",
+      "reportStatus": "passed",
+      "reportGitHead": "a717c456447fd2f1a8ca6c42cf61fc553e5eb521",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "tracked_source_and_index_clean_at_receipt",
+        "simulator_signed_build_for_testing_succeeded",
+        "production_authenticated_router_mounted_real_shared_profile_sos_surface",
+        "exclusive_synthetic_draft_entered_through_real_compose_text_input",
+        "portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+        "landscape_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+        "restored_portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+        "exact_draft_preserved_across_both_orientation_changes",
+        "top_chrome_content_and_primary_navigation_containment_verified",
+        "xctest_passed_once_with_zero_failures",
+        "three_named_screenshots_exported"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/ios-shell-layout-contract.test.mjs",
+    ".\\gradlew.bat :feature:profile:compileKotlinWasmJs --no-daemon --console=plain",
+    "./gradlew :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --no-daemon",
+    "xcodebuild build-for-testing -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -destination platform=iOS Simulator,id=56DD8C89-D6B7-4103-8A3E-A87E93D40790",
+    "QUATA_IOS_SHELL_LAYOUT_TEST_METHOD=testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation bash scripts/run-ios-shell-layout-ui-test.sh",
+    "xcrun xcresulttool get test-results summary",
+    "xcrun xcresulttool export attachments"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The production IosAuthenticatedHostRouter mounts the real shared Profile/SOS surface; the test does not substitute an inert route controller for the edited content.",
+    "The exact synthetic draft, keyboard focus and native software keyboard survive portrait to landscape and restored portrait. The focused input stays above the keyboard, and the production opaque UIWindow backdrop contains the complete keyboard bounds in every phase.",
+    "The backdrop intentionally exceeds the accessibility keyboard frame in landscape to cover the side regions behind the inset keyboard. Equality of those rectangles was a false test assumption; containment is the product invariant demonstrated by the retained screenshots.",
+    "The failed 4d3d1833 and 3fe86d1e xcresults remain retained on the Mac and are summarized in the evidence report. No failed attempt was rewritten as a passing result.",
+    "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation."
+  ]
+}

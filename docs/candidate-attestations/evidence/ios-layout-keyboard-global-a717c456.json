@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "a717c456447fd2f1a8ca6c42cf61fc553e5eb521",
+    "workingTreeDirty": false,
+    "cleanScope": "tracked-source-and-index"
+  },
+  "environment": {
+    "host": "macOS Hyper-V VM",
+    "xcode": "26.6 (17F113)",
+    "simulator": {
+      "model": "iPhone 16",
+      "os": "18.3.1 (22D8075)",
+      "architecture": "x86_64",
+      "udid": "56DD8C89-D6B7-4103-8A3E-A87E93D40790"
+    },
+    "configuration": "SimulatorSigned"
+  },
+  "scope": {
+    "unit": "FLOW-IOS-LAYOUT",
+    "surface": "real shared Profile/SOS message editor inside the production authenticated router",
+    "orientations": [
+      "portrait",
+      "landscapeLeft",
+      "restoredPortrait"
+    ]
+  },
+  "result": {
+    "test": "QuataIosUITests/QuataIosHostUITests/testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 70.428,
+    "assertions": {
+      "realSharedProfileSurfaceMounted": true,
+      "exactDraftPreservedAcrossBothRotations": true,
+      "textInputRetainedKeyboardFocus": true,
+      "softwareKeyboardVisibleInEveryOrientation": true,
+      "focusedInputStayedAboveKeyboard": true,
+      "productionOpaqueBackdropCoveredKeyboardBounds": true,
+      "topChromeContentAndPrimaryNavigationStayedContained": true
+    }
+  },
+  "artifacts": {
+    "xcresult": "build/reports/ios/ios-layout-keyboard-ui-coverage-results/ios-shell-layout.xcresult",
+    "uiLogSha256": "dd0fab6e9ba64003e1da8b5676674ae39355ad175869775c47cf65c3a1b51430",
+    "attachmentManifestSha256": "873254810b3e5ca861609ce63dd45a88479d85c4b4c769c6b65033fbdcd26a2c",
+    "screenshots": {
+      "portraitSha256": "4ada4389ef01008de06596f6dfa93bddcbc30f7f0d09986ac41791e8342fc2e9",
+      "landscapeSha256": "8106e7987ea9c6b0c9ed4e316d25dbeef47cf5d8aa42cc2bfd600fe4bbb8c5f7",
+      "restoredPortraitSha256": "f090ded67837a9374e15c320797ee3aa8659774f02f8c0aa0177c35654e2cc4d"
+    }
+  },
+  "steps": [
+    "exact_candidate_sha_materialized_on_mac",
+    "tracked_source_and_index_clean_at_receipt",
+    "simulator_signed_build_for_testing_succeeded",
+    "production_authenticated_router_mounted_real_shared_profile_sos_surface",
+    "exclusive_synthetic_draft_entered_through_real_compose_text_input",
+    "portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "landscape_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "restored_portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "exact_draft_preserved_across_both_orientation_changes",
+    "top_chrome_content_and_primary_navigation_containment_verified",
+    "xctest_passed_once_with_zero_failures",
+    "three_named_screenshots_exported"
+  ],
+  "diagnosticHistory": [
+    "At 4d3d1833 the first focal run preserved portrait input but lost focus and keyboard after rotation; the failing xcresult remains on the Mac.",
+    "At 3fe86d1e focus, draft and keyboard survived rotation, while an equality assertion incorrectly compared the larger opaque backdrop with the narrower accessibility keyboard frame; that failing xcresult also remains on the Mac.",
+    "At a717c456 the assertion was corrected to the product invariant that the opaque backdrop contains the complete keyboard bounds, and the unchanged interaction passed in all three orientations."
+  ],
+  "limitations": [
+    "This closes the production shell's global keyboard-layout policy with one real shared Profile/SOS input; it does not claim every feature-specific input path.",
+    "Native Split View and Stage Manager gestures and scene lifecycle remain externally unavailable in this Simulator environment.",
+    "Overlays and route-specific overrides outside the observed Profile/SOS editor remain separate coverage units.",
+    "No backend, session, notification, remote data or signing-distribution mutation occurred."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "local_fixture_no_backend_or_remote_mutation"
+  }
+}
