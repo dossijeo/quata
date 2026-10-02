@@ -269,15 +269,21 @@ class IosOfficialReadRepository(
         if (posts.isEmpty()) return@runCatching emptyList()
 
         val postIds = posts.map(OfficialRemotePost::id)
-        val comments = rows(
-            table = "official_post_comments",
-            query = mapOf(
-                "select" to CommentSelect,
-                "official_post_id" to postIds.toOfficialPostgrestInFilter(),
-                "deleted_at" to "is.null",
-                "order" to "created_at.asc",
-            ),
-        ).map(Map<*, *>::toOfficialRemoteComment)
+        val comments = loadCompleteOfficialComments(postIds) { request ->
+            rows(
+                table = "official_post_comments",
+                query = buildMap {
+                    put("select", CommentSelect)
+                    put("official_post_id", request.postIds.toOfficialPostgrestInFilter())
+                    put("deleted_at", "is.null")
+                    request.afterIdExclusive?.let {
+                        put("id", "gt.${it.requireOfficialPostgrestIdentifier()}")
+                    }
+                    put("order", "id.asc")
+                    put("limit", request.limit.toString())
+                },
+            ).map(Map<*, *>::toOfficialRemoteComment)
+        }
         val likes = rows(
             table = "official_post_likes",
             query = mapOf(

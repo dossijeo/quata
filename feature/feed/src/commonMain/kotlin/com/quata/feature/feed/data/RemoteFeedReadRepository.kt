@@ -2,6 +2,7 @@ package com.quata.feature.feed.data
 
 import com.quata.core.model.Post
 import com.quata.core.model.User
+import com.quata.core.data.loadCompleteKeyset
 import com.quata.feature.feed.domain.FeedReadRepository
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -18,7 +19,7 @@ import kotlinx.coroutines.isActive
  */
 interface FeedReadTransport {
     suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>>
-    suspend fun fetchComments(postIds: List<String>): Result<List<FeedRemoteComment>>
+    suspend fun fetchCommentsPage(request: FeedRemoteCommentPageRequest): Result<List<FeedRemoteComment>>
     suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>>
     /**
      * Profiles rendered as part of a feed page. Hosts may expose this narrow read publicly while
@@ -40,6 +41,12 @@ data class FeedRemotePostRequest(
     val limit: Int,
     val beforeCreatedAt: String? = null,
     val postId: String? = null,
+)
+
+data class FeedRemoteCommentPageRequest(
+    val postIds: List<String>,
+    val afterIdExclusive: String? = null,
+    val limit: Int,
 )
 
 /**
@@ -88,7 +95,18 @@ class RemoteFeedReadRepository(
         ).getOrThrow()
         if (posts.isEmpty()) return@runCatching emptyList()
         val postIds = posts.map(FeedRemotePost::id)
-        val comments = transport.fetchComments(postIds).getOrThrow()
+        val comments = loadCompleteKeyset(
+            pageSize = CommentPageSize,
+            cursorOf = FeedRemoteComment::id,
+        ) { afterIdExclusive, pageSize ->
+            transport.fetchCommentsPage(
+                FeedRemoteCommentPageRequest(
+                    postIds = postIds,
+                    afterIdExclusive = afterIdExclusive,
+                    limit = pageSize,
+                ),
+            ).getOrThrow()
+        }.sortedWith(compareBy<FeedRemoteComment> { it.createdAt.orEmpty() }.thenBy(FeedRemoteComment::id))
         val likes = transport.fetchLikes(postIds).getOrThrow()
         val profiles = transport.fetchFeedProfiles(feedRemoteProfileIds(posts, comments, likes)).getOrThrow()
         buildFeedDomainPosts(
@@ -102,6 +120,7 @@ class RemoteFeedReadRepository(
 
     private companion object {
         const val FeedPageSize = 50
+        const val CommentPageSize = 500
         const val DefaultPollIntervalMillis = 30_000L
         const val MinimumPollIntervalMillis = 5_000L
     }

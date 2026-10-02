@@ -2,6 +2,7 @@ package com.quata.feature.official.data
 
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.core.data.loadCompleteKeyset
 import com.quata.core.text.decodeHtmlEntities
 import com.quata.core.text.parsePostCommentBody
 import com.quata.core.text.stripHtmlTagsAndDecode
@@ -38,6 +39,23 @@ data class OfficialRemoteComment(
     val body: String? = null,
     val createdAt: String? = null,
 )
+
+data class OfficialRemoteCommentPageRequest(
+    val postIds: List<String>,
+    val afterIdExclusive: String? = null,
+    val limit: Int,
+)
+
+suspend fun loadCompleteOfficialComments(
+    postIds: List<String>,
+    pageSize: Int = 500,
+    loadPage: suspend (OfficialRemoteCommentPageRequest) -> List<OfficialRemoteComment>,
+): List<OfficialRemoteComment> = loadCompleteKeyset(
+    pageSize = pageSize,
+    cursorOf = OfficialRemoteComment::id,
+) { afterIdExclusive, limit ->
+    loadPage(OfficialRemoteCommentPageRequest(postIds, afterIdExclusive, limit))
+}.sortedWith(compareBy<OfficialRemoteComment> { it.createdAt.orEmpty() }.thenBy(OfficialRemoteComment::id))
 
 data class OfficialRemoteProfile(
     val id: String,
