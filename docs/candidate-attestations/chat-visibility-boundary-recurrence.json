@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-VISIBILITY-BOUNDARY"
+  ],
+  "status": "passed",
+  "productSha": "f2d51275530d78b66825de80d8371236692eee51",
+  "certification": "backend-release-complete-full-encrypted-backup-affected-restore-complete-independent-review-complete-final-CI-pending",
+  "evidenceKind": "TRANSACTIONAL_DATABASE_REPAIR_AND_RECURRENCE_PREVENTION",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "f2d51275530d78b66825de80d8371236692eee51",
+      "report": "docs/candidate-attestations/evidence/chat-visibility-boundary-recurrence-f2d51275.json",
+      "reportSha256": "72d3fa98b20583c03970819a100f0401026c93223af3bfcf6bdf1189bf31048f",
+      "reportStatus": "passed",
+      "reportGitHead": "f2d51275530d78b66825de80d8371236692eee51",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "production_drift_classified_without_message_content_or_actor_identifiers",
+        "disposable_postgresql_repair_recurrence_privacy_and_rollback_passed",
+        "production_migration_executed_inside_remote_rollback_probe",
+        "remote_rollback_restored_function_data_and_ledger_exactly",
+        "reviewed_migration_committed_transactionally",
+        "postflight_ledger_function_and_data_invariants_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "completed"
+      }
+    },
+    "backup": {
+      "status": "passed",
+      "sha": "f2d51275530d78b66825de80d8371236692eee51",
+      "report": "docs/candidate-attestations/evidence/chat-visibility-boundary-recurrence-f2d51275.json",
+      "reportSha256": "72d3fa98b20583c03970819a100f0401026c93223af3bfcf6bdf1189bf31048f",
+      "reportStatus": "passed",
+      "reportGitHead": "f2d51275530d78b66825de80d8371236692eee51",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "full_encrypted_logical_backup_created",
+        "backup_ciphertext_and_plaintext_integrity_verified",
+        "affected_tables_restore_drill_completed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "completed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-visibility-boundary-recurrence-contract.test.mjs scripts/db-migration-reconciliation-contract.test.mjs scripts/community-chat-negative-contract.test.mjs",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-chat-visibility-boundary-recurrence.ps1",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-conversation-visibility-delete-repair.ps1",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-selective-db-release-executor.ps1",
+    "npm run test:ci-fast-contracts",
+    "npm run test:web-wave2-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-visibility-boundary-recurrence.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "f2d51275530d78b66825de80d8371236692eee51",
+    "blockingFindings": [],
+    "scopeLimit": "Review covers trigger semantics, privacy-preserving backfill, rollback, selective-release postconditions and focal contracts. PostgreSQL and production execution were performed independently after review."
+  },
+  "notes": [
+    "Two production states for active non-sender participants were created before their conversation's first message and remained unbounded because the after-insert trigger initialized only the sender or a prior tombstone.",
+    "The successor initializes any active participant whose boundary is still NULL. Existing active NULL states that predate the first message receive that first message; ambiguous later states are tombstoned so older history cannot be reopened.",
+    "The selective-release global data gate now excludes valid deleted tombstones and uses the installed ledger, including anchors, to select the exact account-deactivation fingerprint.",
+    "A production rollback probe executed the exact migration and restored function, affected state and ledger. The reviewed selective release then committed version 20261001211000 and postflight reported every global data invariant at zero.",
+    "No platform runtime changed. Per the two-lane policy, Android, Web/Wasm and iOS matrices were not repeated solely for this backend and release-tooling change.",
+    "The encrypted full backup remains outside the repository. No connection string, key, actor identifier, conversation identifier, message identifier or absolute private path is committed."
+  ]
+}
