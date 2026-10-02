@@ -129,6 +129,10 @@ test("full-backup restore drill has a dedicated affected-table scope", () => {
   assert.match(restoreDrill, /restore_expected_community_post_likes_required/);
   assert.match(restoreDrill, /--use-list=\/backup\/community-post-likes\.restore\.list/);
   assert.match(restoreDrill, /WriteAllLines\(\$likesRestoreList[\s\S]*UTF8Encoding\]::new\(\$false\)/);
+  assert.match(restoreDrill, /\^\\d\+;\\s\+\\d\+\\s\+\\d\+\\s\+TABLE public community_profiles/);
+  assert.match(restoreDrill, /\^\\d\+;\\s\+\\d\+\\s\+\\d\+\\s\+SCHEMA - auth/);
+  assert.match(restoreDrill, /\^\\d\+;\\s\+\\d\+\\s\+\\d\+\\s\+FUNCTION auth uid/);
+  assert.doesNotMatch(restoreDrill, /\(\$_ -match '\\bSCHEMA\\b\.\*\\bauth\\b'\)/);
   assert.match(restoreDrill, /restore_community_post_likes_security_state_mismatch/);
   assert.match(restoreDrill, /public delete likes[\s\S]*public insert likes[\s\S]*public read likes/);
   assert.match(restoreDrill, /DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE/);

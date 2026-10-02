@@ -175,10 +175,10 @@ try {
         $likesRestoreEntries = @($toc | Where-Object {
             $_ -match '^;' -or
             (($_ -match '\bcommunity_post_likes\b') -and ($_ -notmatch '\bFK CONSTRAINT\b')) -or
-            (($_ -match '\bFUNCTION\b|\bACL\b') -and ($_ -match '\bquata_chat_auth_profile_id\b')) -or
-            ($_ -match '\bTABLE public community_profiles\b') -or
-            ($_ -match '\bSCHEMA\b.*\bauth\b') -or
-            ($_ -match '\bFUNCTION auth uid\(\)')
+            ($_ -match '^\d+;\s+\d+\s+\d+\s+(?:FUNCTION public|ACL public FUNCTION) quata_chat_auth_profile_id\(\)') -or
+            ($_ -match '^\d+;\s+\d+\s+\d+\s+TABLE public community_profiles\b') -or
+            ($_ -match '^\d+;\s+\d+\s+\d+\s+SCHEMA - auth\b') -or
+            ($_ -match '^\d+;\s+\d+\s+\d+\s+FUNCTION auth uid\(\)')
         })
         [IO.File]::WriteAllLines($likesRestoreList, [string[]]$likesRestoreEntries, [Text.UTF8Encoding]::new($false))
         if (-not (Test-Path -LiteralPath $likesRestoreList) -or (Get-Item -LiteralPath $likesRestoreList).Length -eq 0) {
