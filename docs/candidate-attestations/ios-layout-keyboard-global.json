@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
-  "certification": "affected-local-gates-complete-independent-review-pending-final-CI-pending",
+  "certification": "affected-local-gates-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
@@ -52,8 +52,8 @@
     "xcrun xcresulttool export attachments"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "f40768ff1da6fb8548c465b23e3073caa4114522",
     "blockingFindings": []
   },
   "notes": [
@@ -62,6 +62,7 @@
     "Post-rotation XCTest assertions never tap either input. The focused Message input stays above the keyboard, and the production opaque UIWindow backdrop contains the complete keyboard bounds in every observed phase.",
     "The backdrop intentionally exceeds the accessibility keyboard frame in landscape to cover the side regions behind the inset keyboard. Equality of those rectangles was a false test assumption; containment is the product invariant demonstrated by the retained screenshots.",
     "The failed 4d3d1833 and 3fe86d1e xcresults remain retained on the Mac, and the independent NO-GO on 7a6e507 is preserved in the report history. No failed attempt or review was rewritten as a passing result.",
+    "Independent exact-SHA review on f40768ff1 returned GO with no P0-P3 findings and reproduced the 8/8 focal contract, attestation validator and diff check.",
     "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation."
   ]
 }
