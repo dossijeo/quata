@@ -3,13 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [android, androidRunner, ios, iosTests, web, webTests] = await Promise.all([
+const [android, androidRunner, ios, iosTests, web, webTests, webBrowserRunner] = await Promise.all([
   source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
   source("scripts/shell-navigation-android-process-death-evidence.mjs"),
   source("iosApp/iosApp/QuataIosApp.swift"),
   source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
   source("web/src/wasmJsTest/kotlin/com/quata/web/WebNavigationTest.kt"),
+  source("scripts/web-authenticated-browser-e2e.mjs"),
 ]);
 
 test("Android retains the exact focused Chat message in saveable shell state and has a bounded focal proof", () => {
@@ -53,4 +54,8 @@ test("Web keeps an allowlisted Communities return only for the matching exact Ch
   assert.match(web, /clearConversationReturn\(\)/);
   assert.match(webTests, /communityConversationReturnSurvivesAFullDocumentReload/);
   assert.match(webTests, /assertEquals\("message 9", reloadedDocument\.chatMessageId\)/);
+  assert.match(webBrowserRunner, /authenticated_exact_chat_document_reload/);
+  assert.match(webBrowserRunner, /assertExactChatFocusSurvivesDocumentReload/);
+  assert.match(webBrowserRunner, /exact_chat_focus_reselected_once_after_real_document_reload/);
+  assert.match(webBrowserRunner, /newDocument: second\.timeOrigin !== first\.timeOrigin/);
 });

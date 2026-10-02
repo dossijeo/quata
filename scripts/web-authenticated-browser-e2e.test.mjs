@@ -346,6 +346,70 @@ test("real preflight rejects missing scope, privileged environment and non-publi
   );
 });
 
+test("exact Chat document reload is bounded to the hermetic fixture and exact RPC bodies", () => {
+  const backend = "https://project-ref.supabase.co";
+  const actor = "00000000-0000-4000-8000-000000000001";
+  const decide = (path, body, overrides = {}) => backendBrowserRequestDecision({
+    backend,
+    url: `${backend}/rest/v1/rpc/${path}`,
+    method: "POST",
+    stage: "authenticated_exact_chat_document_reload",
+    body: JSON.stringify(body),
+    hermeticFixture: true,
+    ...overrides,
+  });
+  const threadBody = {
+    p_actor_profile_id: actor,
+    p_thread_id: 42,
+    p_limit: 250,
+    p_known_message_ids: [],
+  };
+  const thread = decide("quata_chat_get_thread", threadBody);
+  assert.equal(thread.allowed, true);
+  assert.equal(thread.reason, "declared_hermetic_exact_chat_thread_read");
+  const receipt = decide("quata_chat_mark_thread_read", {
+    p_actor_profile_id: actor,
+    p_thread_id: 42,
+  });
+  assert.equal(receipt.allowed, true);
+  assert.equal(receipt.reason, "declared_hermetic_exact_chat_read_receipt");
+  assert.equal(decide("quata_chat_get_thread", threadBody, { hermeticFixture: false }).allowed, false);
+  assert.equal(decide("quata_chat_get_thread", threadBody, { stage: "authenticated_route_matrix" }).allowed, false);
+  const inboxPageBody = {
+    p_actor_profile_id: actor,
+    p_before_last_message_at: null,
+    p_before_thread_id: null,
+    p_before_updated_at: null,
+    p_limit: 100,
+  };
+  assert.equal(decide("quata_chat_get_inbox_page", inboxPageBody).allowed, true);
+  assert.equal(decide("quata_chat_get_inbox_page", inboxPageBody, { hermeticFixture: false }).allowed, false);
+  assert.equal(decide("quata_chat_search_conversation_candidates", {
+    p_actor_profile_id: actor,
+    p_query: "",
+    p_limit: 30,
+    p_offset: 0,
+  }).allowed, true);
+  for (const body of [
+    { ...threadBody, p_thread_id: 43 },
+    { ...threadBody, p_limit: 249 },
+    { ...threadBody, p_known_message_ids: [10] },
+    { ...threadBody, unexpected: true },
+  ]) {
+    assert.equal(decide("quata_chat_get_thread", body).allowed, false);
+  }
+  assert.equal(decide("quata_chat_mark_thread_read", {
+    p_actor_profile_id: actor,
+    p_thread_id: 42,
+    unexpected: true,
+  }).allowed, false);
+  assert.match(runner, /await page\.reload\(\{ waitUntil: "domcontentloaded", timeout: 60_000 \}\)/);
+  assert.match(runner, /second\.timeOrigin !== first\.timeOrigin/);
+  assert.match(runner, /reloadedDocumentSelectedEpisodes: second\.selectedEpisodes/);
+  assert.match(runner, /exact_chat_focus_reselected_once_after_real_document_reload/);
+  assert.match(runner, /if \(!options\.real\) \{[\s\S]*?assertExactChatFocusSurvivesDocumentReload/);
+});
+
 test("browser policy allows only declared read RPCs and Auth lifecycle effects", () => {
   const backend = "https://project-ref.supabase.co";
   const decision = (overrides = {}) => backendBrowserRequestDecision({

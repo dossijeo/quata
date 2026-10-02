@@ -4,7 +4,11 @@
 Chrome real. El modo predeterminado es hermético: sirve un backend fixture local, bloquea toda red
 externa y ejecuta login, recarga/restauración, el GET de Profile a través del producto, una matriz
 de rutas de solo lectura y logout mediante `WebAuthRepository` y `WebPushSessionCoordinator`.
-Chat no forma parte de este carril: la mensajería remota conserva su propio E2E, datos y limpieza.
+El modo hermético incluye una prueba focal de Chat: abre un fragmento con conversación y mensaje
+exactos, observa el foco accesible, recarga el documento antes de consumirlo y exige una única
+selección en el documento nuevo. El fixture valida los cuerpos exactos de `quata_chat_get_thread`
+y `quata_chat_mark_thread_read`; este permiso no existe en modo real. La mensajería remota conserva
+su propio E2E, datos y limpieza.
 Novedades e Historial de versiones usan el catálogo local compartido y sí forman parte de la matriz
 sin mutaciones backend. La insignia global de Notifications conserva
 `POST /rest/v1/rpc/quata_chat_get_inbox`, la bandeja paginada usa
@@ -39,7 +43,9 @@ links publicados por el propio producto. El gate observa los GET autenticados em
 permiten GET/HEAD/OPTIONS, dos efectos POST declarados: `web_login` durante login y
 `quata-web-push/logout` durante la limpieza, y las lecturas RPC exactas de inbox y del directorio de
 Conversaciones. Cualquier otro POST/PUT/PATCH/DELETE, incluido cualquier otro RPC PostgREST, se
-aborta en origen y hace fallar el resultado.
+aborta en origen y hace fallar el resultado. La excepción focal de Chat sólo se habilita cuando
+`hermeticFixture` es verdadero y el stage es `authenticated_exact_chat_document_reload`; el modo
+backend real no ejecuta ese stage ni obtiene esa allowlist.
 
 ## Modo backend real, opt-in
 

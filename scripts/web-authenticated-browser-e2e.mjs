@@ -3,7 +3,8 @@
  * Real-browser Auth/Profile read-only journey. Fixture mode is the default and is fully hermetic.
  * Remote mode explicitly accepts the deployed bridge's identity/session mutations, requires a
  * dedicated preprovisioned account, and cannot pass until global revocation has been verified.
- * Chat and every product mutation remain outside this runner.
+ * Fixture mode also proves exact Chat focus across a real document reload. Remote Chat and every
+ * remote product mutation remain outside this runner.
  */
 import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
@@ -78,6 +79,14 @@ const MAX_AUTHENTICATED_PAGED_INBOX_READS =
   NAVIGATION_STRESS_CYCLES * 18 + PAGED_INBOX_READS_PER_CHAT_MOUNT;
 const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42?message=msg%209";
 const PRIVATE_RETURN_ROUTE = "chat/sb:team/42";
+const EXACT_CHAT_RELOAD = Object.freeze({
+  threadId: 42,
+  messageId: 9,
+  fragment: "chat-sb%3A42?message=9",
+  route: "chat/sb:42",
+  body: "Exact document reload fixture",
+  accessibleName: "Fixture User: Exact document reload fixture",
+});
 
 const options = parseArguments(process.argv.slice(2));
 const report = {
@@ -92,7 +101,16 @@ const report = {
     productDml: "forbidden",
   },
 };
-const fixtureState = { login: 0, profileReads: 0, notificationInboxReads: 0, pagedInboxReads: 0, webLogout: 0, globalLogout: 0 };
+const fixtureState = {
+  login: 0,
+  profileReads: 0,
+  notificationInboxReads: 0,
+  pagedInboxReads: 0,
+  exactChatThreadReads: 0,
+  exactChatReadReceipts: 0,
+  webLogout: 0,
+  globalLogout: 0,
+};
 const unexpectedNetwork = [];
 const blockedBackendMutations = [];
 const productReadEvidence = {
@@ -143,6 +161,7 @@ try {
       method: request.method(),
       stage,
       body: request.postData(),
+      hermeticFixture: !options.real,
     });
     if (decision.backendApi) {
       if (!decision.allowed) {
@@ -184,6 +203,26 @@ try {
         !(options.real && url.startsWith(`${backend}/`))) {
       unexpectedNetwork.push(safeOrigin(url));
     }
+  });
+  await context.addInitScript(() => {
+    globalThis.__quataExactChatFocusEvents = [];
+    let previous = null;
+    new MutationObserver(() => {
+      const selected = document.documentElement?.getAttribute("data-quata-chat-focused-message-selected") ?? null;
+      if (selected !== previous) {
+        globalThis.__quataExactChatFocusEvents.push({
+          selected,
+          hash: globalThis.location.hash,
+          timeOrigin: performance.timeOrigin,
+          at: performance.now(),
+        });
+        previous = selected;
+      }
+    }).observe(document, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ["data-quata-chat-focused-message-selected"],
+    });
   });
   page = context.pages()[0] ?? await context.newPage();
   page.on("console", message => browserDiagnostics.push(
@@ -282,6 +321,17 @@ try {
   report.steps.push("authenticated_primary_roots_survive_new_documents_without_route_replay");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
+  if (!options.real) {
+    stage = "authenticated_exact_chat_document_reload";
+    report.exactChatDocumentReload = await assertExactChatFocusSurvivesDocumentReload(
+      page,
+      browserDiagnostics,
+      options.output,
+    );
+    report.steps.push("exact_chat_focus_reselected_once_after_real_document_reload");
+    assertNoBlockedBackendMutations(blockedBackendMutations);
+  }
+
   stage = "authenticated_profile_sos_contacts";
   report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps, {
     profileSosSaveError: options.profileSosSaveError,
@@ -342,6 +392,7 @@ try {
 
   if (!options.real) {
     if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.pagedInboxReads < 1 ||
+        fixtureState.exactChatThreadReads < 2 || fixtureState.exactChatReadReceipts < 2 ||
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
@@ -554,6 +605,53 @@ async function startServer(distribution, state, configuration) {
           threads: [], messages: [], profiles: [], has_more: false, next_cursor: null,
         });
       }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_get_thread") {
+        const body = await jsonBody(request);
+        const keys = Object.keys(body).sort();
+        const expectedKeys = ["p_actor_profile_id", "p_known_message_ids", "p_limit", "p_thread_id"];
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || body.p_thread_id !== EXACT_CHAT_RELOAD.threadId ||
+            body.p_limit !== 250 || !Array.isArray(body.p_known_message_ids) ||
+            body.p_known_message_ids.some(id => id !== EXACT_CHAT_RELOAD.messageId) ||
+            keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) {
+          return json(response, 405, { error: "fixture_exact_chat_thread_read_forbidden" });
+        }
+        state.exactChatThreadReads += 1;
+        const known = body.p_known_message_ids.includes(EXACT_CHAT_RELOAD.messageId);
+        return json(response, 200, {
+          threads: [{
+            id: EXACT_CHAT_RELOAD.threadId,
+            type: "private",
+            title: "Exact reload fixture",
+            participants: [FIXTURE.profileId],
+            unread: 0,
+            updated_at: "2026-10-02T00:00:00Z",
+          }],
+          messages: known ? [] : [{
+            id: EXACT_CHAT_RELOAD.messageId,
+            thread_id: EXACT_CHAT_RELOAD.threadId,
+            sender_profile_id: FIXTURE.profileId,
+            body: EXACT_CHAT_RELOAD.body,
+            created_at: "2026-10-02T00:00:00Z",
+            created_at_millis: 1_759_363_200_000,
+            delivery_state: "READ",
+            sender: { id: FIXTURE.profileId, display_name: "Fixture User" },
+          }],
+          profiles: [{ id: FIXTURE.profileId, display_name: "Fixture User" }],
+        });
+      }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_mark_thread_read") {
+        const body = await jsonBody(request);
+        const keys = Object.keys(body).sort();
+        const expectedKeys = ["p_actor_profile_id", "p_thread_id"];
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || body.p_thread_id !== EXACT_CHAT_RELOAD.threadId ||
+            keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) {
+          return json(response, 405, { error: "fixture_exact_chat_read_receipt_forbidden" });
+        }
+        state.exactChatReadReceipts += 1;
+        return json(response, 200, { thread_id: EXACT_CHAT_RELOAD.threadId, unread: 0 });
+      }
       if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
         const body = await jsonBody(request);
         if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
@@ -685,6 +783,90 @@ async function assertPrimaryRoutesSurviveReload(page, diagnostics) {
   }
   assertHealthyAuthenticatedShell(diagnostics, diagnosticsAtStart);
   return { status: "passed", roots };
+}
+
+async function assertExactChatFocusSurvivesDocumentReload(page, diagnostics, reportOutput) {
+  const diagnosticsAtStart = diagnostics.length;
+  await page.evaluate(fragment => {
+    globalThis.location.hash = fragment;
+  }, EXACT_CHAT_RELOAD.fragment);
+  await waitForExactChatFocus(page);
+  const first = await exactChatDocumentState(page);
+  assertExactChatFocusedDocument(first, null);
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.waitForFunction(() => globalThis.__quataAuthE2eProduct?.version === 1);
+  await waitForExactChatFocus(page);
+  const second = await exactChatDocumentState(page);
+  assertExactChatFocusedDocument(second, first.timeOrigin);
+  await page.screenshot({ path: reportOutput.replace(/\.json$/i, ".exact-chat-reload.png"), fullPage: true });
+
+  await page.waitForFunction(
+    () => !document.documentElement.hasAttribute("data-quata-chat-focused-message-selected"),
+    null,
+    { timeout: 15_000 },
+  );
+  const consumed = await exactChatDocumentState(page);
+  if (consumed.hash !== "#chat-sb%3A42" || consumed.route !== EXACT_CHAT_RELOAD.route ||
+      consumed.selected !== null || consumed.selectedEpisodes !== 1) {
+    throw new Error("exact_chat_reload_focus_not_consumed_once");
+  }
+  assertHealthyAuthenticatedShell(diagnostics, diagnosticsAtStart);
+  return {
+    status: "passed",
+    exactThreadId: String(EXACT_CHAT_RELOAD.threadId),
+    exactMessageId: String(EXACT_CHAT_RELOAD.messageId),
+    accessibleTextMatched: true,
+    firstDocumentTimeOrigin: first.timeOrigin,
+    reloadedDocumentTimeOrigin: second.timeOrigin,
+    newDocument: second.timeOrigin !== first.timeOrigin,
+    firstDocumentSelectedEpisodes: first.selectedEpisodes,
+    reloadedDocumentSelectedEpisodes: second.selectedEpisodes,
+    focusConsumedOnceInReloadedDocument: consumed.selectedEpisodes === 1,
+    consumedHash: consumed.hash,
+    screenshot: reportOutput.replace(/\.json$/i, ".exact-chat-reload.png"),
+  };
+}
+
+async function waitForExactChatFocus(page) {
+  await page.waitForFunction(
+    ({ route, messageId }) =>
+      document.documentElement.getAttribute("data-quata-shell-route") === route &&
+      globalThis.__quataExactChatFocusEvents?.some(event => event.selected === String(messageId)),
+    { route: EXACT_CHAT_RELOAD.route, messageId: EXACT_CHAT_RELOAD.messageId },
+    { timeout: 60_000 },
+  );
+  const message = page.locator(
+    `[id="chat.message.${EXACT_CHAT_RELOAD.messageId}.selected"], ` +
+    `[title="chat.message.${EXACT_CHAT_RELOAD.messageId}.selected"]`,
+  ).first();
+  await message.and(page.getByRole("button", { name: EXACT_CHAT_RELOAD.accessibleName, exact: true }))
+    .waitFor({ state: "visible", timeout: 15_000 });
+  await page.locator('[id="quata-splash-root"], [title="quata-splash-root"]').waitFor({ state: "hidden", timeout: 15_000 });
+  await page.locator('[id^="quata-ugc-terms-"], [title^="quata-ugc-terms-"]').first()
+    .waitFor({ state: "hidden", timeout: 15_000 });
+}
+
+async function exactChatDocumentState(page) {
+  return page.evaluate(messageId => ({
+    hash: globalThis.location.hash,
+    route: document.documentElement.getAttribute("data-quata-shell-route"),
+    selected: document.documentElement.getAttribute("data-quata-chat-focused-message-selected"),
+    selectedEpisodes: globalThis.__quataExactChatFocusEvents
+      .filter(event => event.selected === String(messageId)).length,
+    events: globalThis.__quataExactChatFocusEvents,
+    timeOrigin: performance.timeOrigin,
+  }), EXACT_CHAT_RELOAD.messageId);
+}
+
+function assertExactChatFocusedDocument(state, previousTimeOrigin) {
+  if (state.hash !== `#${EXACT_CHAT_RELOAD.fragment}` || state.route !== EXACT_CHAT_RELOAD.route ||
+      state.selected !== String(EXACT_CHAT_RELOAD.messageId) || state.selectedEpisodes !== 1) {
+    throw new Error("exact_chat_reload_focus_state_invalid");
+  }
+  if (previousTimeOrigin !== null && state.timeOrigin === previousTimeOrigin) {
+    throw new Error("exact_chat_reload_did_not_create_new_document");
+  }
 }
 
 /** Exercises the actual Compose hash router before authenticating against the hermetic bridge. */

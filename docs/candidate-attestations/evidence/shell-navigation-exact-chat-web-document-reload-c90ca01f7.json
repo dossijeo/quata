@@ -1,0 +1,70 @@
+{
+  "check": "FLOW-SHELL-NAV-WEB-EXACT-CHAT-DOCUMENT-RELOAD-001",
+  "status": "passed",
+  "candidateProductSha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+  "runtimeProductSha": "c90ca01f7a4c9db869943db8f09cb0c01766baf0",
+  "git": {
+    "head": "c90ca01f7a4c9db869943db8f09cb0c01766baf0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "production_wasm_distribution_built_from_exact_clean_head",
+    "authenticated_exact_chat_fragment_opened_in_real_chrome",
+    "exact_chat_message_visible_and_accessible_before_reload",
+    "real_document_reload_created_a_new_performance_time_origin",
+    "exact_chat_focus_reselected_once_after_real_document_reload",
+    "focused_message_consumed_once_in_reloaded_document",
+    "remote_network_and_undeclared_product_mutations_remained_blocked",
+    "fixture_session_revoked_and_verified"
+  ],
+  "browser": {
+    "name": "Google Chrome",
+    "version": "154.0.8037.95",
+    "mode": "hermetic_local_fixture",
+    "distribution": "web/build/dist/wasmJs/productionExecutable",
+    "sourceRevision": "c90ca01f7a4c9db869943db8f09cb0c01766baf0"
+  },
+  "exactChatDocumentReload": {
+    "threadId": "42",
+    "messageId": "9",
+    "accessibleTextMatched": true,
+    "firstDocumentTimeOrigin": 1790941541922.775,
+    "reloadedDocumentTimeOrigin": 1790941546147.31,
+    "newDocument": true,
+    "firstDocumentSelectedEpisodes": 1,
+    "reloadedDocumentSelectedEpisodes": 1,
+    "focusConsumedOnceInReloadedDocument": true,
+    "consumedHash": "#chat-sb%3A42"
+  },
+  "network": {
+    "policy": "local_only",
+    "unexpectedOrigins": [],
+    "blockedMutations": 0,
+    "exactRpcBodiesValidated": true,
+    "remoteModeChatPermission": false
+  },
+  "rawLocalEvidence": {
+    "report": "build-reports/web/shell-chat-reload-authenticated-browser-e2e.json",
+    "reportSha256": "7091f0ef34342918b3bbf09806645d3506b7082244a468c38be035ea41c3491b",
+    "screenshot": "build-reports/web/shell-chat-reload-authenticated-browser-e2e.exact-chat-reload.png",
+    "screenshotSha256": "aa4129c9ad841c7b7464247d27d0dda9e3dc07e38c93a84587bfef30217defd8"
+  },
+  "cleanup": {
+    "state": "sessions_revoked_and_verified",
+    "verified": true,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "equivalence": {
+    "runtimeSha": "c90ca01f7a4c9db869943db8f09cb0c01766baf0",
+    "candidateSha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+    "changedPaths": [
+      "docs/WEB_AUTHENTICATED_BROWSER_E2E.md"
+    ],
+    "executableInputsIdentical": true
+  },
+  "limits": [
+    "This focal evidence proves exact Chat conversation and focused-message restoration across an actual Web document reload. It does not claim scroll restoration, composer drafts or unrelated secondary destinations.",
+    "The fixture serves the real product RPC shapes locally and validates their exact authenticated request bodies. It makes no claim about deployed Supabase availability."
+  ]
+}
