@@ -5,13 +5,13 @@
   ],
   "status": "passed",
   "productSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
-  "certification": "affected-platform-and-database-safety-validation-complete-independent-review-and-final-ci-pending",
+  "certification": "affected-platform-and-database-safety-validation-and-independent-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
       "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
+      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
       "reportStatus": "passed",
       "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
@@ -34,7 +34,7 @@
       "status": "passed",
       "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
+      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
       "reportStatus": "passed",
       "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
@@ -52,7 +52,7 @@
       "status": "passed",
       "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
+      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
       "reportStatus": "passed",
       "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
@@ -74,7 +74,7 @@
       "status": "passed",
       "sha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "report": "docs/candidate-attestations/evidence/chat-message-mutation-idempotency-f74af79b.json",
-      "reportSha256": "349e287a9c28608f629819ef2d22e999d29a7adf907139577748809adce20a5a",
+      "reportSha256": "24d2e26810ae7a1b52c33d098854c43e30c0c832fa1b8b44c0ef12f91471e078",
       "reportStatus": "passed",
       "reportGitHead": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
       "reportWorkingTreeDirty": false,
@@ -103,9 +103,16 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-message-mutation-idempotency.json"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
-    "blockingFindings": []
+    "status": "GO",
+    "reviewedSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+    "reviewedAttestationSha": "8e4a1bf5e26c22fb93e4916de2bb325b6723b454",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    }
   },
   "notes": [
     "Retries reuse the exact failed edit, delete or report request. Retry IDs remain stable and edit/delete/report share one mutation lock.",
@@ -117,6 +124,7 @@
     "The first broad iOS run passed all 52 ChatViewModel tests while one unrelated historical inbox pagination repository test exhausted its virtual timeout. The accepted baseline iOS run selected the nine changed mutation methods; all nine passed without failures, errors or skips.",
     "The first independent review returned NO-GO for actor validation, v2 fault injection and cross-action locking. b487a484 closed the latter two and added actor revalidation. The remediation review found that actor mismatch removed the internal overlay without republishing messages; f74af79b fixes that residual and asserts message text and pending state.",
     "The 84-test Web and nine-test iOS baselines ran on b487a484; a5133995 changed only capability hashes. The exact reviewer fix passed on Web and is recorded for iOS at f74af79b; Android compilation, 773 fast contracts and 22 capability tests passed on f74af79b.",
+    "Final independent review returned GO on Product f74af79b and attestation HEAD 8e4a1bf5 with no P0-P3 findings.",
     "The report is sanitized: it contains no host address, absolute private path, credential, connection string, backup key or business row count.",
     "The candidate remains local until its predecessor candidates merge; persistent database deployment is not claimed by this attestation."
   ]

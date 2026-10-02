@@ -116,7 +116,17 @@
       "remainingFinding": "The actor-mismatch path removed the stale overlay map entry but did not republish backend messages, so the previous actor's optimistic text could remain visible."
     },
     "finalRemediation": "Product f74af79b republishes backend messages immediately after removing the stale optimistic edit; the regression test asserts original text and non-pending state after both late success and late failure.",
-    "finalReview": "PENDING"
+    "finalReview": {
+      "status": "GO",
+      "reviewedProductSha": "f74af79b7060e65d60a8472f74cbb48be43b0cac",
+      "reviewedAttestationSha": "8e4a1bf5e26c22fb93e4916de2bb325b6723b454",
+      "findingCounts": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    }
   },
   "provenance": {
     "baselineRuntimeEvidenceSha": "b487a484e9851a3d496d2fc86aec07ca1bebe9b3",
