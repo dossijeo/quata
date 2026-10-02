@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "cbf044037250c134f50dceedac2ac09dd29d991d",
-  "certification": "rebased-affected-local-gates-complete-independent-review-pending-final-CI-pending",
+  "certification": "rebased-affected-local-gates-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
@@ -54,8 +54,8 @@
     "xcrun xcresulttool export attachments"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "a5d3f9131e2f602f1371be6987866b4bb36299b9",
     "blockingFindings": []
   },
   "notes": [
@@ -65,7 +65,7 @@
     "The backdrop intentionally exceeds the accessibility keyboard frame in landscape to cover the side regions behind the inset keyboard. Equality of those rectangles was a false test assumption; containment is the product invariant demonstrated by the retained screenshots.",
     "The failed 4d3d1833 and 3fe86d1e xcresults remain retained on the Mac, and the independent NO-GO on 7a6e507 is preserved in the report history. No failed attempt or review was rewritten as a passing result.",
     "Independent exact-SHA review on f40768ff1 returned GO with no P0-P3 findings and reproduced the 8/8 focal contract, attestation validator and diff check.",
-    "After #513 merged, the unit rebased to Product SHA cbf044037. All six non-documentary unit blobs are byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, diff check and Profile Wasm compilation passed on the rebased tree. The runtime XCTest remains attributed to fc794f68, while final GitHub iOS certification must validate the combined candidate.",
+    "After #513 merged, the unit rebased to Product SHA cbf044037. All six non-documentary unit blobs are byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, diff check and Profile Wasm compilation passed on the rebased tree. Independent exact-SHA review on a5d3f9131 returned GO with no P0-P3 findings. The runtime XCTest remains attributed to fc794f68, while final GitHub iOS certification must validate the combined candidate.",
     "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation."
   ]
 }
