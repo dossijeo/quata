@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "units": [
+    "COMMUNITY-POST-LIKES-ACTOR-GUARD"
+  ],
+  "status": "passed",
+  "productSha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+  "certification": "affected-database-and-platform-contracts-and-independent-review-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "report": "docs/candidate-attestations/evidence/community-post-likes-actor-guard-b3cfeefa.json",
+      "reportSha256": "6de82eab1717acc301aeb9f43f0be4624ee43d29c442449dab47cb441a09a60d",
+      "reportStatus": "passed",
+      "reportGitHead": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_like_mutation_requires_current_authenticated_user",
+        "anonymous_public_like_reads_preserved",
+        "postgrest_actor_boundary_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "static-client-contract-and-isolated-postgrest"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "report": "docs/candidate-attestations/evidence/community-post-likes-actor-guard-b3cfeefa.json",
+      "reportSha256": "6de82eab1717acc301aeb9f43f0be4624ee43d29c442449dab47cb441a09a60d",
+      "reportStatus": "passed",
+      "reportGitHead": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_v32_like_mutation_requires_authenticated_session_and_actor",
+        "anonymous_public_like_reads_preserved",
+        "postgrest_actor_boundary_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "published-v32-static-contract-and-isolated-postgrest"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "report": "docs/candidate-attestations/evidence/community-post-likes-actor-guard-b3cfeefa.json",
+      "reportSha256": "6de82eab1717acc301aeb9f43f0be4624ee43d29c442449dab47cb441a09a60d",
+      "reportStatus": "passed",
+      "reportGitHead": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_like_mutation_requires_current_authenticated_user",
+        "anonymous_public_like_reads_preserved",
+        "postgrest_actor_boundary_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "static-client-contract-and-isolated-postgrest"
+      }
+    },
+    "database": {
+      "status": "passed",
+      "sha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "report": "docs/candidate-attestations/evidence/community-post-likes-actor-guard-b3cfeefa.json",
+      "reportSha256": "6de82eab1717acc301aeb9f43f0be4624ee43d29c442449dab47cb441a09a60d",
+      "reportStatus": "passed",
+      "reportGitHead": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "anonymous_like_insert_and_delete_revoked",
+        "authenticated_own_like_insert_and_delete_allowed",
+        "cross_actor_like_insert_and_delete_rejected",
+        "postgres_disposable_migration_rollback_reapply_passed",
+        "selective_release_executor_exact_postconditions_passed",
+        "encrypted_full_logical_backup_created",
+        "community_post_likes_selective_restore_drill_passed",
+        "remote_predeploy_transactional_probe_rolled_back",
+        "selective_release_snapshot_and_dry_run_passed",
+        "community_post_likes_migration_committed_transactionally",
+        "database_release_postflight_passed",
+        "community_post_likes_catalog_postflight_passed",
+        "remote_postdeploy_behavior_probe_rolled_back_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "committed-release-with-probes-rolled-back-and-zero-residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/community-post-likes-actor-guard-contract.test.mjs (15/15 on exact product head)",
+    "affected release/database contract suite (109/109 before the final restore-filter-only delta)",
+    ".\\scripts\\test-community-post-likes-actor-guard.ps1",
+    ".\\scripts\\run-community-post-likes-postgrest-test.ps1",
+    "node scripts/community-post-likes-transactional-probe.mjs --mode predeploy --db-url-file <private-file> --tls-ca-file <private-file>",
+    "scripts/run-db-release-safety.ps1 snapshot and postflight for 20261002010000",
+    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for the exact frozen package",
+    "node scripts/community-post-likes-release-postflight.mjs --db-url-file <private-file> --tls-ca-file <private-file>",
+    "node scripts/community-post-likes-transactional-probe.mjs --mode postdeploy --db-url-file <private-file> --tls-ca-file <private-file>",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/community-post-likes-actor-guard.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+    "productSha": "b3cfeefacf09e3048d29146ddeb6166d2063611a",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "scope": "Independent exact-head review verified the narrowed restore TOC dependencies, complete Community likes table/data/RLS/policies/ACL/resolver restore scope, 15 focal contracts, diff-check and a clean tree."
+  },
+  "notes": [
+    "Community post likes remain publicly readable while INSERT and DELETE now require the authenticated actor to own profile_id.",
+    "Android v32 already requires an active AuthSession and authenticated transport for likes, so no insecure compatibility exception was needed.",
+    "Web/Wasm and iOS already bind like mutations to their current authenticated transport user; no platform runtime source changed in this unit.",
+    "A fresh encrypted Full logical backup was created before deployment. Both integrity checks and the focal restore drill passed without persisting plaintext.",
+    "Migration 20261002010000 committed atomically from the exact b3cfeefac package. Global and focal postflights passed, and the postdeploy behavior probe rolled back every synthetic mutation with zero residue.",
+    "The first focal restore attempt failed closed on overly broad managed ACL dependencies. The reviewed final product head narrows only those dependencies and the real restore drill then passed.",
+    "No full E2E platform matrix was repeated solely for SHA identity; final GitHub jobs provide clean-runner recertification.",
+    "The report is sanitized and contains no private path, credential, connection string, project fingerprint, backup key or business row count."
+  ]
+}
