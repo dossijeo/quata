@@ -578,6 +578,14 @@ data class QuataChatFavoriteRequest(
 data class QuataChatFavoritesRequest(val p_actor_profile_id: String, val p_limit: Int = 250)
 
 @Serializable
+data class QuataChatFavoritesPageRequest(
+    val p_actor_profile_id: String,
+    val p_limit: Int = 250,
+    val p_before_created_at: String? = null,
+    val p_before_message_id: Long? = null,
+)
+
+@Serializable
 data class QuataChatEditMessageRequest(val p_actor_profile_id: String, val p_thread_id: Long, val p_message_id: Long, val p_message: String)
 
 @Serializable

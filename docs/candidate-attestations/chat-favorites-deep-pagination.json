@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-FAVORITES"
+  ],
+  "status": "passed",
+  "productSha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+  "certification": "deep-favorites-pagination-complete-production-release-committed-authenticated-rest-externally-blocked-http-402",
+  "evidenceKind": "ADDITIVE_AUTHENTICATED_CURSOR_PAGINATION",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-a8d26fba.json",
+      "reportSha256": "ef816b2f7e981d856c98eadf4d9300cea6f7177acf2e984c78fe0d32acdfa032",
+      "reportStatus": "passed",
+      "reportGitHead": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "first_page_contains_250_favorites_and_has_more_true",
+        "second_page_contains_250_favorites_and_has_more_true",
+        "final_page_contains_101_favorites_and_has_more_false",
+        "all_601_favorites_are_present_exactly_once",
+        "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+        "common_actor_switch_clears_previous_actor_while_offline",
+        "common_in_flight_response_cannot_cross_actor_boundary",
+        "common_refresh_and_older_page_load_are_serialized",
+        "web_wasm_repository_class_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-a8d26fba.json",
+      "reportSha256": "ef816b2f7e981d856c98eadf4d9300cea6f7177acf2e984c78fe0d32acdfa032",
+      "reportStatus": "passed",
+      "reportGitHead": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "additive_favorites_page_rpc_preserves_legacy_v32_rpc",
+        "all_601_favorites_are_present_exactly_once",
+        "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+        "android_pager_executable_tests_passed",
+        "android_debug_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-a8d26fba.json",
+      "reportSha256": "ef816b2f7e981d856c98eadf4d9300cea6f7177acf2e984c78fe0d32acdfa032",
+      "reportStatus": "passed",
+      "reportGitHead": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "equal_timestamp_cursor_tie_breaks_by_descending_message_id",
+        "all_601_favorites_are_present_exactly_once",
+        "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+        "common_actor_switch_clears_previous_actor_while_offline",
+        "common_in_flight_response_cannot_cross_actor_boundary",
+        "common_refresh_and_older_page_load_are_serialized",
+        "ios_x64_four_focal_tests_passed_on_exact_equivalent_product_blobs"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_transport_no_credentials_no_backend_mutation"
+      }
+    },
+    "backend": {
+      "status": "passed",
+      "sha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-a8d26fba.json",
+      "reportSha256": "ef816b2f7e981d856c98eadf4d9300cea6f7177acf2e984c78fe0d32acdfa032",
+      "reportStatus": "passed",
+      "reportGitHead": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "recomposed_runtime_and_database_blobs_verified_byte_equivalent",
+        "combined_favorites_visibility_and_reconciliation_contracts_passed",
+        "disposable_postgresql_apply_assert_rollback_passed",
+        "selective_release_executor_authorization_rollback_and_apply_fixture_passed",
+        "full_encrypted_logical_backup_created",
+        "backup_ciphertext_and_plaintext_integrity_verified",
+        "affected_tables_restore_drill_completed",
+        "selective_release_snapshot_and_dry_run_passed",
+        "favorites_migration_committed_transactionally",
+        "production_ledger_function_acl_cursor_and_data_postconditions_passed",
+        "authenticated_rest_trial_attempted_without_backend_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "release_committed_no_fixture_residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/capability-matrix-contract.test.mjs",
+    "node --check scripts/selective-db-release-executor.mjs",
+    "node --test scripts/chat-favorites-pagination-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-chat-favorites-cursor-pagination.ps1",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatFavoritesPagerTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesCursorLoadsSixHundredAndOneMessagesAcrossThreeStablePages --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesActorSwitchClearsPreviousActorWhileOffline --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesInFlightResponseCannotCrossActorBoundary --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesRefreshSerializesWithOlderPageLoadWithoutTruncatingDepth --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-favorites-deep-pagination.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "c38d803dca8456b7c4382c16a11c820f9c9cff76",
+    "recomposedProductSha": "a8d26fba770a43ff7c11dc05564ce88dbeb52f46",
+    "blockingFindings": [],
+    "scopeLimit": "Independent review covers the exact capability-matrix rebinding, all prior Favorites runtime/database evidence and the attestation at c38d803d; no P0-P3 findings remain.",
+    "equivalence": "All 19 previously reviewed runtime and release blobs remain exact. Product commit a8d26fba changes exactly 11 SHA-256 declarations for only the three decisive Favorites sources, with zero state, operation or semantic change."
+  },
+  "notes": [
+    "The previous favorites RPC capped every client at 250 rows and exposed no cursor. The new authenticated-only RPC uses the stable keyset (created_at DESC, id DESC), returns at most 250 rows plus has_more/next_cursor, and rejects partial cursors.",
+    "Web/Wasm and iOS use the shared Postgrest repository; Android keeps its native adapter. Both serialize refresh and older-page loads, retain loaded depth, clear actor-owned state before replacement, and reject in-flight responses for a stale actor.",
+    "The legacy two-argument quata_chat_get_favorites RPC remains byte-for-byte unchanged for the authorized Android v32 compatibility path.",
+    "All affected runtime, migration, rollback and PostgreSQL fixture blobs are byte-identical from 10320a18 through da1dedcc to be797d3a. Per the two-lane policy, platform matrices were not repeated solely for either recomposition identity; merged release contracts and database fixtures were renewed.",
+    "A fresh encrypted full backup preceded the transaction. Migration 20261001211500 committed and its ledger, function, ACL, cursor and data postconditions passed. The full vanilla PostgreSQL restore still rejects Supabase pg_cron, while decryption, hashes and the affected-table restore drill pass.",
+    "The authenticated REST trial stopped at quata-auth-bridge HTTP 402 before session creation or RPC execution. This external limit is preserved explicitly and does not undo the committed database release or hermetic cross-platform pagination proof.",
+    "The final independent review of 807d5785a returned GO with no P0-P3 findings after verifying all 19 frozen blobs, range-diff equivalence, focal contracts, the evidence hash and the already committed production release. A fresh read-only production inventory still contains ledger version 20261001211500 with no missing Android RPC or table; its global blocked_compatibility status is the existing historical db-push prohibition, not a Favorites postflight failure.",
+    "The first candidate-final run exposed stale capability declarations for SupabaseCommunityApi.kt, ChatRepositoryImpl.kt and PostgrestChatRepository.kt. Product commit a8d26fba7 rebinds every occurrence to the exact normalized source hash; the complete 22-test matrix contract, including decisive-source and APNs negative controls, passes.",
+    "Independent review of c38d803d returned GO with no P0-P3 findings: 11 declaration fields across 5/2/4 occurrences bind exactly to the three normalized sources, all 105 matrix file bindings pass, both negative controls execute their intended target, and the 19 frozen runtime/release blobs remain exact."
+  ]
+}

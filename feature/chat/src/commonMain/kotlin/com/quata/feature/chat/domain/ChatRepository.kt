@@ -38,6 +38,11 @@ data class ChatConversationPage(
     val nextCursor: ChatConversationCursor?,
 )
 
+data class ChatFavoriteCursor(
+    val createdAt: String,
+    val messageId: Long,
+)
+
 data class ChatForwardResult(
     val requestedCount: Int,
     val sentCount: Int,

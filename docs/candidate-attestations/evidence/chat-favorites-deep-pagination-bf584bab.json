@@ -1,0 +1,53 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "bf584babe1a238ee2cd926feae1a4c23ebbd5552",
+    "workingTreeDirty": false
+  },
+  "scope": "Hermetic deep pagination of Chat favorites on exact Product SHA bf584babe1a238ee2cd926feae1a4c23ebbd5552: 601 favorites are exhausted as 250, 250 and 101 through a new authenticated additive RPC, accumulated exactly once, retained across refresh, serialized against concurrent paging, and isolated across actor changes in the shared and Android runtimes.",
+  "steps": [
+    "additive_favorites_page_rpc_preserves_legacy_v32_rpc",
+    "authenticated_only_acl_and_delegation_to_integrated_actor_boundary",
+    "equal_timestamp_cursor_tie_breaks_by_descending_message_id",
+    "first_page_contains_250_favorites_and_has_more_true",
+    "second_page_contains_250_favorites_and_has_more_true",
+    "final_page_contains_101_favorites_and_has_more_false",
+    "all_601_favorites_are_present_exactly_once",
+    "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+    "common_actor_switch_clears_previous_actor_while_offline",
+    "common_in_flight_response_cannot_cross_actor_boundary",
+    "common_refresh_and_older_page_load_are_serialized",
+    "android_pager_executable_tests_passed",
+    "disposable_postgresql_apply_assert_rollback_passed",
+    "web_wasm_repository_class_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_four_focal_tests_passed_on_exact_product_sha"
+  ],
+  "validation": {
+    "staticContract": "node --test scripts/chat-favorites-pagination-contract.test.mjs",
+    "database": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-chat-favorites-cursor-pagination.ps1",
+    "webTests": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "android": ".\\gradlew.bat :app:compileDebugKotlin --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "iosFocal": "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesCursorLoadsSixHundredAndOneMessagesAcrossThreeStablePages --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesActorSwitchClearsPreviousActorWhileOffline --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesInFlightResponseCannotCrossActorBoundary --tests com.quata.feature.chat.data.PostgrestChatRepositoryTest.favoritesRefreshSerializesWithOlderPageLoadWithoutTruncatingDepth --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "androidPager": ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatFavoritesPagerTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain"
+  },
+  "results": {
+    "staticContract": "3 tests passed; combined Chat contract run 19/19",
+    "database": "CHAT_FAVORITES_CURSOR_PAGINATION_POSTGRES_PASS",
+    "webWasmRepository": "PostgrestChatRepositoryTest passed in Chrome Headless; BUILD SUCCESSFUL on exact Product SHA bf584babe",
+    "android": "AndroidChatFavoritesPagerTest and :app:compileDebugKotlin passed; BUILD SUCCESSFUL on exact Product SHA bf584babe",
+    "iosX64Focal": "Four affected favorites tests passed; BUILD SUCCESSFUL on exact Product SHA bf584babe",
+    "composition": "All affected platform validations ran on exact Product SHA bf584babe; no runtime-equivalent SHA substitution is used."
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "disposable_postgresql_and_hermetic_transport_no_credentials_no_backend_mutation"
+  },
+  "preservedFailures": [
+    "The first iOS invocation stopped before compilation because the Intel VM exposes its CPU marketing string to Gradle architecture detection. Reusing the repository's existing explicit JDK registration bypassed that host quirk; the exact focal test then passed without changing product code."
+  ],
+  "limits": [
+    "The additive migration and its selective-release postcondition are proven in disposable PostgreSQL. Deployment and an authenticated production RPC trial remain pending until this candidate is promoted and Supabase REST no longer returns 402 exceed_egress_quota.",
+    "This unit removes the 250-item favorites ceiling and proves actor isolation and refresh/load serialization. It does not recertify favorite creation/removal UI, focused-message navigation, or unrelated Chat flows."
+  ]
+}

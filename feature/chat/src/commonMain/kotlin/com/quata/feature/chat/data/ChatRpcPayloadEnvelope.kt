@@ -4,6 +4,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
 import com.quata.feature.chat.domain.ChatConversationCursor
+import com.quata.feature.chat.domain.ChatFavoriteCursor
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -25,6 +26,8 @@ data class ChatRpcPayloadEnvelope(
     val profiles: List<JsonObject>,
     val inboxHasMore: Boolean = false,
     val inboxNextCursor: ChatConversationCursor? = null,
+    val favoritesHasMore: Boolean = false,
+    val favoritesNextCursor: ChatFavoriteCursor? = null,
 )
 
 /** Transport-neutral profile record embedded in current inbox/thread payloads. */
@@ -76,6 +79,12 @@ fun parseChatRpcPayloadEnvelope(payload: JsonElement): ChatRpcPayloadEnvelope {
                 updatedAt = updatedAt,
                 threadId = threadId,
             )
+        },
+        favoritesHasMore = root.booleanAt("has_more") == true,
+        favoritesNextCursor = root.objectAt("next_cursor")?.let { cursor ->
+            val createdAt = cursor.stringAt("created_at") ?: return@let null
+            val messageId = cursor.longAt("message_id") ?: return@let null
+            ChatFavoriteCursor(createdAt = createdAt, messageId = messageId)
         },
     )
 }
