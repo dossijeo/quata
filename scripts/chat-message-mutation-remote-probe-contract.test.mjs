@@ -20,6 +20,21 @@ test("remote message mutation probe applies and exercises the migration only ins
   assert.doesNotMatch(source, /client\.query\(["']commit["']\)/i);
 });
 
+test("postdeploy mode verifies the committed ledger and installed boundary while rolling back its fixture", () => {
+  for (const token of [
+    'mode: "predeploy"',
+    '"postdeploy"',
+    "assertInstalledLedger",
+    "20261002003000",
+    "chat_message_mutation_idempotency",
+    "CHAT_MESSAGE_MUTATION_REMOTE_POSTDEPLOY_PASS",
+  ]) assert.ok(source.includes(token), `missing ${token}`);
+  assert.match(source, /args\.mode === "predeploy" \? readFile\(args\.migration/);
+  assert.match(source, /if \(args\.mode === "predeploy"\) \{[\s\S]*await client\.query\(migration\);/);
+  assert.match(source, /else \{[\s\S]*await assertInstalledLedger\(client\);[\s\S]*await assertInstalledBoundary\(client\);/);
+  assert.doesNotMatch(source, /client\.query\(["']commit["']\)/i);
+});
+
 test("remote probe receives private inputs by file and redacts unexpected failures", () => {
   assert.match(source, /--db-url-file/);
   assert.match(source, /--tls-ca-file/);

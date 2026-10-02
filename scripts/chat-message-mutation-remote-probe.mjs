@@ -7,15 +7,20 @@ import pg from "pg";
 const { Client } = pg;
 
 function parseArgs(argv) {
-  const args = { migration: "supabase/migrations/20261002003000_chat_message_mutation_idempotency.sql" };
+  const args = {
+    migration: "supabase/migrations/20261002003000_chat_message_mutation_idempotency.sql",
+    mode: "predeploy",
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "--db-url-file") args.dbUrlFile = argv[++index];
     else if (value === "--tls-ca-file") args.tlsCaFile = argv[++index];
     else if (value === "--migration") args.migration = argv[++index];
+    else if (value === "--mode") args.mode = argv[++index];
     else throw new Error("probe_unknown_argument");
   }
   if (!args.dbUrlFile || !args.tlsCaFile) throw new Error("probe_private_input_required");
+  if (!["predeploy", "postdeploy"].includes(args.mode)) throw new Error("probe_mode_invalid");
   return args;
 }
 
@@ -96,6 +101,16 @@ async function assertInstalledBoundary(client) {
   if (!directReadDenied) throw new Error("probe_receipt_table_direct_read_not_denied");
 }
 
+async function assertInstalledLedger(client) {
+  const ledger = await client.query(`
+    select count(*)::int as matching_rows
+      from supabase_migrations.schema_migrations
+     where version::text = '20261002003000'
+       and coalesce(name, '') = 'chat_message_mutation_idempotency'
+  `);
+  if (ledger.rows[0]?.matching_rows !== 1) throw new Error("probe_installed_ledger_invalid");
+}
+
 async function runBehaviorProbe(client, marker) {
   const actor = await client.query(`
     select id, auth_user_id
@@ -163,11 +178,12 @@ async function runBehaviorProbe(client, marker) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const [connectionString, ca, migration] = await Promise.all([
+  const [connectionString, ca, migrationSource] = await Promise.all([
     readFile(args.dbUrlFile, "utf8").then((value) => value.trim()),
     readFile(args.tlsCaFile, "utf8"),
-    readFile(args.migration, "utf8").then(unwrapMigration),
+    args.mode === "predeploy" ? readFile(args.migration, "utf8") : Promise.resolve(null),
   ]);
+  const migration = migrationSource === null ? null : unwrapMigration(migrationSource);
   const connectionUrl = new URL(connectionString);
   if (connectionUrl.searchParams.get("sslmode") !== "verify-full") throw new Error("probe_database_url_requires_verify_full");
   connectionUrl.searchParams.delete("sslmode");
@@ -183,14 +199,22 @@ async function main() {
   let stage = "connect";
   try {
     await client.connect();
-    stage = "baseline";
-    await assertBaselineAbsent(client);
-    stage = "migration";
+    if (args.mode === "predeploy") {
+      stage = "baseline";
+      await assertBaselineAbsent(client);
+    } else {
+      stage = "ledger";
+      await assertInstalledLedger(client);
+    }
+    stage = "transaction";
     await client.query("begin");
     transactionOpen = true;
     await client.query("set local lock_timeout = '10s'");
     await client.query("set local statement_timeout = '30s'");
-    await client.query(migration);
+    if (args.mode === "predeploy") {
+      stage = "migration";
+      await client.query(migration);
+    }
     stage = "boundary";
     await assertInstalledBoundary(client);
     stage = "behavior";
@@ -199,10 +223,21 @@ async function main() {
     await client.query("rollback");
     transactionOpen = false;
     stage = "residue";
-    await assertBaselineAbsent(client);
+    if (args.mode === "predeploy") {
+      await assertBaselineAbsent(client);
+    } else {
+      await assertInstalledLedger(client);
+      await client.query("begin");
+      transactionOpen = true;
+      await assertInstalledBoundary(client);
+      await client.query("rollback");
+      transactionOpen = false;
+    }
     const residue = Number(await scalar(client, "select count(*)::int as value from public.chat_threads where title = $1", [marker]));
     if (residue !== 0) throw new Error("probe_fixture_residue_detected");
-    process.stdout.write("CHAT_MESSAGE_MUTATION_REMOTE_ROLLBACK_PASS\n");
+    process.stdout.write(args.mode === "predeploy"
+      ? "CHAT_MESSAGE_MUTATION_REMOTE_ROLLBACK_PASS\n"
+      : "CHAT_MESSAGE_MUTATION_REMOTE_POSTDEPLOY_PASS\n");
   } catch (error) {
     const databaseCode = typeof error?.code === "string" && /^[0-9A-Z]{5}$/.test(error.code)
       ? error.code.toLowerCase()

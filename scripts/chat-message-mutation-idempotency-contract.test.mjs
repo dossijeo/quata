@@ -62,11 +62,12 @@ test("current product clients use authenticated v2 RPCs while legacy signatures 
 });
 
 test("database receipts commit atomically, reject key reuse and roll back without touching v1", async () => {
-  const [migration, rollback, fixture, runner] = await Promise.all([
+  const [migration, rollback, fixture, runner, releaseExecutor] = await Promise.all([
     read("supabase/migrations/20261002003000_chat_message_mutation_idempotency.sql"),
     read("supabase/rollbacks/20261002003000_chat_message_mutation_idempotency.rollback.sql"),
     read("scripts/sql/chat-message-mutation-idempotency.test.sql"),
     read("scripts/test-chat-message-mutation-idempotency.ps1"),
+    read("scripts/selective-db-release-executor.mjs"),
   ]);
 
   assert.match(migration, /create table if not exists public\.chat_message_mutation_receipts/);
@@ -88,6 +89,11 @@ test("database receipts commit atomically, reject key reuse and roll back withou
   assert.match(fixture, /actor mismatch was accepted/);
   assert.match(runner, /CHAT_MESSAGE_MUTATION_IDEMPOTENCY_POSTGRES_PASS/);
   assert.match(runner, /mutation_rollback_postcondition_failed/);
+  assert.match(releaseExecutor, /20261002003000[\s\S]*89149300661e48f8a9ed210eff74d399f8949d34065bb7cecda98a094d59bf74/);
+  assert.match(releaseExecutor, /selectedVersions\.includes\("20261002003000"\)/);
+  assert.match(releaseExecutor, /selective_release_chat_mutation_boundary_missing/);
+  assert.match(releaseExecutor, /selective_release_chat_mutation_security_failed/);
+  assert.match(releaseExecutor, /selective_release_chat_mutation_definition_failed/);
 });
 
 test("message mutation idempotency contract is mandatory in both fast suites", async () => {
