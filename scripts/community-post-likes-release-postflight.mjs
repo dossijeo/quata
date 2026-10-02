@@ -105,36 +105,35 @@ async function main() {
   try {
     await client.connect();
     await client.query("begin read only");
-    const [ledger, table, policies, grants, triggers, resolver] = await Promise.all([
-      client.query(
-        "select version::text, coalesce(name, '') as name from supabase_migrations.schema_migrations where version = $1",
-        [EXPECTED_VERSION],
-      ),
-      client.query(`
+    const ledger = await client.query(
+      "select version::text, coalesce(name, '') as name from supabase_migrations.schema_migrations where version = $1",
+      [EXPECTED_VERSION],
+    );
+    const table = await client.query(`
         select c.relrowsecurity as rls_enabled, c.relforcerowsecurity as force_rls
           from pg_class c join pg_namespace n on n.oid = c.relnamespace
          where n.nspname = 'public' and c.relname = 'community_post_likes'
-      `),
-      client.query(`
+      `);
+    const policies = await client.query(`
         select policyname, roles::text, cmd, permissive, qual, with_check
           from pg_catalog.pg_policies
          where schemaname = 'public' and tablename = 'community_post_likes'
          order by policyname
-      `),
-      client.query(`
+      `);
+    const grants = await client.query(`
         select grantee, privilege_type
           from information_schema.role_table_grants
          where table_schema = 'public' and table_name = 'community_post_likes'
            and grantee in ('PUBLIC', 'anon', 'authenticated')
          order by grantee, privilege_type
-      `),
-      client.query(`
+      `);
+    const triggers = await client.query(`
         select count(*)::int as count
           from pg_trigger t join pg_class c on c.oid = t.tgrelid
           join pg_namespace n on n.oid = c.relnamespace
          where n.nspname = 'public' and c.relname = 'community_post_likes' and not t.tgisinternal
-      `),
-      client.query(`
+      `);
+    const resolver = await client.query(`
         select l.lanname as language, p.provolatile as volatility,
                p.prosecdef as security_definer, p.proconfig as config, p.prosrc as source,
                exists (
@@ -148,8 +147,7 @@ async function main() {
           join pg_language l on l.oid = p.prolang
          where n.nspname = 'public' and p.proname = 'quata_chat_auth_profile_id'
            and p.pronargs = 0
-      `),
-    ]);
+      `);
     await client.query("rollback");
 
     if (ledger.rowCount !== 1 || ledger.rows[0].name !== EXPECTED_NAME) throw new Error("postflight_migration_ledger_mismatch");

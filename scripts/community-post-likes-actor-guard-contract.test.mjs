@@ -142,6 +142,8 @@ test("production postflight is read-only, TLS-verified and emits metadata only",
   assert.match(releasePostflight, /sslmode[\s\S]*verify-full/);
   assert.match(releasePostflight, /rejectUnauthorized:\s*true/);
   assert.match(releasePostflight, /begin read only/);
+  assert.match(releasePostflight, /const ledger = await client\.query[\s\S]*const resolver = await client\.query/);
+  assert.doesNotMatch(releasePostflight, /const \[ledger, table, policies, grants, triggers, resolver\] = await Promise\.all/);
   assert.match(releasePostflight, /supabase_migrations\.schema_migrations/);
   assert.match(releasePostflight, /postflight_policy_set_mismatch/);
   assert.match(releasePostflight, /expression !== EXPECTED_ACTOR_EXPRESSION/);
@@ -157,17 +159,32 @@ test("production postflight is read-only, TLS-verified and emits metadata only",
   assert.doesNotMatch(releasePostflight, /console\.(?:log|error)/);
 });
 
-test("production compatibility probe applies only inside rollback custody", () => {
+test("production probe validates predeploy and committed postdeploy behavior inside rollback custody", () => {
   assert.match(transactionalProbe, /--db-url-file/);
   assert.match(transactionalProbe, /--tls-ca-file/);
   assert.match(transactionalProbe, /sslmode[\s\S]*verify-full/);
   assert.match(transactionalProbe, /rejectUnauthorized:\s*true/);
   assert.match(transactionalProbe, /await client\.query\("begin"\)/);
-  assert.match(transactionalProbe, /await client\.query\(migration\)/);
+  assert.match(transactionalProbe, /mode: "predeploy"/);
+  assert.match(transactionalProbe, /"postdeploy"/);
+  assert.match(transactionalProbe, /if \(args\.mode === "predeploy"\) await client\.query\(migration\)/);
   assert.match(transactionalProbe, /assertForward\(await snapshot\(client\)\)/);
+  assert.match(transactionalProbe, /assertInstalledLedger/);
+  assert.match(transactionalProbe, /20261002010000/);
+  assert.match(transactionalProbe, /community_post_likes_actor_guard/);
+  assert.match(transactionalProbe, /probe_forward_resolver_mismatch/);
+  assert.match(transactionalProbe, /client\.query\(`set local role \$\{role\}`\)/);
+  assert.match(transactionalProbe, /client, "anon_insert", "anon", null, insert/);
+  assert.match(transactionalProbe, /probe_anonymous_insert_not_rejected/);
+  assert.match(transactionalProbe, /probe_cross_actor_insert_not_rejected/);
+  assert.match(transactionalProbe, /probe_cross_actor_delete_not_filtered/);
+  assert.match(transactionalProbe, /probe_own_insert_failed/);
+  assert.match(transactionalProbe, /probe_own_delete_failed/);
   assert.match(transactionalProbe, /await client\.query\("rollback"\)/);
   assert.equal((transactionalProbe.match(/assertBaseline\(await snapshot\(client\)\)/g) ?? []).length, 2);
   assert.match(transactionalProbe, /COMMUNITY_POST_LIKES_TRANSACTIONAL_PROBE_PASS/);
+  assert.match(transactionalProbe, /COMMUNITY_POST_LIKES_POSTDEPLOY_PASS/);
+  assert.match(transactionalProbe, /probe_fixture_residue_detected/);
   assert.match(transactionalProbe, /probe_failed_redacted/);
   assert.doesNotMatch(transactionalProbe, /client\.query\(["']commit["']\)/i);
   assert.doesNotMatch(transactionalProbe, /select\s+\*\s+from\s+public\.community_post_likes/i);
