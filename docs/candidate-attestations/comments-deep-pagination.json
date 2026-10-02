@@ -4,17 +4,17 @@
     "OVR-COMMENTS"
   ],
   "status": "passed",
-  "productSha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
+  "productSha": "f307addde73d9a9a52dfc63e9d46fd3cf39fde2d",
   "certification": "affected-local-gates-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "HERMETIC_DEEP_COMMENT_KEYSET_AND_THREE_PLATFORM_COMPILATION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
-      "report": "docs/candidate-attestations/evidence/comments-deep-pagination-06cf574b.json",
-      "reportSha256": "6386780df0e94c7852c0da667619566b3e66f103ea851cf224aabf09755df1ee",
+      "sha": "f307addde73d9a9a52dfc63e9d46fd3cf39fde2d",
+      "report": "docs/candidate-attestations/evidence/comments-deep-pagination-265cdaf6.json",
+      "reportSha256": "309b41d7eb9f5aa717c06080560e8f5e3d79997707017d2285a0808fb91d0c1f",
       "reportStatus": "passed",
-      "reportGitHead": "06cf574b3a80b2783d4661c024a4344c905c5250",
+      "reportGitHead": "265cdaf67c8ea11b3362c37ce9f04e29889ae557",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -25,8 +25,10 @@
         "real_postgrest_returned_1205_unique_rows_per_table_in_500_500_205_pages",
         "official_deleted_comment_was_excluded",
         "chronological_created_at_id_presentation_order_was_restored",
-        "android_web_wasm_and_ios_affected_compilation_passed",
-        "focused_feed_and_official_wasm_tests_passed"
+        "android_and_web_wasm_affected_compilation_passed",
+        "focused_feed_and_official_wasm_tests_passed",
+        "rebased_runtime_and_focal_gate_sources_match_prior_ios_evidence_by_blob",
+        "final_github_ios_certification_pending"
       ],
       "cleanup": {
         "verified": true,
@@ -42,10 +44,10 @@
     ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.data.RemoteFeedReadRepositoryTest :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.data.OfficialRemoteProtocolTest --stacktrace"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
+    "status": "PENDING_REBASE_REVIEW",
+    "reviewedSha": "265cdaf67c8ea11b3362c37ce9f04e29889ae557",
     "blockingFindings": [],
-    "reviewHead": "b4caef0bb064dfb35a0cba444880615b16fef85f"
+    "reviewHead": "265cdaf67c8ea11b3362c37ce9f04e29889ae557"
   },
   "notes": [
     "Feed, Official and public-profile comments now exhaust strict id keysets in pages of 500 on Android, Web/Wasm and iOS, then restore the stable visible order created_at,id.",
@@ -54,6 +56,6 @@
     "No schema, RLS, production data, credentials, published-client contract or comment mutation semantics changed.",
     "The broad allTests aggregation encountered an unrelated Skiko runner failure loading skiko.wasm and one pre-existing media-viewer test. Both new focal suites passed when selected directly in Chrome Headless, and all affected platform compilation gates passed.",
     "Previously accepted interaction matrices were not repeated solely because the product SHA changed. Final GitHub jobs remain responsible for complete candidate recertification.",
-    "Product SHA b4caef0b changes no runtime: it updates 13 capability declarations to the normalized hashes of the already-reviewed comment sources. The complete capability contract passed 22/22, including decisive-source and APNs negative controls; independent rereview returned GO with no P0-P3 findings. The platform and PostgREST report remains bound to its exact execution head 06cf574b."
+    "After rebasing onto main with Official pagination recovery, all 14 runtime and focal-gate blobs in this unit remain byte-identical to the previously reviewed candidate. The affected Android/Web compilation, 6/6 contract, 22/22 capability checks, 17/17 attestation checks, isolated PostgreSQL/PostgREST gate and both focal Wasm suites were rerun on execution head 265cdaf6; required final GitHub jobs will compile the rebased iOS candidate."
   ]
 }

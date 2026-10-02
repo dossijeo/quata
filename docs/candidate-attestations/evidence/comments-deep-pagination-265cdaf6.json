@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "265cdaf67c8ea11b3362c37ce9f04e29889ae557",
+    "workingTreeDirty": false
+  },
+  "productSha": "f307addde73d9a9a52dfc63e9d46fd3cf39fde2d",
+  "scope": [
+    "Feed comments",
+    "Official comments",
+    "public-profile comments through Feed"
+  ],
+  "results": {
+    "rebaseSourceEquivalence": {
+      "status": "passed",
+      "previousProductSha": "b4caef0bb064dfb35a0cba444880615b16fef85f",
+      "rebasedProductSha": "f307addde73d9a9a52dfc63e9d46fd3cf39fde2d",
+      "comparedRuntimeAndFocalGateBlobs": 14,
+      "allBlobsIdentical": true
+    },
+    "commonFeedRegression": {
+      "status": "passed",
+      "rows": 1205,
+      "pages": [500, 500, 205]
+    },
+    "commonOfficialRegression": {
+      "status": "passed",
+      "rows": 1101,
+      "pages": [500, 500, 101]
+    },
+    "isolatedPostgresqlPostgrest": {
+      "status": "passed",
+      "postgres": "17-alpine",
+      "postgrest": "12.2.3",
+      "maxRows": 500,
+      "communityRows": 1205,
+      "officialRows": 1205,
+      "pagesPerTable": [500, 500, 205],
+      "officialDeletedRowsExcluded": true,
+      "cleanup": "containers-and-network-removed"
+    },
+    "platformCompilation": {
+      "android": "passed",
+      "webWasm": "passed",
+      "iosKotlinNative": "preserved-from-06cf574b-by-identical-source-blobs-final-ci-pending"
+    },
+    "focusedWasmTests": {
+      "status": "passed",
+      "feedSuite": "RemoteFeedReadRepositoryTest",
+      "officialSuite": "OfficialRemoteProtocolTest",
+      "execution": "sequential-with-8g-kotlin-daemon-heap-after-diagnosed-parallel-compiler-oom"
+    },
+    "contracts": {
+      "commentsDeepPagination": {
+        "status": "passed",
+        "assertions": 6
+      },
+      "capabilityMatrix": {
+        "status": "passed",
+        "assertions": 22
+      },
+      "candidateAttestationValidator": {
+        "status": "passed",
+        "assertions": 17
+      }
+    }
+  },
+  "limitations": [
+    "This unit removes the documented deep-pagination transport ceiling only.",
+    "Previously certified UI interaction matrices were not repeated because every runtime and focal-gate blob in this unit is identical after the rebase.",
+    "The rebased candidate's full iOS compilation is delegated to the required final GitHub job."
+  ],
+  "steps": [
+    "feed_common_loader_returned_all_1205_comments_in_500_500_205_pages",
+    "official_common_loader_returned_all_1101_comments_in_500_500_101_pages",
+    "android_off_window_invalidation_reloaded_complete_comment_sets",
+    "real_postgrest_returned_1205_unique_rows_per_table_in_500_500_205_pages",
+    "official_deleted_comment_was_excluded",
+    "chronological_created_at_id_presentation_order_was_restored",
+    "android_and_web_wasm_affected_compilation_passed",
+    "focused_feed_and_official_wasm_tests_passed",
+    "rebased_runtime_and_focal_gate_sources_match_prior_ios_evidence_by_blob",
+    "final_github_ios_certification_pending"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "isolated-containers-and-network-removed-no-remote-mutation"
+  }
+}
