@@ -670,17 +670,11 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
       from pg_class relation
       join pg_namespace relation_namespace on relation_namespace.oid=relation.relnamespace
       cross join pg_proc edit
-      join pg_namespace edit_namespace on edit_namespace.oid=edit.pronamespace
       cross join pg_proc delete_function
-      join pg_namespace delete_namespace on delete_namespace.oid=delete_function.pronamespace
       where relation_namespace.nspname='public'
         and relation.relname='chat_message_mutation_receipts'
-        and edit_namespace.nspname='public'
-        and edit.proname='quata_chat_edit_message_v2'
-        and pg_get_function_identity_arguments(edit.oid)='p_actor_profile_id uuid, p_thread_id bigint, p_message_id bigint, p_message text, p_client_mutation_id text'
-        and delete_namespace.nspname='public'
-        and delete_function.proname='quata_chat_delete_messages_v2'
-        and pg_get_function_identity_arguments(delete_function.oid)='p_actor_profile_id uuid, p_thread_id bigint, p_message_ids bigint[], p_client_mutation_id text'
+        and edit.oid='public.quata_chat_edit_message_v2(uuid,bigint,bigint,text,text)'::regprocedure
+        and delete_function.oid='public.quata_chat_delete_messages_v2(uuid,bigint,bigint[],text)'::regprocedure
     `)).rows;
     if (mutationBoundary.length !== 1) throw new Error("selective_release_chat_mutation_boundary_missing");
     const mutation = mutationBoundary[0];
