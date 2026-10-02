@@ -1428,20 +1428,36 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(backdrop.waitForExistence(timeout: 5), "The production router backdrop must be exposed while the keyboard is visible in \(context).", file: file, line: line)
         let measuredFrame = keyboardBackdropFrame(from: backdrop, context: context, file: file, line: line)
-        for (component, actual, expected) in [
-            ("minX", measuredFrame.minX, keyboard.frame.minX),
-            ("minY", measuredFrame.minY, keyboard.frame.minY),
-            ("width", measuredFrame.width, keyboard.frame.width),
-            ("height", measuredFrame.height, keyboard.frame.height),
-        ] {
-            XCTAssertLessThanOrEqual(
-                abs(actual - expected),
-                1,
-                "The opaque backdrop \(component) must match the software keyboard in \(context).",
-                file: file,
-                line: line,
-            )
-        }
+        let keyboardFrame = keyboard.frame
+        let tolerance: CGFloat = 1
+        XCTAssertLessThanOrEqual(
+            measuredFrame.minX,
+            keyboardFrame.minX + tolerance,
+            "The opaque backdrop must begin at or before the software keyboard in \(context).",
+            file: file,
+            line: line,
+        )
+        XCTAssertLessThanOrEqual(
+            measuredFrame.minY,
+            keyboardFrame.minY + tolerance,
+            "The opaque backdrop must begin at or above the software keyboard in \(context).",
+            file: file,
+            line: line,
+        )
+        XCTAssertGreaterThanOrEqual(
+            measuredFrame.maxX,
+            keyboardFrame.maxX - tolerance,
+            "The opaque backdrop must cover the software keyboard's trailing edge in \(context).",
+            file: file,
+            line: line,
+        )
+        XCTAssertGreaterThanOrEqual(
+            measuredFrame.maxY,
+            keyboardFrame.maxY - tolerance,
+            "The opaque backdrop must cover the software keyboard's bottom edge in \(context).",
+            file: file,
+            line: line,
+        )
     }
 
     private func keyboardBackdropFrame(

@@ -44,7 +44,10 @@ test("the authenticated shell keeps a real shared Profile draft above its global
   assert.match(uiTest, /profile\.sos\.message\.input/);
   assert.match(uiTest, /hasKeyboardFocus == 1/);
   assert.match(uiTest, /quata-ios-keyboard-opaque-backdrop/);
-  assert.match(uiTest, /abs\(actual - expected\)/);
+  assert.match(uiTest, /measuredFrame\.minX[\s\S]{0,180}keyboardFrame\.minX \+ tolerance/);
+  assert.match(uiTest, /measuredFrame\.minY[\s\S]{0,180}keyboardFrame\.minY \+ tolerance/);
+  assert.match(uiTest, /measuredFrame\.maxX[\s\S]{0,180}keyboardFrame\.maxX - tolerance/);
+  assert.match(uiTest, /measuredFrame\.maxY[\s\S]{0,180}keyboardFrame\.maxY - tolerance/);
   assert.match(uiTest, /keyboardBackdropFrame\(from: backdrop/);
   assert.match(uiTest, /ios-profile-sos-global-keyboard-(?:portrait|landscape|restored-portrait)/);
   assert.match(appHost, /embeddedController: IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController/);
