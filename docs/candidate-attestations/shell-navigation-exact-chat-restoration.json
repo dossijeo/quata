@@ -5,12 +5,12 @@
     "CHAT-FOCUSED-MESSAGE"
   ],
   "status": "passed",
-  "productSha": "bf7be2fb82ba070a2a7355652a3772b3845ebc36",
-  "certification": "focal-ios-web-exact-chat-restoration-complete-android-authenticated-runtime-pending-external-quota-final-ci-pending",
+  "productSha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+  "certification": "focal-ios-web-exact-chat-restoration-complete-including-real-web-document-reload-android-authenticated-runtime-pending-external-quota-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "bf7be2fb82ba070a2a7355652a3772b3845ebc36",
+      "sha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-ios-ad3c8ee63.json",
       "reportSha256": "d2cc2fbfa5ae2ff590274e92da459c3778ee035ec153d318d24fe16f44d9a26a",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "bf7be2fb82ba070a2a7355652a3772b3845ebc36",
+      "sha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-web-ad3c8ee63.json",
       "reportSha256": "b76497589e9dc18898bbce79a9946dd55ab3532069b2964d2875078a4cc7a53b",
       "reportStatus": "passed",
@@ -48,12 +48,37 @@
         "verified": true,
         "mode": "hermetic_browser_test_no_credentials_no_remote_mutation"
       }
+    },
+    "webDocumentReload": {
+      "status": "passed",
+      "sha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-web-document-reload-c90ca01f7.json",
+      "reportSha256": "a9606c068f8275e9936a85516cb55a2d91f66f5339abe270b8cbbb1330a4be7f",
+      "reportStatus": "passed",
+      "reportGitHead": "c90ca01f7a4c9db869943db8f09cb0c01766baf0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "sessions_revoked_and_verified",
+      "requiredSteps": [
+        "production_wasm_distribution_built_from_exact_clean_head",
+        "authenticated_exact_chat_fragment_opened_in_real_chrome",
+        "real_document_reload_created_a_new_performance_time_origin",
+        "exact_chat_focus_reselected_once_after_real_document_reload",
+        "focused_message_consumed_once_in_reloaded_document",
+        "fixture_session_revoked_and_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real_product_distribution_hermetic_backend_no_credentials_no_remote_mutation"
+      }
     }
   },
   "preflight": [
     "git diff --check",
     "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs scripts/shell-navigation-android-process-death-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "node --test scripts/web-authenticated-browser-e2e.test.mjs scripts/web-login-product-flow-contract.test.mjs scripts/web-wasm-navigation-stress-contract.test.mjs",
     ".\\gradlew.bat :web:wasmJsBrowserTest :app:compileDebugKotlin --console=plain",
+    "node scripts/web-authenticated-browser-e2e.mjs --chrome <chrome> --out build-reports/web/shell-chat-reload-authenticated-browser-e2e.json",
     "xcodebuild ... -only-testing:QuataIosTests/QuataFeedFrameworkTests/testExactChatConversationAndFocusedMessageSurviveRouterRecreation test"
   ],
   "notes": [
@@ -61,9 +86,10 @@
     "Android keeps persisted focus separate from the one-shot active focus. Rendering acknowledgement clears only the active focus, while leaving Chat clears both persisted identifiers so a later unrelated Chat visit cannot inherit stale state.",
     "The Android focal runner selects a real favorite, proves a distinct base intent would not preserve it, requires a replacement process ID, checks the exact conversation/message pair and fails closed during authenticated cleanup.",
     "The authenticated Android run remains pending because the public Supabase endpoint returns 402 exceed_egress_quota. Static contracts and compilation pass, but this manifest does not attribute Android runtime acceptance while that external condition remains.",
-    "The iOS focal XCTest passed on Simulator with router recreation and identifier-only persistence. The Web browser suite passed 14 tests and proves exact-fragment reconstruction in a fresh controller with hermetic storage callbacks, plus a Communities return scoped to the matching conversation; it does not claim a real document reload.",
-    "This evidence closes exact Chat conversation/message restoration for the iOS router and Web navigation controller when final CI is complete. Android remains pending its authenticated runtime trial. It does not close scroll position, drafts, arbitrary secondary back stacks or internal state in other features.",
+    "The iOS focal XCTest passed on Simulator with router recreation and identifier-only persistence. The historical Web browser suite passed 14 tests and proves exact-fragment reconstruction in a fresh controller with hermetic storage callbacks, plus a Communities return scoped to the matching conversation.",
+    "The Web production distribution built from c90ca01f was exercised in Chrome 154 with a hermetic authenticated backend. A real page reload changed performance.timeOrigin, restored conversation sb:42 and message 9, selected the exact accessible message once in each document, consumed it once after the reload, observed no undeclared network or mutation and verified session revocation.",
+    "This evidence closes exact Chat conversation/message restoration for the iOS router and Web across both controller reconstruction and a real document reload when final CI is complete. Android remains pending its authenticated runtime trial. It does not close scroll position, drafts, arbitrary secondary back stacks or internal state in other features.",
     "Independent product review returned GO with no P0-P2 findings before this documentary attestation was added; the documentation and evidence binding require their own affected-contract check before promotion.",
-    "Product SHA bf7be2fb rebases the unchanged exact-restoration unit onto main b56b504a after #492. Every path changed by the original Product SHA ad3c8ee6 is byte-identical at the rebased Product SHA; the historical iOS and Web reports remain bound to ad3c8ee6 and no platform matrix was repeated solely for the base advance."
+    "Product SHA e9f060aa differs from runtime SHA c90ca01f only by docs/WEB_AUTHENTICATED_BROWSER_E2E.md; the four executable and contract inputs are byte-identical. The historical iOS and Web controller reports remain bound to ad3c8ee6, the real-document Web report remains bound to c90ca01f, and only the affected Web distribution and browser lane was rerun."
   ]
 }
