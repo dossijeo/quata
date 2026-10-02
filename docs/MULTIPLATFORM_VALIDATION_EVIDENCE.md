@@ -483,17 +483,18 @@ Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
 
 ### Límite de latencia del logout remoto iOS
 
-Product SHA `abb6fc46a1dcd88c7d5614d17c6fe639bacf11f7` cierra después el límite de
+Product SHA `2dd5c781bf722bbe0426572c1ea47714a905c217` cierra después el límite de
 red no responsiva. Sólo el intento autenticado a `/auth/v1/logout` queda envuelto en un plazo de
 15 segundos. Al vencer, la cancelación alcanza el transporte URLSession, la sesión de Keychain se
 retira en el `finally` existente y `logout()` completa; una cancelación externa del caller conserva
 su propagación después de la retirada local.
 
-La suite Kotlin/Native `IosAuthLogoutOrderingTest` pasó 7/7 sobre `iosX64` en macOS Intel. El caso
+La suite Kotlin/Native `IosAuthLogoutOrderingTest` pasó 8/8 sobre `iosX64` en macOS Intel. El caso
 nuevo mantiene el transporte suspendido, acredita su cancelación en 15 000 ms de tiempo virtual y
-comprueba la ausencia final de sesión. Los casos anteriores de éxito ordenado, HTTP fallido,
-excepción de transporte y cancelación externa permanecen verdes. El reporte exacto y el manifest
-son `docs/candidate-attestations/evidence/auth-logout-latency-ios-abb6fc46.json` y
+comprueba la ausencia final de sesión. Un segundo caso impone un timeout externo a 5 000 ms y
+acredita que se propaga después de retirar la sesión local. Los casos anteriores de éxito ordenado,
+HTTP fallido, excepción de transporte y cancelación explícita permanecen verdes. El reporte exacto y el manifest
+son `docs/candidate-attestations/evidence/auth-logout-latency-ios-2dd5c781.json` y
 `docs/candidate-attestations/auth-logout-latency-ios.json`.
 
 El Gradle raíz del Mac conserva por separado un fallo de configuración del proyecto Android
