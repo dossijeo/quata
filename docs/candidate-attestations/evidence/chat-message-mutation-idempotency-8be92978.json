@@ -47,7 +47,7 @@
       "failures": 0
     },
     "focalContracts": {
-      "tests": 31,
+      "tests": 32,
       "failures": 0
     },
     "disposablePostgresql": "CHAT_MESSAGE_MUTATION_IDEMPOTENCY_POSTGRES_PASS",
