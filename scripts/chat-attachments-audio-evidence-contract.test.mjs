@@ -8,6 +8,8 @@ const source = (path) => readFile(path, "utf8");
 const [
   packageJson,
   inventory,
+  commonDocumentOpen,
+  commonDocumentStatus,
   commonHost,
   commonConversationDetail,
   commonComposer,
@@ -66,6 +68,8 @@ const [
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
+  source("core/src/commonMain/kotlin/com/quata/core/platform/DocumentOpenService.kt"),
+  source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataDocumentViewerStatusContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
@@ -130,6 +134,18 @@ test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
   const scripts = JSON.parse(packageJson).scripts;
   assert.match(scripts["test:ci-fast-contracts"], /scripts\/chat-attachments-audio-evidence-contract\.test\.mjs/);
   assert.match(scripts["test:web-wave2-contracts"], /scripts\/chat-attachments-audio-evidence-contract\.test\.mjs/);
+});
+
+test("recoverable document viewer failures retry the exact file and preserve terminal failures", () => {
+  assert.match(commonDocumentOpen, /fun DocumentViewerState\.retryFileOrNull\(/);
+  assert.match(commonDocumentOpen, /DocumentViewerFailureReason\.OpenFailed \|\|[\s\S]*?DocumentViewerFailureReason\.Cancelled/);
+  assert.match(commonDocumentOpen, /failed\.descriptor\.isPreviewable \|\| allowPlatformFallbackForUnsupportedFormat/);
+  assert.match(commonDocumentStatus, /QuataDocumentViewerStatusRetryTestTag = "document-viewer-status-retry"/);
+  assert.match(commonDocumentStatus, /onRetry: \(\(\) -> Unit\)\? = null/);
+  assert.match(commonDocumentStatus, /if \(onRetry == null\) QuataDocumentViewerStatusCloseTestTag else QuataDocumentViewerStatusRetryTestTag/);
+  assert.match(commonDocumentStatus, /dismissButton = onRetry\?\.let/);
+  assert.match(commonHost, /retryFileOrNull\(allowPlatformFallbackForUnsupportedFormat = true\)/);
+  assert.match(commonHost, /\.let \{ file -> \{ openAttachment\(file\) \} \}/);
 });
 
 test("ChatViewModel owns observable UI state on the main dispatcher", () => {

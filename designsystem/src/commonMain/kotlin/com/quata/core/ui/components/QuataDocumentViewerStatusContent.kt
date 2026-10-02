@@ -26,6 +26,7 @@ const val QuataDocumentViewerStatusRootTestTag = "document-viewer-status-root"
 const val QuataDocumentViewerStatusTitleTestTag = "document-viewer-status-title"
 const val QuataDocumentViewerStatusMessageTestTag = "document-viewer-status-message"
 const val QuataDocumentViewerStatusCloseTestTag = "document-viewer-status-close"
+const val QuataDocumentViewerStatusRetryTestTag = "document-viewer-status-retry"
 
 data class QuataDocumentViewerStatusStrings(
     val openingTitle: String,
@@ -38,6 +39,7 @@ data class QuataDocumentViewerStatusStrings(
     val platformUnsupportedMessage: String,
     val openFailedMessage: String,
     val closeLabel: String,
+    val retryLabel: String,
 )
 
 fun quataDocumentViewerStatusStrings(language: QuataLanguage): QuataDocumentViewerStatusStrings = when (language) {
@@ -52,6 +54,7 @@ fun quataDocumentViewerStatusStrings(language: QuataLanguage): QuataDocumentView
         platformUnsupportedMessage = "Este dispositivo no puede abrir documentos desde aqui.",
         openFailedMessage = "No se pudo abrir el documento.",
         closeLabel = "Cerrar",
+        retryLabel = "Reintentar",
     )
     QuataLanguage.French -> QuataDocumentViewerStatusStrings(
         openingTitle = "Ouverture du document",
@@ -64,6 +67,7 @@ fun quataDocumentViewerStatusStrings(language: QuataLanguage): QuataDocumentView
         platformUnsupportedMessage = "Cet appareil ne peut pas ouvrir les documents ici.",
         openFailedMessage = "Impossible d'ouvrir le document.",
         closeLabel = "Fermer",
+        retryLabel = "Réessayer",
     )
     QuataLanguage.English -> QuataDocumentViewerStatusStrings(
         openingTitle = "Opening document",
@@ -76,6 +80,7 @@ fun quataDocumentViewerStatusStrings(language: QuataLanguage): QuataDocumentView
         platformUnsupportedMessage = "This device cannot open documents here.",
         openFailedMessage = "The document could not be opened.",
         closeLabel = "Close",
+        retryLabel = "Retry",
     )
 }
 
@@ -84,6 +89,7 @@ fun QuataDocumentViewerStatusContent(
     state: DocumentViewerState?,
     strings: QuataDocumentViewerStatusStrings,
     onDismiss: () -> Unit,
+    onRetry: (() -> Unit)? = null,
     showPresented: Boolean = true,
 ) {
     val visibleState = state ?: return
@@ -126,10 +132,22 @@ fun QuataDocumentViewerStatusContent(
         },
         confirmButton = {
             TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.testTag(QuataDocumentViewerStatusCloseTestTag),
+                onClick = onRetry ?: onDismiss,
+                modifier = Modifier.testTag(
+                    if (onRetry == null) QuataDocumentViewerStatusCloseTestTag else QuataDocumentViewerStatusRetryTestTag,
+                ),
             ) {
-                Text(strings.closeLabel)
+                Text(if (onRetry == null) strings.closeLabel else strings.retryLabel)
+            }
+        },
+        dismissButton = onRetry?.let {
+            {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag(QuataDocumentViewerStatusCloseTestTag),
+                ) {
+                    Text(strings.closeLabel)
+                }
             }
         },
     )

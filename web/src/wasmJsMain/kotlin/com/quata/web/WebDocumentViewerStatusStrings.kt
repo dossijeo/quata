@@ -14,6 +14,7 @@ internal fun webDocumentViewerStatusStrings(languageTags: List<String>): QuataDo
         platformUnsupportedMessage = "El visor de documentos no está disponible en este navegador.",
         openFailedMessage = "No se ha podido abrir el documento.",
         closeLabel = "Cerrar",
+        retryLabel = "Reintentar",
     )
     languageTags.any { it.startsWith("fr", ignoreCase = true) } -> QuataDocumentViewerStatusStrings(
         openingTitle = "Ouverture du document",
@@ -26,6 +27,7 @@ internal fun webDocumentViewerStatusStrings(languageTags: List<String>): QuataDo
         platformUnsupportedMessage = "La visionneuse de documents n'est pas disponible dans ce navigateur.",
         openFailedMessage = "Le document n'a pas pu être ouvert.",
         closeLabel = "Fermer",
+        retryLabel = "Réessayer",
     )
     else -> QuataDocumentViewerStatusStrings(
         openingTitle = "Opening document",
@@ -38,5 +40,6 @@ internal fun webDocumentViewerStatusStrings(languageTags: List<String>): QuataDo
         platformUnsupportedMessage = "Document viewing is not available in this browser.",
         openFailedMessage = "The document could not be opened.",
         closeLabel = "Close",
+        retryLabel = "Retry",
     )
 }
