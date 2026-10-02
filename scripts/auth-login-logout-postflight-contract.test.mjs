@@ -58,12 +58,14 @@ test("iOS logout postflight activates Profile logout and rejects restored privat
 
 test("iOS settles remote logout before clearing Keychain and preserves offline local retirement", () => {
   assert.match(iosAuthRepository, /internal const val IOS_AUTH_LOGOUT_TIMEOUT_MILLIS = 15_000L/);
-  assert.match(iosAuthRepository, /val bearerToken = session\.restoredSession\(\)\?\.bearerToken[\s\S]*try \{[\s\S]*withTimeout\(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS\)[\s\S]*configuration\.supabaseLogoutEndpoint\(\)[\s\S]*catch \(_: TimeoutCancellationException\)[\s\S]*catch \(cancelled: CancellationException\)[\s\S]*throw cancelled[\s\S]*finally \{[\s\S]*session\.clear\(\)/);
+  assert.match(iosAuthRepository, /val bearerToken = session\.restoredSession\(\)\?\.bearerToken[\s\S]*try \{[\s\S]*withTimeoutOrNull\(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS\)[\s\S]*configuration\.supabaseLogoutEndpoint\(\)[\s\S]*catch \(cancelled: CancellationException\)[\s\S]*throw cancelled[\s\S]*finally \{[\s\S]*session\.clear\(\)/);
+  assert.doesNotMatch(iosAuthRepository, /catch \(_: TimeoutCancellationException\)/);
   assert.doesNotMatch(iosAuthRepository, /logoutScope|logoutScope\.launch/);
   assert.match(iosLogoutOrdering, /remoteLogoutSettlesBeforeKeychainSessionIsCleared/);
   assert.match(iosLogoutOrdering, /assertFalse\(logout\.isCompleted\)[\s\S]*assertNotNull\(session\.restoredSession\(\)\)[\s\S]*releaseRemote\.complete\(Unit\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
   assert.match(iosLogoutOrdering, /failedRemoteLogoutStillClearsTheLocalKeychainSessionAfterTheAttempt[\s\S]*IosAuthHttpResponse\(503[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
   assert.match(iosLogoutOrdering, /transportExceptionStillClearsTheLocalKeychainSessionAfterTheAttempt[\s\S]*error\("transport_offline"\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
   assert.match(iosLogoutOrdering, /nonresponsiveRemoteIsCancelledAtTheBoundAndLocalKeychainSessionIsCleared[\s\S]*awaitCancellation\(\)[\s\S]*remoteCancelled\.await\(\)[\s\S]*assertEquals\(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS, currentTime - startedAt\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
+  assert.match(iosLogoutOrdering, /callerTimeoutPropagatesBeforeTheInternalBoundAndLocalKeychainSessionIsCleared[\s\S]*withTimeout\(callerTimeoutMillis\) \{ repository\.logout\(\) \}[\s\S]*failure is TimeoutCancellationException[\s\S]*assertEquals\(callerTimeoutMillis, currentTime - startedAt\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
   assert.match(iosLogoutOrdering, /cancellationPropagatesAfterTheLocalKeychainSessionIsCleared[\s\S]*logout\.cancelAndJoin\(\)[\s\S]*assertTrue\(logout\.isCancelled\)[\s\S]*assertNull\(session\.restoredSession\(\)\)/);
 });
