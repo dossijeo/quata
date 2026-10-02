@@ -12,6 +12,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -44,6 +45,8 @@ fun EmergencyContactsSelectionContent(
     onTabSelected: (EmergencyContactsTab) -> Unit,
     onDismiss: () -> Unit,
     userRow: @Composable (EmergencyContactCandidate, Boolean) -> Unit,
+    searchModifier: Modifier = Modifier,
+    onSearchFocusChanged: (Boolean) -> Unit = {},
     contactActions: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -74,8 +77,9 @@ fun EmergencyContactsSelectionContent(
                 onValueChange = onQueryChange,
                 placeholder = { Text(searchPlaceholder) },
                 singleLine = true,
-                modifier = Modifier
+                modifier = searchModifier
                     .fillMaxWidth()
+                    .onFocusChanged { onSearchFocusChanged(it.isFocused) }
                     .semantics {
                         testTag = ProfileSosSearchTestTag
                         contentDescription = ProfileSosSearchTestTag

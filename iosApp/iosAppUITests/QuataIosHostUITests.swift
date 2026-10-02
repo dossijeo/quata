@@ -1072,6 +1072,41 @@ final class QuataIosHostUITests: XCTestCase {
             "The production authenticated router must contain the real shared Profile surface.",
         )
         openSos.tap()
+
+        let search = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.search")
+            .firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        let searchMarker = "qa"
+        search.tap()
+        search.typeText(searchMarker)
+        assertAuthenticatedProfileSearch(
+            search,
+            contains: searchMarker,
+            ownsKeyboardIn: app,
+            context: "Profile SOS search portrait",
+        )
+
+        device.orientation = .landscapeLeft
+        waitForWindow(window, toBeLandscape: true, context: "Profile SOS search landscape")
+        assertAuthenticatedProfileSearch(
+            search,
+            contains: searchMarker,
+            ownsKeyboardIn: app,
+            context: "Profile SOS search landscape",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-profile-sos-search-keyboard-landscape")
+
+        device.orientation = .portrait
+        waitForWindow(window, toBeLandscape: false, context: "Profile SOS search restored portrait")
+        assertAuthenticatedProfileSearch(
+            search,
+            contains: searchMarker,
+            ownsKeyboardIn: app,
+            context: "Profile SOS search restored portrait",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-profile-sos-search-keyboard-restored-portrait")
+
         let messageTab = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.tab.message")
             .firstMatch
@@ -1408,7 +1443,6 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertTrue(value.contains(marker), "The exact Profile SOS draft must survive \(context); value=\(value).", file: file, line: line)
 
         let keyboard = app.keyboards.firstMatch
-        if !keyboard.exists { input.tap() }
         XCTAssertTrue(keyboard.waitForExistence(timeout: 10), "The software keyboard must remain visible in \(context).", file: file, line: line)
         let focusedInput = app.descendants(matching: .any)
             .matching(identifier: input.identifier)
@@ -1458,6 +1492,32 @@ final class QuataIosHostUITests: XCTestCase {
             file: file,
             line: line,
         )
+    }
+
+    private func assertAuthenticatedProfileSearch(
+        _ search: XCUIElement,
+        contains marker: String,
+        ownsKeyboardIn app: XCUIApplication,
+        context: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        XCTAssertTrue(search.waitForExistence(timeout: 10), "The Profile SOS search must remain mounted in \(context).", file: file, line: line)
+        let value = (search.value as? String) ?? search.label
+        XCTAssertTrue(value.contains(marker), "The exact Profile SOS search draft must survive \(context); value=\(value).", file: file, line: line)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "The search keyboard must remain visible in \(context).", file: file, line: line)
+
+        let focusedSearch = app.descendants(matching: .any)
+            .matching(identifier: search.identifier)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        XCTAssertTrue(focusedSearch.waitForExistence(timeout: 2), "The search input must retain keyboard focus in \(context).", file: file, line: line)
+
+        let focusedMessage = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.message.input")
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        XCTAssertFalse(focusedMessage.exists, "Rotating a focused search must not transfer focus to the SOS message in \(context).", file: file, line: line)
     }
 
     private func keyboardBackdropFrame(
