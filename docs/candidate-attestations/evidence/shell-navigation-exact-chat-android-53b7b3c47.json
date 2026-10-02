@@ -1,0 +1,66 @@
+{
+  "check": "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001",
+  "status": "passed",
+  "reportGitHead": "53b7b3c476962a27d0951e4726924e067cddef44",
+  "candidateProductSha": "53b7b3c476962a27d0951e4726924e067cddef44",
+  "sourceReportSha256": "8eda8505d5c0cc7d9de3d32031eb29c8c35e10b99b68e1374709da997df6d8d0",
+  "git": {
+    "head": "53b7b3c476962a27d0951e4726924e067cddef44",
+    "workingTreeDirty": false
+  },
+  "backend": {
+    "mode": "restored_local_supabase",
+    "configSha256": "579fd978d953f0e5cf78606927c7e2562e56fcb8cd80e3620c4517815e73b434",
+    "sourceBackupPlaintextSha256": "c6e2c842297f08f4c78c0ffdf814d646a2588b7cac237e2a72da9d39f247e005",
+    "deviceOrigin": "android_emulator_loopback"
+  },
+  "steps": [
+    "synthetic_local_chat_fixture_staged_via_product_rpcs",
+    "restored_local_supabase_auth_and_postgrest_preflight_passed",
+    "affected_android_apks_built",
+    "base_split_and_test_apks_installed",
+    "private_real_session_staged_without_logging",
+    "real_authenticated_session_persisted",
+    "exact_chat_favorite_opened_by_accessibility_action",
+    "exact_chat_target_selected_by_uiautomator_after_distinct_task_base_intent",
+    "exact_chat_background_process_killed_by_android_activity_manager",
+    "exact_chat_conversation_and_message_restored_in_new_process"
+  ],
+  "interaction": {
+    "accessibilityAction": true,
+    "targetValidated": true
+  },
+  "process": {
+    "pidChanged": true,
+    "exactConversationRestored": true,
+    "exactMessageRestored": true,
+    "differentialBaseIntentVerified": true,
+    "conversationIdSha256": "0a91678ba781012bba328daa7d72d89ab4bc7e0f1a39ba8f42b2b0298939122b",
+    "messageIdSha256": "6ab36c526d6279b0f10007c0ab3ad26455c1c568b927cfd5d0c778db986c5c79"
+  },
+  "screenshots": {
+    "count": 2,
+    "sha256": {
+      "exact-chat-message-before-process-death.png": "02f792001df9a5864ab738cb1f3420acf3a6f32513e0daa81f1b31c14235d764",
+      "exact-chat-message-after-process-death.png": "01275262481717740de94ef87976324bf003ca286c4d25a1643a2171bc5a09d8"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "environmentAcquired": true,
+    "credentialsRemoved": true,
+    "appDataCleared": true,
+    "auxiliarySessionRevoked": true,
+    "privateConfigurationVersioned": false
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "53b7b3c476962a27d0951e4726924e067cddef44",
+    "findings": "no-material-P0-P3-after-final-rebase-review"
+  },
+  "limits": [
+    "This focal evidence accepts Android exact Chat conversation and focused-message restoration against an isolated Supabase restored from the protected logical backup.",
+    "The deployed production endpoint availability remains a separate external condition; this report does not claim that its HTTP 402 egress quota response has cleared.",
+    "The evidence does not claim unrelated secondary back stacks, scroll position, drafts or internal widget state."
+  ]
+}

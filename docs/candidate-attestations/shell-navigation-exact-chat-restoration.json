@@ -5,12 +5,37 @@
     "CHAT-FOCUSED-MESSAGE"
   ],
   "status": "passed",
-  "productSha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
-  "certification": "focal-ios-web-exact-chat-restoration-complete-including-real-web-document-reload-android-authenticated-runtime-pending-external-quota-final-ci-pending",
+  "productSha": "53b7b3c476962a27d0951e4726924e067cddef44",
+  "certification": "focal-android-ios-web-exact-chat-restoration-complete-including-real-android-process-death-and-web-document-reload-final-ci-pending",
   "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "53b7b3c476962a27d0951e4726924e067cddef44",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-android-53b7b3c47.json",
+      "reportSha256": "a10c08bcca780ca7c59be52b5b577d7134d86d2bf41e85b257d4d6e2bf8befbc",
+      "reportStatus": "passed",
+      "reportGitHead": "53b7b3c476962a27d0951e4726924e067cddef44",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "synthetic_local_chat_fixture_staged_via_product_rpcs",
+        "restored_local_supabase_auth_and_postgrest_preflight_passed",
+        "private_real_session_staged_without_logging",
+        "real_authenticated_session_persisted",
+        "exact_chat_favorite_opened_by_accessibility_action",
+        "exact_chat_target_selected_by_uiautomator_after_distinct_task_base_intent",
+        "exact_chat_background_process_killed_by_android_activity_manager",
+        "exact_chat_conversation_and_message_restored_in_new_process"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_auth_session_revoked_private_files_removed_and_app_data_cleared"
+      }
+    },
     "ios": {
       "status": "passed",
-      "sha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+      "sha": "53b7b3c476962a27d0951e4726924e067cddef44",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-ios-ad3c8ee63.json",
       "reportSha256": "d2cc2fbfa5ae2ff590274e92da459c3778ee035ec153d318d24fe16f44d9a26a",
       "reportStatus": "passed",
@@ -30,7 +55,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+      "sha": "53b7b3c476962a27d0951e4726924e067cddef44",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-web-ad3c8ee63.json",
       "reportSha256": "b76497589e9dc18898bbce79a9946dd55ab3532069b2964d2875078a4cc7a53b",
       "reportStatus": "passed",
@@ -51,7 +76,7 @@
     },
     "webDocumentReload": {
       "status": "passed",
-      "sha": "e9f060aa9653cf3e388bf14d9957458ccb06f49f",
+      "sha": "53b7b3c476962a27d0951e4726924e067cddef44",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-chat-web-document-reload-c90ca01f7.json",
       "reportSha256": "a9606c068f8275e9936a85516cb55a2d91f66f5339abe270b8cbbb1330a4be7f",
       "reportStatus": "passed",
@@ -76,6 +101,7 @@
   "preflight": [
     "git diff --check",
     "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs scripts/shell-navigation-android-process-death-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "node scripts/shell-navigation-android-process-death-evidence.mjs --serial <api35-emulator> --credentials-file <private-file> --backend-config-file <private-local-restored-supabase-config> --exact-chat-only --out <report> --screenshot-dir <directory>",
     "node --test scripts/web-authenticated-browser-e2e.test.mjs scripts/web-login-product-flow-contract.test.mjs scripts/web-wasm-navigation-stress-contract.test.mjs",
     ".\\gradlew.bat :web:wasmJsBrowserTest :app:compileDebugKotlin --console=plain",
     "node scripts/web-authenticated-browser-e2e.mjs --chrome <chrome> --out build-reports/web/shell-chat-reload-authenticated-browser-e2e.json",
@@ -85,11 +111,12 @@
     "Android, iOS and Web now retain the exact Chat conversation and focused-message identifiers at their native restoration boundaries. The persisted values contain identifiers only; message content and composer drafts are not stored by this change.",
     "Android keeps persisted focus separate from the one-shot active focus. Rendering acknowledgement clears only the active focus, while leaving Chat clears both persisted identifiers so a later unrelated Chat visit cannot inherit stale state.",
     "The Android focal runner selects a real favorite, proves a distinct base intent would not preserve it, requires a replacement process ID, checks the exact conversation/message pair and fails closed during authenticated cleanup.",
-    "The authenticated Android run remains pending because the public Supabase endpoint returns 402 exceed_egress_quota. Static contracts and compilation pass, but this manifest does not attribute Android runtime acceptance while that external condition remains.",
+    "Android passed the authenticated focal on API 35 against an isolated Supabase restored from the protected logical backup. The runner creates and favorites one synthetic message through the product RPCs, opens it through a separate-UID accessibility observer, proves that the base intent still names Favorites rather than the target, kills the background process through Android ActivityManager and restores the exact conversation/message in a replacement PID.",
+    "The Android runner confines its backend override to debug and emulator loopback, rejects redirects, captures Auth custody before resolving the profile, records no token/key/credential, revokes the auxiliary session, verifies refresh rejection and clears private files plus app data. This accepts the Android runtime without claiming that the deployed production endpoint has stopped returning HTTP 402 exceed_egress_quota.",
     "The iOS focal XCTest passed on Simulator with router recreation and identifier-only persistence. The historical Web browser suite passed 14 tests and proves exact-fragment reconstruction in a fresh controller with hermetic storage callbacks, plus a Communities return scoped to the matching conversation.",
     "The Web production distribution built from c90ca01f was exercised in Chrome 154 with a hermetic authenticated backend. A real page reload changed performance.timeOrigin, restored conversation sb:42 and message 9, selected the exact accessible message once in each document, consumed it once after the reload, observed no undeclared network or mutation and verified session revocation.",
-    "This evidence closes exact Chat conversation/message restoration for the iOS router and Web across both controller reconstruction and a real document reload when final CI is complete. Android remains pending its authenticated runtime trial. It does not close scroll position, drafts, arbitrary secondary back stacks or internal state in other features.",
-    "Independent product review returned GO with no P0-P2 findings before this documentary attestation was added; the documentation and evidence binding require their own affected-contract check before promotion.",
-    "Product SHA e9f060aa differs from runtime SHA c90ca01f only by docs/WEB_AUTHENTICATED_BROWSER_E2E.md; the four executable and contract inputs are byte-identical. The historical iOS and Web controller reports remain bound to ad3c8ee6, the real-document Web report remains bound to c90ca01f, and only the affected Web distribution and browser lane was rerun."
+    "This evidence closes exact Chat conversation/message restoration for Android process death, iOS router recreation and Web across both controller reconstruction and a real document reload when final CI is complete. It does not close scroll position, drafts, arbitrary secondary back stacks or internal state in other features.",
+    "Independent Android review first found late session custody and redirect-following risks. Product SHA 53b7b3c47 captures tokens before the resolver, rejects redirects for authentication and cleanup, keeps executable negatives for both findings and received final GO after rebase with no remaining P0-P3 findings.",
+    "The historical iOS and Web controller reports remain bound to ad3c8ee6 and the real-document Web report remains bound to c90ca01f. Their platform runtime inputs are unchanged by the Android-only candidate, so only Android contracts, compilation and runtime were repeated."
   ]
 }
