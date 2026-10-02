@@ -4,15 +4,15 @@
     "FLOW-IOS-LAYOUT"
   ],
   "status": "passed",
-  "productSha": "cbf044037250c134f50dceedac2ac09dd29d991d",
-  "certification": "rebased-affected-local-gates-complete-independent-review-go-final-CI-pending",
+  "productSha": "f1be9a64aba939cf7e356b2142af0338542b4ebe",
+  "certification": "rebased-affected-local-gates-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "cbf044037250c134f50dceedac2ac09dd29d991d",
+      "sha": "f1be9a64aba939cf7e356b2142af0338542b4ebe",
       "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-cbf04403.json",
-      "reportSha256": "b2a987d1808ac21e8e54cf6f70f97d3a37316cedcd84c38eac02f09a18021435",
+      "reportSha256": "2fcb26bc02f2a1c604366edca645f2b68c6c486f6db420947ad536bf346d0f8d",
       "reportStatus": "passed",
       "reportGitHead": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
       "reportWorkingTreeDirty": false,
@@ -54,8 +54,8 @@
     "xcrun xcresulttool export attachments"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "a5d3f9131e2f602f1371be6987866b4bb36299b9",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
@@ -65,7 +65,7 @@
     "The backdrop intentionally exceeds the accessibility keyboard frame in landscape to cover the side regions behind the inset keyboard. Equality of those rectangles was a false test assumption; containment is the product invariant demonstrated by the retained screenshots.",
     "The failed 4d3d1833 and 3fe86d1e xcresults remain retained on the Mac, and the independent NO-GO on 7a6e507 is preserved in the report history. No failed attempt or review was rewritten as a passing result.",
     "Independent exact-SHA review on f40768ff1 returned GO with no P0-P3 findings and reproduced the 8/8 focal contract, attestation validator and diff check.",
-    "After #513 merged, the unit rebased to Product SHA cbf044037. All six non-documentary unit blobs are byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, diff check and Profile Wasm compilation passed on the rebased tree. Independent exact-SHA review on a5d3f9131 returned GO with no P0-P3 findings. The runtime XCTest remains attributed to fc794f68, while final GitHub iOS certification must validate the combined candidate.",
+    "After #513 merged, the unit rebased to cbf044037 and Product SHA f1be9a64 refreshed only the four reviewed capability-matrix references to the already-changed QuataIosApp.swift source. All six non-documentary unit blobs are byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, 22/22 capability contracts, the eight focal shell-layout contracts, diff check and Profile Wasm compilation passed on the composed tree. The earlier independent review on a5d3f9131 returned GO with no P0-P3 findings; exact-SHA rereview is pending after the capability metadata correction. The runtime XCTest remains attributed to fc794f68, while final GitHub iOS certification must validate the combined candidate.",
     "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation."
   ]
 }

@@ -28,7 +28,8 @@
   },
   "evidenceBinding": {
     "runtimeExecutionProductSha": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
-    "rebasedProductSha": "cbf044037250c134f50dceedac2ac09dd29d991d",
+    "rebasedProductSha": "f1be9a64aba939cf7e356b2142af0338542b4ebe",
+    "previousRebasedProductSha": "cbf044037250c134f50dceedac2ac09dd29d991d",
     "integratedBaseSha": "20f7934addb907d2da54837dc58c93b9193e529a",
     "bindingMethod": "all non-documentary unit blobs are byte-identical; affected contracts and compilation reran on the rebased product; final GitHub iOS certification remains required",
     "identicalBlobs": {
@@ -42,7 +43,8 @@
     "rebasedPreflights": {
       "diffCheck": "passed",
       "contracts": "25/25 passed",
-      "profileWasmCompilation": "passed"
+      "profileWasmCompilation": "passed",
+      "capabilityMatrixContracts": "22/22 passed"
     }
   },
   "result": {
@@ -101,7 +103,7 @@
     "At 3fe86d1e focus, draft and keyboard survived rotation, while an equality assertion incorrectly compared the larger opaque backdrop with the narrower accessibility keyboard frame; that failing xcresult also remains on the Mac.",
     "At a717c456 the containment assertion passed, but independent review rejected IME visibility as sufficient authority to restore message focus and found that the XCTest could tap the message input after rotation.",
     "At fc794f68 the product tracks whether Search or Message owns the keyboard session, the XCTest first proves Search retains its own focus, and all post-rotation assertions pass without tapping either input.",
-    "After comments pagination merged as 20f7934a, the unit rebased to cbf04403. All six non-documentary unit blobs remained identical; the 25 affected contracts and Profile Wasm compilation passed on the rebased product. The UI run remains attributed to fc794f68 and final GitHub iOS certification is required for the combined tree."
+    "After comments pagination merged as 20f7934a, the unit rebased to cbf04403. All six non-documentary unit blobs remained identical; the 25 affected contracts and Profile Wasm compilation passed on the rebased product. Product SHA f1be9a64 then refreshed only the reviewed capability-matrix hashes for the already-changed QuataIosApp.swift source; its 22 capability contracts and the eight focal shell-layout contracts pass. The UI run remains attributed to fc794f68 and final GitHub iOS certification is required for the combined tree."
   ],
   "limitations": [
     "This closes the production shell's global keyboard-layout policy with the real shared Profile/SOS search and message inputs; it does not claim every feature-specific input path.",
