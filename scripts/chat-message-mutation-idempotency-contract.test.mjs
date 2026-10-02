@@ -91,6 +91,8 @@ test("database receipts commit atomically, reject key reuse and roll back withou
   assert.match(runner, /mutation_rollback_postcondition_failed/);
   assert.match(releaseExecutor, /20261002003000[\s\S]*89149300661e48f8a9ed210eff74d399f8949d34065bb7cecda98a094d59bf74/);
   assert.match(releaseExecutor, /selectedVersions\.includes\("20261002003000"\)/);
+  assert.match(releaseExecutor, /p_message_id bigint, p_message text, p_client_mutation_id text/);
+  assert.ok(releaseExecutor.includes("on conflict \\(actor_profile_id, client_mutation_id\\) do nothing"));
   assert.match(releaseExecutor, /selective_release_chat_mutation_boundary_missing/);
   assert.match(releaseExecutor, /selective_release_chat_mutation_security_failed/);
   assert.match(releaseExecutor, /selective_release_chat_mutation_definition_failed/);

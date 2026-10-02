@@ -677,7 +677,7 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
         and relation.relname='chat_message_mutation_receipts'
         and edit_namespace.nspname='public'
         and edit.proname='quata_chat_edit_message_v2'
-        and pg_get_function_identity_arguments(edit.oid)='p_actor_profile_id uuid, p_thread_id bigint, p_message_id bigint, p_body text, p_client_mutation_id text'
+        and pg_get_function_identity_arguments(edit.oid)='p_actor_profile_id uuid, p_thread_id bigint, p_message_id bigint, p_message text, p_client_mutation_id text'
         and delete_namespace.nspname='public'
         and delete_function.proname='quata_chat_delete_messages_v2'
         and pg_get_function_identity_arguments(delete_function.oid)='p_actor_profile_id uuid, p_thread_id bigint, p_message_ids bigint[], p_client_mutation_id text'
@@ -695,7 +695,7 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     for (const definition of [mutation.edit_definition, mutation.delete_definition]) {
       if (!/insert into public\.chat_message_mutation_receipts/i.test(definition)
           || !/client mutation id reuse/i.test(definition)
-          || !/for update/i.test(definition)
+          || !/on conflict \(actor_profile_id, client_mutation_id\) do nothing/i.test(definition)
           || !/completed_at/i.test(definition)) {
         throw new Error("selective_release_chat_mutation_definition_failed");
       }
