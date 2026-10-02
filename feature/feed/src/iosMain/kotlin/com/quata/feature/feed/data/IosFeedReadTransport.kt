@@ -54,14 +54,16 @@ class IosFeedReadTransport(
         getRows("community_posts", query).map { it.toFeedRemotePost() }
     }
 
-    override suspend fun fetchComments(postIds: List<String>): Result<List<FeedRemoteComment>> = runCatching {
-        if (postIds.isEmpty()) emptyList() else getRows(
+    override suspend fun fetchCommentsPage(request: FeedRemoteCommentPageRequest): Result<List<FeedRemoteComment>> = runCatching {
+        if (request.postIds.isEmpty()) emptyList() else getRows(
             table = "community_comments",
-            query = mapOf(
-                "select" to CommentSelect,
-                "post_id" to postIds.toIosPostgrestInFilter(),
-                "order" to "created_at.asc",
-            ),
+            query = buildMap {
+                put("select", CommentSelect)
+                put("post_id", request.postIds.toIosPostgrestInFilter())
+                request.afterIdExclusive?.let { put("id", "gt.${it.requireIosPostgrestIdentifier()}") }
+                put("order", "id.asc")
+                put("limit", request.limit.coerceAtLeast(1).toString())
+            },
         ).map { it.toFeedRemoteComment() }
     }
 

@@ -31,9 +31,41 @@ class RemoteFeedReadRepositoryTest {
         assertEquals(1, post.likesCount)
         assertTrue(post.isLikedByCurrentUser)
         assertEquals("Vecino", post.comments.single().authorName)
-        assertEquals(listOf("post-1"), transport.commentRequests.single())
+        assertEquals(listOf("post-1"), transport.commentRequests.single().postIds)
         assertEquals(listOf("post-1"), transport.likeRequests.single())
         assertEquals(setOf("author", "commenter", "viewer"), transport.profileRequests.single().toSet())
+    }
+
+    @Test
+    fun drainsEveryCommentPageAndRestoresChronologicalOrder() = runTest {
+        val comments = (1..1_205).map { index ->
+            FeedRemoteComment(
+                id = "comment-${index.toString().padStart(4, '0')}",
+                postId = "post-1",
+                profileId = "commenter",
+                body = "Comentario $index",
+                createdAt = (1_206 - index).toString().padStart(4, '0'),
+            )
+        }
+        val transport = FakeFeedReadTransport(
+            posts = listOf(FeedRemotePost(id = "post-1", profileId = "author")),
+            comments = comments,
+            profiles = listOf(
+                FeedRemoteProfile(id = "author", displayName = "Autora"),
+                FeedRemoteProfile(id = "commenter", displayName = "Vecino"),
+            ),
+        )
+
+        val post = RemoteFeedReadRepository(transport).getFeed().getOrThrow().single()
+
+        assertEquals(1_205, post.comments.size)
+        assertEquals("comment-1205", post.comments.first().id)
+        assertEquals("comment-0001", post.comments.last().id)
+        assertEquals(
+            listOf(null, "comment-0500", "comment-1000"),
+            transport.commentRequests.map(FeedRemoteCommentPageRequest::afterIdExclusive),
+        )
+        assertTrue(transport.commentRequests.all { it.limit == 500 })
     }
 
     @Test
@@ -122,7 +154,7 @@ private class FakeFeedReadTransport(
     private val currentUserId: String? = null,
 ) : FeedReadTransport {
     val postRequests = mutableListOf<FeedRemotePostRequest>()
-    val commentRequests = mutableListOf<List<String>>()
+    val commentRequests = mutableListOf<FeedRemoteCommentPageRequest>()
     val likeRequests = mutableListOf<List<String>>()
     val profileRequests = mutableListOf<List<String>>()
     var postsFailure: Throwable? = null
@@ -138,9 +170,16 @@ private class FakeFeedReadTransport(
         }
     }
 
-    override suspend fun fetchComments(postIds: List<String>): Result<List<FeedRemoteComment>> {
-        commentRequests += postIds
-        return commentsFailure.asFailureOr { comments.filter { it.postId in postIds } }
+    override suspend fun fetchCommentsPage(request: FeedRemoteCommentPageRequest): Result<List<FeedRemoteComment>> {
+        commentRequests += request
+        return commentsFailure.asFailureOr {
+            comments.asSequence()
+                .filter { it.postId in request.postIds }
+                .filter { request.afterIdExclusive == null || it.id > request.afterIdExclusive }
+                .sortedBy(FeedRemoteComment::id)
+                .take(request.limit)
+                .toList()
+        }
     }
 
     override suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>> {

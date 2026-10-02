@@ -3,6 +3,7 @@ package com.quata.feature.official.data
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialPostType
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -103,6 +104,34 @@ class OfficialRemoteProtocolTest {
                 comments = listOf(OfficialRemoteComment(id = "comment", profileId = "reader")),
                 likes = listOf(OfficialRemoteLike(profileId = "viewer")),
             ),
+        )
+    }
+
+    @Test
+    fun drainsOfficialCommentsBeyondOneServerPageAndSortsForPresentation() = runTest {
+        val source = (1..1_101).map { index ->
+            OfficialRemoteComment(
+                id = "comment-${index.toString().padStart(4, '0')}",
+                postId = "official-1",
+                createdAt = (1_102 - index).toString().padStart(4, '0'),
+            )
+        }
+        val requests = mutableListOf<OfficialRemoteCommentPageRequest>()
+
+        val result = loadCompleteOfficialComments(listOf("official-1")) { request ->
+            requests += request
+            source.asSequence()
+                .filter { request.afterIdExclusive == null || it.id > request.afterIdExclusive }
+                .take(request.limit)
+                .toList()
+        }
+
+        assertEquals(1_101, result.size)
+        assertEquals("comment-1101", result.first().id)
+        assertEquals("comment-0001", result.last().id)
+        assertEquals(
+            listOf(null, "comment-0500", "comment-1000"),
+            requests.map(OfficialRemoteCommentPageRequest::afterIdExclusive),
         )
     }
 }

@@ -6,6 +6,7 @@ import com.quata.core.model.User
 import com.quata.core.text.toRemoteCommentBody
 import com.quata.feature.feed.data.FeedReadTransport
 import com.quata.feature.feed.data.FeedRemoteComment
+import com.quata.feature.feed.data.FeedRemoteCommentPageRequest
 import com.quata.feature.feed.data.FeedRemoteLike
 import com.quata.feature.feed.data.FeedRemotePost
 import com.quata.feature.feed.data.FeedRemotePostRequest
@@ -158,10 +159,16 @@ private class WebFeedReadTransport(
         ).map(JsonObject::toFeedRemotePost)
     }
 
-    override suspend fun fetchComments(postIds: List<String>): Result<List<FeedRemoteComment>> = runCatching {
-        if (postIds.isEmpty()) emptyList() else client.rows(
+    override suspend fun fetchCommentsPage(request: FeedRemoteCommentPageRequest): Result<List<FeedRemoteComment>> = runCatching {
+        if (request.postIds.isEmpty()) emptyList() else client.rows(
             table = "community_comments",
-            query = mapOf("select" to CommentSelect, "post_id" to postIds.toPostgrestInFilter(), "order" to "created_at.asc"),
+            query = buildMap {
+                put("select", CommentSelect)
+                put("post_id", request.postIds.toPostgrestInFilter())
+                request.afterIdExclusive?.let { put("id", "gt.${it.requirePostgrestIdentifier()}") }
+                put("order", "id.asc")
+            },
+            limit = request.limit,
             authMode = webFeedReadAuthMode(WebFeedReadOperation.Feed),
         ).map(JsonObject::toFeedRemoteComment)
     }

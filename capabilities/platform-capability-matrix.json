@@ -57,7 +57,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt",
-              "sha256": "e4a8db34ef702140cb3bf3e32797e25341d0d19a279b74d8faead9cd08946a01",
+              "sha256": "de8e047aa3ff9108a5fba56b0a05799e5fe3b5d952f1e576007b97e9b4973a9a",
               "role": "implementation"
             }
           ]
@@ -119,7 +119,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt",
-              "sha256": "e4a8db34ef702140cb3bf3e32797e25341d0d19a279b74d8faead9cd08946a01",
+              "sha256": "de8e047aa3ff9108a5fba56b0a05799e5fe3b5d952f1e576007b97e9b4973a9a",
               "role": "implementation"
             }
           ]
@@ -167,7 +167,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f4b9c1e96eccbdc42ee6d30cd86a1282f414e2ffb2e893d936e914908bacfaf3",
+              "sha256": "e68a98a9363e5e16bcf882668cdbdde3e5dc298ecf16b9e7498079ede689896a",
               "role": "implementation"
             }
           ]
@@ -182,7 +182,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "4344158e4876100455799872deda05ed1d38d11abf5903f411f17be8496b6248",
+              "sha256": "47d6fe9783225a549d85da850d7a79ba8364c156540676f2203c24cfe5c4cd7d",
               "role": "implementation"
             }
           ]
@@ -197,7 +197,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "edb8dfeeaaa4cde16f1f69bb3ee88cf6bbb447f3467c7054c9ecb3529f07aafa",
+              "sha256": "3ab6bb45a079c423ab7669a9af207e0580af09f81f52393c1828e68c01ee3769",
               "role": "implementation"
             }
           ]
@@ -228,7 +228,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f4b9c1e96eccbdc42ee6d30cd86a1282f414e2ffb2e893d936e914908bacfaf3",
+              "sha256": "e68a98a9363e5e16bcf882668cdbdde3e5dc298ecf16b9e7498079ede689896a",
               "role": "implementation"
             }
           ]
@@ -243,7 +243,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "4344158e4876100455799872deda05ed1d38d11abf5903f411f17be8496b6248",
+              "sha256": "47d6fe9783225a549d85da850d7a79ba8364c156540676f2203c24cfe5c4cd7d",
               "role": "implementation"
             }
           ]
@@ -258,7 +258,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "edb8dfeeaaa4cde16f1f69bb3ee88cf6bbb447f3467c7054c9ecb3529f07aafa",
+              "sha256": "3ab6bb45a079c423ab7669a9af207e0580af09f81f52393c1828e68c01ee3769",
               "role": "implementation"
             }
           ]
@@ -287,7 +287,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f4b9c1e96eccbdc42ee6d30cd86a1282f414e2ffb2e893d936e914908bacfaf3",
+              "sha256": "e68a98a9363e5e16bcf882668cdbdde3e5dc298ecf16b9e7498079ede689896a",
               "role": "implementation"
             }
           ]
@@ -302,7 +302,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "4344158e4876100455799872deda05ed1d38d11abf5903f411f17be8496b6248",
+              "sha256": "47d6fe9783225a549d85da850d7a79ba8364c156540676f2203c24cfe5c4cd7d",
               "role": "implementation"
             },
             {
@@ -327,7 +327,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "edb8dfeeaaa4cde16f1f69bb3ee88cf6bbb447f3467c7054c9ecb3529f07aafa",
+              "sha256": "3ab6bb45a079c423ab7669a9af207e0580af09f81f52393c1828e68c01ee3769",
               "role": "implementation"
             },
             {
@@ -370,7 +370,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f4b9c1e96eccbdc42ee6d30cd86a1282f414e2ffb2e893d936e914908bacfaf3",
+              "sha256": "e68a98a9363e5e16bcf882668cdbdde3e5dc298ecf16b9e7498079ede689896a",
               "role": "implementation"
             }
           ]
@@ -434,7 +434,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
-              "sha256": "f4b9c1e96eccbdc42ee6d30cd86a1282f414e2ffb2e893d936e914908bacfaf3",
+              "sha256": "e68a98a9363e5e16bcf882668cdbdde3e5dc298ecf16b9e7498079ede689896a",
               "role": "implementation"
             }
           ]

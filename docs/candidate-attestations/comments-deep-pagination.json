@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-COMMENTS"
+  ],
+  "status": "passed",
+  "productSha": "f307addde73d9a9a52dfc63e9d46fd3cf39fde2d",
+  "certification": "affected-local-gates-complete-independent-review-approved-final-CI-pending",
+  "evidenceKind": "HERMETIC_DEEP_COMMENT_KEYSET_AND_THREE_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "f307addde73d9a9a52dfc63e9d46fd3cf39fde2d",
+      "report": "docs/candidate-attestations/evidence/comments-deep-pagination-265cdaf6.json",
+      "reportSha256": "309b41d7eb9f5aa717c06080560e8f5e3d79997707017d2285a0808fb91d0c1f",
+      "reportStatus": "passed",
+      "reportGitHead": "265cdaf67c8ea11b3362c37ce9f04e29889ae557",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "feed_common_loader_returned_all_1205_comments_in_500_500_205_pages",
+        "official_common_loader_returned_all_1101_comments_in_500_500_101_pages",
+        "android_off_window_invalidation_reloaded_complete_comment_sets",
+        "real_postgrest_returned_1205_unique_rows_per_table_in_500_500_205_pages",
+        "official_deleted_comment_was_excluded",
+        "chronological_created_at_id_presentation_order_was_restored",
+        "android_and_web_wasm_affected_compilation_passed",
+        "focused_feed_and_official_wasm_tests_passed",
+        "rebased_runtime_and_focal_gate_sources_match_prior_ios_evidence_by_blob",
+        "final_github_ios_certification_pending"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "isolated-containers-and-network-removed-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/comments-deep-pagination-contract.test.mjs",
+    ".\\scripts\\run-comments-deep-pagination-test.ps1",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:feed:compileTestKotlinWasmJs :feature:official:compileTestKotlinWasmJs --stacktrace",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.data.RemoteFeedReadRepositoryTest :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.data.OfficialRemoteProtocolTest --stacktrace"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "03b98599f8928c6f44db26105fee5d9c35f178f6",
+    "blockingFindings": [],
+    "reviewHead": "03b98599f8928c6f44db26105fee5d9c35f178f6"
+  },
+  "notes": [
+    "Feed, Official and public-profile comments now exhaust strict id keysets in pages of 500 on Android, Web/Wasm and iOS, then restore the stable visible order created_at,id.",
+    "Android observes a one-row invalidation trigger and performs a NETWORK_ONLY complete reload so an off-window mutation cannot be suppressed when the first transport window remains byte-identical.",
+    "The isolated PostgreSQL 17 and PostgREST 12.2.3 gate configures a real 500-row maximum and proves 1205 unique visible rows per comment table in pages 500/500/205. It also proves Official soft-deleted rows remain excluded.",
+    "No schema, RLS, production data, credentials, published-client contract or comment mutation semantics changed.",
+    "The broad allTests aggregation encountered an unrelated Skiko runner failure loading skiko.wasm and one pre-existing media-viewer test. Both new focal suites passed when selected directly in Chrome Headless, and all affected platform compilation gates passed.",
+    "Previously accepted interaction matrices were not repeated solely because the product SHA changed. Final GitHub jobs remain responsible for complete candidate recertification.",
+    "After rebasing onto main with Official pagination recovery, all 14 runtime and focal-gate blobs in this unit remain byte-identical to the previously reviewed candidate. The affected Android/Web compilation, 6/6 contract, 22/22 capability checks, 17/17 attestation checks, isolated PostgreSQL/PostgREST gate and both focal Wasm suites were rerun on execution head 265cdaf6; required final GitHub jobs will compile the rebased iOS candidate.",
+    "Independent review of exact head 03b98599f returned GO with no P0-P3 findings and reproduced diff-check, the focal and capability contracts (28/28), and the attestation validator."
+  ]
+}
