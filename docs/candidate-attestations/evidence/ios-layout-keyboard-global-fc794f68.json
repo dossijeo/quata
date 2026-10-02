@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
+    "workingTreeDirty": false,
+    "cleanScope": "tracked-source-and-index"
+  },
+  "environment": {
+    "host": "macOS Hyper-V VM",
+    "xcode": "26.6 (17F113)",
+    "simulator": {
+      "model": "iPhone 16",
+      "os": "18.3.1 (22D8075)",
+      "architecture": "x86_64",
+      "deviceSelector": "explicit private simulator UDID supplied at execution time"
+    },
+    "configuration": "SimulatorSigned"
+  },
+  "scope": {
+    "unit": "FLOW-IOS-LAYOUT",
+    "surface": "real shared Profile/SOS search and message inputs inside the production authenticated router",
+    "orientations": [
+      "portrait",
+      "landscapeLeft",
+      "restoredPortrait"
+    ]
+  },
+  "result": {
+    "test": "QuataIosUITests/QuataIosHostUITests/testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 184.678,
+    "assertions": {
+      "realSharedProfileSurfaceMounted": true,
+      "searchDraftPreservedAcrossBothRotations": true,
+      "searchRetainedKeyboardFocus": true,
+      "searchNeverTransferredFocusToMessage": true,
+      "exactMessageDraftPreservedAcrossBothRotations": true,
+      "messageRetainedKeyboardFocusWithoutTestRepair": true,
+      "softwareKeyboardVisibleInEveryObservedOrientation": true,
+      "focusedMessageStayedAboveKeyboard": true,
+      "productionOpaqueBackdropCoveredKeyboardBounds": true,
+      "topChromeContentAndPrimaryNavigationStayedContained": true
+    }
+  },
+  "artifacts": {
+    "xcresult": "build/reports/ios/ios-layout-keyboard-ui-coverage-fc794f68-results/ios-shell-layout.xcresult",
+    "uiLogSha256": "d041616f7de73fb6269a7f59abcc03da47b16ba5ec8ea7fa0c192b3caff74f81",
+    "attachmentManifestSha256": "f706b00027b4cb1f07b466a5a5db6ca4830d46d1ea4db7aba207cacd81c85ca8",
+    "screenshots": {
+      "searchLandscapeSha256": "d33a7ad09dc76eb6b16feaddf03754ec3a64a7c1bd0ba820ed44e33931df9cdc",
+      "searchRestoredPortraitSha256": "53dc5357748c8c01f22d32d439e43d697be008a7d03123bdad943f99f2cf975e",
+      "messagePortraitSha256": "88bf8914a5aa08495f6f3200c2affd93c50a86fb971879b31dbc421021e856ba",
+      "messageLandscapeSha256": "eb602a85e83d2c363053785f56a8045f0591c0906cbe0e0b33acfe79fb6d3d6e",
+      "messageRestoredPortraitSha256": "b160ae9f34f90a2f9c36a5c76f6f2c5ae30082ebe842c46c9e23dcab1c8b817f"
+    }
+  },
+  "steps": [
+    "exact_candidate_sha_materialized_on_mac",
+    "tracked_source_and_index_clean_at_receipt",
+    "simulator_signed_build_for_testing_succeeded",
+    "production_authenticated_router_mounted_real_shared_profile_sos_surface",
+    "exclusive_search_draft_entered_through_real_compose_search_input",
+    "search_focus_keyboard_and_exact_draft_preserved_across_both_orientation_changes",
+    "search_rotation_never_transferred_focus_to_message",
+    "exclusive_synthetic_message_draft_entered_through_real_compose_text_input",
+    "portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "landscape_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "restored_portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "exact_message_draft_preserved_across_both_orientation_changes_without_test_repair",
+    "top_chrome_content_and_primary_navigation_containment_verified",
+    "xctest_passed_once_with_zero_failures",
+    "five_named_screenshots_exported"
+  ],
+  "diagnosticHistory": [
+    "At 4d3d1833 the first focal run preserved portrait input but lost focus and keyboard after rotation; the failing xcresult remains on the Mac.",
+    "At 3fe86d1e focus, draft and keyboard survived rotation, while an equality assertion incorrectly compared the larger opaque backdrop with the narrower accessibility keyboard frame; that failing xcresult also remains on the Mac.",
+    "At a717c456 the containment assertion passed, but independent review rejected IME visibility as sufficient authority to restore message focus and found that the XCTest could tap the message input after rotation.",
+    "At fc794f68 the product tracks whether Search or Message owns the keyboard session, the XCTest first proves Search retains its own focus, and all post-rotation assertions pass without tapping either input."
+  ],
+  "limitations": [
+    "This closes the production shell's global keyboard-layout policy with the real shared Profile/SOS search and message inputs; it does not claim every feature-specific input path.",
+    "Native Split View and Stage Manager gestures and scene lifecycle remain externally unavailable in this Simulator environment.",
+    "Overlays and route-specific overrides outside the observed Profile/SOS editor remain separate coverage units.",
+    "No backend, session, notification, remote data or signing-distribution mutation occurred."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "local_fixture_no_backend_or_remote_mutation"
+  }
+}
