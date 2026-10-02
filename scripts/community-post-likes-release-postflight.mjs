@@ -25,6 +25,8 @@ function parseArgs(argv) {
 }
 
 const normalized = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+const EXPECTED_ACTOR_EXPRESSION = "((( SELECT quata_chat_auth_profile_id() AS quata_chat_auth_profile_id) IS NOT NULL) AND (profile_id = ( SELECT quata_chat_auth_profile_id() AS quata_chat_auth_profile_id)))";
+const EXPECTED_RESOLVER_SOURCE = "select cp.id from public.community_profiles cp where auth.uid() is not null and cp.account_status = 'active' and (cp.id = auth.uid() or cp.auth_user_id = auth.uid()) limit 1";
 
 function assertPolicies(rows) {
   const byName = new Map(rows.map((row) => [row.policyname, row]));
@@ -47,11 +49,22 @@ function assertPolicies(rows) {
     const row = byName.get(name);
     const expression = normalized(row?.[expressionField]);
     if (row?.cmd !== command || row?.roles !== "{authenticated}" ||
-        !expression.includes("quata_chat_auth_profile_id()") ||
-        !expression.includes("profile_id =") ||
-        !expression.includes("IS NOT NULL")) {
+        expression !== EXPECTED_ACTOR_EXPRESSION) {
       throw new Error(`postflight_${command.toLowerCase()}_policy_mismatch`);
     }
+  }
+}
+
+function assertResolver(rows) {
+  if (rows.length !== 1) throw new Error("postflight_resolver_missing");
+  const resolver = rows[0];
+  if (resolver.language !== "sql" || resolver.volatility !== "s" ||
+      resolver.security_definer !== true ||
+      JSON.stringify(resolver.config) !== JSON.stringify(["search_path=public, auth"]) ||
+      normalized(resolver.source) !== EXPECTED_RESOLVER_SOURCE ||
+      resolver.public_execute !== true || resolver.anon_execute !== true ||
+      resolver.authenticated_execute !== true) {
+    throw new Error("postflight_resolver_mismatch");
   }
 }
 
@@ -92,7 +105,7 @@ async function main() {
   try {
     await client.connect();
     await client.query("begin read only");
-    const [ledger, table, policies, grants, triggers] = await Promise.all([
+    const [ledger, table, policies, grants, triggers, resolver] = await Promise.all([
       client.query(
         "select version::text, coalesce(name, '') as name from supabase_migrations.schema_migrations where version = $1",
         [EXPECTED_VERSION],
@@ -121,6 +134,21 @@ async function main() {
           join pg_namespace n on n.oid = c.relnamespace
          where n.nspname = 'public' and c.relname = 'community_post_likes' and not t.tgisinternal
       `),
+      client.query(`
+        select l.lanname as language, p.provolatile as volatility,
+               p.prosecdef as security_definer, p.proconfig as config, p.prosrc as source,
+               exists (
+                 select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                  where acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
+               ) as public_execute,
+               has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+               has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+          join pg_language l on l.oid = p.prolang
+         where n.nspname = 'public' and p.proname = 'quata_chat_auth_profile_id'
+           and p.pronargs = 0
+      `),
     ]);
     await client.query("rollback");
 
@@ -128,6 +156,7 @@ async function main() {
     if (table.rowCount !== 1 || table.rows[0].rls_enabled !== true) throw new Error("postflight_rls_not_enabled");
     assertPolicies(policies.rows);
     assertGrants(grants.rows);
+    assertResolver(resolver.rows);
     if (triggers.rows[0]?.count !== 0) throw new Error("postflight_unexpected_trigger");
 
     const report = {
@@ -144,6 +173,11 @@ async function main() {
         policies: policies.rows,
         grants: grants.rows,
         userTriggerCount: 0,
+      },
+      resolver: {
+        name: "quata_chat_auth_profile_id",
+        definitionExact: true,
+        executionAclVerified: ["PUBLIC", "anon", "authenticated"],
       },
       guarantees: {
         tls: "verify-full with one explicit CA",

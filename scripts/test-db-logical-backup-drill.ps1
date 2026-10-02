@@ -21,8 +21,42 @@ try {
     & docker run -d --rm --name $source --network $network --network-alias db.local -e "POSTGRES_PASSWORD=$password" -v "${certificateVolume}:/tls:ro" $DockerImage -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "test_source_start_failed" }
     $ready=$false; foreach ($n in 1..40) { & docker exec $source pg_isready -U postgres 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { $ready=$true; break }; Start-Sleep -Milliseconds 500 }; if (-not $ready) { Fail "test_source_not_ready" }
-    $sql="create table public.community_comments(id bigint primary key, body text not null); create table public.official_post_likes(id bigint primary key, emoji text not null); insert into public.community_comments values (1,'one'),(2,'two'); insert into public.official_post_likes values (1,'heart'),(2,'star'),(3,'heart');"
-    & docker exec -e "PGPASSWORD=$password" $source psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c $sql 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "test_seed_failed" }
+    $sql=@'
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin;
+create schema auth;
+create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+create table public.community_comments(id bigint primary key, body text not null);
+create table public.official_post_likes(id bigint primary key, emoji text not null);
+create table public.community_profiles(id uuid primary key, auth_user_id uuid, account_status text not null);
+create table public.community_post_likes(id uuid primary key, post_id uuid not null, profile_id uuid not null);
+create function public.quata_chat_auth_profile_id()
+returns uuid language sql stable security definer set search_path = public, auth
+as $$
+    select cp.id
+      from public.community_profiles cp
+     where auth.uid() is not null
+       and cp.account_status = 'active'
+       and (cp.id = auth.uid() or cp.auth_user_id = auth.uid())
+     limit 1
+$$;
+alter table public.community_post_likes enable row level security;
+create policy "public delete likes" on public.community_post_likes for delete to public using (true);
+create policy "public insert likes" on public.community_post_likes for insert to public with check (true);
+create policy "public read likes" on public.community_post_likes for select to public using (true);
+grant delete, insert, references, select, trigger, truncate, update on table public.community_post_likes to anon, authenticated, service_role;
+grant execute on function public.quata_chat_auth_profile_id() to anon, authenticated;
+insert into public.community_comments values (1,'one'),(2,'two');
+insert into public.official_post_likes values (1,'heart'),(2,'star'),(3,'heart');
+insert into public.community_post_likes values
+ ('00000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001'),
+ ('00000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002');
+'@
+    $seedFile=Join-Path $root "seed.sql"
+    [IO.File]::WriteAllText($seedFile, $sql, [Text.UTF8Encoding]::new($false))
+    & docker cp $seedFile "${source}:/tmp/quata-backup-seed.sql" 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "test_seed_copy_failed" }
+    & docker exec -e "PGPASSWORD=$password" $source psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f /tmp/quata-backup-seed.sql 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "test_seed_failed" }
     $urlFile=Join-Path $root "url.txt"; [IO.File]::WriteAllText($urlFile,"postgresql://postgres:$password@db.local:5432/postgres?sslmode=verify-full")
     $keyFile=Join-Path $root "key.txt"; $key=[byte[]]::new(32); $rng=[Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($key) } finally { $rng.Dispose() }; [IO.File]::WriteAllText($keyFile,[Convert]::ToBase64String($key)); [Array]::Clear($key,0,$key.Length)
     & (Join-Path $PSScriptRoot "new-db-logical-backup.ps1") -DbUrlFile $urlFile -TlsCaFile (Join-Path $tls "ca.pem") -EncryptionKeyFile $keyFile -OutRoot $out -Scope Full -DockerImage $DockerImage -DockerNetwork $network
@@ -41,6 +75,8 @@ try {
     if (-not $failed -or @(Get-ChildItem -LiteralPath $failedRoot -Directory -ErrorAction SilentlyContinue).Count -ne 0) { Fail "test_failed_dump_left_authorized_backup" }
     & (Join-Path $PSScriptRoot "restore-db-logical-backup-drill.ps1") -BackupSet $set -EncryptionKeyFile $keyFile -DockerImage $DockerImage -ExpectedCommunityComments 2 -ExpectedOfficialPostLikes 3
     if ($LASTEXITCODE -ne 0) { Fail "test_restore_failed" }
+    & (Join-Path $PSScriptRoot "restore-db-logical-backup-drill.ps1") -BackupSet $set -EncryptionKeyFile $keyFile -DockerImage $DockerImage -CommunityPostLikesScope -ExpectedCommunityPostLikes 2
+    if ($LASTEXITCODE -ne 0) { Fail "test_community_post_likes_restore_failed" }
     Write-Output "logical_backup_disposable_tls_restore_test_passed"
 }
 finally {

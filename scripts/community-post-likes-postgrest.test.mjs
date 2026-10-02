@@ -4,11 +4,10 @@ const [baseUrl, jwtSecret] = process.argv.slice(2);
 if (!baseUrl || !jwtSecret) throw new Error("base URL and JWT secret are required");
 
 const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
-const jwt = (profileId) => {
+const jwt = (authUserId) => {
   const header = encode({ alg: "HS256", typ: "JWT" });
   const payload = encode({
-    sub: profileId,
-    profile_id: profileId,
+    sub: authUserId,
     role: "authenticated",
     aud: "authenticated",
     exp: Math.floor(Date.now() / 1000) + 600,
@@ -58,12 +57,17 @@ for (let attempt = 0; attempt < 40; attempt += 1) {
 const ids = {
   actorA: "00000000-0000-4000-8000-000000000001",
   actorB: "00000000-0000-4000-8000-000000000002",
+  actorInactive: "00000000-0000-4000-8000-000000000003",
+  authA: "20000000-0000-4000-8000-000000000001",
+  authB: "20000000-0000-4000-8000-000000000002",
+  authInactive: "20000000-0000-4000-8000-000000000003",
   postA: "10000000-0000-4000-8000-000000000001",
   postB: "10000000-0000-4000-8000-000000000002",
   postSpoof: "10000000-0000-4000-8000-000000000003",
 };
-const tokenA = jwt(ids.actorA);
-const tokenB = jwt(ids.actorB);
+const tokenA = jwt(ids.authA);
+const tokenB = jwt(ids.authB);
+const tokenInactive = jwt(ids.authInactive);
 
 const publicBefore = await request("/community_post_likes?select=post_id,profile_id");
 expect(publicBefore.status === 200 && publicBefore.value.length === 0, "anonymous read failed", publicBefore);
@@ -95,6 +99,17 @@ expect(
   spoof.status === 403 && spoof.value?.code === "42501",
   "cross-actor insert was not rejected",
   spoof,
+);
+
+const inactive = await request("/community_post_likes", {
+  token: tokenInactive,
+  method: "POST",
+  body: { post_id: ids.postSpoof, profile_id: ids.actorInactive },
+});
+expect(
+  inactive.status === 403 && inactive.value?.code === "42501",
+  "inactive mapped actor was not rejected",
+  inactive,
 );
 
 const ownB = await request("/community_post_likes", {

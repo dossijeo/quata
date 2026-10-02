@@ -33,10 +33,19 @@ try {
     }
     if (-not $ready) { throw "community_post_likes_postgrest_database_not_ready" }
 
-    docker exec -e "PGPASSWORD=$password" $dbContainer `
-        psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 `
-        -f /workspace/scripts/sql/community-post-likes-postgrest.setup.sql *> $null
-    if ($LASTEXITCODE -ne 0) { throw "community_post_likes_postgrest_setup_failed" }
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $setupOutput = docker exec -e "PGPASSWORD=$password" $dbContainer `
+            psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 `
+            -f /workspace/scripts/sql/community-post-likes-postgrest.setup.sql 2>&1
+        $setupExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previous }
+    if ($setupExitCode -ne 0) {
+        $setupOutput | Write-Output
+        throw "community_post_likes_postgrest_setup_failed"
+    }
 
     docker run `
         --detach `

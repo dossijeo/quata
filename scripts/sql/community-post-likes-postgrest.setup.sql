@@ -6,6 +6,29 @@ grant anon, authenticated to current_user;
 
 create extension if not exists pgcrypto;
 
+create schema auth;
+create function auth.uid()
+returns uuid
+language sql
+stable
+as $$
+    select coalesce(
+        nullif(current_setting('request.jwt.claim.sub', true), ''),
+        nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+    )::uuid
+$$;
+
+create table public.community_profiles (
+    id uuid primary key,
+    auth_user_id uuid unique,
+    account_status text not null
+);
+
+insert into public.community_profiles (id, auth_user_id, account_status) values
+    ('00000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'active'),
+    ('00000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'active'),
+    ('00000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'inactive');
+
 create table public.community_post_likes (
     id uuid primary key default gen_random_uuid(),
     post_id uuid not null,
@@ -18,11 +41,15 @@ create function public.quata_chat_auth_profile_id()
 returns uuid
 language sql
 stable
+security definer
+set search_path = public, auth
 as $$
-    select coalesce(
-        nullif(current_setting('request.jwt.claim.profile_id', true), ''),
-        nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'profile_id'
-    )::uuid
+    select cp.id
+      from public.community_profiles cp
+     where auth.uid() is not null
+       and cp.account_status = 'active'
+       and (cp.id = auth.uid() or cp.auth_user_id = auth.uid())
+     limit 1
 $$;
 grant execute on function public.quata_chat_auth_profile_id() to authenticated;
 

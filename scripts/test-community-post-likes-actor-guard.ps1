@@ -19,8 +19,14 @@ try {
     }
     if (-not $ready) { throw "community_post_likes_actor_guard_database_not_ready" }
 
-    $output = docker exec -e "PGPASSWORD=$password" $container psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -f /workspace/scripts/sql/community-post-likes-actor-guard.test.sql 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $output = docker exec -e "PGPASSWORD=$password" $container psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -f /workspace/scripts/sql/community-post-likes-actor-guard.test.sql 2>&1
+        $psqlExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previous }
+    if ($psqlExitCode -ne 0) {
         $output | Write-Output
         throw "community_post_likes_actor_guard_sql_failed"
     }

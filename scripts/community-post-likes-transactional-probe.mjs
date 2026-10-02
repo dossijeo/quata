@@ -99,10 +99,10 @@ function assertForward(value) {
     "community_post_likes_insert_own",
     "community_post_likes_public_read",
   ])) throw new Error("probe_forward_policy_mismatch");
+  const expectedActorExpression = "((( SELECT quata_chat_auth_profile_id() AS quata_chat_auth_profile_id) IS NOT NULL) AND (profile_id = ( SELECT quata_chat_auth_profile_id() AS quata_chat_auth_profile_id)))";
   for (const row of value.policies.filter(({ cmd }) => cmd !== "SELECT")) {
-    const expression = String(row.qual ?? row.with_check ?? "").replace(/\s+/g, " ");
-    if (row.roles !== "{authenticated}" || !expression.includes("quata_chat_auth_profile_id()") ||
-        !expression.includes("profile_id =") || !expression.includes("IS NOT NULL")) {
+    const expression = String(row.qual ?? row.with_check ?? "").replace(/\s+/g, " ").trim();
+    if (row.roles !== "{authenticated}" || expression !== expectedActorExpression) {
       throw new Error("probe_forward_actor_expression_mismatch");
     }
   }

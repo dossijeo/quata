@@ -67,6 +67,7 @@ if ($ProfileFollowScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedC
 if ($CommunityPostLikesScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedCounts -or $profileExpectedCounts)) { Fail "restore_scope_conflict" }
 if (-not $ProfileFollowScope -and $profileExpectedCounts) { Fail "restore_profile_follow_scope_required" }
 if (-not $CommunityPostLikesScope -and $likesExpectedCount) { Fail "restore_community_post_likes_scope_required" }
+if ($CommunityPostLikesScope -and -not $likesExpectedCount) { Fail "restore_expected_community_post_likes_required" }
 $manifest=Get-Content -LiteralPath (Join-Path $BackupSet "manifest.json") -Raw | ConvertFrom-Json
 Assert-Manifest $manifest $BackupSet
 $restoreTables = if ($ProfileFollowScope) { @("community_profiles", "community_profile_follows") } elseif ($CommunityPostLikesScope) { @("community_post_likes") } else { @("community_comments", "official_post_likes") }
@@ -144,7 +145,7 @@ try {
         $toc = @(& docker run --rm -v "${work}:/backup:ro" $DockerImage pg_restore --list /backup/database.dump 2>$null)
         if ($LASTEXITCODE -ne 0) { Fail "backup_toc_unreadable" }
         if ($ShowRelevantToc) {
-            $toc | Where-Object { $_ -match "community_post_likes|quata_chat_auth_profile_id" } | Write-Output
+            $toc | Where-Object { $_ -match "community_post_likes|quata_chat_auth_profile_id|community_profiles|\bauth\b.*\buid\(\)|\bSCHEMA\b.*\bauth\b" } | Write-Output
         }
         if (-not @($toc | Where-Object { $_ -match "\bTABLE\b" -and $_ -match "\bcommunity_post_likes\b" }).Count) {
             Fail "backup_toc_community_post_likes_table_missing"
@@ -162,14 +163,48 @@ try {
         if (-not @($toc | Where-Object { $_ -match "\bFUNCTION\b" -and $_ -match "\bquata_chat_auth_profile_id\b" }).Count) {
             Fail "backup_toc_community_post_likes_resolver_missing"
         }
+        if (-not @($toc | Where-Object { $_ -match "\bACL\b" -and $_ -match "\bquata_chat_auth_profile_id\b" }).Count) {
+            Fail "backup_toc_community_post_likes_resolver_acl_missing"
+        }
+        if (-not @($toc | Where-Object { $_ -match "\bTABLE public community_profiles\b" }).Count -or
+            -not @($toc | Where-Object { $_ -match "\bSCHEMA\b.*\bauth\b" }).Count -or
+            -not @($toc | Where-Object { $_ -match "\bFUNCTION auth uid\(\)" }).Count) {
+            Fail "backup_toc_community_post_likes_resolver_dependency_missing"
+        }
+        $likesRestoreList = Join-Path $work "community-post-likes.restore.list"
+        $likesRestoreEntries = @($toc | Where-Object {
+            $_ -match '^;' -or
+            (($_ -match '\bcommunity_post_likes\b') -and ($_ -notmatch '\bFK CONSTRAINT\b')) -or
+            (($_ -match '\bFUNCTION\b|\bACL\b') -and ($_ -match '\bquata_chat_auth_profile_id\b')) -or
+            ($_ -match '\bTABLE public community_profiles\b') -or
+            ($_ -match '\bSCHEMA\b.*\bauth\b') -or
+            ($_ -match '\bFUNCTION auth uid\(\)')
+        })
+        [IO.File]::WriteAllLines($likesRestoreList, [string[]]$likesRestoreEntries, [Text.UTF8Encoding]::new($false))
+        if (-not (Test-Path -LiteralPath $likesRestoreList) -or (Get-Item -LiteralPath $likesRestoreList).Length -eq 0) {
+            Fail "backup_community_post_likes_restore_list_empty"
+        }
     }
     & docker run -d --rm --name $name -e "POSTGRES_PASSWORD=$password" -v "${work}:/backup" $DockerImage 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "restore_target_start_failed" }
     $ready=$false; foreach ($n in 1..30) { & docker exec $name pg_isready -U postgres 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { $ready=$true; break }; Start-Sleep -Milliseconds 500 }; if (-not $ready) { Fail "restore_target_not_ready" }
     $files=@($manifest.artifacts | ForEach-Object { $_.name -replace '\.enc$','' })
+    if ($CommunityPostLikesScope) {
+        $supportSql = @'
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin;
+'@
+        & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -c $supportSql 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "restore_community_post_likes_support_failed" }
+    }
     foreach ($file in $files) {
-        $restoreArguments = @("exec", "-e", "PGPASSWORD=$password", $name, "pg_restore", "-U", "postgres", "-d", "postgres", "--no-owner", "--no-acl")
+        $restoreArguments = @("exec", "-e", "PGPASSWORD=$password", $name, "pg_restore", "-U", "postgres", "-d", "postgres", "--no-owner")
+        if (-not $CommunityPostLikesScope) { $restoreArguments += "--no-acl" }
         if ($CleanTarget) { $restoreArguments += @("--clean", "--if-exists") }
-        if ($AffectedTablesOnly -or $ProfileFollowScope -or $CommunityPostLikesScope) {
+        if ($CommunityPostLikesScope) {
+            $restoreArguments += "--use-list=/backup/community-post-likes.restore.list"
+        }
+        elseif ($AffectedTablesOnly -or $ProfileFollowScope) {
             $restoreArguments += @($restoreTables | ForEach-Object { "--table=$_" })
         }
         $restoreArguments += "/backup/$file"
@@ -179,6 +214,53 @@ try {
     $requiredRelations = if ($ProfileFollowScope) { "to_regclass('public.community_profiles') is not null and to_regclass('public.community_profile_follows') is not null" } elseif ($CommunityPostLikesScope) { "to_regclass('public.community_post_likes') is not null" } else { "to_regclass('public.community_comments') is not null and to_regclass('public.official_post_likes') is not null" }
     $verified = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select case when $requiredRelations then 'ok' else 'missing' end" 2>$null | Select-String -Quiet '^ok$'
     if (-not $verified) { Fail "restore_verification_failed" }
+    if ($CommunityPostLikesScope) {
+        $securitySql = @'
+with policy_state as (
+    select count(*) = 3
+       and bool_and(roles = '{public}'::name[])
+       and bool_and(
+           (policyname = 'public delete likes' and cmd = 'DELETE' and qual = 'true' and with_check is null)
+        or (policyname = 'public insert likes' and cmd = 'INSERT' and qual is null and with_check = 'true')
+        or (policyname = 'public read likes' and cmd = 'SELECT' and qual = 'true' and with_check is null)
+       ) as exact
+      from pg_policies
+     where schemaname = 'public' and tablename = 'community_post_likes'
+), grant_state as (
+    select
+      string_agg(privilege_type, ',' order by privilege_type) filter (where grantee = 'anon') = 'DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE'
+      and string_agg(privilege_type, ',' order by privilege_type) filter (where grantee = 'authenticated') = 'DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE' as exact
+      from information_schema.role_table_grants
+     where table_schema = 'public' and table_name = 'community_post_likes'
+       and grantee in ('anon', 'authenticated')
+), resolver_state as (
+    select count(*) = 1
+       and bool_and(l.lanname = 'sql' and p.provolatile = 's' and p.prosecdef
+           and p.proconfig = array['search_path=public, auth']::text[]
+           and btrim(regexp_replace(p.prosrc, '[[:space:]]+', ' ', 'g')) = 'select cp.id from public.community_profiles cp where auth.uid() is not null and cp.account_status = ''active'' and (cp.id = auth.uid() or cp.auth_user_id = auth.uid()) limit 1'
+           and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl where acl.grantee = 0 and acl.privilege_type = 'EXECUTE')
+           and has_function_privilege('anon', p.oid, 'execute')
+           and has_function_privilege('authenticated', p.oid, 'execute')) as exact
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      join pg_language l on l.oid = p.prolang
+     where n.nspname = 'public' and p.proname = 'quata_chat_auth_profile_id' and p.pronargs = 0
+)
+select case when c.relrowsecurity and policy_state.exact and grant_state.exact and resolver_state.exact then 'ok' else 'mismatch' end
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+ cross join policy_state cross join grant_state cross join resolver_state
+ where n.nspname = 'public' and c.relname = 'community_post_likes';
+'@
+        $securityVerified = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc $securitySql 2>$null | Select-String -Quiet '^ok$'
+        if (-not $securityVerified) {
+            if ($ShowRelevantToc) {
+                & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select policyname || '|' || cmd || '|' || roles::text || '|' || coalesce(qual,'<null>') || '|' || coalesce(with_check,'<null>') from pg_policies where schemaname='public' and tablename='community_post_likes' order by policyname; select grantee || '|' || privilege_type from information_schema.role_table_grants where table_schema='public' and table_name='community_post_likes' and grantee in ('anon','authenticated') order by grantee, privilege_type;" 2>$null | Write-Output
+                & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select n.nspname || '|' || p.proname || '|' || p.pronargs::text || '|' || p.provolatile::text || '|' || p.prosecdef::text || '|' || coalesce(p.proconfig::text,'<null>') || '|' || regexp_replace(trim(p.prosrc), '\s+', ' ', 'g') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where p.proname='quata_chat_auth_profile_id';" 2>&1 | Write-Output
+            }
+            Fail "restore_community_post_likes_security_state_mismatch"
+        }
+    }
     if ($profileExpectedCounts) {
         if ($ExpectedCommunityProfiles -lt 0 -or $ExpectedCommunityProfileFollows -lt 0) { Fail "restore_expected_counts_incomplete" }
         $counts = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select (select count(*) from public.community_profiles)::text || ',' || (select count(*) from public.community_profile_follows)::text" 2>$null

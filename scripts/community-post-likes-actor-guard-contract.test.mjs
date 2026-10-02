@@ -71,6 +71,7 @@ test("disposable PostgreSQL test distinguishes anon, cross-actor and own-actor b
   assert.match(sqlTest, /20261002010000_community_post_likes_actor_guard\.rollback\.sql/);
   assert.match(sqlRunner, /postgres:17-alpine/);
   assert.match(sqlRunner, /community-post-likes-actor-guard\.test\.sql/);
+  assert.match(sqlRunner, /\$ErrorActionPreference = "Continue"[\s\S]*\$psqlExitCode = \$LASTEXITCODE[\s\S]*\$ErrorActionPreference = \$previous/);
 });
 
 test("isolated PostgREST gate exercises the same HTTP boundary as all platform clients", () => {
@@ -78,6 +79,11 @@ test("isolated PostgREST gate exercises the same HTTP boundary as all platform c
   assert.match(postgrestRunner, /postgres:17-alpine/);
   assert.match(postgrestRunner, /postgrest\/postgrest:v12\.2\.3/);
   assert.match(postgrestRunner, /community-post-likes-postgrest\.test\.mjs/);
+  assert.match(postgrestRunner, /\$ErrorActionPreference = "Continue"[\s\S]*\$setupExitCode = \$LASTEXITCODE[\s\S]*\$ErrorActionPreference = \$previous/);
+  assert.match(postgrestSetup, /create function auth\.uid\(\)[\s\S]*request\.jwt\.claim\.sub/);
+  assert.match(postgrestSetup, /security definer[\s\S]*set search_path = public, auth[\s\S]*cp\.account_status = 'active'/);
+  assert.match(postgrestSetup, /cp\.id = auth\.uid\(\) or cp\.auth_user_id = auth\.uid\(\)/);
+  assert.doesNotMatch(postgrestSetup, /request\.jwt\.claim\.profile_id/);
   assert.match(postgrestTest, /anonymous insert was not rejected/);
   assert.match(postgrestTest, /cross-actor insert was not rejected/);
   assert.match(postgrestTest, /cross-actor delete was not filtered by RLS/);
@@ -85,6 +91,7 @@ test("isolated PostgREST gate exercises the same HTTP boundary as all platform c
   assert.match(postgrestTest, /anonymous delete was not rejected/);
   assert.match(postgrestTest, /actor A own delete failed/);
   assert.match(postgrestTest, /actor B own delete failed/);
+  assert.match(postgrestTest, /inactive mapped actor was not rejected/);
   assert.match(postgrestTest, /PostgREST fixture residue remained/);
 });
 
@@ -117,6 +124,15 @@ test("full-backup restore drill has a dedicated affected-table scope", () => {
   assert.match(restoreDrill, /backup_toc_community_post_likes_data_missing/);
   assert.match(restoreDrill, /backup_toc_community_post_likes_acl_missing/);
   assert.match(restoreDrill, /backup_toc_community_post_likes_policy_state_missing/);
+  assert.match(restoreDrill, /backup_toc_community_post_likes_resolver_acl_missing/);
+  assert.match(restoreDrill, /restore_expected_community_post_likes_required/);
+  assert.match(restoreDrill, /--use-list=\/backup\/community-post-likes\.restore\.list/);
+  assert.match(restoreDrill, /WriteAllLines\(\$likesRestoreList[\s\S]*UTF8Encoding\]::new\(\$false\)/);
+  assert.match(restoreDrill, /restore_community_post_likes_security_state_mismatch/);
+  assert.match(restoreDrill, /public delete likes[\s\S]*public insert likes[\s\S]*public read likes/);
+  assert.match(restoreDrill, /DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE/);
+  assert.match(restoreDrill, /quata_chat_auth_profile_id[\s\S]*has_function_privilege\('authenticated'/);
+  assert.match(read("scripts/test-db-logical-backup-drill.ps1"), /docker cp \$seedFile[\s\S]*-f \/tmp\/quata-backup-seed\.sql/);
   assert.match(restoreDrill, /ExpectedCommunityPostLikes/);
 });
 
@@ -128,6 +144,10 @@ test("production postflight is read-only, TLS-verified and emits metadata only",
   assert.match(releasePostflight, /begin read only/);
   assert.match(releasePostflight, /supabase_migrations\.schema_migrations/);
   assert.match(releasePostflight, /postflight_policy_set_mismatch/);
+  assert.match(releasePostflight, /expression !== EXPECTED_ACTOR_EXPRESSION/);
+  assert.match(releasePostflight, /normalized\(resolver\.source\) !== EXPECTED_RESOLVER_SOURCE/);
+  assert.match(releasePostflight, /postflight_resolver_mismatch/);
+  assert.match(releasePostflight, /has_function_privilege\('authenticated'/);
   assert.match(releasePostflight, /postflight_anon_grants_mismatch/);
   assert.match(releasePostflight, /postflight_authenticated_grants_mismatch/);
   assert.match(releasePostflight, /businessValuesEmitted:\s*false/);
