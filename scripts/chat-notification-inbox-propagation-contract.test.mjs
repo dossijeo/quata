@@ -88,7 +88,9 @@ test("the focal lane remains mandatory and the inventory links the accepted runt
   assert.match(packageJson, /chat-notification-inbox-propagation-contract\.test\.mjs/);
   const row = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-NOTIFICATIONS` |"));
   assert.ok(row);
+  assert.match(row, /GO focal integrado y certificado por #403\/#408/);
   assert.match(row, /Propagación del inbox certificada en Web, Android e iOS/);
   assert.match(row, /chat-notification-inbox-propagation\.json/);
-  assert.match(row, /no equivale a registro\/entrega\/reply del push del sistema/);
+  assert.match(row, /device token[^|]*APNs\/FCM\/Web Push[^|]*Reply/);
+  assert.match(row, /`FLOW-PUSH-LIFECYCLE`[^|]*`FLOW-NOTIFICATION-REPLY`/);
 });
