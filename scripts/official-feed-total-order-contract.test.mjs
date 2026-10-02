@@ -112,6 +112,33 @@ test("shared Official UI preserves loaded pages and exposes only explicit retry 
   assert.match(rootStates, /assertEquals\(0, holder\.automaticOlderPageLoads\)[\s\S]*?assertEquals\(0, holder\.explicitOlderPageRetries\)[\s\S]*?performClick\(\)[\s\S]*?assertEquals\(0, holder\.automaticOlderPageLoads\)[\s\S]*?assertEquals\(1, holder\.explicitOlderPageRetries\)/);
 });
 
+test("all real adapters expose older-page transport failures while Android and Web retain request custody", () => {
+  const android = read("app/src/test/java/com/quata/data/supabase/OfficialFeedNetworkFailureTest.kt");
+  const web = read("web/src/wasmJsTest/kotlin/com/quata/web/WebOfficialNetworkFailureTest.kt");
+  const ios = read("feature/official/src/iosTest/kotlin/com/quata/feature/official/data/IosOfficialPublicReadPolicyTest.kt");
+
+  assert.match(android, /val http = OkHttpClient\.Builder\(\)\.addInterceptor/);
+  assert.match(android, /val api = SupabaseCommunityApi\([\s\S]*?SupabaseHttpClient\([\s\S]*?okHttp = http/);
+  assert.match(android, /throw IOException\("synthetic_official_network_failure"\)/);
+  assert.match(android, /first\.exceptionOrNull\(\) is IOException/);
+  assert.match(android, /getOfficialFeedPage\([\s\S]*?beforeSortAt = cursorSortAt[\s\S]*?beforeCreatedAt = cursorCreatedAt[\s\S]*?beforeId = cursorId[\s\S]*?cacheMode = SupabaseCacheMode\.NETWORK_ONLY/);
+  assert.match(android, /assertEquals\(2, requests\.size\)[\s\S]*?p_before_sort_at[\s\S]*?p_before_created_at[\s\S]*?p_before_id[\s\S]*?assertNull\(request\.header\("Authorization"\)\)/);
+
+  assert.match(web, /WebOfficialRepository\(WebPostgrestClient\(configuration, auth\), auth\)/);
+  assert.match(web, /repository\.loadOlderOfficialFeedPage\(cursor, 25\)/);
+  assert.match(web, /WebPostgrestFailureKind\.Network/);
+  assert.match(web, /p_before_sort_at=2026-10-02T09%3A00%3A00Z/);
+  assert.match(web, /p_before_created_at=2026-10-02T08%3A00%3A00Z/);
+  assert.match(web, /p_before_id=00000000-0000-4000-8000-000000000105/);
+  assert.match(web, /assertEquals\(false, officialFetchSentAuthorization\(\)\)/);
+
+  assert.match(ios, /actualRepositoryMapsRejectedOlderPageUrlSessionToNetworkFailure/);
+  assert.match(ios, /IosOfficialReadRepository\([\s\S]*?http:\/\/127\.0\.0\.1:1/);
+  assert.match(ios, /repository\.loadOlderOfficialFeedPage\(cursor, 25\)/);
+  assert.match(ios, /IosOfficialReadFailureKind\.Network/);
+  assert.match(ios, /assertNull\(readFailure\.statusCode\)/);
+});
+
 test("selective release pins the exact migration and production postconditions", () => {
   const executor = read("scripts/selective-db-release-executor.mjs");
   assert.match(executor, /\["20261002013000", "64241db48e63ee41c599ed0c2ef53030c6857bd3b942dc44fbf86a991f04eb63"\]/);
