@@ -6,6 +6,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
+import { accountDeactivateDefinitionMd5 } from "./selective-db-release-postconditions.mjs";
 
 const require = createRequire(import.meta.url);
 const { Client } = require("pg");
@@ -95,6 +96,12 @@ const approvedReleases = [
     dependencyMode: "none",
     migrations: new Map([
       ["20260928013000", "99313b28d697d4e4a3aa672e23df9309e184bb6232684a98a56ef2c5d2b95bf4"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261001211000", "d5e9ed9b0f78dc434918044c41f73d7bb3f1717629aba03f1052e3dd30f3b76b"],
     ]),
   },
 ];
@@ -322,10 +329,8 @@ async function startTestReconciliationBlocker(config) {
   void delay(duration).then(() => blocker.end()).catch(() => {});
 }
 
-async function assertProductPostconditions(client, selectedVersions) {
-  const expectedAccountDeactivateMd5 = selectedVersions.includes("20260928013000")
-    ? "290fcd85f9a57e8c999f3132235fdbe4"
-    : "d2504acfb2095176289fb99a939f7621";
+async function assertProductPostconditions(client, selectedVersions, installedVersions) {
+  const expectedAccountDeactivateMd5 = accountDeactivateDefinitionMd5(installedVersions);
   const functions = (await client.query(`
     select
       md5(replace(pg_get_functiondef('public.quata_account_deactivate(uuid,uuid)'::regprocedure), E'\\r\\n', E'\\n')) as deactivate_md5,
@@ -362,7 +367,7 @@ async function assertProductPostconditions(client, selectedVersions) {
       where t.type='wall' and t.deleted_at is null
     )
     select
-      (select count(*)::int from public.conversation_user_state s where s.first_visible_message_id is null
+      (select count(*)::int from public.conversation_user_state s where s.first_visible_message_id is null and s.deleted_at is null
         and exists(select 1 from public.chat_messages m where m.thread_id=s.conversation_id)) as missing_visibility,
       (select count(*)::int from public.chat_threads t where t.type='wall' and t.deleted_at is null and t.created_by_profile_id is not null
         and not exists(select 1 from public.chat_participants p where p.thread_id=t.id and p.profile_id=t.created_by_profile_id and p.left_at is null and not p.is_hidden and not p.is_deleted)) as missing_creators,
@@ -374,6 +379,21 @@ async function assertProductPostconditions(client, selectedVersions) {
   if (counts.missing_visibility !== 0 || counts.missing_creators !== 0
       || counts.missing_members !== 0 || counts.invalid_private_mappings !== 0) {
     throw new Error("selective_release_data_postcondition_failed");
+  }
+  if (selectedVersions.includes("20261001211000")) {
+    const recurrence = (await client.query(`
+      select
+        pg_get_functiondef('public.quata_chat_reactivate_user_state_for_message()'::regprocedure) as definition,
+        (select count(*)::int
+           from public.conversation_user_state state
+          where state.first_visible_message_id is null
+            and state.deleted_at is null
+            and exists(select 1 from public.chat_messages message where message.thread_id=state.conversation_id)) as active_missing_boundaries
+    `)).rows[0];
+    if (!/or state\.first_visible_message_id is null/i.test(recurrence.definition)
+        || recurrence.active_missing_boundaries !== 0) {
+      throw new Error("selective_release_visibility_boundary_recurrence_postcondition_failed");
+    }
   }
   if (selectedVersions.includes("20260726171004")) {
     const registrationPostconditions = await readFile(
@@ -821,7 +841,9 @@ export async function run(argv = process.argv.slice(2)) {
         report.appliedVersions.push(migration.version);
       }
       if (process.env.QUATA_SELECTIVE_RELEASE_TEST_MODE !== "1") {
-        await assertProductPostconditions(client, pkg.selected.map(({ version }) => version));
+        const selectedVersions = pkg.selected.map(({ version }) => version);
+        const installedVersions = [...pkg.anchors, ...pkg.selected].map(({ version }) => version);
+        await assertProductPostconditions(client, selectedVersions, installedVersions);
       }
       commitStarted = true;
       await client.query("commit");

@@ -1,0 +1,82 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "f2d51275530d78b66825de80d8371236692eee51",
+    "workingTreeDirty": false
+  },
+  "scope": "Repair and prevent active NULL first-visible Chat boundaries for participants present before the first message, while preserving exhausted-history tombstones and their new-message reopening semantics.",
+  "steps": [
+    "production_drift_classified_without_message_content_or_actor_identifiers",
+    "full_encrypted_logical_backup_created",
+    "backup_ciphertext_and_plaintext_integrity_verified",
+    "affected_tables_restore_drill_completed",
+    "disposable_postgresql_repair_recurrence_privacy_and_rollback_passed",
+    "production_migration_executed_inside_remote_rollback_probe",
+    "remote_rollback_restored_function_data_and_ledger_exactly",
+    "selective_release_snapshot_and_dry_run_passed",
+    "reviewed_migration_committed_transactionally",
+    "postflight_ledger_function_and_data_invariants_passed"
+  ],
+  "database": {
+    "before": {
+      "activeMissingBoundaries": 2,
+      "statePrecedesFirstMessage": 2,
+      "activeParticipants": 2,
+      "missingCreators": 0,
+      "missingCommunityMembers": 0,
+      "invalidPrivateMappings": 0
+    },
+    "rollbackProbe": {
+      "status": "passed",
+      "result": "CHAT_VISIBILITY_BOUNDARY_REMOTE_ROLLBACK_PASS",
+      "functionRestored": true,
+      "affectedStateRestored": true,
+      "ledgerRestored": true
+    },
+    "deployment": {
+      "migrationVersion": "20261001211000",
+      "migrationSha256": "d5e9ed9b0f78dc434918044c41f73d7bb3f1717629aba03f1052e3dd30f3b76b",
+      "status": "passed",
+      "commitStatus": "committed"
+    },
+    "postflight": {
+      "status": "passed",
+      "activeMissingBoundaries": 0,
+      "missingCreators": 0,
+      "missingCommunityMembers": 0,
+      "invalidPrivateMappings": 0
+    }
+  },
+  "backup": {
+    "set": "release-20261002T043413Z-957f31f7",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "ciphertextIntegrity": "passed",
+    "plaintextIntegrity": "passed",
+    "affectedTablesRestoreDrill": "passed",
+    "fullVanillaPostgresqlRestoreDrill": "failed_on_supabase_specific_objects"
+  },
+  "validation": {
+    "focusedContracts": "34/34 passed",
+    "ciFastContracts": "767/767 passed serially",
+    "webWave2Contracts": "821/821 passed",
+    "postgresFixture": "chat_visibility_boundary_recurrence_postgres_pass",
+    "selectiveReleaseExecutor": "read-only dry-run, authorization, atomic rollback and exact apply passed",
+    "diffCheck": "passed",
+    "independentReview": "GO with no P0-P3 findings"
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "disposable_postgresql_removed_and_remote_probe_rolled_back_before_reviewed_release"
+  },
+  "preservedFailures": [
+    "The first Favorites release attempt rolled back because the release executor selected an obsolete account-deactivation fingerprint from selected migrations instead of installed anchors.",
+    "The second Favorites release attempt rolled back because the global data postcondition exposed two recurring active NULL boundaries. No Favorites migration or ledger row persisted.",
+    "A full restore into vanilla PostgreSQL rejected Supabase-specific objects. The encrypted full backup remains intact; decryption, both hashes and the affected-tables restore drill passed."
+  ],
+  "limits": [
+    "No Android, Web/Wasm or iOS runtime changed, so platform E2E matrices were not repeated solely for this backend trigger and release-tooling unit.",
+    "The rollback restores the previous trigger function but deliberately does not recreate invalid NULL boundaries; full database recovery remains available through the encrypted pre-release backup."
+  ]
+}
