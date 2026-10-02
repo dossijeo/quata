@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "2dd5c781bf722bbe0426572c1ea47714a905c217",
-  "certification": "ios-nonresponsive-remote-logout-latency-bounded-local-evidence-passed-independent-rereview-pending-and-final-ci-pending",
+  "certification": "ios-nonresponsive-remote-logout-latency-bounded-local-evidence-passed-independent-review-go-and-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -43,6 +43,7 @@
     "withTimeoutOrNull consumes only the repository's own 15000 millisecond deadline. A timeout from the caller remains a CancellationException and propagates after local retirement.",
     "The exact-SHA Kotlin/Native iosX64 suite passed 8/8 on the macOS Intel host and covers success ordering, HTTP failure, transport exception, the nonresponsive internal timeout, explicit cancellation and an earlier 5000 millisecond caller timeout.",
     "The full root Gradle invocation remains unable to compile the unrelated Android :app build script on this Mac. The passing focal invocation selected core, designsystem and feature:auth without changing any tracked source or build script; this diagnostic is preserved in the evidence report.",
+    "Independent review returned GO without P0-P3 on review head ff6f0ac5. It confirmed that withTimeoutOrNull consumes only the internal deadline, the 5000 millisecond caller timeout propagates after local retirement, source and report hashes match, the exact Product SHA suite records 8/8, and the contract, validator, diff-check, clean tree and secret hygiene pass.",
     "This evidence removes only the documented unbounded iOS repository logout latency. It does not attribute backend revocation to one UI gesture, recertify routes outside logout or change APNs, Android or Web runtime.",
     "No backend row, credential, token or remote object was read or mutated by this hermetic test.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
