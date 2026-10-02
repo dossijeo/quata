@@ -1,0 +1,99 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+    "workingTreeDirty": false
+  },
+  "scope": "Deep Chat favorites pagination recomposed over the deployed visibility-boundary successor, with byte-equivalent Android, Web/Wasm, iOS and migration blobs plus a committed selective production release.",
+  "composition": {
+    "originalEvidence": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-bf584bab.json",
+    "originalEvidenceSha256": "d19ec98fb0d021b86cd13043328ddc6c2f97a77289ded4c11e347ddf2810b573",
+    "originalEvidenceHead": "bf584babe1a238ee2cd926feae1a4c23ebbd5552",
+    "originalProductSha": "10320a189d80f44edf3939d5feb4ac2e845a415d",
+    "recomposedProductSha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+    "runtimeBlobsEquivalent": true,
+    "databaseBlobsEquivalent": true
+  },
+  "steps": [
+    "additive_favorites_page_rpc_preserves_legacy_v32_rpc",
+    "authenticated_only_acl_and_delegation_to_integrated_actor_boundary",
+    "equal_timestamp_cursor_tie_breaks_by_descending_message_id",
+    "first_page_contains_250_favorites_and_has_more_true",
+    "second_page_contains_250_favorites_and_has_more_true",
+    "final_page_contains_101_favorites_and_has_more_false",
+    "all_601_favorites_are_present_exactly_once",
+    "refresh_after_exhaustion_refetches_three_pages_and_preserves_depth",
+    "common_actor_switch_clears_previous_actor_while_offline",
+    "common_in_flight_response_cannot_cross_actor_boundary",
+    "common_refresh_and_older_page_load_are_serialized",
+    "web_wasm_repository_class_passed",
+    "android_pager_executable_tests_passed",
+    "android_debug_compilation_passed",
+    "ios_x64_four_focal_tests_passed_on_exact_equivalent_product_blobs",
+    "recomposed_runtime_and_database_blobs_verified_byte_equivalent",
+    "combined_favorites_visibility_and_reconciliation_contracts_passed",
+    "disposable_postgresql_apply_assert_rollback_passed",
+    "selective_release_executor_authorization_rollback_and_apply_fixture_passed",
+    "full_encrypted_logical_backup_created",
+    "backup_ciphertext_and_plaintext_integrity_verified",
+    "affected_tables_restore_drill_completed",
+    "selective_release_snapshot_and_dry_run_passed",
+    "favorites_migration_committed_transactionally",
+    "production_ledger_function_acl_cursor_and_data_postconditions_passed",
+    "authenticated_rest_trial_attempted_without_backend_mutation"
+  ],
+  "validation": {
+    "focusedContracts": "54/54 passed",
+    "databaseFixture": "CHAT_FAVORITES_CURSOR_PAGINATION_POSTGRES_PASS",
+    "selectiveReleaseExecutor": "read-only dry-run, authorization gate, atomic rollback and exact apply fixture passed",
+    "runtimeEquivalence": "All affected product sources are byte-identical between 10320a189 and da1dedcc5",
+    "databaseEquivalence": "The migration, rollback and disposable PostgreSQL fixture are byte-identical between 10320a189 and da1dedcc5",
+    "diffCheck": "passed"
+  },
+  "database": {
+    "migrationVersion": "20261001211500",
+    "migrationSha256": "50ef988f6b843ae921de5e41e69e739da443c737844159b2a8d5b064eea54f71",
+    "dryRun": "passed_with_only_20261001211500_pending",
+    "deployment": {
+      "status": "passed",
+      "commitStatus": "committed"
+    },
+    "postflight": {
+      "status": "passed",
+      "ledgerPresent": true,
+      "functionAclCursorAndDataChecks": "passed"
+    },
+    "authenticatedRestTrial": {
+      "status": "externally_blocked",
+      "stage": "authentication_before_rpc",
+      "result": "http_402",
+      "sessionCreated": false,
+      "businessMutation": false
+    }
+  },
+  "backup": {
+    "set": "release-20261002T051119Z-f116cf02",
+    "scope": "Full",
+    "encryption": "AES-256-GCM",
+    "tls": "verify-full_explicit_ca",
+    "ciphertextIntegrity": "passed",
+    "plaintextIntegrity": "passed",
+    "affectedTablesRestoreDrill": "passed",
+    "fullVanillaPostgresqlRestoreDrill": "failed_on_missing_supabase_pg_cron_extension"
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "disposable_postgresql_removed; authenticated REST trial stopped before session creation; no business data created"
+  },
+  "preservedFailures": [
+    "The first Favorites release attempt rolled back because the executor selected the obsolete account-deactivation fingerprint from selected migrations instead of the installed ledger.",
+    "The second Favorites release attempt rolled back because its global postcondition exposed recurring active NULL visibility boundaries. No Favorites migration or ledger row persisted in either failed attempt.",
+    "The first recomposed dry-run used an incorrectly expanded abbreviated commit and failed closed with selective_release_manifest_invalid before SQL execution.",
+    "The authenticated REST trial stopped at quata-auth-bridge with HTTP 402 before a session or RPC call existed.",
+    "A full restore into vanilla PostgreSQL rejected the Supabase pg_cron extension. The encrypted full backup remains intact; decryption, both hashes and the affected-tables restore drill passed."
+  ],
+  "limits": [
+    "The production migration and direct database postconditions are complete. The authenticated REST path remains unobserved because the public authentication edge currently returns HTTP 402 before issuing a session.",
+    "The recomposition does not repeat platform matrices solely for commit identity: affected runtime and SQL blobs are exact, and the fresh checks cover only the merged release contracts and database path."
+  ]
+}
