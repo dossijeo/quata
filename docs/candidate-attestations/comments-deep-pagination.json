@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-COMMENTS"
+  ],
+  "status": "passed",
+  "productSha": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
+  "certification": "affected-local-gates-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "HERMETIC_DEEP_COMMENT_KEYSET_AND_THREE_PLATFORM_COMPILATION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
+      "report": "docs/candidate-attestations/evidence/comments-deep-pagination-70e5c54b.json",
+      "reportSha256": "3f48d0bab0349509ceb04cf06cbea13aaf775819a4acddbcf0087307558bad1f",
+      "reportStatus": "passed",
+      "reportGitHead": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "feed_common_loader_returned_all_1205_comments_in_500_500_205_pages",
+        "official_common_loader_returned_all_1101_comments_in_500_500_101_pages",
+        "android_off_window_invalidation_reloaded_complete_comment_sets",
+        "real_postgrest_returned_1205_unique_rows_per_table_in_500_500_205_pages",
+        "official_deleted_comment_was_excluded",
+        "chronological_created_at_id_presentation_order_was_restored",
+        "android_web_wasm_and_ios_affected_compilation_passed",
+        "focused_feed_and_official_wasm_tests_passed",
+        "independent_review_returned_go_without_p0_p3_findings"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "isolated-containers-and-network-removed-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/comments-deep-pagination-contract.test.mjs",
+    ".\\scripts\\run-comments-deep-pagination-test.ps1",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:feed:compileTestKotlinWasmJs :feature:official:compileTestKotlinWasmJs --stacktrace",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.data.RemoteFeedReadRepositoryTest :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.data.OfficialRemoteProtocolTest --stacktrace"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "Feed, Official and public-profile comments now exhaust strict id keysets in pages of 500 on Android, Web/Wasm and iOS, then restore the stable visible order created_at,id.",
+    "Android observes a one-row invalidation trigger and performs a NETWORK_ONLY complete reload so an off-window mutation cannot be suppressed when the first transport window remains byte-identical.",
+    "The isolated PostgreSQL 17 and PostgREST 12.2.3 gate configures a real 500-row maximum and proves 1205 unique visible rows per comment table in pages 500/500/205. It also proves Official soft-deleted rows remain excluded.",
+    "No schema, RLS, production data, credentials, published-client contract or comment mutation semantics changed.",
+    "The broad allTests aggregation encountered an unrelated Skiko runner failure loading skiko.wasm and one pre-existing media-viewer test. Both new focal suites passed when selected directly in Chrome Headless, and all affected platform compilation gates passed.",
+    "Previously accepted interaction matrices were not repeated solely because the product SHA changed. Final GitHub jobs remain responsible for complete candidate recertification."
+  ]
+}

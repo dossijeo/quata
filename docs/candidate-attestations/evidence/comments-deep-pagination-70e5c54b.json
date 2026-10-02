@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "status": "passed",
+  "gitHead": "70e5c54ba2dd773359ba0c5fa3c52be49569a4f0",
+  "workingTreeDirty": false,
+  "scope": [
+    "Feed comments",
+    "Official comments",
+    "public-profile comments through Feed"
+  ],
+  "results": {
+    "commonFeedRegression": {
+      "status": "passed",
+      "rows": 1205,
+      "pages": [500, 500, 205]
+    },
+    "commonOfficialRegression": {
+      "status": "passed",
+      "rows": 1101,
+      "pages": [500, 500, 101]
+    },
+    "isolatedPostgresqlPostgrest": {
+      "status": "passed",
+      "postgres": "17-alpine",
+      "postgrest": "12.2.3",
+      "maxRows": 500,
+      "communityRows": 1205,
+      "officialRows": 1205,
+      "pagesPerTable": [500, 500, 205],
+      "officialDeletedRowsExcluded": true,
+      "cleanup": "containers-and-network-removed"
+    },
+    "platformCompilation": {
+      "android": "passed",
+      "webWasm": "passed",
+      "iosKotlinNative": "passed"
+    },
+    "focusedWasmTests": {
+      "status": "passed",
+      "feedSuite": "RemoteFeedReadRepositoryTest",
+      "officialSuite": "OfficialRemoteProtocolTest"
+    },
+    "contract": {
+      "status": "passed",
+      "assertions": 5
+    }
+  },
+  "limitations": [
+    "This unit removes the documented deep-pagination transport ceiling only.",
+    "Previously certified UI interaction matrices were not repeated because the runtime presentation path did not change."
+  ]
+}

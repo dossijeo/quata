@@ -83,7 +83,7 @@ de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos 
 adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
 formatos no soportados, comportamiento específico de proveedores y fallos de red forzados.
 
-## OVR-COMMENTS / FLOW-EMOJI — reconciliación 2026-09-20
+## OVR-COMMENTS / FLOW-EMOJI — reconciliación 2026-10-02
 
 No queda un hueco único llamado «comentarios/emoji» que justifique repetir la matriz completa. Las
 atestaciones referenciadas se reparten el contrato: comentario real, respuesta y paginación superficial
@@ -96,9 +96,18 @@ forzado (`flow-emoji-error-rollback.json`); y vacío/error/retry del selector
 (`flow-emoji-selector-states.json`). Todas esas rutas tienen evidencia Web/Android/iOS y cleanup
 físico cero en sus Product/Evidence SHA respectivos.
 
+El candidato `70e5c54ba2dd773359ba0c5fa3c52be49569a4f0` elimina el límite de transporte de la paginación
+profunda en los tres productores de comentarios registrados: Feed, Official y perfil público.
+Android, Web/Wasm e iOS agotan páginas keyset estrictas por `id` de 500 filas y restauran después
+el orden visible total `created_at,id`. Android vuelve a hidratar el conjunto completo tras una
+invalidación aunque la primera ventana no cambie. La prueba hermética cruza PostgREST 12.2.3 con
+`PGRST_DB_MAX_ROWS=500` y obtiene 1.205 filas únicas por tabla en páginas `500/500/205`, incluido
+el filtro de borrados Official. No cambia esquema, RLS ni contratos de clientes publicados.
+
 El cierre sigue siendo focal: no se atribuye a orígenes ajenos a Chat, Feed, Official y comentarios
-de perfil, a paginación profunda, a operaciones no enumeradas ni a fallos de proveedor/red no
-ejercitados. Esta reconciliación no cambia producto, el conjunto de unidades, CI ni evidencia.
+de perfil, a operaciones no enumeradas ni a fallos de proveedor/red no ejercitados. La paginación
+profunda deja de figurar como límite; las matrices de interacción ya certificadas no se repitieron
+por un cambio exclusivo del transporte de lectura.
 
 ## CONV-INVITES — integrado por #380 el 19 de septiembre de 2026
 
