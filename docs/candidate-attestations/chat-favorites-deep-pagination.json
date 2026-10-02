@@ -4,17 +4,17 @@
     "CHAT-FAVORITES"
   ],
   "status": "passed",
-  "productSha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+  "productSha": "be797d3a02417ad3654301e00f710904663e1168",
   "certification": "deep-favorites-pagination-complete-production-release-committed-authenticated-rest-externally-blocked-http-402",
   "evidenceKind": "ADDITIVE_AUTHENTICATED_CURSOR_PAGINATION",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
-      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-da1dedcc.json",
-      "reportSha256": "6013d3f8136ad73bb84835bc1fe69cc937033d77c4bdc3fd5208730e7b058925",
+      "sha": "be797d3a02417ad3654301e00f710904663e1168",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-be797d3a.json",
+      "reportSha256": "77d123ce6dc3a854c7721cd9bb1027f18e48a32d697a8e77507c528c5d3526c5",
       "reportStatus": "passed",
-      "reportGitHead": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+      "reportGitHead": "be797d3a02417ad3654301e00f710904663e1168",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -36,11 +36,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
-      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-da1dedcc.json",
-      "reportSha256": "6013d3f8136ad73bb84835bc1fe69cc937033d77c4bdc3fd5208730e7b058925",
+      "sha": "be797d3a02417ad3654301e00f710904663e1168",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-be797d3a.json",
+      "reportSha256": "77d123ce6dc3a854c7721cd9bb1027f18e48a32d697a8e77507c528c5d3526c5",
       "reportStatus": "passed",
-      "reportGitHead": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+      "reportGitHead": "be797d3a02417ad3654301e00f710904663e1168",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -58,11 +58,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
-      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-da1dedcc.json",
-      "reportSha256": "6013d3f8136ad73bb84835bc1fe69cc937033d77c4bdc3fd5208730e7b058925",
+      "sha": "be797d3a02417ad3654301e00f710904663e1168",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-be797d3a.json",
+      "reportSha256": "77d123ce6dc3a854c7721cd9bb1027f18e48a32d697a8e77507c528c5d3526c5",
       "reportStatus": "passed",
-      "reportGitHead": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+      "reportGitHead": "be797d3a02417ad3654301e00f710904663e1168",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -82,11 +82,11 @@
     },
     "backend": {
       "status": "passed",
-      "sha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
-      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-da1dedcc.json",
-      "reportSha256": "6013d3f8136ad73bb84835bc1fe69cc937033d77c4bdc3fd5208730e7b058925",
+      "sha": "be797d3a02417ad3654301e00f710904663e1168",
+      "report": "docs/candidate-attestations/evidence/chat-favorites-deep-pagination-be797d3a.json",
+      "reportSha256": "77d123ce6dc3a854c7721cd9bb1027f18e48a32d697a8e77507c528c5d3526c5",
       "reportStatus": "passed",
-      "reportGitHead": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+      "reportGitHead": "be797d3a02417ad3654301e00f710904663e1168",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -121,18 +121,18 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-favorites-deep-pagination.json"
   ],
   "review": {
-    "status": "GO",
+    "status": "PENDING_FINAL_REVIEW",
     "reviewedSha": "690ee3f0c0afa520bfed9578fc6700255d9aaa98",
-    "recomposedProductSha": "da1dedcc5223cc72fc7d1187685c02ecd314acdb",
+    "recomposedProductSha": "be797d3a02417ad3654301e00f710904663e1168",
     "blockingFindings": [],
     "scopeLimit": "Review covers additive cursor pagination, actor isolation, refresh/load serialization, Android pager coverage, SQL boundaries and exact runtime/SQL blob equivalence. Production release is committed; the REST trial remains externally blocked before authentication by HTTP 402 exceed_egress_quota.",
-    "equivalence": "Every affected runtime and database blob is byte-identical between the certified 10320a18 and recomposed da1dedcc. The new base contributes only the separately reviewed visibility-boundary successor."
+    "equivalence": "Every one of the 19 affected runtime and release blobs is byte-identical between da1dedcc and be797d3a. The merged base is the separately certified #505 squash 763060538."
   },
   "notes": [
     "The previous favorites RPC capped every client at 250 rows and exposed no cursor. The new authenticated-only RPC uses the stable keyset (created_at DESC, id DESC), returns at most 250 rows plus has_more/next_cursor, and rejects partial cursors.",
     "Web/Wasm and iOS use the shared Postgrest repository; Android keeps its native adapter. Both serialize refresh and older-page loads, retain loaded depth, clear actor-owned state before replacement, and reject in-flight responses for a stale actor.",
     "The legacy two-argument quata_chat_get_favorites RPC remains byte-for-byte unchanged for the authorized Android v32 compatibility path.",
-    "All affected runtime, migration, rollback and PostgreSQL fixture blobs are byte-identical between 10320a18 and da1dedcc. Per the two-lane policy, platform matrices were not repeated solely for the new commit identity; merged release contracts and database fixtures were renewed.",
+    "All affected runtime, migration, rollback and PostgreSQL fixture blobs are byte-identical from 10320a18 through da1dedcc to be797d3a. Per the two-lane policy, platform matrices were not repeated solely for either recomposition identity; merged release contracts and database fixtures were renewed.",
     "A fresh encrypted full backup preceded the transaction. Migration 20261001211500 committed and its ledger, function, ACL, cursor and data postconditions passed. The full vanilla PostgreSQL restore still rejects Supabase pg_cron, while decryption, hashes and the affected-table restore drill pass.",
     "The authenticated REST trial stopped at quata-auth-bridge HTTP 402 before session creation or RPC execution. This external limit is preserved explicitly and does not undo the committed database release or hermetic cross-platform pagination proof."
   ]
