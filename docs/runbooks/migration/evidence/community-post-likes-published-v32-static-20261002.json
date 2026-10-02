@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "check": "COMMUNITY-POST-LIKES-PUBLISHED-V32-STATIC",
+  "generatedAt": "2026-10-02T06:38:58.457Z",
+  "status": "passed",
+  "artifact": {
+    "versionCode": 32,
+    "versionName": "1.0.4",
+    "aabSha256": "bf6aadc60e18b05d4f4203c8356a9e9a8b4c917262cc0a1d28518b8c6baf70ff",
+    "versionDeclarationCommit": "f0fd50ca65ca35372093c127fb09e379743274ff"
+  },
+  "extractedArtifacts": {
+    "r8MappingSha256": "670f59516a727c84537fdd12e9ae6da26b8d84a70f72ac6047c3763313ec2320",
+    "baseDexSha256": "51aa7c0c8e987847d2bcd80bd1d243801f5afc66bf1891cf94e67a375c0bcc3"
+  },
+  "sourceBlobs": {
+    "app/build.gradle.kts": "21f997d3b9cbaff1d12adb033ef3f727e697c588",
+    "app/src/main/java/com/quata/feature/feed/data/FeedRepositoryImpl.kt": "862810093254c1724e4919824b88adbd102a7012",
+    "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt": "d36e5404565b4cbac57cd769fbfc89b8d202f773",
+    "app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt": "837545241c597c3bf01b8656a325cb431b8d7165"
+  },
+  "mappingProof": [
+    {
+      "line": 76656,
+      "symbol": "FeedRepositoryImpl.toggleLike"
+    },
+    {
+      "line": 76660,
+      "symbol": "AuthSession.getUserId",
+      "within": "FeedRepositoryImpl.toggleLike"
+    },
+    {
+      "line": 76663,
+      "symbol": "FeedRemoteDataSource.toggleLike",
+      "within": "FeedRepositoryImpl.toggleLike"
+    },
+    {
+      "line": 387637,
+      "symbol": "SupabaseCommunityApi.toggleLike"
+    }
+  ],
+  "sourceProof": {
+    "sessionGate": "FeedRepositoryImpl.toggleLike rejects a missing currentSession and passes session.userId to the remote data source.",
+    "mutation": "SupabaseCommunityApi.toggleLike performs the direct lookup followed by DELETE or POST.",
+    "authorization": "SupabaseHttpClient.withAuthHeader uses the current session bearer token; its anon-key fallback is unreachable from the guarded like path when the session is absent."
+  },
+  "conclusion": {
+    "likeMutationRequiresAuthenticatedSession": true,
+    "anonymousCompatibilityRequired": false,
+    "existingCommunityProfilesV32CompatibilityMustExpand": false
+  },
+  "privacy": {
+    "containsSecrets": false,
+    "containsBusinessValues": false,
+    "containsLocalAbsolutePaths": false
+  }
+}

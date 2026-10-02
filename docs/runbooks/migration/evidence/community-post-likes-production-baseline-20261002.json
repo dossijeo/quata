@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "check": "COMMUNITY-POST-LIKES-PRODUCTION-BASELINE",
+  "generatedAt": "2026-10-02T06:38:58.457Z",
+  "status": "confirmed",
+  "classification": "unrestricted_anonymous_insert_and_delete",
+  "sourceReport": {
+    "sha256": "992e8c6d5ee1aa26c53f0a1ff9300269e65149c1cef95a2e34bda7b85d5d1afd",
+    "evidenceFingerprintSha256": "c4d545add55b5a66bfbde17c162cc4af752dbad36bae4462173f392015ba7f1f",
+    "phase": "postflight",
+    "status": "blocked_compatibility",
+    "statusContext": "The parent DB release report was blocked by a separate compatibility finding; this table snapshot was still collected in the completed read-only transaction."
+  },
+  "guarantees": {
+    "tls": "verify-full with one explicit CA",
+    "transaction": "read-only",
+    "businessValuesEmitted": false,
+    "secretsEmitted": false,
+    "productionDmlAttempted": false
+  },
+  "table": "community_post_likes",
+  "policies": [
+    {
+      "name": "public delete likes",
+      "roles": "{public}",
+      "command": "DELETE",
+      "using": "true",
+      "withCheck": null
+    },
+    {
+      "name": "public insert likes",
+      "roles": "{public}",
+      "command": "INSERT",
+      "using": null,
+      "withCheck": "true"
+    },
+    {
+      "name": "public read likes",
+      "roles": "{public}",
+      "command": "SELECT",
+      "using": "true",
+      "withCheck": null
+    }
+  ],
+  "grants": {
+    "anon": [
+      "DELETE",
+      "INSERT",
+      "REFERENCES",
+      "SELECT",
+      "TRIGGER",
+      "TRUNCATE",
+      "UPDATE"
+    ],
+    "authenticated": [
+      "DELETE",
+      "INSERT",
+      "REFERENCES",
+      "SELECT",
+      "TRIGGER",
+      "TRUNCATE",
+      "UPDATE"
+    ],
+    "postgres": [
+      "DELETE",
+      "INSERT",
+      "REFERENCES",
+      "SELECT",
+      "TRIGGER",
+      "TRUNCATE",
+      "UPDATE"
+    ],
+    "service_role": [
+      "DELETE",
+      "INSERT",
+      "REFERENCES",
+      "SELECT",
+      "TRIGGER",
+      "TRUNCATE",
+      "UPDATE"
+    ]
+  },
+  "userTriggers": [],
+  "finding": {
+    "anonymousInsertAllowed": true,
+    "anonymousDeleteAllowed": true,
+    "publicReadMustRemain": true,
+    "reason": "anon has INSERT and DELETE table privileges and both mutation policies are unconditional for public."
+  }
+}

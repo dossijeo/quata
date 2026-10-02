@@ -7,11 +7,13 @@ param(
     [switch]$AffectedTablesOnly,
     [switch]$ValidateSecurityReleaseScope,
     [switch]$ProfileFollowScope,
+    [switch]$CommunityPostLikesScope,
     [switch]$ShowRelevantToc,
     [int]$ExpectedCommunityComments = -1,
     [int]$ExpectedOfficialPostLikes = -1,
     [int]$ExpectedCommunityProfiles = -1,
-    [int]$ExpectedCommunityProfileFollows = -1
+    [int]$ExpectedCommunityProfileFollows = -1,
+    [int]$ExpectedCommunityPostLikes = -1
 )
 
 # A restoration target is always a fresh disposable PostgreSQL 17 container.
@@ -58,12 +60,16 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Fail "docker_requ
 if (-not (Test-Path -LiteralPath (Join-Path $BackupSet "manifest.json") -PathType Leaf)) { Fail "backup_manifest_missing" }
 $legacyExpectedCounts = $ExpectedCommunityComments -ge 0 -or $ExpectedOfficialPostLikes -ge 0
 $profileExpectedCounts = $ExpectedCommunityProfiles -ge 0 -or $ExpectedCommunityProfileFollows -ge 0
-if ($ProfileFollowScope -and $AffectedTablesOnly) { Fail "restore_scope_conflict" }
-if ($ProfileFollowScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedCounts)) { Fail "restore_scope_conflict" }
+$likesExpectedCount = $ExpectedCommunityPostLikes -ge 0
+if ($ProfileFollowScope -and $CommunityPostLikesScope) { Fail "restore_scope_conflict" }
+if (($ProfileFollowScope -or $CommunityPostLikesScope) -and $AffectedTablesOnly) { Fail "restore_scope_conflict" }
+if ($ProfileFollowScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedCounts -or $likesExpectedCount)) { Fail "restore_scope_conflict" }
+if ($CommunityPostLikesScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedCounts -or $profileExpectedCounts)) { Fail "restore_scope_conflict" }
 if (-not $ProfileFollowScope -and $profileExpectedCounts) { Fail "restore_profile_follow_scope_required" }
+if (-not $CommunityPostLikesScope -and $likesExpectedCount) { Fail "restore_community_post_likes_scope_required" }
 $manifest=Get-Content -LiteralPath (Join-Path $BackupSet "manifest.json") -Raw | ConvertFrom-Json
 Assert-Manifest $manifest $BackupSet
-$restoreTables = if ($ProfileFollowScope) { @("community_profiles", "community_profile_follows") } else { @("community_comments", "official_post_likes") }
+$restoreTables = if ($ProfileFollowScope) { @("community_profiles", "community_profile_follows") } elseif ($CommunityPostLikesScope) { @("community_post_likes") } else { @("community_comments", "official_post_likes") }
 $key=Read-Key $EncryptionKeyFile; $work=Join-Path ([IO.Path]::GetTempPath()) ("quata-restore-drill-"+[guid]::NewGuid().ToString("N")); $name="quata-restore-"+[guid]::NewGuid().ToString("N").Substring(0,12); $password=[guid]::NewGuid().ToString("N")
 try {
     Restrict-Directory $work
@@ -132,26 +138,55 @@ try {
             }
         }
     }
+    if ($CommunityPostLikesScope) {
+        if ($manifest.scope -ne "Full") { Fail "restore_community_post_likes_scope_requires_full_backup" }
+        $fullDump = Join-Path $work "database.dump"
+        $toc = @(& docker run --rm -v "${work}:/backup:ro" $DockerImage pg_restore --list /backup/database.dump 2>$null)
+        if ($LASTEXITCODE -ne 0) { Fail "backup_toc_unreadable" }
+        if ($ShowRelevantToc) {
+            $toc | Where-Object { $_ -match "community_post_likes|quata_chat_auth_profile_id" } | Write-Output
+        }
+        if (-not @($toc | Where-Object { $_ -match "\bTABLE\b" -and $_ -match "\bcommunity_post_likes\b" }).Count) {
+            Fail "backup_toc_community_post_likes_table_missing"
+        }
+        if (-not @($toc | Where-Object { $_ -match "\bTABLE DATA\b" -and $_ -match "\bcommunity_post_likes\b" }).Count) {
+            Fail "backup_toc_community_post_likes_data_missing"
+        }
+        if (-not @($toc | Where-Object { $_ -match "\bACL\b" -and $_ -match "\bcommunity_post_likes\b" }).Count) {
+            Fail "backup_toc_community_post_likes_acl_missing"
+        }
+        if (-not @($toc | Where-Object { $_ -match "\bROW SECURITY\b" -and $_ -match "\bcommunity_post_likes\b" }).Count -or
+            -not @($toc | Where-Object { $_ -match "\bPOLICY\b" -and $_ -match "\bcommunity_post_likes\b" }).Count) {
+            Fail "backup_toc_community_post_likes_policy_state_missing"
+        }
+        if (-not @($toc | Where-Object { $_ -match "\bFUNCTION\b" -and $_ -match "\bquata_chat_auth_profile_id\b" }).Count) {
+            Fail "backup_toc_community_post_likes_resolver_missing"
+        }
+    }
     & docker run -d --rm --name $name -e "POSTGRES_PASSWORD=$password" -v "${work}:/backup" $DockerImage 2>$null | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "restore_target_start_failed" }
     $ready=$false; foreach ($n in 1..30) { & docker exec $name pg_isready -U postgres 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { $ready=$true; break }; Start-Sleep -Milliseconds 500 }; if (-not $ready) { Fail "restore_target_not_ready" }
     $files=@($manifest.artifacts | ForEach-Object { $_.name -replace '\.enc$','' })
     foreach ($file in $files) {
         $restoreArguments = @("exec", "-e", "PGPASSWORD=$password", $name, "pg_restore", "-U", "postgres", "-d", "postgres", "--no-owner", "--no-acl")
         if ($CleanTarget) { $restoreArguments += @("--clean", "--if-exists") }
-        if ($AffectedTablesOnly -or $ProfileFollowScope) {
+        if ($AffectedTablesOnly -or $ProfileFollowScope -or $CommunityPostLikesScope) {
             $restoreArguments += @($restoreTables | ForEach-Object { "--table=$_" })
         }
         $restoreArguments += "/backup/$file"
         & docker @restoreArguments 2>$null | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "restore_command_failed" }
     }
-    $requiredRelations = if ($ProfileFollowScope) { "to_regclass('public.community_profiles') is not null and to_regclass('public.community_profile_follows') is not null" } else { "to_regclass('public.community_comments') is not null and to_regclass('public.official_post_likes') is not null" }
+    $requiredRelations = if ($ProfileFollowScope) { "to_regclass('public.community_profiles') is not null and to_regclass('public.community_profile_follows') is not null" } elseif ($CommunityPostLikesScope) { "to_regclass('public.community_post_likes') is not null" } else { "to_regclass('public.community_comments') is not null and to_regclass('public.official_post_likes') is not null" }
     $verified = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select case when $requiredRelations then 'ok' else 'missing' end" 2>$null | Select-String -Quiet '^ok$'
     if (-not $verified) { Fail "restore_verification_failed" }
     if ($profileExpectedCounts) {
         if ($ExpectedCommunityProfiles -lt 0 -or $ExpectedCommunityProfileFollows -lt 0) { Fail "restore_expected_counts_incomplete" }
         $counts = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select (select count(*) from public.community_profiles)::text || ',' || (select count(*) from public.community_profile_follows)::text" 2>$null
         if ($counts -cne "$ExpectedCommunityProfiles,$ExpectedCommunityProfileFollows") { Fail "restore_row_count_verification_failed" }
+    }
+    elseif ($likesExpectedCount) {
+        $count = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select count(*) from public.community_post_likes" 2>$null
+        if ($count -cne "$ExpectedCommunityPostLikes") { Fail "restore_row_count_verification_failed" }
     }
     elseif ($legacyExpectedCounts) {
         if ($ExpectedCommunityComments -lt 0 -or $ExpectedOfficialPostLikes -lt 0) { Fail "restore_expected_counts_incomplete" }

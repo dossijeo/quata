@@ -81,3 +81,25 @@ envía como `follower_profile_id` el profile ID de su sesión; no depende de una
 mutación anónima ni del RPC legacy `toggle_follow_profile`. Esta conclusión es
 evidencia estática del AAB exacto y debe combinarse con el gate PostgREST y el
 recorrido Android autenticado del rollout; no sustituye esa prueba de ejecución.
+
+## Contrato de likes comprobado en el binario
+
+La reapertura focal del mismo AAB del 2 de octubre de 2026 también acredita la
+ruta publicada de likes comunitarios:
+
+- `FeedRepositoryImpl.toggleLike` exige una sesión activa, obtiene
+  `AuthSession.getUserId()` y entrega ese actor a `FeedRemoteDataSource`;
+- `SupabaseCommunityApi.toggleLike` consulta `community_post_likes` y ejecuta
+  el `DELETE` o `POST` directo;
+- la llamada comparte `SupabaseHttpClient.withAuthHeader`, por lo que usa el
+  bearer de la sesión ya exigida por el repositorio.
+
+El mapping R8 tiene SHA-256
+`670f59516a727c84537fdd12e9ae6da26b8d84a70f72ac6047c3763313ec2320`
+y el DEX base SHA-256
+`51aa7c0c8e987847d2bcd80bd1d243801f5afc66bf1891cf94e67a375c0bcc3`.
+La evidencia estructurada está en
+[`community-post-likes-published-v32-static-20261002.json`](runbooks/migration/evidence/community-post-likes-published-v32-static-20261002.json).
+La versión publicada no necesita una rama anónima de compatibilidad para likes.
+El snapshot de políticas y privilegios que motiva el endurecimiento está en
+[`community-post-likes-production-baseline-20261002.json`](runbooks/migration/evidence/community-post-likes-production-baseline-20261002.json).
