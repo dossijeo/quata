@@ -63,7 +63,7 @@
     "ios": {
       "status": "passed",
       "host": "macOS Hyper-V VM",
-      "command": "JAVA_HOME=/Users/gabriel/.jdks/jbr-21.jdk/Contents/Home PATH=$JAVA_HOME/bin:$PATH bash gradlew :feature:official:iosX64Test --tests com.quata.feature.official.data.IosOfficialPublicReadPolicyTest.actualRepositoryMapsRejectedOlderPageUrlSessionToNetworkFailure --configure-on-demand --no-daemon --console=plain",
+      "command": "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash gradlew :feature:official:iosX64Test --tests com.quata.feature.official.data.IosOfficialPublicReadPolicyTest.actualRepositoryMapsRejectedOlderPageUrlSessionToNetworkFailure --configure-on-demand --no-daemon --console=plain",
       "tests": 1,
       "failures": 0,
       "errors": 0,
