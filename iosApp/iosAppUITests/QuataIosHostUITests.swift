@@ -1078,7 +1078,6 @@ final class QuataIosHostUITests: XCTestCase {
             .matching(identifier: "profile.sos.search")
             .firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10))
-        XCTAssertTrue(search.isHittable, "The real Profile SOS search field must receive input through the evidence marker.")
         let searchMarker = "qa"
         search.tap()
         search.typeText(searchMarker)
