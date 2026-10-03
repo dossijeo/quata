@@ -4,13 +4,13 @@
     "FLOW-IOS-LAYOUT"
   ],
   "status": "passed",
-  "productSha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+  "productSha": "27b7e19c5c07a72f3e52aeb0f8f62f22ddaf87a4",
   "certification": "exact-sha-simulator-signed-focal-xctest-passed-independent-rereview-pending-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+      "sha": "27b7e19c5c07a72f3e52aeb0f8f62f22ddaf87a4",
       "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-2426a740.json",
       "reportSha256": "3236eeab64348061c6ea2b22380d048b42df0b0410ab8c63e8f4a41eabe80865",
       "reportStatus": "passed",
@@ -71,6 +71,7 @@
     "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation.",
     "GitHub iOS certification on 2ec310db failed at the new focal method because the full-frame accessibility evidence marker sat above the embedded Profile surface. The failure is preserved and was not treated as a product keyboard regression.",
     "Exact replays at 06dcf98c and 232cec17 separated marker occlusion from Compose semantics: the full route already completed, while temporary UIKit isHittable assertions deliberately kept those attempts red. The final fix places the real embedded surface above the noninteractive evidence marker and asserts the Compose input through real tap, typed value, keyboard focus and downstream behavior.",
-    "Exact Product SHA 2426a740 passed the SimulatorSigned build and the bounded focal XCTest 1/1 with zero failures in 108.228 seconds. Five screenshots, the UI log and xcresult are retained on the Mac with hashes in the evidence report; no backend or remote state was mutated."
+    "Exact Product SHA 2426a740 passed the SimulatorSigned build and the bounded focal XCTest 1/1 with zero failures in 108.228 seconds. Five screenshots, the UI log and xcresult are retained on the Mac with hashes in the evidence report; no backend or remote state was mutated.",
+    "Custody Product SHA 27b7e19c5 adds only the reviewed capability-matrix hashes and documentary evidence after execution SHA 2426a740; every runtime and test blob is byte-identical, while reportGitHead remains bound to the exact executed tree."
   ]
 }
