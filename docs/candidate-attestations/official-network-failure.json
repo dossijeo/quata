@@ -4,13 +4,13 @@
     "SCR-OFFICIAL"
   ],
   "status": "passed",
-  "productSha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+  "productSha": "c90fbd2a1c596e9e133431d2f64743bb85f8d701",
   "certification": "platform-adapter-network-failure-focal-complete-independent-review-approved-final-CI-pending",
   "evidenceKind": "REAL_OFFICIAL_TRANSPORT_NETWORK_FAILURE_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "sha": "c90fbd2a1c596e9e133431d2f64743bb85f8d701",
       "report": "docs/candidate-attestations/evidence/official-network-failure-2dacc769.json",
       "reportSha256": "086d36294bc480c198315f77caf41914fdbda2900cd36b822b6c3a6586cb8d17",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "sha": "c90fbd2a1c596e9e133431d2f64743bb85f8d701",
       "report": "docs/candidate-attestations/evidence/official-network-failure-2dacc769.json",
       "reportSha256": "086d36294bc480c198315f77caf41914fdbda2900cd36b822b6c3a6586cb8d17",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+      "sha": "c90fbd2a1c596e9e133431d2f64743bb85f8d701",
       "report": "docs/candidate-attestations/evidence/official-network-failure-2dacc769.json",
       "reportSha256": "086d36294bc480c198315f77caf41914fdbda2900cd36b822b6c3a6586cb8d17",
       "reportStatus": "passed",
@@ -98,6 +98,7 @@
     "iOS proves the actual URLSession-backed repository maps an unreachable endpoint to IosOfficialReadException kind Network with no HTTP status.",
     "All faults are hermetic and local. No production backend, database row, credentials, authenticated session or remote product state was mutated.",
     "Three macOS setup failures occurred before the focal test: missing gradlew execute permission, a Java 17 host-architecture bootstrap failure, and unrelated Android project evaluation. The accepted JBR 21 command used --configure-on-demand and passed the exact filtered test; the diagnostic failures remain explicit in the report.",
-    "The temporary macOS worktree was verified clean and removed."
+    "The temporary macOS worktree was verified clean and removed.",
+    "The seven-commit series was rebased onto main at 811fcb63908c466c397e7480282de387d2f2e591 with a 7/7 patch-equivalent range-diff. The focal Android, Web, iOS and contract source blobs are byte-identical between the original product evidence head 2dacc769bd8cb7b835d620ab74f951e2401685c5 and the rebased product head c90fbd2a1c596e9e133431d2f64743bb85f8d701. Intervening main changes are limited to the emergency-contact keyboard work from PR #514 and the Chat document retry work from PR #515; neither changes Official or its transport adapters. The exact historical platform evidence therefore remains applicable, and no platform E2E was repeated solely for the rebased SHA."
   ]
 }
