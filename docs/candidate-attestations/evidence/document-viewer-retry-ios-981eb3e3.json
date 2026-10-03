@@ -2,7 +2,7 @@
   "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-002",
   "status": "passed",
   "git": {
-    "head": "82514fd11d68731090a9a18b42b049f861fc5ab0",
+    "head": "981eb3e384194946e1fe5f56c6aa0846da202365",
     "workingTreeDirty": true
   },
   "steps": [
@@ -31,19 +31,19 @@
     "backend": "not_used",
     "simulator": "iPhone 16, iOS 18.3.1, x86_64",
     "xctest": "testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
-    "result": "1 passed, 0 failed, 0 skipped in 32.949 seconds"
+    "result": "1 passed, 0 failed, 0 skipped in 34.843 seconds"
   },
   "custody": {
     "workingTreeDirtyReason": "Only generated, untracked build products remained; tracked source matched the recorded coordinator commit.",
-    "testLogSha256": "7f71d8cd3744e41d5a13147475ecc61e4ee94edec0656200d483b799f52f977d",
+    "testLogSha256": "aabcc3c888f1ed58136939801ed49c0118b2f851d94893fd4dced79998370df7",
     "screenshotsSha256": {
-      "failure": "7049348e77c439eaa13681b7352b6b9877879aded2c9b6ffc706c6d6446147cf",
-      "quickLook": "058928491354bbb8e4b8f9e79e15c872610284a85a6a1ba4917eb37b45fdc064",
-      "return": "77e18990657d0c601c3a8fc97e06d7ec1eaccf7d62db1e2bdf108579f6ff3af1"
+      "failure": "b4d5ca6281f24ee38aaa90f2e6c310029db334a48380a97cfe504bec1ceb723f",
+      "quickLook": "b94d2ff0aaaa23843dadae322f804ab0a1e7e886934475b8ef77520c82a47d63",
+      "return": "5c66abdda5d23409675fc072cb6d2b9e2325b65bd0856bddd8946db87afb70ac"
     },
     "runtimeArtifactHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
     "runtimeSourceDiff": "zero outside documentation, evidence scripts and capability declarations",
-    "cleanupLogSha256": "ac1b9a02c00e6eb7ffa5982bb4f0e55cdd6a5b857bdfaef84f2e30178f18f47c"
+    "cleanupLogSha256": "0a2da5298a273dc9a71b64f88439a86d4d906fb949ead60d99d47b322f4c1a16"
   },
   "priorAttempts": [
     {
@@ -73,6 +73,13 @@
       "status": "failed_assertion_then_exact_rerun_passed",
       "reason": "The first exact-SHA run returned to Chat without exposing Retry; the preserved hierarchy showed neither Retry nor Quick Look. One identical rerun passed the complete failure, Retry, Quick Look and return path.",
       "testLogSha256": "53461739742526a24edee19d99668990537bce5ffa7e0f32d036948b96f1db09",
+      "cleanupLogSha256": "ac1b9a02c00e6eb7ffa5982bb4f0e55cdd6a5b857bdfaef84f2e30178f18f47c"
+    },
+    {
+      "head": "82514fd11d68731090a9a18b42b049f861fc5ab0",
+      "status": "passed_on_identical_rerun",
+      "reason": "The exact rerun passed the complete failure, Retry, Quick Look and return path before the independent review tightened result-bundle path ownership.",
+      "testLogSha256": "7f71d8cd3744e41d5a13147475ecc61e4ee94edec0656200d483b799f52f977d",
       "cleanupLogSha256": "ac1b9a02c00e6eb7ffa5982bb4f0e55cdd6a5b857bdfaef84f2e30178f18f47c"
     }
   ]
