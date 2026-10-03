@@ -57,6 +57,7 @@ import com.quata.QuataApp
 import com.quata.feature.chat.data.ChatMuteEvidenceFaults
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.core.navigation.AppDestinations
+import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.ui.components.QuataConfirmationDialogConfirmTestTag
@@ -207,6 +208,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val conversationGroupCreateProfileId = optionalArgument("quataConversationGroupCreateProfileId")
         val conversationGroupCreateQuery = optionalArgument("quataConversationGroupCreateQuery")
         val conversationGroupCreateTitle = optionalArgument("quataConversationGroupCreateTitle")
+        val documentRetryLocalOptIn = optionalArgument("quataDocumentRetryLocalOptIn")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
@@ -232,12 +234,37 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, commentsTranslationProbe, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, documentMessageId, audioProbe, audioName, audioUrl, audioMessageId, nextAudioMessageId, nextAudioName, imageProbe, imageMessageId, videoProbe, videoMessageId, audioRecordingMarker).all { !it.isNullOrBlank() }
             "document-actions" -> listOf(chatUrl, documentProbe, documentName, documentMessageId).all { !it.isNullOrBlank() }
+            "document-retry-local" ->
+                documentRetryLocalOptIn == "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE"
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "group-admin" -> listOf(chatUrl, ownProbe, groupAdminProfileId, groupAdminDisplayName, groupAdminSearchQuery).all { !it.isNullOrBlank() }
             "group-moderation" -> listOf(chatUrl, ownProbe, groupRemoveProfileId, groupRemoveDisplayName, groupRemoveSearchQuery, groupBlockProfileId, groupBlockDisplayName, groupBlockSearchQuery).all { !it.isNullOrBlank() }
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
+        }
+        if (stage == "document-retry-local") {
+            assumeTrue(
+                "The local Android document retry fixture requires its exact opt-in.",
+                hasRequiredStageArguments,
+            )
+            suppressStartupPrompts()
+            grantOptionalNotificationPermission()
+            configureLocalDocumentRetryFixture()
+            try {
+                runLocalDocumentRetryStage()
+                writeReport(
+                    JSONObject()
+                        .put("check", "FLOW-DOCUMENT-VIEWER-ANDROID-LOCAL-001")
+                        .put("status", "passed")
+                        .put("fixture", "immutable_local_document_message")
+                        .put("backend", "not_used")
+                        .put("evidenceDirectory", evidenceDir().absolutePath),
+                )
+            } finally {
+                clearLocalDocumentRetryFixture()
+            }
+            return@runBlocking
         }
         assumeTrue(
             "CHAT-ACTIONS-NOTIFICATIONS Android evidence is opt-in.",
@@ -1883,6 +1910,44 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
+    private fun runLocalDocumentRetryStage() {
+        val documentName = DocumentRetryEvidenceDocumentName
+        val documentMessageId = DocumentRetryEvidenceMessageId
+        val chatUrl = quataChatUrl(DocumentRetryEvidenceConversationId)
+        withShellLaunchedChat(chatUrl) {
+            SystemClock.sleep(1_500)
+            saveScreenshot("android-chat-document-retry-local-launched")
+            waitForDocumentAttachment(
+                documentName,
+                "local document retry fixture",
+                messageId = documentMessageId,
+            )
+            clickVisibleDocumentAttachmentOpen(documentName)
+            assertTrue(
+                "The forced local document failure must open the shared retry surface.",
+                waitForDocumentViewerStatusRoot(10_000),
+            )
+            compose.onNodeWithTag("document-viewer-status-retry", useUnmergedTree = true)
+                .fetchSemanticsNode()
+            assertDocumentOpenEvidence(attemptCount = 1, failurePending = false)
+            saveScreenshot("android-chat-document-retry-local-visible")
+            compose.onNodeWithTag("document-viewer-status-retry", useUnmergedTree = true)
+                .performClick()
+            assertTrue(
+                "Retry must open the real Android document reader for the local fixture.",
+                waitForAndroidDocumentReader(documentName),
+            )
+            assertDocumentOpenEvidence(attemptCount = 2, failurePending = false)
+            saveScreenshot("android-chat-document-retry-local-reader")
+            device.pressBack()
+            assertTrue(
+                "Closing the reader must return directly to the same local document attachment.",
+                documentAttachmentVisible(documentName, timeoutMillis = 10_000, messageId = documentMessageId),
+            )
+            saveScreenshot("android-chat-document-retry-local-return")
+        }
+    }
+
     private fun configureDocumentOpenFailure() {
         val committed = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
             .edit()
@@ -1893,6 +1958,41 @@ class ChatActionsNotificationsInstrumentedTest {
             .remove("documentOpen.firstIdentity")
             .commit()
         assertTrue("The document open failure fixture must be committed before the first open.", committed)
+    }
+
+    private fun configureLocalDocumentRetryFixture() {
+        val committed = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+            .edit()
+            .putString("documentRetryLocal.optIn", "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE")
+            .commit()
+        assertTrue("The local document retry fixture opt-in must be committed.", committed)
+        configureDocumentOpenFailure()
+    }
+
+    private fun clearLocalDocumentRetryFixture() {
+        clearDocumentOpenFailure()
+        val preferences = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+        val committed = preferences.edit().remove("documentRetryLocal.optIn").commit()
+        assertTrue("The local document retry fixture opt-in cleanup must be committed.", committed)
+        assertFalse(
+            "The local document retry fixture opt-in must be absent after cleanup.",
+            preferences.contains("documentRetryLocal.optIn"),
+        )
+        val fixture = androidDocumentRetryEvidenceFile(targetContext)
+        val fixtureDirectory = fixture.parentFile
+        assertTrue(
+            "The local document retry file must be absent after cleanup.",
+            !fixture.exists() || fixture.delete(),
+        )
+        assertTrue(
+            "The local document retry directory must be absent after cleanup.",
+            fixtureDirectory == null || !fixtureDirectory.exists() || fixtureDirectory.delete(),
+        )
+        assertFalse("The local document retry file must leave no residue.", fixture.exists())
+        assertFalse(
+            "The local document retry directory must leave no residue.",
+            fixtureDirectory?.exists() == true,
+        )
     }
 
     private fun assertDocumentOpenEvidence(attemptCount: Int, failurePending: Boolean) {

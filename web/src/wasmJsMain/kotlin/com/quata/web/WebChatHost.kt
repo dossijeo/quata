@@ -540,6 +540,7 @@ private external fun installWebChatAudioAttachmentE2eBridge(
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-chat-document-attachment-e2e') === '1' ||
+        params.get('quata-chat-document-retry-e2e') === '1' ||
         globalThis.sessionStorage?.getItem('quata.chat_document_attachment.e2e') === '1';
       if (!local || !optedIn) return () => {};
       const store = globalThis.__quataChatDocumentAttachmentE2eActions || new Map();
@@ -767,7 +768,7 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
     when (DocumentSupport.describe(reference, displayName, mimeType).kind) {
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
-        DocumentPreviewKind.Office -> reference.safeBrowserChatMediaUrl()
+        DocumentPreviewKind.Office -> (reference.safeBrowserChatMediaUrl() ?: safeWebDocumentRetryEvidenceUrl(reference))
             ?.let { documentOpener.open(copy(reference = it)) }
             ?: PlatformResult.Unsupported
         else -> reference.safeBrowserChatMediaUrl()
@@ -781,9 +782,30 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
             ?: PlatformResult.Unsupported
     }
 
+@JsFun(
+    """(reference) => {
+      const location = globalThis.location;
+      const local = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-chat-document-retry-e2e') === '1';
+      if (!local || !optedIn || typeof reference !== 'string') return null;
+      try {
+        const parsed = new URL(reference, location.href);
+        return parsed.origin === location.origin &&
+          parsed.pathname === '/legal/privacy_es.docx' &&
+          !parsed.username && !parsed.password
+          ? parsed.href
+          : null;
+      } catch (_) {
+        return null;
+      }
+    }""",
+)
+private external fun safeWebDocumentRetryEvidenceUrl(reference: String): String?
+
 private suspend fun PlatformFile.downloadWebAttachment(): PlatformResult<Unit> {
     recordWebAttachmentActionEvent("download", "start", displayName)
-    val url = reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+    val url = reference.safeBrowserChatMediaUrl() ?: safeWebDocumentRetryEvidenceUrl(reference)
+        ?: return PlatformResult.Unsupported
     return suspendCoroutine { continuation ->
         downloadWebAttachment(url, displayName ?: "quata-attachment") { state, reason ->
             recordWebAttachmentActionEvent("download", state, reason)
@@ -805,7 +827,8 @@ private suspend fun PlatformFile.shareWebAttachment(shareService: ShareService):
             recordWebAttachmentActionEvent("share", "blob-result", it.webAttachmentResultName())
         }
     }
-    val url = reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+    val url = reference.safeBrowserChatMediaUrl() ?: safeWebDocumentRetryEvidenceUrl(reference)
+        ?: return PlatformResult.Unsupported
     val local = when (val result = materializeWebAttachment(url, displayName, mimeType)) {
         is PlatformResult.Success -> {
             recordWebAttachmentActionEvent("share", "materialized", result.value.displayName)

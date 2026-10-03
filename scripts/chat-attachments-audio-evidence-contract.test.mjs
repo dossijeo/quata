@@ -22,8 +22,11 @@ const [
   commonAudioController,
   commonAudioPolicy,
   commonChatViewModel,
+  commonDocumentRetryFixture,
   androidDocumentOpenService,
   androidHost,
+  androidDocumentRetryFixture,
+  androidAppNavGraph,
   appContainer,
   androidDocumentReaderHost,
   androidDocumentReaderActivity,
@@ -33,6 +36,7 @@ const [
   viewFilesActivity,
   androidNativeChatScreen,
   webHost,
+  webChatFixture,
   webMain,
   iosAttachmentPreviewService,
   iosDocumentOpenService,
@@ -83,8 +87,11 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/DocumentRetryEvidenceChatRepository.kt"),
   source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidDocumentOpenService.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
+  source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidDocumentRetryEvidenceFixture.kt"),
+  source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
   source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/AndroidDocumentOpenService.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/activity/All_Document_Reader_Activity.kt"),
@@ -94,6 +101,7 @@ const [
   source("document-reader/src/main/java/com/quata/documentreader/activity/ViewFiles_Activity.java"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+  source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatE2eFixture.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
@@ -162,9 +170,12 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
   assert.match(iosRuntimeBootstrap, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
   assert.match(webRunner, /document_viewer_retry_changed_document_identity/);
-  assert.match(webRunner, /const retry = page\.locator\("\[data-testid='document-viewer-status-retry'\]"\)/);
-  assert.match(webRunner, /retry\.waitFor\(\{ state: "visible", timeout: 10_000 \}\)/);
-  assert.match(webRunner, /clickLocatorCenter\(page, retry, "document_viewer_retry_not_clickable"\)/);
+  assert.match(webRunner, /assertVisibleTagOrText\([\s\S]{0,220}"document-viewer-status-retry"/);
+  assert.match(webRunner, /clickAnchorByTagOrText\([\s\S]{0,220}"document-viewer-status-retry"/);
+  assert.match(webRunner, /visibleTextBoxMatching\(page, retryPatterns\)/);
+  assert.match(webRunner, /activatedBy: retryTextBox \? "visible_retry_text_bounds" : "semantic_retry_anchor"/);
+  assert.match(webRunner, /document_viewer_opened_status_close_missing/);
+  assert.match(webRunner, /activatedBy: "visible_close_text_bounds"/);
   assert.match(webRunner, /web_document_open_failure_retried_same_file_into_real_docmentis_viewer/);
   assert.match(androidUiTest, /document-viewer-status-retry/);
   assert.match(androidUiTest, /assertDocumentOpenEvidence\(attemptCount = 2, failurePending = false\)/);
@@ -172,6 +183,35 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(androidUiTest, /Closing the native document reader must return directly to the same Quata attachment/);
   assert.match(androidUiTest, /The document open failure fixture cleanup must be committed/);
   assert.match(androidUiTest, /preferences\.contains\(key\)/);
+  assert.match(commonDocumentRetryFixture, /class DocumentRetryEvidenceChatRepository/);
+  assert.match(commonDocumentRetryFixture, /DocumentRetryEvidenceConversationId = "local:document-retry"/);
+  assert.match(commonDocumentRetryFixture, /attachmentUri = attachmentReference/);
+  assert.match(androidDocumentRetryFixture, /I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE/);
+  assert.match(androidDocumentRetryFixture, /context\.assets\.open\(DocumentRetryEvidenceAsset\)/);
+  assert.match(androidAppNavGraph, /localDocumentRetryRepository \?: container\.chatRepository/);
+  assert.match(androidAppNavGraph, /documentRetryEvidenceRepository == null &&\s*startupDestination != StartupDestination\.Main/);
+  assert.match(androidAppNavGraph, /if \(documentRetryEvidenceRepository != null\) \{\s*startupDestination = StartupDestination\.Main/);
+  assert.match(androidAppNavGraph, /documentRetryEvidenceRepository != null && conversationId == DocumentRetryEvidenceConversationId/);
+  assert.match(androidAppNavGraph, /if \(!isAuthenticated && !hasLocalDocumentRetryAccess\)/);
+  assert.match(androidUiTest, /"document-retry-local"/);
+  assert.match(androidUiTest, /runLocalDocumentRetryStage\(\)/);
+  assert.match(androidUiTest, /quataChatUrl\(DocumentRetryEvidenceConversationId\)/);
+  assert.match(webChatFixture, /quata-chat-document-retry-e2e/);
+  assert.match(webChatFixture, /DocumentRetryEvidenceChatRepository\(reference\)/);
+  assert.match(webMain, /hasLocalDocumentRetryFixtureAccess =\s*isLocalChatFixture && navigationState\.chatConversationId == DocumentRetryEvidenceConversationId/);
+  assert.match(webMain, /!hasAuthenticatedSession && !hasLocalDocumentRetryFixtureAccess && navigationState\.requiresAuthentication/);
+  assert.match(webMain, /\(!privateRouteAccess\.isAllowed && !hasLocalDocumentRetryFixtureAccess\)/);
+  assert.match(webHost, /safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webHost, /downloadWebAttachment\(\): PlatformResult<Unit>[\s\S]{0,240}safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webHost, /shareWebAttachment\(shareService: ShareService\): PlatformResult<Unit>[\s\S]{0,520}safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webRunner, /--document-retry-local-only/);
+  assert.match(webRunner, /openLocalDocumentRetryPage\(browser, server\.origin, faults\)/);
+  assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE/);
+  assert.match(iosRuntimeBootstrap, /openLocalEvidenceAttachment\(attachment\)/);
+  assert.match(iosAttachmentPreviewService, /internal suspend fun openLocalEvidenceAttachment/);
+  assert.match(iosAppDelegate, /case "document-retry-local"/);
+  assert.match(iosUiTest, /testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend/);
+  assert.match(iosUiTest, /exerciseDocumentRetry\(/);
   assert.match(iosUiTest, /QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN/);
   assert.match(iosUiTest, /document-viewer-status-retry/);
   assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment retry"/);
@@ -522,7 +562,7 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
   assert.match(webHost, /WebChatAttachmentAudioPlayerService\(audioPlayer\)/);
   assert.match(webHost, /file\.reference\.safeBrowserChatMediaUrl\(\)/);
-  assert.match(webHost, /DocumentPreviewKind\.Office -> reference\.safeBrowserChatMediaUrl\(\)[\s\S]{0,120}documentOpener\.open\(copy\(reference = it\)\)/);
+  assert.match(webHost, /DocumentPreviewKind\.Office -> \(reference\.safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)\)[\s\S]{0,160}documentOpener\.open\(copy\(reference = it\)\)/);
   assert.match(androidChatAttachmentAudioPlayerService, /class AndroidChatAttachmentDocumentOpenService/);
   assert.match(androidChatAttachmentAudioPlayerService, /delegate\.open\(resolvedFile\)/);
   assert.match(appContainer, /documentOpenService: DocumentOpenService = AndroidChatAttachmentDocumentOpenService/);

@@ -515,33 +515,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "The unique document marker must be visible before invoking native actions.",
         )
 
-        guard makeChatAnchorVisible(identifier: "chat.attachment.document.open", context: "document retry first open", in: app) else {
-            return
-        }
-        app.descendants(matching: .any).matching(identifier: "chat.attachment.document.open").firstMatch.tap()
-        let retry = app.descendants(matching: .any).matching(identifier: "document-viewer-status-retry").firstMatch
-        XCTAssertTrue(
-            retry.waitForExistence(timeout: 10),
-            "The forced recoverable failure must expose the common document Retry action.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "document-viewer-status-close").firstMatch.exists,
-            "The recoverable document failure must remain dismissible.",
-        )
-        attachScreenshot(app, name: "ios-chat-document-retry-visible")
-        retry.tap()
-        assertQuickLookPresented(documentName: documentName, context: "Chat document attachment retry", in: app)
-        attachScreenshot(app, name: "ios-chat-document-retry-quicklook")
-        closeQuickLook(documentName: documentName, context: "Chat document attachment retry", in: app)
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(identifier: "document-viewer-status-root").firstMatch.exists,
-            "The shared document failure surface must be gone after the retried native viewer closes.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "chat.attachment.document").firstMatch.waitForExistence(timeout: 10),
-            "Closing the retried Quick Look viewer must return to the same Chat document attachment.",
-        )
-        attachScreenshot(app, name: "ios-chat-document-retry-return")
+        guard exerciseDocumentRetry(
+            documentName: documentName,
+            evidencePrefix: "ios-chat-document-retry",
+            in: app
+        ) else { return }
 
         for action in ["chat.attachment.document.download", "chat.attachment.document.share"] {
             guard makeChatAnchorVisible(identifier: action, context: action, in: app) else { return }
@@ -568,6 +546,42 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
         attachScreenshot(app, name: "ios-chat-document-actions-return")
+    }
+
+    func testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_UI_E2E"] == "1" else {
+            throw XCTSkip("Set QUATA_IOS_DOCUMENT_RETRY_LOCAL_UI_E2E=1 for the focal local document retry gate.")
+        }
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES",
+            "-quata-ui-test-fixture", "document-retry-local",
+        ]
+        app.launchEnvironment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"] =
+            "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"
+        app.launchEnvironment["QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN"] =
+            "I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE"
+        app.launchEnvironment["QUATA_IOS_DOCUMENT_OPEN_FORCE_FAILURE"] = "1"
+        app.launch()
+
+        _ = chatHost(in: app, context: "local document retry conversation")
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "chat.attachment.document")
+                .firstMatch
+                .waitForExistence(timeout: 20),
+            "The immutable local document message must be visible in the production Chat host.",
+        )
+        XCTAssertTrue(
+            exerciseDocumentRetry(
+                documentName: "quata-document-retry.rtf",
+                evidencePrefix: "ios-chat-document-retry-local",
+                in: app
+            ),
+            "The local document retry fixture must traverse the shared Retry state and real Quick Look.",
+        )
     }
 
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
@@ -3852,6 +3866,44 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .joined()
             .replacingOccurrences(of: "--+", with: "-", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+
+    private func exerciseDocumentRetry(
+        documentName: String,
+        evidencePrefix: String,
+        in app: XCUIApplication
+    ) -> Bool {
+        guard makeChatAnchorVisible(
+            identifier: "chat.attachment.document.open",
+            context: "document retry first open",
+            in: app
+        ) else { return false }
+        app.descendants(matching: .any).matching(identifier: "chat.attachment.document.open").firstMatch.tap()
+        let retry = app.descendants(matching: .any).matching(identifier: "document-viewer-status-retry").firstMatch
+        guard retry.waitForExistence(timeout: 10) else {
+            XCTFail("The forced recoverable failure must expose the common document Retry action.")
+            return false
+        }
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "document-viewer-status-close").firstMatch.exists,
+            "The recoverable document failure must remain dismissible.",
+        )
+        attachScreenshot(app, name: "\(evidencePrefix)-visible")
+        retry.tap()
+        assertQuickLookPresented(documentName: documentName, context: "Chat document attachment retry", in: app)
+        attachScreenshot(app, name: "\(evidencePrefix)-quicklook")
+        closeQuickLook(documentName: documentName, context: "Chat document attachment retry", in: app)
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "document-viewer-status-root").firstMatch.exists,
+            "The shared document failure surface must be gone after the retried native viewer closes.",
+        )
+        let returned = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.document")
+            .firstMatch
+            .waitForExistence(timeout: 10)
+        XCTAssertTrue(returned, "Closing the retried Quick Look viewer must return to the same Chat document attachment.")
+        attachScreenshot(app, name: "\(evidencePrefix)-return")
+        return returned
     }
 
     private func assertQuickLookPresented(documentName: String, context: String, in app: XCUIApplication) {

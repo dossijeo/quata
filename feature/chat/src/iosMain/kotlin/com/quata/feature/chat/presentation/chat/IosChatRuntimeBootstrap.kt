@@ -1,5 +1,6 @@
 package com.quata.feature.chat.presentation.chat
 
+import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
@@ -27,6 +28,8 @@ import com.quata.feature.chat.data.PreferenceChatOutgoingStore
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.writeToFile
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancel
@@ -50,9 +53,10 @@ class IosChatRuntimeBootstrap(
         ),
     ),
 ) {
+    private val localDocumentRetryFixture by lazy { iosChatDocumentRetryLocalFixtureOrNull() }
     private val realtimeGateway by lazy { IosChatRealtimeGateway(configuration, authSession) }
     private val chatRepository: ChatRepository by lazy {
-        PostgrestChatRepository(
+        localDocumentRetryFixture?.repository ?: PostgrestChatRepository(
             transport = iosChatEvidenceFaultingTransportIfRequested(IosChatPostgrestTransport(configuration, authSession)),
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
@@ -129,6 +133,8 @@ class IosChatRuntimeBootstrap(
                 if (documentOpenFailurePending) {
                     documentOpenFailurePending = false
                     PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
+                } else if (localDocumentRetryFixture?.path == attachment.reference) {
+                    attachmentPreviewService?.openLocalEvidenceAttachment(attachment) ?: PlatformResult.Unsupported
                 } else {
                     attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
                 }
@@ -139,6 +145,29 @@ class IosChatRuntimeBootstrap(
             profileOpeningState = profileOpeningState,
         )
     }
+}
+
+private data class IosChatDocumentRetryLocalFixture(
+    val repository: ChatRepository,
+    val path: String,
+)
+
+private fun iosChatDocumentRetryLocalFixtureOrNull(): IosChatDocumentRetryLocalFixture? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"]?.toString() !=
+        "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"
+    ) return null
+    val path = NSTemporaryDirectory().trimEnd('/') + "/quata-document-retry.rtf"
+    val rtf = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Helvetica;}}\\f0\\fs28 Qüata document retry fixture\\par}"
+    if (!rtf.encodeToByteArray().toFoundationData().writeToFile(path, atomically = true)) return null
+    return IosChatDocumentRetryLocalFixture(
+        repository = DocumentRetryEvidenceChatRepository(
+            attachmentReference = path,
+            attachmentName = "quata-document-retry.rtf",
+            attachmentMimeType = "application/rtf",
+        ),
+        path = path,
+    )
 }
 
 /** Swift-facing subscription; it adds no platform network monitor. */

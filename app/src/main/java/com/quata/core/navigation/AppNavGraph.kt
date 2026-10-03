@@ -174,6 +174,8 @@ import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.domain.SosRateLimitException
 import com.quata.feature.chat.presentation.chat.AndroidChatProductScreen
+import com.quata.feature.chat.presentation.chat.DocumentRetryEvidenceConversationId
+import com.quata.feature.chat.presentation.chat.androidDocumentRetryEvidenceRepositoryOrNull
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
 import com.quata.feature.feed.presentation.FeedScreen
 import com.quata.feature.externalshare.ExternalSharePayload
@@ -236,13 +238,19 @@ fun AppNavGraph(
     val authState by container.sessionManager.authState.collectAsState()
     val currentUserId = (authState as? AuthState.LoggedIn)?.userId
     val isAuthenticated = currentUserId != null
+    val appContext = LocalContext.current
+    val documentRetryEvidenceRepository = remember(appContext) {
+        androidDocumentRetryEvidenceRepositoryOrNull(appContext)
+    }
     val startupCoordinator = remember(container.whatsNewRepository) {
         StartupCoordinator(container.whatsNewRepository)
     }
     var startupDestination by remember(currentUserId) { mutableStateOf<StartupDestination>(StartupDestination.Main) }
     var hasEvaluatedWhatsNewStartup by remember(currentUserId) { mutableStateOf(false) }
     var isCompletingWhatsNew by remember(currentUserId) { mutableStateOf(false) }
-    val isWhatsNewStartupActive = isAuthenticated && startupDestination != StartupDestination.Main
+    val isWhatsNewStartupActive = isAuthenticated &&
+        documentRetryEvidenceRepository == null &&
+        startupDestination != StartupDestination.Main
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
@@ -268,7 +276,6 @@ fun AppNavGraph(
     val isAppOnline = isDeviceNetworkAvailable
     var feedNetworkReconnectToken by rememberSaveable { mutableLongStateOf(0L) }
     var previousDeviceNetworkAvailable by rememberSaveable { mutableStateOf<Boolean?>(null) }
-    val appContext = LocalContext.current
     val rootView = LocalView.current
     val appScope = rememberCoroutineScope()
     val translatorRegistry = remember { QuataTranslatableTextRegistry() }
@@ -393,7 +400,12 @@ fun AppNavGraph(
     val postComposerAuthenticationCoordinator = remember { PostComposerAuthenticationContinuationCoordinator() }
     val pendingPostComposerAuthentication by postComposerAuthenticationCoordinator.pending.collectAsState()
     var postComposerAuthenticationSurfaceVisited by remember { mutableStateOf(false) }
-    LaunchedEffect(currentUserId, currentRoute) {
+    LaunchedEffect(currentUserId, currentRoute, documentRetryEvidenceRepository) {
+        if (documentRetryEvidenceRepository != null) {
+            startupDestination = StartupDestination.Main
+            hasEvaluatedWhatsNewStartup = true
+            return@LaunchedEffect
+        }
         if (!StartupPresentationPolicy.shouldEvaluateWhatsNew(
                 isSessionResolved = true,
                 isAuthenticated = isAuthenticated,
@@ -493,7 +505,9 @@ fun AppNavGraph(
     }
 
     fun navigateToChat(conversationId: String, focusedMessageId: String? = null) {
-        if (!isAuthenticated) {
+        val hasLocalDocumentRetryAccess =
+            documentRetryEvidenceRepository != null && conversationId == DocumentRetryEvidenceConversationId
+        if (!isAuthenticated && !hasLocalDocumentRetryAccess) {
             requestAuthentication(
                 conversationId = conversationId,
                 focusedMessageId = focusedMessageId,
@@ -1071,7 +1085,10 @@ fun AppNavGraph(
                     arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
                 ) { entry ->
                     val conversationId = entry.arguments?.getString("conversationId")?.let(Uri::decode) ?: ""
-                    if (!isAuthenticated) {
+                    val localDocumentRetryRepository = documentRetryEvidenceRepository.takeIf {
+                        conversationId == DocumentRetryEvidenceConversationId
+                    }
+                    if (!isAuthenticated && localDocumentRetryRepository == null) {
                         LaunchedEffect(conversationId) {
                             requestAuthentication()
                             navigateToFeed()
@@ -1080,7 +1097,7 @@ fun AppNavGraph(
                         AndroidChatProductScreen(
                             padding = padding,
                             conversationId = conversationId,
-                            repository = container.chatRepository,
+                            repository = localDocumentRetryRepository ?: container.chatRepository,
                             clipboardService = container.clipboardService,
                             shareService = container.shareService,
                             filePickerService = container.filePickerService,

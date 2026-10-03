@@ -10,6 +10,7 @@ import com.quata.feature.chat.domain.ChatConversationCandidatePage
 import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
+import com.quata.feature.chat.presentation.chat.DocumentRetryEvidenceChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,12 @@ import kotlinx.coroutines.flow.flowOf
  * production Compose host and its real [ChatViewModel] callbacks while replacing only the
  * remote repository; it never performs fetch, authentication or a database mutation.
  */
-internal fun webChatE2eFixtureOrNull(): ChatRepository? = if (isWebChatE2eFixtureEnabled()) WebChatE2eFixture() else null
+internal fun webChatE2eFixtureOrNull(): ChatRepository? {
+    webDocumentRetryEvidenceReferenceOrNull()?.let { reference ->
+        return DocumentRetryEvidenceChatRepository(reference)
+    }
+    return if (isWebChatE2eFixtureEnabled()) WebChatE2eFixture() else null
+}
 
 @JsFun("""() => {
   const location = globalThis.location;
@@ -29,6 +35,14 @@ internal fun webChatE2eFixtureOrNull(): ChatRepository? = if (isWebChatE2eFixtur
   return local && new URLSearchParams(location?.search || '').get('quata-chat-e2e') === '1';
 }""")
 private external fun isWebChatE2eFixtureEnabled(): Boolean
+
+@JsFun("""() => {
+  const location = globalThis.location;
+  const local = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+  const optedIn = new URLSearchParams(location?.search || '').get('quata-chat-document-retry-e2e') === '1';
+  return local && optedIn ? new URL('/legal/privacy_es.docx', location.href).href : null;
+}""")
+private external fun webDocumentRetryEvidenceReferenceOrNull(): String?
 
 private class WebChatE2eFixture : ChatRepository {
     private companion object {
