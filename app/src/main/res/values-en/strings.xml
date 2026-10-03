@@ -620,4 +620,9 @@
     <string name="profile_password_update_unavailable">Change your password from Forgot my password until authenticated password updates are available.</string>
     <string name="profile_retry">Retry</string>
     <string name="profile_loading_error">Could not load your profile.</string>
+    <string name="profile_link_google">Link Google account</string>
+    <string name="profile_linking_google">Linking Google account…</string>
+    <string name="profile_cancel_google_link">Cancel Google linking</string>
+    <string name="profile_google_linked">Google account linked.</string>
+    <string name="profile_google_link_failed">Google account could not be linked.</string>
 </resources>

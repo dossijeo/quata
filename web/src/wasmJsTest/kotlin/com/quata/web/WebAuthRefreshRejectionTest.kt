@@ -127,6 +127,25 @@ class WebAuthRefreshRejectionTest {
         assertEquals(0L, repository.activeRealtimeRefreshDelayMillis(4_102_444_740L))
     }
 
+    @Test
+    fun googleOAuthPublicationRejectsAnySessionWrittenAfterPopupStart() {
+        val original = localSession("old-access")
+        val replacement = localSession("new-access")
+
+        assertTrue(webGoogleOAuthSessionStillCurrent(null, null))
+        assertFalse(webGoogleOAuthSessionStillCurrent(null, replacement))
+        assertTrue(webGoogleOAuthSessionStillCurrent(original, original.copy()))
+        assertFalse(webGoogleOAuthSessionStillCurrent(original, replacement))
+    }
+
+    private fun localSession(accessToken: String) = WebLocalSession(
+        accessToken = accessToken,
+        refreshToken = "$accessToken-refresh",
+        webSessionToken = "$accessToken-web",
+        userId = "profile-1",
+        expiresAt = 4_102_444_800L,
+    )
+
     private class MemoryPreferences : PreferenceStore {
         private val values = mutableMapOf(
             WebAuthStorage.AccessToken to "old-access", WebAuthStorage.RefreshToken to "old-refresh",

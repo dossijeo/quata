@@ -22,7 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.compactButtonMinSize
 
-data class ProfileManagementAction(val label: String, val testTag: String, val onClick: () -> Unit)
+data class ProfileManagementAction(
+    val label: String,
+    val testTag: String,
+    val onClick: () -> Unit,
+    val enabled: Boolean = true,
+)
 
 /** Shared account-management section; the host provides its navigation/back affordance. */
 @Composable
@@ -50,6 +55,7 @@ fun ProfileAccountManagementContent(
         actions.forEach { action ->
             OutlinedButton(
                 onClick = action.onClick,
+                enabled = action.enabled,
                 modifier = Modifier
                     .fillMaxWidth()
                     .compactButtonMinSize()

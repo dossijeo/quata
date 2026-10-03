@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.auth.domain.LoginRepository
+import com.quata.feature.auth.domain.GoogleAuthProvider
 import com.quata.feature.auth.presentation.AuthCatalogCopy
 import com.quata.feature.auth.presentation.AuthScreenLayoutContent
 
@@ -26,12 +27,15 @@ fun LoginScreenHost(
     catalog: AuthCatalogCopy,
     prefixes: List<CountryPrefix>,
     showMockNotice: Boolean,
+    googleAuthProvider: GoogleAuthProvider? = repository as? GoogleAuthProvider,
     onGoToRegister: () -> Unit,
     onForgotPassword: () -> Unit,
     onLoginSuccess: () -> Unit,
     onLoginFailure: (String) -> Unit = {},
 ) {
-    val viewModel = remember(repository) { LoginViewModel(repository) }
+    val viewModel = remember(repository, googleAuthProvider, catalog.login.googleSignInFailed) {
+        LoginViewModel(repository, googleAuthProvider, catalog.login.googleSignInFailed)
+    }
     val state by viewModel.uiState.collectAsState()
 
     DisposableEffect(viewModel) {
@@ -57,6 +61,7 @@ fun LoginScreenHost(
             strings = catalog.login,
             isLandscape = isLandscape,
             showMockNotice = showMockNotice,
+            showGoogleSignIn = googleAuthProvider != null,
             onEvent = viewModel::onEvent,
             onForgotPassword = onForgotPassword,
             onGoToRegister = onGoToRegister,

@@ -38,6 +38,9 @@ class IosRenewableAuthSession(
         manager.setSession(session)
     }
 
+    fun publishIfActorMatches(expected: AuthSession, replacement: AuthSession): AuthSession? =
+        manager.publishSessionIfActorMatches(expected, replacement)
+
     /** Returns a valid persisted session or asks the injected host to renew it when required. */
     suspend fun currentSession(forceRefresh: Boolean = false): AuthSession? = resolveTerminalRejection {
         manager.ensureFreshSession(force = forceRefresh, refresh = refresher::refresh)

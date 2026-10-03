@@ -48,6 +48,7 @@ import com.quata.core.platform.MainActivityFilePickerHost
 import com.quata.core.platform.MainActivityPermissionHost
 import com.quata.core.platform.MainActivityCameraCaptureHost
 import com.quata.core.auth.MainActivityTurnstileHost
+import com.quata.core.auth.AndroidGoogleOAuthCallbackCoordinator
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
@@ -239,6 +240,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(sourceIntent: Intent?) {
+        if (sourceIntent?.action == Intent.ACTION_VIEW) {
+            val callback = sourceIntent.data
+            if (AndroidGoogleOAuthCallbackCoordinator.isCallback(callback)) {
+                (application as QuataApp).resumeGoogleOAuthCallback(requireNotNull(callback))
+                sourceIntent.data = null
+                return
+            }
+        }
         incomingLink.value = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
         val shareIntent = sourceIntent?.takeIf {
             it.action in SHARE_ACTIONS

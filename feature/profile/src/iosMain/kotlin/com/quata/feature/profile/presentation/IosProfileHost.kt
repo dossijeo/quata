@@ -51,6 +51,7 @@ import com.quata.core.platform.openWithViewerState
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.postcomposer.presentation.IosAvatarImageEditor
+import com.quata.feature.auth.domain.GoogleIdentityLinker
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
 import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
@@ -78,6 +79,7 @@ class IosProfileHostDependencies(
     val languageCode: String,
     val documentOpener: DocumentOpenService?,
     val openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
+    val googleIdentityLinker: GoogleIdentityLinker? = null,
 )
 
 fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = QuataComposeUIViewController {
@@ -104,6 +106,9 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
             onLogout = dependencies.onLogout,
             onDeactivateAccount = dependencies.onDeactivateAccount,
             onDeleteAccountData = dependencies.onDeleteAccountData,
+            onLinkGoogleIdentity = dependencies.googleIdentityLinker?.let { linker ->
+                { suspend { linker.beginIdentityLink().invoke().map { Unit } } }
+            },
             onEmergencySettingsSaved = dependencies.onEmergencySettingsSaved,
             slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
@@ -319,4 +324,9 @@ private val IosProfileScreenStrings = ProfileScreenStrings(
     passwordUnavailable = "Change your password from Forgot my password until authenticated password updates are available.",
     loadingError = "Could not load your profile.",
     retry = "Retry",
+    linkGoogle = "Link Google account",
+    linkingGoogle = "Linking Google account…",
+    cancelGoogleLink = "Cancel Google linking",
+    googleLinked = "Google account linked.",
+    googleLinkFailed = "Google account could not be linked.",
 )

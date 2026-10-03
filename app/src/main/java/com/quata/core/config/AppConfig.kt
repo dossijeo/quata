@@ -48,5 +48,4 @@ object AppConfig {
     const val SUPABASE_TABLE_PUSH_TOKENS = "push_tokens"
 
     /** Google Sign-In: rellena el Web Client ID si integras Credential Manager/Firebase Auth. */
-    const val GOOGLE_WEB_CLIENT_ID = "YOUR_GOOGLE_WEB_CLIENT_ID"
 }

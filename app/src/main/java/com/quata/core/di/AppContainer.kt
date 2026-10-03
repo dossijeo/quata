@@ -1,6 +1,7 @@
 package com.quata.core.di
 
 import android.content.Context
+import android.net.Uri
 import android.content.res.Configuration
 import com.quata.core.auth.GoogleAuthHelper
 import com.quata.core.auth.AndroidRegistrationChallengeService
@@ -46,6 +47,8 @@ import com.quata.core.platform.DocumentOpenService
 import com.quata.documentreader.QuataDocumentReaderOpenHost
 import com.quata.feature.auth.data.AuthRepositoryImpl
 import com.quata.feature.auth.domain.AuthRepository
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import com.quata.feature.chat.data.ChatMessageStateAckManager
 import com.quata.feature.chat.data.ChatRemoteDataSource
 import com.quata.feature.chat.data.ChatRepositoryImpl
@@ -73,6 +76,14 @@ import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.whatsnew.data.WhatsNewRepositoryImpl
 
 class AppContainer(context: Context) {
+    private val googleOAuthRecoveryChannel = Channel<Unit>(Channel.BUFFERED)
+    val googleOAuthRecoveries = googleOAuthRecoveryChannel.receiveAsFlow()
+
+    fun publishGoogleOAuthRecovery() {
+        check(googleOAuthRecoveryChannel.trySend(Unit).isSuccess) {
+            "google_oauth_recovery_not_published"
+        }
+    }
     private val constructionStartedAt = AndroidStartupDiagnostics.startedAt()
     val appContext: Context = context.applicationContext
     val dispatchers = AppDispatchers()
@@ -166,15 +177,25 @@ class AppContainer(context: Context) {
         refreshSession = { supabaseCommunityApi.ensureFreshSession(); Unit },
     )
 
-    val authRepository: AuthRepository = AuthRepositoryImpl(
+    private val googleAuthHelper = GoogleAuthHelper()
+    private val authRepositoryImpl = AuthRepositoryImpl(
         appContext = appContext,
         supabaseApi = networkModule.supabaseCommunityApi,
         sessionManager = sessionManager,
-        googleAuthHelper = GoogleAuthHelper(),
+        googleAuthHelper = googleAuthHelper,
         pushTokenManager = pushTokenManager,
         registrationChallengeService = registrationChallengeService,
         registrationIdentityStore = registrationClientIdentityStore
     )
+    val authRepository: AuthRepository = authRepositoryImpl
+
+    internal suspend fun exchangeGoogleOAuthCallback(
+        callback: Uri,
+    ): Result<com.quata.core.auth.AndroidGoogleOAuthExchange> =
+        authRepositoryImpl.exchangeGoogleOAuthCallback(callback)
+
+    internal fun publishGoogleOAuthRecovery(completion: com.quata.core.auth.AndroidGoogleOAuthCompletion) =
+        authRepositoryImpl.publishGoogleOAuthRecovery(completion)
 
     val feedRepository: FeedRepository = FeedRepositoryImpl(
         appContext = appContext,

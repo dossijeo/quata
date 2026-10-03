@@ -634,4 +634,9 @@
     <string name="profile_password_update_unavailable">Cambia tu contraseña desde «Olvidé mi contraseña» hasta que esté disponible la actualización autenticada.</string>
     <string name="profile_retry">Reintentar</string>
     <string name="profile_loading_error">No se pudo cargar el perfil.</string>
+    <string name="profile_link_google">Vincular cuenta de Google</string>
+    <string name="profile_linking_google">Vinculando cuenta de Google…</string>
+    <string name="profile_cancel_google_link">Cancelar vinculación con Google</string>
+    <string name="profile_google_linked">Cuenta de Google vinculada.</string>
+    <string name="profile_google_link_failed">No se pudo vincular la cuenta de Google.</string>
 </resources>

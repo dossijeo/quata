@@ -95,6 +95,7 @@ fun ProfileScreen(
     permissionService: PermissionService? = null,
     accountAvatarEvidenceImageUri: String? = null,
     onProfileSaved: () -> Unit,
+    onLinkGoogleIdentity: (() -> suspend () -> Result<Unit>)? = null,
     @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
     val context = LocalContext.current
@@ -133,6 +134,7 @@ fun ProfileScreen(
             onLogout = onLogout,
             onDeactivateAccount = onDeactivateAccount,
             onDeleteAccountData = onDeleteAccountData,
+            onLinkGoogleIdentity = onLinkGoogleIdentity,
             refreshKey = networkReconnectToken,
             contentPadding = padding,
                 slots = ProfileScreenSlots(
@@ -310,6 +312,11 @@ private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     context.getString(R.string.profile_password_update_unavailable),
     context.getString(R.string.profile_loading_error),
     context.getString(R.string.profile_retry),
+    linkGoogle = context.getString(R.string.profile_link_google),
+    linkingGoogle = context.getString(R.string.profile_linking_google),
+    cancelGoogleLink = context.getString(R.string.profile_cancel_google_link),
+    googleLinked = context.getString(R.string.profile_google_linked),
+    googleLinkFailed = context.getString(R.string.profile_google_link_failed),
 )
 
 private fun androidDocumentViewerStatusStrings(context: Context) = QuataDocumentViewerStatusStrings(
