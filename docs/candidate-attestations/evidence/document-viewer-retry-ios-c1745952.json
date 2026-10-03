@@ -1,13 +1,14 @@
 {
-  "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-002",
+  "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-003",
   "status": "passed",
   "git": {
-    "head": "981eb3e384194946e1fe5f56c6aa0846da202365",
+    "head": "c1745952698825d9c356488163b4b27fe40a388e",
     "workingTreeDirty": true
   },
   "steps": [
     "mac_checkout_sha_matches_local_candidate",
-    "runtime_source_tree_matches_tested_bd63e56c_artifact",
+    "current_swift_host_built_from_c1745952",
+    "shared_framework_scope_delta_reviewed_as_unrelated_profile_keyboard_change",
     "ios_x64_framework_and_simulator_signed_build_succeeded_on_mac",
     "immutable_local_document_message_rendered_without_auth_or_backend",
     "recoverable_document_open_failure_visible",
@@ -31,19 +32,29 @@
     "backend": "not_used",
     "simulator": "iPhone 16, iOS 18.3.1, x86_64",
     "xctest": "testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
-    "result": "1 passed, 0 failed, 0 skipped in 34.843 seconds"
+    "result": "1 passed, 0 failed, 0 skipped in 48.515 seconds"
   },
   "custody": {
-    "workingTreeDirtyReason": "Only generated, untracked build products remained; tracked source matched the recorded coordinator commit.",
-    "testLogSha256": "aabcc3c888f1ed58136939801ed49c0118b2f851d94893fd4dced79998370df7",
+    "workingTreeDirtyReason": "Only generated, untracked build products remained; tracked source matched c1745952698825d9c356488163b4b27fe40a388e.",
+    "testLogSha256": "140b36b7fc5afa40e0fb89879e4d57b7d8f9aa8608819bf88bd0360587b1baf4",
     "screenshotsSha256": {
-      "failure": "b4d5ca6281f24ee38aaa90f2e6c310029db334a48380a97cfe504bec1ceb723f",
-      "quickLook": "b94d2ff0aaaa23843dadae322f804ab0a1e7e886934475b8ef77520c82a47d63",
-      "return": "5c66abdda5d23409675fc072cb6d2b9e2325b65bd0856bddd8946db87afb70ac"
+      "failure": "f599495f9858799fa2b75cd4ceeeda3b3c77aaa0c0187ce441a4c575e36def84",
+      "quickLook": "1905b74e8e9d2493e6cbe17dfdb96dcb6ec7db645011efa3b114d3fe8d848bcb",
+      "return": "d49626efae882145b42c8269b2c92a3a2a5cf39bbcbfeded13d9318840ba77b2"
     },
-    "runtimeArtifactHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
-    "runtimeSourceDiff": "zero outside documentation, evidence scripts and capability declarations",
-    "cleanupLogSha256": "0a2da5298a273dc9a71b64f88439a86d4d906fb949ead60d99d47b322f4c1a16"
+    "sharedFrameworkHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
+    "hostSourceHead": "c1745952698825d9c356488163b4b27fe40a388e",
+    "hostBuild": "build-for-testing succeeded from the current Swift host and current UI tests",
+    "sharedFrameworkScopeDelta": {
+      "sourceRange": "bd63e56c155936d4b10e9278f86453d85d00a554..c1745952698825d9c356488163b4b27fe40a388e",
+      "files": [
+        "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorContent.kt",
+        "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsMessageContent.kt",
+        "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsSelectionContent.kt"
+      ],
+      "assessment": "PR #514 keyboard-ownership changes are confined to emergency-contact profile surfaces and do not intersect Chat document attachment state, retry, native presentation or cleanup."
+    },
+    "cleanupLogSha256": "6299076982808d2c1e7ad355ed5024f5f2d2f7ba0a08d234597b8bbb19e158a9"
   },
   "priorAttempts": [
     {
@@ -81,6 +92,13 @@
       "reason": "The exact rerun passed the complete failure, Retry, Quick Look and return path before the independent review tightened result-bundle path ownership.",
       "testLogSha256": "7f71d8cd3744e41d5a13147475ecc61e4ee94edec0656200d483b799f52f977d",
       "cleanupLogSha256": "ac1b9a02c00e6eb7ffa5982bb4f0e55cdd6a5b857bdfaef84f2e30178f18f47c"
+    },
+    {
+      "head": "981eb3e384194946e1fe5f56c6aa0846da202365",
+      "status": "passed",
+      "reason": "The safe coordinator passed before rebasing onto merged PR #514; the current run supersedes it with the c1745952 Swift host and current UI tests.",
+      "testLogSha256": "aabcc3c888f1ed58136939801ed49c0118b2f851d94893fd4dced79998370df7",
+      "cleanupLogSha256": "0a2da5298a273dc9a71b64f88439a86d4d906fb949ead60d99d47b322f4c1a16"
     }
   ]
 }
