@@ -166,7 +166,7 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
-        onOpenAttachment = { file -> file.openWebAttachment(documentOpener) },
+        onOpenAttachment = { file -> file.openWebAttachmentWithEvidenceFailure(documentOpener) },
         onDownloadAttachment = { file -> file.downloadWebAttachment() },
         onShareAttachment = { file -> file.shareWebAttachment(shareService) },
         onOpenExternalLink = ::openWebExternalLink,
@@ -540,6 +540,7 @@ private external fun installWebChatAudioAttachmentE2eBridge(
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-chat-document-attachment-e2e') === '1' ||
+        params.get('quata-chat-document-retry-e2e') === '1' ||
         globalThis.sessionStorage?.getItem('quata.chat_document_attachment.e2e') === '1';
       if (!local || !optedIn) return () => {};
       const store = globalThis.__quataChatDocumentAttachmentE2eActions || new Map();
@@ -732,11 +733,42 @@ internal fun observeChatBrowserDocumentVisibility(onChanged: (Boolean) -> Unit):
     """,
 )
 
+private suspend fun PlatformFile.openWebAttachmentWithEvidenceFailure(
+    documentOpener: DocumentOpenService,
+): PlatformResult<Unit> {
+    if (consumeWebDocumentOpenFailure(reference, displayName.orEmpty(), mimeType.orEmpty())) {
+        return PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
+    }
+    return openWebAttachment(documentOpener)
+}
+
+@JsFun(
+    """(reference, name, mimeType) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-document-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_document_attachment.e2e') === '1';
+      if (!local || !optedIn || globalThis.__QUATA_DOCUMENT_OPEN_EVIDENCE__ !== true) return false;
+      const identity = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '');
+      const attempts = globalThis.__quataDocumentOpenEvidenceAttempts || [];
+      const forced = globalThis.__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ === true;
+      attempts.push(Object.freeze({ identity, name: String(name ?? ''), forced }));
+      globalThis.__quataDocumentOpenEvidenceAttempts = attempts;
+      if (forced) globalThis.__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ = false;
+      return forced;
+    }""",
+)
+private external fun consumeWebDocumentOpenFailure(
+    reference: String,
+    name: String,
+    mimeType: String,
+): Boolean
+
 private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService): PlatformResult<Unit> =
     when (DocumentSupport.describe(reference, displayName, mimeType).kind) {
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
-        DocumentPreviewKind.Office -> reference.safeBrowserChatMediaUrl()
+        DocumentPreviewKind.Office -> (reference.safeBrowserChatMediaUrl() ?: safeWebDocumentRetryEvidenceUrl(reference))
             ?.let { documentOpener.open(copy(reference = it)) }
             ?: PlatformResult.Unsupported
         else -> reference.safeBrowserChatMediaUrl()
@@ -750,9 +782,30 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
             ?: PlatformResult.Unsupported
     }
 
+@JsFun(
+    """(reference) => {
+      const location = globalThis.location;
+      const local = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-chat-document-retry-e2e') === '1';
+      if (!local || !optedIn || typeof reference !== 'string') return null;
+      try {
+        const parsed = new URL(reference, location.href);
+        return parsed.origin === location.origin &&
+          parsed.pathname === '/legal/privacy_es.docx' &&
+          !parsed.username && !parsed.password
+          ? parsed.href
+          : null;
+      } catch (_) {
+        return null;
+      }
+    }""",
+)
+private external fun safeWebDocumentRetryEvidenceUrl(reference: String): String?
+
 private suspend fun PlatformFile.downloadWebAttachment(): PlatformResult<Unit> {
     recordWebAttachmentActionEvent("download", "start", displayName)
-    val url = reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+    val url = reference.safeBrowserChatMediaUrl() ?: safeWebDocumentRetryEvidenceUrl(reference)
+        ?: return PlatformResult.Unsupported
     return suspendCoroutine { continuation ->
         downloadWebAttachment(url, displayName ?: "quata-attachment") { state, reason ->
             recordWebAttachmentActionEvent("download", state, reason)
@@ -774,7 +827,8 @@ private suspend fun PlatformFile.shareWebAttachment(shareService: ShareService):
             recordWebAttachmentActionEvent("share", "blob-result", it.webAttachmentResultName())
         }
     }
-    val url = reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+    val url = reference.safeBrowserChatMediaUrl() ?: safeWebDocumentRetryEvidenceUrl(reference)
+        ?: return PlatformResult.Unsupported
     val local = when (val result = materializeWebAttachment(url, displayName, mimeType)) {
         is PlatformResult.Success -> {
             recordWebAttachmentActionEvent("share", "materialized", result.value.displayName)

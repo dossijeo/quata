@@ -48,6 +48,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openPlatformDocumentWithViewerState
+import com.quata.core.platform.retryFileOrNull
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.quataDocumentViewerStatusStrings
@@ -808,6 +809,9 @@ private fun ChatCommonConversationHost(
             documentOpenGeneration += 1L
             documentViewerState = null
         },
+        onRetry = documentViewerState
+            ?.retryFileOrNull(allowPlatformFallbackForUnsupportedFormat = true)
+            ?.let { file -> { openAttachment(file) } },
         showPresented = showPresentedDocumentStatus,
     )
 }

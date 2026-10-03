@@ -8,6 +8,8 @@ const source = (path) => readFile(path, "utf8");
 const [
   packageJson,
   inventory,
+  commonDocumentOpen,
+  commonDocumentStatus,
   commonHost,
   commonConversationDetail,
   commonComposer,
@@ -20,8 +22,11 @@ const [
   commonAudioController,
   commonAudioPolicy,
   commonChatViewModel,
+  commonDocumentRetryFixture,
   androidDocumentOpenService,
   androidHost,
+  androidDocumentRetryFixture,
+  androidAppNavGraph,
   appContainer,
   androidDocumentReaderHost,
   androidDocumentReaderActivity,
@@ -31,10 +36,12 @@ const [
   viewFilesActivity,
   androidNativeChatScreen,
   webHost,
+  webChatFixture,
   webMain,
   iosAttachmentPreviewService,
   iosDocumentOpenService,
   iosHost,
+  iosRuntimeBootstrap,
   iosAppDelegate,
   iosMediaContent,
   iosMediaBridge,
@@ -66,6 +73,8 @@ const [
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
+  source("core/src/commonMain/kotlin/com/quata/core/platform/DocumentOpenService.kt"),
+  source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataDocumentViewerStatusContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
@@ -78,8 +87,11 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/DocumentRetryEvidenceChatRepository.kt"),
   source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidDocumentOpenService.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
+  source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidDocumentRetryEvidenceFixture.kt"),
+  source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
   source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/AndroidDocumentOpenService.kt"),
   source("document-reader/src/main/java/com/quata/documentreader/activity/All_Document_Reader_Activity.kt"),
@@ -89,10 +101,12 @@ const [
   source("document-reader/src/main/java/com/quata/documentreader/activity/ViewFiles_Activity.java"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+  source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatE2eFixture.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt"),
   source("iosApp/iosApp/QuataIosApp.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatMediaContent.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
@@ -130,6 +144,94 @@ test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
   const scripts = JSON.parse(packageJson).scripts;
   assert.match(scripts["test:ci-fast-contracts"], /scripts\/chat-attachments-audio-evidence-contract\.test\.mjs/);
   assert.match(scripts["test:web-wave2-contracts"], /scripts\/chat-attachments-audio-evidence-contract\.test\.mjs/);
+});
+
+test("recoverable document viewer failures retry the exact file and preserve terminal failures", () => {
+  assert.match(commonDocumentOpen, /fun DocumentViewerState\.retryFileOrNull\(/);
+  assert.match(commonDocumentOpen, /DocumentViewerFailureReason\.OpenFailed \|\|[\s\S]*?DocumentViewerFailureReason\.Cancelled/);
+  assert.match(commonDocumentOpen, /failed\.descriptor\.isPreviewable \|\| allowPlatformFallbackForUnsupportedFormat/);
+  assert.match(commonDocumentStatus, /QuataDocumentViewerStatusRetryTestTag = "document-viewer-status-retry"/);
+  assert.match(commonDocumentStatus, /onRetry: \(\(\) -> Unit\)\? = null/);
+  assert.match(commonDocumentStatus, /if \(onRetry == null\) QuataDocumentViewerStatusCloseTestTag else QuataDocumentViewerStatusRetryTestTag/);
+  assert.match(commonDocumentStatus, /dismissButton = onRetry\?\.let/);
+  assert.match(commonHost, /retryFileOrNull\(allowPlatformFallbackForUnsupportedFormat = true\)/);
+  assert.match(commonHost, /\.let \{ file -> \{ openAttachment\(file\) \} \}/);
+  assert.match(webHost, /location\?\.hostname === 'localhost' \|\| location\?\.hostname === '127\.0\.0\.1'/);
+  assert.match(webHost, /__QUATA_DOCUMENT_OPEN_EVIDENCE__ !== true/);
+  assert.match(webHost, /__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ === true/);
+  assert.match(webHost, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
+  assert.match(androidHost, /I_ACCEPT_ANDROID_DOCUMENT_OPEN_FAILURE_FIXTURE/);
+  assert.match(androidHost, /documentOpen\.attemptCount/);
+  assert.match(androidHost, /documentOpen\.sameIdentity/);
+  assert.match(androidHost, /if \(!evidenceStateCommitted\)/);
+  assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_state_commit_failed"\)/);
+  assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
+  assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE/);
+  assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = localDocumentRetryFixture != null \|\|\s*iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
+  assert.match(iosRuntimeBootstrap, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
+  assert.match(webRunner, /document_viewer_retry_changed_document_identity/);
+  assert.match(webRunner, /assertVisibleTagOrText\([\s\S]{0,220}"document-viewer-status-retry"/);
+  assert.match(webRunner, /clickAnchorByTagOrText\([\s\S]{0,220}"document-viewer-status-retry"/);
+  assert.match(webRunner, /visibleTextBoxMatching\(page, retryPatterns\)/);
+  assert.match(webRunner, /activatedBy: retryTextBox \? "visible_retry_text_bounds" : "semantic_retry_anchor"/);
+  assert.match(webRunner, /document_viewer_opened_status_close_missing/);
+  assert.match(webRunner, /activatedBy: "visible_close_text_bounds"/);
+  assert.match(webRunner, /web_document_open_failure_retried_same_file_into_real_docmentis_viewer/);
+  assert.match(androidUiTest, /document-viewer-status-retry/);
+  assert.match(androidUiTest, /assertDocumentOpenEvidence\(attemptCount = 2, failurePending = false\)/);
+  assert.match(androidUiTest, /waitForAndroidDocumentReader\(documentName\)/);
+  assert.match(androidUiTest, /Closing the native document reader must return directly to the same Quata attachment/);
+  assert.match(androidUiTest, /The document open failure fixture cleanup must be committed/);
+  assert.match(androidUiTest, /preferences\.contains\(key\)/);
+  assert.match(commonDocumentRetryFixture, /class DocumentRetryEvidenceChatRepository/);
+  assert.match(commonDocumentRetryFixture, /DocumentRetryEvidenceConversationId = "local:document-retry"/);
+  assert.match(commonDocumentRetryFixture, /attachmentUri = attachmentReference/);
+  assert.match(androidDocumentRetryFixture, /I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE/);
+  assert.match(androidDocumentRetryFixture, /context\.assets\.open\(DocumentRetryEvidenceAsset\)/);
+  assert.match(androidAppNavGraph, /localDocumentRetryRepository \?: container\.chatRepository/);
+  assert.match(androidAppNavGraph, /documentRetryEvidenceRepository == null &&\s*startupDestination != StartupDestination\.Main/);
+  assert.match(androidAppNavGraph, /if \(documentRetryEvidenceRepository != null\) \{\s*startupDestination = StartupDestination\.Main/);
+  assert.match(androidAppNavGraph, /documentRetryEvidenceRepository != null && conversationId == DocumentRetryEvidenceConversationId/);
+  assert.match(androidAppNavGraph, /if \(!isAuthenticated && !hasLocalDocumentRetryAccess\)/);
+  assert.match(androidUiTest, /"document-retry-local"/);
+  assert.match(androidUiTest, /runLocalDocumentRetryStage\(\)/);
+  assert.match(androidUiTest, /quataChatUrl\(DocumentRetryEvidenceConversationId\)/);
+  assert.match(webChatFixture, /quata-chat-document-retry-e2e/);
+  assert.match(webChatFixture, /DocumentRetryEvidenceChatRepository\(reference\)/);
+  assert.match(webMain, /hasLocalDocumentRetryFixtureAccess =\s*isLocalChatFixture && navigationState\.chatConversationId == DocumentRetryEvidenceConversationId/);
+  assert.match(webMain, /!hasAuthenticatedSession && !hasLocalDocumentRetryFixtureAccess && navigationState\.requiresAuthentication/);
+  assert.match(webMain, /\(!privateRouteAccess\.isAllowed && !hasLocalDocumentRetryFixtureAccess\)/);
+  assert.match(webHost, /safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webHost, /downloadWebAttachment\(\): PlatformResult<Unit>[\s\S]{0,240}safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webHost, /shareWebAttachment\(shareService: ShareService\): PlatformResult<Unit>[\s\S]{0,520}safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webRunner, /--document-retry-local-only/);
+  assert.match(webRunner, /openLocalDocumentRetryPage\(browser, server\.origin, faults\)/);
+  assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE/);
+  assert.match(iosRuntimeBootstrap, /createIosDocumentRetryLocalRuntimeBootstrap/);
+  assert.match(iosRuntimeBootstrap, /supabaseUrl = "https:\/\/document-retry\.invalid"/);
+  assert.match(iosRuntimeBootstrap, /localAttachmentOpener\.open\(attachment\)/);
+  assert.match(iosRuntimeBootstrap, /attachmentPreviewService\?\.openRemoteAttachment\(attachment\)/);
+  assert.match(iosAppDelegate, /case "document-retry-local"/);
+  assert.match(iosAppDelegate, /createIosDocumentRetryLocalRuntimeBootstrap\(\)/);
+  assert.match(iosAppDelegate, /localAttachmentOpener: services\.documentOpener/);
+  assert.match(iosUiTest, /testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend/);
+  assert.match(iosUiTest, /exerciseDocumentRetry\(/);
+  assert.match(iosUiTest, /QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN/);
+  assert.match(iosUiTest, /document-viewer-status-retry/);
+  assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment retry"/);
+});
+
+test("the hermetic iOS document retry coordinator removes only its fixed fixture and proves zero residue", () => {
+  const runner = readFileSync("scripts/run-ios-document-retry-local-ui-test.sh", "utf8");
+  assert.match(runner, /QUATA_IOS_DOCUMENT_RETRY_LOCAL_UI_E2E/);
+  assert.match(runner, /testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend/);
+  assert.match(runner, /get_app_container "\$QUATA_IOS_SIMULATOR_UDID" com\.quata\.ios data/);
+  assert.match(runner, /fixture="\$container\/tmp\/quata-document-retry\.rtf"/);
+  assert.match(runner, /local_fixture_file_absent=true/);
+  assert.match(runner, /\[\[ ! -e "\$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE" \]\]/);
+  assert.match(runner, /Refusing existing iOS document retry result bundle path/);
+  assert.doesNotMatch(runner, /rm -rf "\$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE"/);
+  assert.match(runner, /cleanup_fixture 1\ntrap - EXIT\n\/usr\/bin\/python3 scripts\/check-ios-xctest-executed\.py/);
 });
 
 test("ChatViewModel owns observable UI state on the main dispatcher", () => {
@@ -477,7 +579,7 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.doesNotMatch(browserAudioPlayer, /globalThis\.fetch\(source/);
   assert.match(webHost, /WebChatAttachmentAudioPlayerService\(audioPlayer\)/);
   assert.match(webHost, /file\.reference\.safeBrowserChatMediaUrl\(\)/);
-  assert.match(webHost, /DocumentPreviewKind\.Office -> reference\.safeBrowserChatMediaUrl\(\)[\s\S]{0,120}documentOpener\.open\(copy\(reference = it\)\)/);
+  assert.match(webHost, /DocumentPreviewKind\.Office -> \(reference\.safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)\)[\s\S]{0,160}documentOpener\.open\(copy\(reference = it\)\)/);
   assert.match(androidChatAttachmentAudioPlayerService, /class AndroidChatAttachmentDocumentOpenService/);
   assert.match(androidChatAttachmentAudioPlayerService, /delegate\.open\(resolvedFile\)/);
   assert.match(appContainer, /documentOpenService: DocumentOpenService = AndroidChatAttachmentDocumentOpenService/);
@@ -1032,10 +1134,10 @@ test("iOS document attachment evidence observes real Quick Look presentation and
   assert.doesNotMatch(iosUiTest, /document-viewer-status-root"\)\.firstMatch\.waitForExistence\(timeout: 15\)/);
 });
 
-test("iOS document actions evidence is focal and observes both native activity sheets", () => {
+test("iOS document actions evidence is focal and observes retry, Quick Look, and both native activity sheets", () => {
   assert.match(iosRunner, /--document-actions-only/);
   assert.match(iosRunner, /single_real_chat_document_attachment_seeded/);
-  assert.match(iosRunner, /ios_xctest_document_download_and_share_native_sheets_verified/);
+  assert.match(iosRunner, /ios_xctest_document_failure_retry_quicklook_download_share_verified/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E/);
   assert.match(iosWrapper, /testDocumentDownloadAndShareOpenNativeSheetAndReturn/);
   assert.match(iosUiTest, /func testDocumentDownloadAndShareOpenNativeSheetAndReturn\(\) throws/);

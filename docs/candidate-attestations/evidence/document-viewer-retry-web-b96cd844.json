@@ -1,0 +1,38 @@
+{
+  "check": "FLOW-DOCUMENT-VIEWER-WEB-LOCAL-001",
+  "status": "passed",
+  "git": {
+    "head": "b96cd8445003f8c06f7e9b4b180b355028692fe2",
+    "workingTreeDirty": true
+  },
+  "runtimeTreeCommittedAs": "7569719fc866c323dadbb14ee0fb5e1351983f9c",
+  "steps": [
+    "local_document_message_rendered_without_auth_or_backend",
+    "recoverable_document_open_failure_visible",
+    "retry_reopened_the_same_document",
+    "real_docmentis_viewer_rendered_the_retried_document",
+    "web_chat_document_attachment_download_and_share_actions_verified",
+    "document_viewer_closed_and_returned_to_the_same_attachment"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_mutations": 0,
+        "remote_storage_objects": 0
+      }
+    }
+  },
+  "scope": {
+    "fixture": "immutable local Chat DOCX",
+    "backend": "not_used",
+    "attempts": 2,
+    "sameDocument": true,
+    "finalViewer": "DocMentis"
+  },
+  "custody": {
+    "rawReportSha256": "ca832ace9b92f08e8f5056749ee8fc6a4b9aad3157f5019a1953bf90273a07b2",
+    "dirtyReason": "The run preceded the commit that captured the exact tested runtime tree; commit 7569719fc866c323dadbb14ee0fb5e1351983f9c records that tree.",
+    "laterRuntimeDelta": "git diff --name-only 7569719fc866c323dadbb14ee0fb5e1351983f9c..bd63e56c155936d4b10e9278f86453d85d00a554 contains only iOS runtime/test-contract files."
+  }
+}

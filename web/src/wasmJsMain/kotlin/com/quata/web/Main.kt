@@ -68,6 +68,7 @@ import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.whatsnew.presentation.StartupPresentationPolicy
 import com.quata.feature.auth.presentation.AuthProductDestination
+import com.quata.feature.chat.presentation.chat.DocumentRetryEvidenceConversationId
 import com.quata.feature.profile.domain.SosActorProvider
 import com.quata.feature.profile.domain.SosDispatchCoordinator
 import com.quata.feature.profile.domain.SosDispatchOutcome
@@ -462,10 +463,10 @@ private fun QuataWebApp(
         )
         onDispose(removeBridge)
     }
-    val capabilityRegistry = remember(runtimeConfiguration, isSessionReady, currentUserId) {
+    val capabilityRegistry = remember(runtimeConfiguration, isSessionReady, currentUserId, isLocalChatFixture) {
         webFeatureCapabilityRegistry(
             configuration = runtimeConfiguration,
-            hasAuthenticatedSession = isSessionReady && currentUserId != null,
+            hasAuthenticatedSession = (isSessionReady && currentUserId != null) || isLocalChatFixture,
         )
     }
     DisposableEffect(platformServices.documentOpener) {
@@ -528,6 +529,11 @@ private fun QuataWebApp(
         onDispose(stopObserving)
     }
     val navigationState = navigation.state
+    // The immutable localhost fixture replaces only remote seeding. Grant its one exact
+    // conversation access to the production Chat host without creating an anonymous path
+    // for any normal private route.
+    val hasLocalDocumentRetryFixtureAccess =
+        isLocalChatFixture && navigationState.chatConversationId == DocumentRetryEvidenceConversationId
     LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, whatsNewInstalledVersionCode) {
         if (StartupPresentationPolicy.shouldEvaluateWhatsNew(
                 isSessionResolved = isSessionResolved,
@@ -565,7 +571,7 @@ private fun QuataWebApp(
         // straight to Login.  Return the browser to Android's anonymous Feed while showing
         // the common participation gate.  Actions originating in Feed/Official keep their
         // existing public route and shell beneath the dialog.
-        if (navigation.state.requiresAuthentication) navigation.navigate("")
+        if (navigation.state.requiresAuthentication && !hasLocalDocumentRetryFixtureAccess) navigation.navigate("")
     }
     fun requestAuthenticationForCurrentRoute() = requestAuthenticationFor()
     suspend fun dispatchGlobalSos() {
@@ -605,7 +611,7 @@ private fun QuataWebApp(
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
     val privateAccessTicket = privateRouteAccess.ticket
     LaunchedEffect(privateAccessTicket, isSessionResolved, isLoggingOut) {
-        if (isSessionResolved && !isLoggingOut && navigation.state.requiresAuthentication) {
+        if (isSessionResolved && !isLoggingOut && navigation.state.requiresAuthentication && !hasLocalDocumentRetryFixtureAccess) {
             val fragment = navigation.fragment
             privateRouteAccess.resolve(
                 expected = privateAccessTicket,
@@ -648,7 +654,7 @@ private fun QuataWebApp(
         )
     }
     LaunchedEffect(navigationState.route, hasAuthenticatedSession) {
-        if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !hasAuthenticatedSession) {
+        if (authSurfaceCancellationArmed && !navigationState.isAuthenticationRoute && !hasAuthenticatedSession && !hasLocalDocumentRetryFixtureAccess) {
             authSurfaceCancellationArmed = false
             if (navigationState.requiresAuthentication) {
                 requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
@@ -682,13 +688,13 @@ private fun QuataWebApp(
                         )
                     }
                 }
-                (!isSessionResolved || isLoggingOut || !privateRouteAccess.isAllowed) && navigationState.requiresAuthentication -> {
+                (!isSessionResolved || isLoggingOut || (!privateRouteAccess.isAllowed && !hasLocalDocumentRetryFixtureAccess)) && navigationState.requiresAuthentication -> {
                     LaunchedEffect(privateAccessTicket) { clearWebNavigationShellMarker() }
                     // Do not replace a copied private deep link with Login while credentials
                     // restore.  Once restoration settles, the branch below returns to Feed and
                     // displays the common participation dialog.
                 }
-                !hasAuthenticatedSession && navigationState.requiresAuthentication -> {
+                !hasAuthenticatedSession && !hasLocalDocumentRetryFixtureAccess && navigationState.requiresAuthentication -> {
                     // Private destinations never mount anonymously.  Unlike the old Web gate,
                     // they return to public Feed and open Android's participation dialog.
                     LaunchedEffect(navigationState) {

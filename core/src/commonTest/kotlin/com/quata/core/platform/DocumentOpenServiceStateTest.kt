@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 class DocumentOpenServiceStateTest {
     @Test
@@ -112,6 +113,56 @@ class DocumentOpenServiceStateTest {
             val failed = assertIs<DocumentViewerState.Failed>(result.completed)
             assertEquals(expectedReason, failed.reason)
         }
+    }
+
+    @Test
+    fun retryPolicyReturnsTheExactFileOnlyForRecoverableFailures() {
+        val file = PlatformFile("https://cdn.quata.test/chat/brief.pdf", displayName = "brief.pdf")
+        val descriptor = DocumentSupport.describe(file.reference, file.displayName, file.mimeType)
+
+        assertEquals(
+            file,
+            DocumentViewerState.Failed(
+                file = file,
+                descriptor = descriptor,
+                reason = DocumentViewerFailureReason.OpenFailed,
+            ).retryFileOrNull(),
+        )
+        assertEquals(
+            file,
+            DocumentViewerState.Failed(
+                file = file,
+                descriptor = descriptor,
+                reason = DocumentViewerFailureReason.Cancelled,
+            ).retryFileOrNull(),
+        )
+        assertNull(
+            DocumentViewerState.Failed(
+                file = file,
+                descriptor = descriptor,
+                reason = DocumentViewerFailureReason.PlatformUnsupported,
+            ).retryFileOrNull(),
+        )
+        assertNull(
+            DocumentViewerState.Presented(file, descriptor).retryFileOrNull(),
+        )
+    }
+
+    @Test
+    fun unsupportedFormatRetriesOnlyWhenTheCallerExplicitlyAllowsPlatformFallback() {
+        val file = PlatformFile(
+            reference = "https://cdn.quata.test/chat/archive.bin",
+            displayName = "archive.bin",
+            mimeType = "application/octet-stream",
+        )
+        val failed = DocumentViewerState.Failed(
+            file = file,
+            descriptor = DocumentSupport.describe(file.reference, file.displayName, file.mimeType),
+            reason = DocumentViewerFailureReason.OpenFailed,
+        )
+
+        assertNull(failed.retryFileOrNull())
+        assertEquals(file, failed.retryFileOrNull(allowPlatformFallbackForUnsupportedFormat = true))
     }
 }
 

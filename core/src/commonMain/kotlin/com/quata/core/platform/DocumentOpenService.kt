@@ -43,6 +43,16 @@ data class DocumentViewerOpenResult(
     val completed: DocumentViewerState,
 )
 
+fun DocumentViewerState.retryFileOrNull(
+    allowPlatformFallbackForUnsupportedFormat: Boolean = false,
+): PlatformFile? {
+    val failed = this as? DocumentViewerState.Failed ?: return null
+    val retryableFailure = failed.reason == DocumentViewerFailureReason.OpenFailed ||
+        failed.reason == DocumentViewerFailureReason.Cancelled
+    val admissible = failed.descriptor.isPreviewable || allowPlatformFallbackForUnsupportedFormat
+    return failed.file.takeIf { retryableFailure && admissible }
+}
+
 fun documentViewerOpeningState(file: PlatformFile): DocumentViewerState.Opening =
     DocumentViewerState.Opening(
         file = file,

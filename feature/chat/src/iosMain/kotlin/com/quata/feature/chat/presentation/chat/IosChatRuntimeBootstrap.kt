@@ -1,5 +1,6 @@
 package com.quata.feature.chat.presentation.chat
 
+import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
@@ -8,6 +9,7 @@ import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
@@ -27,6 +29,8 @@ import com.quata.feature.chat.data.PreferenceChatOutgoingStore
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.writeToFile
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancel
@@ -50,9 +54,10 @@ class IosChatRuntimeBootstrap(
         ),
     ),
 ) {
+    private val localDocumentRetryFixture by lazy { iosChatDocumentRetryLocalFixtureOrNull() }
     private val realtimeGateway by lazy { IosChatRealtimeGateway(configuration, authSession) }
     private val chatRepository: ChatRepository by lazy {
-        PostgrestChatRepository(
+        localDocumentRetryFixture?.repository ?: PostgrestChatRepository(
             transport = iosChatEvidenceFaultingTransportIfRequested(IosChatPostgrestTransport(configuration, authSession)),
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
@@ -97,6 +102,7 @@ class IosChatRuntimeBootstrap(
         onOpenMessageConversation: (String, String) -> Unit,
         onBackToList: () -> Unit,
         attachmentPreviewService: IosChatAttachmentPreviewService?,
+        localAttachmentOpener: DocumentOpenService,
         onOpenExternalLink: (String) -> Unit,
         onOpenMapLink: (String) -> ChatMapOpenResult = { value ->
             onOpenExternalLink(value)
@@ -104,32 +110,66 @@ class IosChatRuntimeBootstrap(
         },
         onOpenAvatar: (String) -> Unit,
         profileOpeningState: IosMemberProfileOpeningState,
-    ): IosChatHostDependencies = IosChatHostDependencies(
-        repository = repository(),
-        preferences = preferences,
-        audioPlayer = audioPlayer,
-        audioRecorder = audioRecorder,
-        filePicker = filePicker,
-        cameraCapture = cameraCapture,
-        contactPicker = contactPicker,
-        attachmentDownloader = attachmentDownloader,
-        shareService = shareService,
-        mediaViewerFactory = mediaViewerFactory,
-        audioSeekAccessibilityFactory = audioSeekAccessibilityFactory,
-        conversationId = conversationId,
-        focusedMessageId = focusedMessageId,
-        onFocusedMessageHandled = onFocusedMessageHandled,
-        languageTag = languageTag,
-        onOpenConversation = onOpenConversation,
-        onOpenMessageConversation = onOpenMessageConversation,
-        onBackToList = onBackToList,
-        onOpenAttachment = { attachment ->
-            attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
-        },
-        onOpenExternalLink = onOpenExternalLink,
-        onOpenMapLink = onOpenMapLink,
-        onOpenAvatar = onOpenAvatar,
-        profileOpeningState = profileOpeningState,
+    ): IosChatHostDependencies {
+        // The exact local retry composition owns one deterministic recoverable failure. Keeping
+        // that behavior with the immutable local repository avoids a second environment read
+        // deciding whether the purpose-built no-backend fixture actually exercises Retry.
+        var documentOpenFailurePending = localDocumentRetryFixture != null ||
+            iosChatDocumentOpenFailureFixtureOptedIn()
+        return IosChatHostDependencies(
+            repository = repository(),
+            preferences = preferences,
+            audioPlayer = audioPlayer,
+            audioRecorder = audioRecorder,
+            filePicker = filePicker,
+            cameraCapture = cameraCapture,
+            contactPicker = contactPicker,
+            attachmentDownloader = attachmentDownloader,
+            shareService = shareService,
+            mediaViewerFactory = mediaViewerFactory,
+            audioSeekAccessibilityFactory = audioSeekAccessibilityFactory,
+            conversationId = conversationId,
+            focusedMessageId = focusedMessageId,
+            onFocusedMessageHandled = onFocusedMessageHandled,
+            languageTag = languageTag,
+            onOpenConversation = onOpenConversation,
+            onOpenMessageConversation = onOpenMessageConversation,
+            onBackToList = onBackToList,
+            onOpenAttachment = { attachment ->
+                if (documentOpenFailurePending) {
+                    documentOpenFailurePending = false
+                    PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
+                } else if (localDocumentRetryFixture?.path == attachment.reference) {
+                    localAttachmentOpener.open(attachment)
+                } else {
+                    attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
+                }
+            },
+            onOpenExternalLink = onOpenExternalLink,
+            onOpenMapLink = onOpenMapLink,
+            onOpenAvatar = onOpenAvatar,
+            profileOpeningState = profileOpeningState,
+        )
+    }
+}
+
+private data class IosChatDocumentRetryLocalFixture(
+    val repository: ChatRepository,
+    val path: String,
+)
+
+private fun iosChatDocumentRetryLocalFixtureOrNull(): IosChatDocumentRetryLocalFixture? {
+    if (!iosChatDocumentRetryLocalFixtureOptedIn()) return null
+    val path = NSTemporaryDirectory().trimEnd('/') + "/quata-document-retry.rtf"
+    val rtf = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Helvetica;}}\\f0\\fs28 Qüata document retry fixture\\par}"
+    if (!rtf.encodeToByteArray().toFoundationData().writeToFile(path, atomically = true)) return null
+    return IosChatDocumentRetryLocalFixture(
+        repository = DocumentRetryEvidenceChatRepository(
+            attachmentReference = path,
+            attachmentName = "quata-document-retry.rtf",
+            attachmentMimeType = "application/rtf",
+        ),
+        path = path,
     )
 }
 
@@ -204,8 +244,34 @@ private fun iosChatForwardFailureFixtureOptedIn(): Boolean {
         environment["QUATA_IOS_CHAT_FORWARD_FORCE_FAILURE"]?.toString() == "1"
 }
 
+private fun iosChatDocumentOpenFailureFixtureOptedIn(): Boolean {
+    val environment = NSProcessInfo.processInfo.environment
+    return environment["QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN"]?.toString() ==
+        "I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE" &&
+        environment["QUATA_IOS_DOCUMENT_OPEN_FORCE_FAILURE"]?.toString() == "1"
+}
+
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */
 fun createIosChatRuntimeBootstrap(
     configuration: IosChatRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
 ): IosChatRuntimeBootstrap = IosChatRuntimeBootstrap(configuration, authSession)
+
+/**
+ * Exact opt-in composition for the no-backend document retry XCTest. The common repository owns
+ * an immutable local RTF and the `.invalid` deployment can never address a real Supabase host.
+ * Production launch remains on [createIosChatRuntimeBootstrap] with the shared renewable session.
+ */
+fun createIosDocumentRetryLocalRuntimeBootstrap(): IosChatRuntimeBootstrap? {
+    if (!iosChatDocumentRetryLocalFixtureOptedIn()) return null
+    return IosChatRuntimeBootstrap(
+        configuration = IosChatRuntimeConfiguration(
+            supabaseUrl = "https://document-retry.invalid",
+            supabasePublishableKey = "document-retry-local-not-a-credential",
+        ),
+    )
+}
+
+private fun iosChatDocumentRetryLocalFixtureOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"]?.toString() ==
+        "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"

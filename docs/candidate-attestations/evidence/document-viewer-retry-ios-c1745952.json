@@ -1,0 +1,104 @@
+{
+  "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-003",
+  "status": "passed",
+  "git": {
+    "head": "c1745952698825d9c356488163b4b27fe40a388e",
+    "workingTreeDirty": true
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "current_swift_host_built_from_c1745952",
+    "shared_framework_scope_delta_reviewed_as_unrelated_profile_keyboard_change",
+    "ios_x64_framework_and_simulator_signed_build_succeeded_on_mac",
+    "immutable_local_document_message_rendered_without_auth_or_backend",
+    "recoverable_document_open_failure_visible",
+    "retry_opened_real_quick_look_for_the_same_document",
+    "quick_look_closed_and_returned_to_the_same_attachment",
+    "ios_xctest_document_failure_retry_quicklook_return_verified",
+    "local_fixture_file_absent_after_cleanup"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_mutations": 0,
+        "remote_storage_objects": 0,
+        "local_fixture_files": 0
+      }
+    }
+  },
+  "scope": {
+    "fixture": "immutable local Chat RTF",
+    "backend": "not_used",
+    "simulator": "iPhone 16, iOS 18.3.1, x86_64",
+    "xctest": "testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
+    "result": "1 passed, 0 failed, 0 skipped in 48.515 seconds"
+  },
+  "custody": {
+    "workingTreeDirtyReason": "Only generated, untracked build products remained; tracked source matched c1745952698825d9c356488163b4b27fe40a388e.",
+    "testLogSha256": "140b36b7fc5afa40e0fb89879e4d57b7d8f9aa8608819bf88bd0360587b1baf4",
+    "screenshotsSha256": {
+      "failure": "f599495f9858799fa2b75cd4ceeeda3b3c77aaa0c0187ce441a4c575e36def84",
+      "quickLook": "1905b74e8e9d2493e6cbe17dfdb96dcb6ec7db645011efa3b114d3fe8d848bcb",
+      "return": "d49626efae882145b42c8269b2c92a3a2a5cf39bbcbfeded13d9318840ba77b2"
+    },
+    "sharedFrameworkHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
+    "hostSourceHead": "c1745952698825d9c356488163b4b27fe40a388e",
+    "hostBuild": "build-for-testing succeeded from the current Swift host and current UI tests",
+    "sharedFrameworkScopeDelta": {
+      "sourceRange": "bd63e56c155936d4b10e9278f86453d85d00a554..c1745952698825d9c356488163b4b27fe40a388e",
+      "files": [
+        "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorContent.kt",
+        "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsMessageContent.kt",
+        "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsSelectionContent.kt"
+      ],
+      "assessment": "PR #514 keyboard-ownership changes are confined to emergency-contact profile surfaces and do not intersect Chat document attachment state, retry, native presentation or cleanup."
+    },
+    "cleanupLogSha256": "6299076982808d2c1e7ad355ed5024f5f2d2f7ba0a08d234597b8bbb19e158a9"
+  },
+  "priorAttempts": [
+    {
+      "head": "0507d0b2dc0994630fd988b207ab514c1bdc5b13",
+      "status": "failed_before_ui",
+      "reason": "public_auth_request_failed:http_402",
+      "reportSha256": "00cf11378b91ab7cf76d80a0d3514eaeb9b04462f36522ff9dd5914945d1862c"
+    },
+    {
+      "head": "7569719fc866c323dadbb14ee0fb5e1351983f9c",
+      "status": "failed_before_interaction",
+      "reason": "The local fixture still depended on the unavailable production runtime bootstrap."
+    },
+    {
+      "head": "cbeb799a49c5eb218f99f4a4d2991173a3e54a43",
+      "status": "failed_assertion",
+      "reason": "The local host appeared but the one-shot recoverable failure was not armed, so Retry never appeared.",
+      "videoSha256": "ad97945cebc85eeb0fc73785c404009dc87dd0693ed0becb4abe73c40433d1ba"
+    },
+    {
+      "head": "c66863f2e816985032b06979fa44493a0a8f7eac",
+      "status": "failed_before_interaction",
+      "reason": "A clean x86_64 XCFramework linked direct Metal device discovery; the virtualized Simulator returned no Metal device. The production runtime change was reverted and cleanup moved to the hermetic coordinator."
+    },
+    {
+      "head": "82514fd11d68731090a9a18b42b049f861fc5ab0",
+      "status": "failed_assertion_then_exact_rerun_passed",
+      "reason": "The first exact-SHA run returned to Chat without exposing Retry; the preserved hierarchy showed neither Retry nor Quick Look. One identical rerun passed the complete failure, Retry, Quick Look and return path.",
+      "testLogSha256": "53461739742526a24edee19d99668990537bce5ffa7e0f32d036948b96f1db09",
+      "cleanupLogSha256": "ac1b9a02c00e6eb7ffa5982bb4f0e55cdd6a5b857bdfaef84f2e30178f18f47c"
+    },
+    {
+      "head": "82514fd11d68731090a9a18b42b049f861fc5ab0",
+      "status": "passed_on_identical_rerun",
+      "reason": "The exact rerun passed the complete failure, Retry, Quick Look and return path before the independent review tightened result-bundle path ownership.",
+      "testLogSha256": "7f71d8cd3744e41d5a13147475ecc61e4ee94edec0656200d483b799f52f977d",
+      "cleanupLogSha256": "ac1b9a02c00e6eb7ffa5982bb4f0e55cdd6a5b857bdfaef84f2e30178f18f47c"
+    },
+    {
+      "head": "981eb3e384194946e1fe5f56c6aa0846da202365",
+      "status": "passed",
+      "reason": "The safe coordinator passed before rebasing onto merged PR #514; the current run supersedes it with the c1745952 Swift host and current UI tests.",
+      "testLogSha256": "aabcc3c888f1ed58136939801ed49c0118b2f851d94893fd4dced79998370df7",
+      "cleanupLogSha256": "0a2da5298a273dc9a71b64f88439a86d4d906fb949ead60d99d47b322f4c1a16"
+    }
+  ]
+}

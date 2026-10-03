@@ -98,6 +98,7 @@ function parseArgs(argv) {
     muteNegativeOnly: false,
     notificationInboxPropagationOnly: false,
     documentAttachmentOnly: false,
+    documentRetryLocalOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
     attachmentPickerSource: "document",
@@ -285,6 +286,12 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/web/chat-document-attachment-evidence");
       continue;
     }
+    if (key === "--document-retry-local-only") {
+      result.documentRetryLocalOnly = true;
+      result.output = resolve("build-reports/web/document-retry-local-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/document-retry-local-evidence");
+      continue;
+    }
     if (key === "--attachment-picker-only") {
       result.attachmentPickerOnly = true;
       result.output = resolve("build-reports/web/chat-attachment-picker-evidence.json");
@@ -386,6 +393,7 @@ function isFullEvidenceMode(options) {
     !options.muteNegativeOnly &&
     !options.notificationInboxPropagationOnly &&
     !options.documentAttachmentOnly &&
+    !options.documentRetryLocalOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
     !options.composerEmojiOnly &&
@@ -710,19 +718,101 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
   }
   report.evidence.attachmentDocumentActions = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-actions");
 
+  if (options.verifyRetry === true) {
+    await page.evaluate(() => {
+      globalThis.__QUATA_DOCUMENT_OPEN_EVIDENCE__ = true;
+      globalThis.__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ = true;
+      globalThis.__quataDocumentOpenEvidenceAttempts = [];
+    });
+  }
   if (open) {
     await clickLocatorCenter(page, open, "document_attachment_open_not_clickable");
   } else {
     await invokeWebDocumentAttachmentBridge(page, "open", documentFixture.name);
   }
-  const viewerKind = await waitWebDocumentViewerOpened(page);
-  report.evidence.attachmentDocumentViewerStatus = await attachScreenshot(
-    page,
-    evidenceDir,
-    viewerKind === "docmentis" ? "web-chat-attachment-document-docmentis-viewer" : "web-chat-attachment-document-viewer-status",
-  );
-  report.evidence.attachmentDocumentViewerKind = viewerKind;
-  await closeWebDocumentViewer(page, viewerKind);
+  if (options.verifyRetry === true) {
+    await assertVisibleTagOrText(
+      page,
+      "document-viewer-status-retry",
+      [/Reintentar|Retry|Réessayer/i],
+      "document_viewer_retry_missing",
+    );
+    report.evidence.attachmentDocumentRetryFailure = await attachScreenshot(
+      page,
+      evidenceDir,
+      "web-chat-attachment-document-retry-visible",
+    );
+    const retryPatterns = [/Reintentar|Retry|Réessayer/i];
+    const retryTagged = await visibleExactAriaLocator(page, "document-viewer-status-retry", 1_500);
+    const retryTaggedBox = retryTagged ? await retryTagged.boundingBox().catch(() => null) : null;
+    const retryTextBox = await visibleTextBoxMatching(page, retryPatterns);
+    report.evidence.attachmentDocumentRetryAnchor = {
+      taggedBounds: roundedBox(retryTaggedBox),
+      visibleTextBounds: retryTextBox,
+      activatedBy: retryTextBox ? "visible_retry_text_bounds" : "semantic_retry_anchor",
+    };
+    if (retryTextBox) {
+      await page.mouse.click(
+        retryTextBox.x + (retryTextBox.width / 2),
+        retryTextBox.y + (retryTextBox.height / 2),
+      );
+      await delay(250);
+    } else {
+      await clickAnchorByTagOrText(
+        page,
+        "document-viewer-status-retry",
+        retryPatterns,
+        "document_viewer_retry_not_clickable",
+      );
+    }
+    await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-render-ready='true']"), null, { timeout: 15_000 });
+    const attempts = await page.evaluate(() => globalThis.__quataDocumentOpenEvidenceAttempts ?? []);
+    if (attempts.length !== 2 || attempts[0]?.forced !== true || attempts[1]?.forced !== false) {
+      throw new Error("document_viewer_retry_attempt_sequence_invalid");
+    }
+    if (attempts[0]?.identity !== attempts[1]?.identity || attempts[1]?.name !== documentFixture.name) {
+      throw new Error("document_viewer_retry_changed_document_identity");
+    }
+    report.evidence.attachmentDocumentRetryOpened = await attachScreenshot(
+      page,
+      evidenceDir,
+      "web-chat-attachment-document-retry-docmentis-viewer",
+    );
+    report.evidence.attachmentDocumentRetry = {
+      attempts: attempts.length,
+      forcedSequence: attempts.map((attempt) => attempt.forced),
+      identitySha256: sha256(attempts[0].identity),
+      sameDocument: true,
+      finalViewer: "docmentis",
+    };
+    report.steps.push("web_document_open_failure_retried_same_file_into_real_docmentis_viewer");
+    await closeWebDocumentViewer(page, "docmentis");
+    const openedStatusCloseBox = await visibleTextBoxMatching(page, [/Cerrar|Close|Fermer/i]);
+    if (!openedStatusCloseBox) throw new Error("document_viewer_opened_status_close_missing");
+    report.evidence.attachmentDocumentOpenedStatusClose = {
+      visibleTextBounds: openedStatusCloseBox,
+      activatedBy: "visible_close_text_bounds",
+    };
+    await page.mouse.click(
+      openedStatusCloseBox.x + (openedStatusCloseBox.width / 2),
+      openedStatusCloseBox.y + (openedStatusCloseBox.height / 2),
+    );
+    await delay(500);
+    await page.evaluate(() => {
+      delete globalThis.__QUATA_DOCUMENT_OPEN_EVIDENCE__;
+      delete globalThis.__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__;
+      delete globalThis.__quataDocumentOpenEvidenceAttempts;
+    });
+  } else {
+    const viewerKind = await waitWebDocumentViewerOpened(page);
+    report.evidence.attachmentDocumentViewerStatus = await attachScreenshot(
+      page,
+      evidenceDir,
+      viewerKind === "docmentis" ? "web-chat-attachment-document-docmentis-viewer" : "web-chat-attachment-document-viewer-status",
+    );
+    report.evidence.attachmentDocumentViewerKind = viewerKind;
+    await closeWebDocumentViewer(page, viewerKind);
+  }
 
   const [downloadEvent] = await Promise.all([
     page.waitForEvent("download", { timeout: 10_000 }),
@@ -1559,6 +1649,79 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
     }));
   });
   await page.goto(`${origin}/#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    `chat/${conversationId}`,
+    { timeout: 45_000 },
+  );
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    return root && (root.querySelector("canvas") || root.shadowRoot?.querySelector("canvas"));
+  }, { timeout: 45_000 });
+  await delay(1_500);
+  return { context, page };
+}
+
+async function openLocalDocumentRetryPage(browser, origin, faults) {
+  const context = await browser.newContext({
+    locale: "es-ES",
+    viewport: { width: 430, height: 930 },
+    deviceScaleFactor: 1,
+    acceptDownloads: true,
+  });
+  await context.addInitScript(() => {
+    globalThis.__quataSharePayloads = [];
+    globalThis.__quataClickEvents = [];
+    globalThis.__quataAttachmentActionEvents = [];
+    globalThis.document?.addEventListener?.("click", (event) => {
+      const target = event.target;
+      const element = target?.closest?.("[aria-label],button,[role]");
+      globalThis.__quataClickEvents.push({
+        x: event.clientX,
+        y: event.clientY,
+        targetTag: target?.tagName ?? null,
+        targetLabel: target?.getAttribute?.("aria-label") ?? null,
+        elementTag: element?.tagName ?? null,
+        elementRole: element?.getAttribute?.("role") ?? null,
+        elementLabel: element?.getAttribute?.("aria-label") ?? null,
+      });
+    }, true);
+    Object.defineProperty(globalThis.navigator, "share", {
+      configurable: true,
+      value: async (payload) => {
+        globalThis.__quataSharePayloads.push({
+          title: payload?.title ?? null,
+          text: payload?.text ?? null,
+          url: payload?.url ?? null,
+          files: Array.isArray(payload?.files)
+            ? payload.files.map((file) => ({ name: file?.name ?? null, type: file?.type ?? null, size: file?.size ?? null }))
+            : [],
+        });
+      },
+    });
+    Object.defineProperty(globalThis.navigator, "canShare", { configurable: true, value: () => true });
+  });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => faults.push(redactBrowserRuntimeFault({
+    type: "pageerror",
+    message: String(error?.message ?? "pageerror"),
+    stack: typeof error?.stack === "string" ? error.stack : undefined,
+  })));
+  page.on("console", (entry) => {
+    if (entry.type() !== "error") return;
+    const location = entry.location?.() ?? {};
+    faults.push(redactBrowserRuntimeFault({
+      type: "console_error",
+      text: entry.text(),
+      url: typeof location.url === "string" ? location.url : undefined,
+      lineNumber: typeof location.lineNumber === "number" ? location.lineNumber : undefined,
+      columnNumber: typeof location.columnNumber === "number" ? location.columnNumber : undefined,
+    }));
+  });
+  const conversationId = "local:document-retry";
+  const query = "quata-chat-document-retry-e2e=1&quata-chat-document-attachment-e2e=1";
+  await page.goto(`${origin}/?${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
@@ -7100,6 +7263,42 @@ let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
 try {
+  if (options.documentRetryLocalOnly) {
+    config = await publicBackendConfig();
+    distribution = await configuredDistribution(options.distribution, config);
+    server = await startServer(distribution);
+    browser = await chromium.launch({
+      executablePath: options.chrome,
+      headless: true,
+      args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
+    });
+    pageContext = await openLocalDocumentRetryPage(browser, server.origin, faults);
+    report.evidence.threadInitial = await attachScreenshot(
+      pageContext.page,
+      options.evidenceDir,
+      "web-document-retry-local-thread",
+    );
+    await verifyDocumentAttachmentActionsWeb(
+      pageContext.page,
+      { name: "quata-document-retry.docx" },
+      options.evidenceDir,
+      report,
+      { verifyRetry: true, useBridgeFallback: true },
+    );
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.steps.push("local_document_message_rendered_without_auth_or_backend");
+    report.fixture = {
+      conversationId: "local:document-retry",
+      messageId: "local-document-retry-message",
+      documentName: "quata-document-retry.docx",
+      backend: "not_used",
+    };
+    throw new EvidenceCompleted();
+  }
   config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
@@ -7684,7 +7883,10 @@ try {
     const documentBridge = documentAction ? true : await waitWebDocumentAttachmentBridge(page, state.attachmentsAudio.document.name, 45_000);
     if (!documentAction && !documentBridge) throw new Error("document_attachment_open_anchor_missing");
     report.evidence.attachmentsDocument = await attachScreenshot(page, options.evidenceDir, "web-chat-attachment-document-visible");
-    await verifyDocumentAttachmentActionsWeb(page, state.attachmentsAudio.document, options.evidenceDir, report, { useBridgeFallback: true });
+    await verifyDocumentAttachmentActionsWeb(page, state.attachmentsAudio.document, options.evidenceDir, report, {
+      useBridgeFallback: true,
+      verifyRetry: true,
+    });
     if (faults.length) {
       report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
       throw new Error("browser_runtime_fault");

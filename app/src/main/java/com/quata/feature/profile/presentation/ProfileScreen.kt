@@ -323,4 +323,5 @@ private fun androidDocumentViewerStatusStrings(context: Context) = QuataDocument
     platformUnsupportedMessage = context.getString(R.string.document_viewer_platform_unsupported_message),
     openFailedMessage = context.getString(R.string.document_viewer_open_failed_message),
     closeLabel = context.getString(R.string.common_close),
+    retryLabel = context.getString(R.string.profile_retry),
 )

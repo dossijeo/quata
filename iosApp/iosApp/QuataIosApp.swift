@@ -837,6 +837,26 @@ private final class IosAppCompositionRoot {
                 router.showAbout()
             }
             return router
+        case "document-retry-local":
+            guard
+                ProcessInfo.processInfo.environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"] ==
+                    "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE",
+                let localChatRuntimeBootstrap = IosChatRuntimeBootstrapKt
+                    .createIosDocumentRetryLocalRuntimeBootstrap()
+            else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-document-retry-local"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS local document retry fixture unavailable"
+                return fixtureRoot
+            }
+            let router = IosAuthenticatedHostRouter(platformServices: platformServices)
+            router.installUiTestRoutes()
+            router.installAuthenticatedChat(
+                localChatRuntimeBootstrap,
+                profileOpeningState: memberProfileOpeningState,
+                onOpenProfile: { _ in },
+            )
+            router.showChat(conversationId: "local:document-retry", messageId: "local-document-retry-message")
+            return router
         case "shell-layout":
             // Mount the production UIKit shell with inert local route controllers. This fixture
             // exercises real containment, safe-area and rotation layout without restoring
@@ -3174,6 +3194,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 },
                 onBackToList: { [weak self] in self?.returnFromChat() },
                 attachmentPreviewService: attachmentPreviewService,
+                localAttachmentOpener: services.documentOpener,
                 onOpenExternalLink: { value in
                     guard let url = URL(string: value),
                           ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }

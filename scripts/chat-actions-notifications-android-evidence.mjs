@@ -2631,6 +2631,7 @@ try {
       await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
     }
     report.status = "passed";
+    report.steps.push("android_document_open_failure_retried_same_file_into_real_reader_and_returned");
     report.steps.push("android_chat_document_download_persisted_non_empty_bytes");
     report.steps.push("android_chat_document_native_share_sheet_opened_and_returned");
     report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
