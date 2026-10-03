@@ -1845,9 +1845,10 @@ class ChatActionsNotificationsInstrumentedTest {
                 assertDocumentOpenEvidence(attemptCount = 2, failurePending = false)
                 saveScreenshot("android-chat-document-retry-reader")
                 device.pressBack()
-                if (!documentAttachmentVisible(documentName, timeoutMillis = 5_000, messageId = documentMessageId)) {
-                    launchChatWithAmStart("$chatUrl?message=${Uri.encode(documentMessageId)}")
-                }
+                assertTrue(
+                    "Closing the native document reader must return directly to the same Quata attachment.",
+                    documentAttachmentVisible(documentName, timeoutMillis = 10_000, messageId = documentMessageId),
+                )
                 waitForDocumentAttachment(documentName, "document attachment after retry reader back", messageId = documentMessageId)
                 saveScreenshot("android-chat-document-retry-return")
             } finally {
@@ -1917,7 +1918,8 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun clearDocumentOpenFailure() {
-        targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+        val preferences = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+        val committed = preferences
             .edit()
             .remove("documentOpen.optIn")
             .remove("documentOpen.failurePending")
@@ -1925,6 +1927,16 @@ class ChatActionsNotificationsInstrumentedTest {
             .remove("documentOpen.sameIdentity")
             .remove("documentOpen.firstIdentity")
             .commit()
+        assertTrue("The document open failure fixture cleanup must be committed.", committed)
+        listOf(
+            "documentOpen.optIn",
+            "documentOpen.failurePending",
+            "documentOpen.attemptCount",
+            "documentOpen.sameIdentity",
+            "documentOpen.firstIdentity",
+        ).forEach { key ->
+            assertFalse("The document open failure fixture key must be absent after cleanup: $key", preferences.contains(key))
+        }
     }
 
     private fun waitForOwnedDownload(name: String, timeoutMillis: Long = 15_000): Boolean {

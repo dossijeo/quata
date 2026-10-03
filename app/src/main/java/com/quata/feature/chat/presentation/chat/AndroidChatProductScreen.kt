@@ -207,12 +207,15 @@ private suspend fun openAndroidChatDocumentWithEvidenceFailure(
     val sameIdentity = preferences.getBoolean("documentOpen.sameIdentity", true) &&
         (firstIdentity == null || firstIdentity == identity)
     val failurePending = preferences.getBoolean("documentOpen.failurePending", false)
-    preferences.edit()
+    val evidenceStateCommitted = preferences.edit()
         .putInt("documentOpen.attemptCount", preferences.getInt("documentOpen.attemptCount", 0) + 1)
         .putString("documentOpen.firstIdentity", firstIdentity ?: identity)
         .putBoolean("documentOpen.sameIdentity", sameIdentity)
         .putBoolean("documentOpen.failurePending", false)
         .commit()
+    if (!evidenceStateCommitted) {
+        return PlatformResult.Failure("document_viewer_e2e_state_commit_failed")
+    }
     if (failurePending) return PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
     return documentOpenService.open(file)
 }

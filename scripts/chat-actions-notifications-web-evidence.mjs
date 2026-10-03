@@ -723,23 +723,14 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
     await invokeWebDocumentAttachmentBridge(page, "open", documentFixture.name);
   }
   if (options.verifyRetry === true) {
-    await page.waitForFunction(() => {
-      const root = document.querySelector("#quata-root");
-      const scope = root?.shadowRoot ?? root ?? document;
-      return Boolean(scope.querySelector("[data-testid='document-viewer-status-retry']"));
-    }, null, { timeout: 10_000 });
+    const retry = page.locator("[data-testid='document-viewer-status-retry']");
+    await retry.waitFor({ state: "visible", timeout: 10_000 });
     report.evidence.attachmentDocumentRetryFailure = await attachScreenshot(
       page,
       evidenceDir,
       "web-chat-attachment-document-retry-visible",
     );
-    await page.evaluate(() => {
-      const root = document.querySelector("#quata-root");
-      const scope = root?.shadowRoot ?? root ?? document;
-      const retry = scope.querySelector("[data-testid='document-viewer-status-retry']");
-      if (!retry) throw new Error("document_viewer_retry_anchor_missing");
-      retry.click();
-    });
+    await clickLocatorCenter(page, retry, "document_viewer_retry_not_clickable");
     await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-render-ready='true']"), null, { timeout: 15_000 });
     const attempts = await page.evaluate(() => globalThis.__quataDocumentOpenEvidenceAttempts ?? []);
     if (attempts.length !== 2 || attempts[0]?.forced !== true || attempts[1]?.forced !== false) {
