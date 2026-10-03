@@ -634,4 +634,8 @@
     <string name="profile_password_update_unavailable">Modifiez votre mot de passe depuis « Mot de passe oublié » jusqu’à ce que la mise à jour authentifiée soit disponible.</string>
     <string name="profile_retry">Réessayer</string>
     <string name="profile_loading_error">Impossible de charger votre profil.</string>
+    <string name="profile_link_google">Associer un compte Google</string>
+    <string name="profile_linking_google">Association du compte Google…</string>
+    <string name="profile_google_linked">Compte Google associé.</string>
+    <string name="profile_google_link_failed">Impossible d’associer le compte Google.</string>
 </resources>

@@ -1452,6 +1452,7 @@ private final class IosAppCompositionRoot {
                 onDeleteAccountData: { [weak self] in
                     self?.presentAccountLifecyclePrompt(action: "delete", handler: lifecycleHandler)
                 },
+                googleIdentityLinker: authRepository as? GoogleIdentityLinker,
                 filePicker: filePicker,
                 cameraCapture: self.platformServices.services.cameraCapture,
                 contacts: self.platformServices.services.contacts,

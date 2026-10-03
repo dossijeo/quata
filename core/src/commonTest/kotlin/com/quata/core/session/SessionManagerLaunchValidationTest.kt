@@ -111,6 +111,31 @@ class SessionManagerLaunchValidationTest {
         assertEquals(replacement, storage.storedSession)
     }
 
+    @Test
+    fun delayedSessionPublicationRejectsLogoutAndActorChangeButPreservesSameActorRefresh() {
+        val original = freshSession()
+        val linked = original.copy(token = "linked-token", accessToken = "linked-token")
+        val otherActor = freshSession(token = "other-token").copy(userId = "member-8")
+        val refreshed = freshSession(token = "refreshed-token")
+        val storage = MemorySessionStorage(original)
+        val manager = SessionManager(storage)
+
+        manager.clearSession()
+        assertNull(manager.publishSessionIfActorMatches(original, linked))
+        assertNull(storage.storedSession)
+
+        manager.setSession(otherActor)
+        assertNull(manager.publishSessionIfActorMatches(original, linked))
+        assertEquals(otherActor, storage.storedSession)
+
+        manager.setSession(refreshed)
+        assertEquals(refreshed, manager.publishSessionIfActorMatches(original, linked))
+        assertEquals(refreshed, storage.storedSession)
+
+        assertEquals(linked, manager.publishSessionIfActorMatches(refreshed, linked))
+        assertEquals(linked, storage.storedSession)
+    }
+
     private fun freshSession(token: String = "fresh-token") = AuthSession(
         token = token,
         accessToken = token,

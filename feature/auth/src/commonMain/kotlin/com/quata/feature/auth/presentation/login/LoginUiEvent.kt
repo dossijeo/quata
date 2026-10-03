@@ -5,4 +5,5 @@ sealed class LoginUiEvent {
     data class PhoneChanged(val value: String) : LoginUiEvent()
     data class PasswordChanged(val value: String) : LoginUiEvent()
     data object Submit : LoginUiEvent()
+    data object GoogleSubmit : LoginUiEvent()
 }

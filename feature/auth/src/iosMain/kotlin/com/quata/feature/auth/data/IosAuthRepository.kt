@@ -7,6 +7,15 @@ import com.quata.core.session.IosAuthSessionRefresher
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosViewControllerProvider
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.GoogleAuthProvider
+import com.quata.feature.auth.domain.GoogleIdentityLinker
+import com.quata.feature.auth.domain.acceptFederatedProfile
+import com.quata.feature.auth.domain.acceptLinkedGoogleSession
+import com.quata.feature.auth.domain.buildGoogleIdentityLinkRequest
+import com.quata.feature.auth.domain.buildGoogleOAuthRequest
+import com.quata.feature.auth.domain.parseGoogleOAuthCallback
+import com.quata.feature.auth.domain.parseGoogleOAuthTokenSet
+import com.quata.feature.auth.domain.parseGoogleIdentityAuthorizationUrl
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import com.quata.feature.auth.domain.buildRegistrationEdgeRequest
@@ -17,7 +26,10 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -43,6 +55,13 @@ import platform.Foundation.setHTTPBody
 import platform.Foundation.setHTTPMethod
 import platform.Foundation.setValue
 import platform.darwin.NSObject
+import platform.AuthenticationServices.ASPresentationAnchor
+import platform.AuthenticationServices.ASWebAuthenticationPresentationContextProvidingProtocol
+import platform.AuthenticationServices.ASWebAuthenticationSession
+import platform.Security.SecRandomCopyBytes
+import platform.Security.errSecSuccess
+import platform.Security.kSecRandomDefault
+import kotlinx.cinterop.refTo
 
 /**
  * Client-safe configuration supplied by the iOS launcher or its build settings. A service-role
@@ -102,6 +121,7 @@ fun createIosAuthRepositoryWithRegistration(
 ): AuthRepository = IosAuthRepository(
     configuration = configuration,
     session = session,
+    presenterProvider = presenterProvider,
     challengeProvider = IosTurnstileChallengeProvider(
         siteKey = configuration.turnstileSiteKey.orEmpty(),
         allowedOrigin = configuration.turnstileAllowedOrigin.orEmpty(),
@@ -127,7 +147,10 @@ class IosAuthRepository(
     private val transport: IosAuthHttpTransport = IosUrlSessionAuthHttpTransport(),
     private val challengeProvider: IosRegistrationChallengeProvider? = null,
     private val registrationIdentityStore: IosRegistrationIdentityStore = IosRegistrationIdentityStore(),
-) : AuthRepository {
+    private val presenterProvider: IosViewControllerProvider? = null,
+) : AuthRepository, GoogleAuthProvider, GoogleIdentityLinker {
+    private var activeGoogleAuthenticationSession: ASWebAuthenticationSession? = null
+    private var activeGooglePresentationContext: IosGoogleOAuthPresentationContext? = null
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
         require(password.isNotBlank()) { "ios_auth_password_required" }
         val payload = postPublic(
@@ -145,6 +168,130 @@ class IosAuthRepository(
         )
         acceptedSession.also(session::save)
     }
+
+    override suspend fun signIn(): Result<AuthSession> = runCatching {
+        val request = buildGoogleOAuthRequest(
+            supabaseUrl = configuration.baseUrl(),
+            redirectUri = IosGoogleOAuthRedirectUri,
+            randomBytes = ::iosGoogleOAuthRandomBytes,
+        )
+        val callback = awaitGoogleOAuthCallback(request.authorizationUrl)
+        val code = parseGoogleOAuthCallback(callback, request)
+        val tokenPayload = postPublic(
+            endpoint = "${configuration.baseUrl()}/auth/v1/token?grant_type=pkce",
+            body = buildJsonObject {
+                put("auth_code", code)
+                put("code_verifier", request.codeVerifier)
+            }.toString(),
+        )
+        val tokens = parseGoogleOAuthTokenSet(tokenPayload)
+        val profilePayload = post(
+            endpoint = configuration.authBridgeEndpoint(),
+            accessToken = tokens.accessToken,
+            body = buildJsonObject {
+                put("action", "federated_profile")
+                put("version", 1)
+                put("client_type", "ios")
+            }.toString(),
+        )
+        val federated = tokens.acceptFederatedProfile(profilePayload)
+        val accepted = federated.session.copy(
+            isOfficial = federated.session.isOfficial || fetchAuthenticatedProfileIsOfficial(
+                federated.session.bearerToken,
+                federated.session.userId,
+            ),
+        )
+        accepted.also(session::save)
+    }
+
+    override suspend fun linkGoogleIdentity(): Result<AuthSession> = runCatching {
+        val current = session.currentSession() ?: error("ios_auth_session_required")
+        val request = buildGoogleIdentityLinkRequest(
+            supabaseUrl = configuration.baseUrl(),
+            redirectUri = IosGoogleOAuthRedirectUri,
+            randomBytes = ::iosGoogleOAuthRandomBytes,
+        )
+        val authorization = transport.get(
+            endpoint = request.authorizationUrl,
+            headers = mapOf(
+                "Accept" to "application/json",
+                "apikey" to configuration.publishableKey(),
+                "Authorization" to "Bearer ${current.bearerToken}",
+            ),
+        )
+        check(authorization.statusCode in 200..299) { "ios_google_identity_authorization_failed" }
+        val providerUrl = parseGoogleIdentityAuthorizationUrl(authorization.body)
+        val callback = awaitGoogleOAuthCallback(providerUrl)
+        val code = parseGoogleOAuthCallback(callback, request)
+        val tokenPayload = postPublic(
+            endpoint = "${configuration.baseUrl()}/auth/v1/token?grant_type=pkce",
+            body = buildJsonObject {
+                put("auth_code", code)
+                put("code_verifier", request.codeVerifier)
+            }.toString(),
+        )
+        val linked = current.acceptLinkedGoogleSession(tokenPayload)
+        session.publishIfActorMatches(current, linked)
+            ?: error("google_identity_session_changed")
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private suspend fun awaitGoogleOAuthCallback(authorizationUrl: String): String =
+        withTimeout(IOS_GOOGLE_OAUTH_TIMEOUT_MILLIS) {
+            withContext(Dispatchers.Main) {
+                check(activeGoogleAuthenticationSession == null) { "google_oauth_already_in_progress" }
+                suspendCancellableCoroutine { continuation ->
+                    val presenter = presenterProvider ?: run {
+                        continuation.resumeWithException(IllegalStateException("ios_google_oauth_presenter_unavailable"))
+                        return@suspendCancellableCoroutine
+                    }
+                    val url = NSURL(string = authorizationUrl) ?: run {
+                        continuation.resumeWithException(IllegalStateException("ios_google_oauth_url_invalid"))
+                        return@suspendCancellableCoroutine
+                    }
+                    val context = IosGoogleOAuthPresentationContext(presenter)
+                    lateinit var authenticationSession: ASWebAuthenticationSession
+                    authenticationSession = ASWebAuthenticationSession(
+                        uRL = url,
+                        callbackURLScheme = "quata",
+                    ) { callbackUrl, failure ->
+                        if (activeGoogleAuthenticationSession === authenticationSession) {
+                            activeGoogleAuthenticationSession = null
+                            activeGooglePresentationContext = null
+                        }
+                        if (continuation.isActive) {
+                            when {
+                                callbackUrl != null -> continuation.resume(
+                                    callbackUrl.absoluteString ?: error("ios_google_oauth_callback_invalid"),
+                                )
+                                failure != null -> continuation.resumeWithException(
+                                    IllegalStateException("ios_google_oauth_cancelled: ${failure.localizedDescription}"),
+                                )
+                                else -> continuation.resumeWithException(
+                                    IllegalStateException("ios_google_oauth_callback_missing"),
+                                )
+                            }
+                        }
+                    }
+                    authenticationSession.presentationContextProvider = context
+                    authenticationSession.prefersEphemeralWebBrowserSession = true
+                    activeGooglePresentationContext = context
+                    activeGoogleAuthenticationSession = authenticationSession
+                    continuation.invokeOnCancellation {
+                        if (activeGoogleAuthenticationSession === authenticationSession) {
+                            authenticationSession.cancel()
+                            activeGoogleAuthenticationSession = null
+                            activeGooglePresentationContext = null
+                        }
+                    }
+                    if (!authenticationSession.start()) {
+                        activeGoogleAuthenticationSession = null
+                        activeGooglePresentationContext = null
+                        continuation.resumeWithException(IllegalStateException("ios_google_oauth_start_failed"))
+                    }
+                }
+            }
+        }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
         runCatching {
@@ -302,6 +449,29 @@ class IosAuthRepository(
                 ?.booleanOrNull == true
         }.getOrDefault(false)
     }
+}
+
+private const val IosGoogleOAuthRedirectUri = "quata://oauth/callback"
+private const val IOS_GOOGLE_OAUTH_TIMEOUT_MILLIS = 180_000L
+
+@OptIn(ExperimentalForeignApi::class)
+private fun iosGoogleOAuthRandomBytes(size: Int): ByteArray {
+    require(size > 0) { "google_oauth_random_size_invalid" }
+    return ByteArray(size).also { output ->
+        check(SecRandomCopyBytes(kSecRandomDefault, output.size.toULong(), output.refTo(0)) == errSecSuccess) {
+            "google_oauth_secure_random_unavailable"
+        }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosGoogleOAuthPresentationContext(
+    private val presenterProvider: IosViewControllerProvider,
+) : NSObject(), ASWebAuthenticationPresentationContextProvidingProtocol {
+    override fun presentationAnchorForWebAuthenticationSession(
+        session: ASWebAuthenticationSession,
+    ): ASPresentationAnchor = presenterProvider.activeViewController()?.view?.window
+        ?: error("ios_google_oauth_presentation_anchor_unavailable")
 }
 
 /**

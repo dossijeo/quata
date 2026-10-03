@@ -7,6 +7,15 @@ import com.quata.core.model.currentEpochSeconds
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.BrowserFileCacheService
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.GoogleAuthProvider
+import com.quata.feature.auth.domain.GoogleIdentityLinker
+import com.quata.feature.auth.domain.acceptFederatedProfile
+import com.quata.feature.auth.domain.buildGoogleIdentityLinkRequest
+import com.quata.feature.auth.domain.buildGoogleOAuthRequest
+import com.quata.feature.auth.domain.parseGoogleAuthUserId
+import com.quata.feature.auth.domain.parseGoogleIdentityAuthorizationUrl
+import com.quata.feature.auth.domain.parseGoogleOAuthCallback
+import com.quata.feature.auth.domain.parseGoogleOAuthTokenSet
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
@@ -34,7 +43,7 @@ import kotlin.coroutines.suspendCoroutine
 class WebAuthRepository(
     private val configuration: WebRuntimeConfiguration,
     private val preferences: PreferenceStore,
-) : AuthRepository {
+) : AuthRepository, GoogleAuthProvider, GoogleIdentityLinker {
     private val refreshMutex = Mutex()
     private val sessionMutationMutex = Mutex()
     private var activeSession: WebLocalSession? = null
@@ -51,6 +60,115 @@ class WebAuthRepository(
         }
         val payload = webPostJson(endpoint, apiKey, request.toString())
         acceptAuthenticationPayload(payload)
+    }
+
+    override suspend fun signIn(): Result<AuthSession> = runCatching {
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val baseUrl = configuration.supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/')
+        val request = buildGoogleOAuthRequest(
+            supabaseUrl = baseUrl,
+            redirectUri = webGoogleOAuthRedirectUri(),
+            randomBytes = ::webSecureRandomBytes,
+        )
+        val callback = awaitWebGoogleOAuthCallback(request.authorizationUrl, request.redirectUri)
+        val code = parseGoogleOAuthCallback(callback, request)
+        val tokenPayload = webPostJson(
+            endpoint = "$baseUrl/auth/v1/token?grant_type=pkce",
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("auth_code", code)
+                put("code_verifier", request.codeVerifier)
+            }.toString(),
+        )
+        val tokens = parseGoogleOAuthTokenSet(tokenPayload)
+        val profilePayload = webPostJson(
+            endpoint = configuration.authBridgeEndpoint(),
+            apiKey = apiKey,
+            accessToken = tokens.accessToken,
+            body = buildJsonObject {
+                put("action", "federated_profile")
+                put("version", 1)
+                put("client_type", "web")
+                put("client_instance_id", ensureWebClientInstanceId())
+            }.toString(),
+        )
+        val federated = tokens.acceptFederatedProfile(profilePayload)
+        val webSessionToken = federated.webSessionToken ?: error("google_oauth_web_session_missing")
+        val acceptedSession = federated.session.copy(
+            isOfficial = federated.session.isOfficial || fetchAuthenticatedProfileIsOfficial(
+                federated.session.bearerToken,
+                federated.session.userId,
+            ),
+        )
+        val accepted = WebLocalSession(
+            accessToken = acceptedSession.bearerToken,
+            refreshToken = acceptedSession.refreshToken.orEmpty(),
+            webSessionToken = webSessionToken,
+            userId = acceptedSession.userId,
+            expiresAt = acceptedSession.expiresAt ?: error("google_oauth_expiry_missing"),
+            displayName = acceptedSession.displayName,
+            isOfficial = acceptedSession.isOfficial,
+        )
+        sessionMutationMutex.withLock {
+            acceptedSession.persist(preferences, webSessionToken, acceptedSession.displayName)
+            activeSession = accepted
+        }
+        acceptedSession
+    }
+
+    override suspend fun linkGoogleIdentity(): Result<AuthSession> = runCatching {
+        val current = sessionForAuthenticatedRequest() ?: error("web_auth_session_required")
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val baseUrl = configuration.supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/')
+        val currentUserPayload = webGetJson("$baseUrl/auth/v1/user", apiKey, current.accessToken)
+        val expectedAuthUserId = parseGoogleAuthUserId(currentUserPayload)
+        val request = buildGoogleIdentityLinkRequest(
+            supabaseUrl = baseUrl,
+            redirectUri = webGoogleOAuthRedirectUri(),
+            randomBytes = ::webSecureRandomBytes,
+        )
+        val authorizationPayload = webGetJson(request.authorizationUrl, apiKey, current.accessToken)
+        val providerUrl = parseGoogleIdentityAuthorizationUrl(authorizationPayload)
+        val callback = awaitWebGoogleOAuthCallback(providerUrl, request.redirectUri)
+        val code = parseGoogleOAuthCallback(callback, request)
+        val tokenPayload = webPostJson(
+            endpoint = "$baseUrl/auth/v1/token?grant_type=pkce",
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("auth_code", code)
+                put("code_verifier", request.codeVerifier)
+            }.toString(),
+        )
+        check(parseGoogleAuthUserId(tokenPayload) == expectedAuthUserId) { "google_identity_user_mismatch" }
+        val tokens = parseGoogleOAuthTokenSet(tokenPayload)
+        val updated = current.copy(
+            accessToken = tokens.accessToken,
+            refreshToken = tokens.refreshToken,
+            expiresAt = tokens.expiresAt,
+        )
+        val published = sessionMutationMutex.withLock {
+            val latest = storedSessionOrNull()
+                ?.takeIf { it.userId == current.userId }
+                ?: error("google_identity_session_changed")
+            if (!latest.sameCredentialsAs(current)) {
+                activeSession = latest
+                return@withLock latest
+            }
+            updated.persist(preferences)
+            activeSession = updated
+            updated
+        }
+        AuthSession(
+            token = published.accessToken,
+            userId = published.userId,
+            authUserId = expectedAuthUserId,
+            accessToken = published.accessToken,
+            refreshToken = published.refreshToken,
+            expiresAt = published.expiresAt,
+            email = "federated-${published.userId}@profile.quata.app",
+            displayName = published.displayName ?: "Usuario",
+            isOfficial = published.isOfficial,
+        )
     }
 
     override suspend fun logout() {
@@ -632,6 +750,79 @@ private suspend fun webGetJson(
         onFailure = { continuation.resumeWith(Result.failure(IllegalStateException(it))) },
     )
 }
+
+private fun webSecureRandomBytes(size: Int): ByteArray {
+    val hex = webSecureRandomHex(size)
+    check(hex.length == size * 2) { "google_oauth_random_source_invalid" }
+    return ByteArray(size) { index -> hex.substring(index * 2, index * 2 + 2).toInt(16).toByte() }
+}
+
+private fun webGoogleOAuthRedirectUri(): String = webOAuthRedirectUri()
+
+private suspend fun awaitWebGoogleOAuthCallback(authorizationUrl: String, redirectUri: String): String =
+    suspendCoroutine { continuation ->
+        browserGoogleOAuth(
+            authorizationUrl = authorizationUrl,
+            redirectUri = redirectUri,
+            onSuccess = { continuation.resume(it) },
+            onFailure = { continuation.resumeWith(Result.failure(IllegalStateException(it))) },
+        )
+    }
+
+private fun webSecureRandomHex(size: Int): String = js(
+    """
+    (() => {
+      if (!globalThis.crypto?.getRandomValues) throw new Error('google_oauth_secure_random_unavailable');
+      const bytes = new Uint8Array(size);
+      globalThis.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+    })()
+    """,
+)
+
+private fun webOAuthRedirectUri(): String = js(
+    """
+    (() => globalThis.location.origin + globalThis.location.pathname)()
+    """,
+)
+
+private fun browserGoogleOAuth(
+    authorizationUrl: String,
+    redirectUri: String,
+    onSuccess: (String) -> Unit,
+    onFailure: (String) -> Unit,
+): Unit = js(
+    """
+    (() => {
+      const popup = globalThis.open(authorizationUrl, 'quata-google-oauth', 'popup,width=520,height=720');
+      if (!popup) { onFailure('google_oauth_popup_blocked'); return; }
+      const startedAt = Date.now();
+      const timer = globalThis.setInterval(() => {
+        if (popup.closed) {
+          globalThis.clearInterval(timer);
+          onFailure('google_oauth_cancelled');
+          return;
+        }
+        if (Date.now() - startedAt > 180000) {
+          globalThis.clearInterval(timer);
+          try { popup.close(); } catch (_) {}
+          onFailure('google_oauth_timeout');
+          return;
+        }
+        try {
+          const href = String(popup.location.href);
+          if (href.startsWith(redirectUri + '?')) {
+            globalThis.clearInterval(timer);
+            popup.close();
+            onSuccess(href);
+          }
+        } catch (_) {
+          // Cross-origin access is expected until Supabase returns to this origin.
+        }
+      }, 150);
+    })()
+    """,
+)
 
 private fun browserPostJson(
     endpoint: String,

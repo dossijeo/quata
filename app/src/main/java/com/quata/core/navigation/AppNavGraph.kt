@@ -170,6 +170,7 @@ import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.QuataTranslatorModeController
 import com.quata.core.translation.captureTranslatorBackground
 import com.quata.feature.auth.presentation.login.LoginScreen
+import com.quata.feature.auth.domain.GoogleIdentityLinker
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.domain.SosRateLimitException
@@ -1177,6 +1178,9 @@ fun AppNavGraph(
                             onDeleteAccountData = {
                                 accountOperationError = null
                                 pendingAccountAction = AccountLifecycleAction.DeleteData
+                            },
+                            onLinkGoogleIdentity = (container.authRepository as? GoogleIdentityLinker)?.let { linker ->
+                                suspend { linker.linkGoogleIdentity().map { Unit } }
                             },
                             documentOpenService = container.documentOpenService,
                             contactPickerService = container.platformServices.contacts,

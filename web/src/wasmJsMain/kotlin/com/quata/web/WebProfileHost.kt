@@ -104,6 +104,7 @@ internal fun WebProfileHost(
     onLogout: (() -> Unit)? = null,
     onDeactivateAccount: () -> Unit = {},
     onDeleteAccountData: () -> Unit = {},
+    onLinkGoogleIdentity: (suspend () -> Result<Unit>)? = null,
     onEmergencySettingsSaved: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -126,6 +127,7 @@ internal fun WebProfileHost(
         onLogout = { if (!isLoggingOut) onLogout?.invoke() },
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
+        onLinkGoogleIdentity = onLinkGoogleIdentity,
         onEmergencySettingsSaved = onEmergencySettingsSaved,
         modifier = modifier.fillMaxSize(),
         slots = ProfileScreenSlots(
@@ -635,4 +637,8 @@ private val WebProfileScreenStrings = ProfileScreenStrings(
     "El cambio de contraseña se realiza desde «Olvidé mi contraseña» hasta que exista un contrato autenticado de actualización.",
     "No se pudo cargar el perfil.",
     "Reintentar",
+    linkGoogle = "Vincular cuenta de Google",
+    linkingGoogle = "Vinculando cuenta de Google…",
+    googleLinked = "Cuenta de Google vinculada.",
+    googleLinkFailed = "No se pudo vincular la cuenta de Google.",
 )

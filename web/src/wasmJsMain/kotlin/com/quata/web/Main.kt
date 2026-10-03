@@ -864,6 +864,9 @@ private fun QuataWebApp(
                             // Cuenta performs its first confirmation, then hands off there.
                             onDeactivateAccount = { navigation.navigate("settings") },
                             onDeleteAccountData = { navigation.navigate("settings") },
+                            onLinkGoogleIdentity = {
+                                authRepository.linkGoogleIdentity().map { Unit }
+                            },
                             onEmergencySettingsSaved = {
                                 scope.launch {
                                     when (val outcome = sosCoordinator.resumeAfterConfigurationSaved()) {

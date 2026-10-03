@@ -1,6 +1,7 @@
 package com.quata.feature.auth.presentation.login
 
 import com.quata.core.common.AppDispatchers
+import com.quata.feature.auth.domain.GoogleAuthProvider
 import com.quata.feature.auth.domain.LoginRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,8 @@ import kotlinx.coroutines.launch
 
 class LoginViewModel(
     private val repository: LoginRepository,
+    private val googleAuthProvider: GoogleAuthProvider? = null,
+    private val googleFailureMessage: String = "Could not sign in with Google.",
     dispatchers: AppDispatchers = AppDispatchers()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
@@ -30,10 +33,12 @@ class LoginViewModel(
             is LoginUiEvent.PhoneChanged -> _uiState.value = _uiState.value.copy(phone = event.value, error = null)
             is LoginUiEvent.PasswordChanged -> _uiState.value = _uiState.value.copy(password = event.value, error = null)
             LoginUiEvent.Submit -> login()
+            LoginUiEvent.GoogleSubmit -> loginWithGoogle()
         }
     }
 
     private fun login() = scope.launch {
+        if (_uiState.value.isBusy) return@launch
         val state = _uiState.value
         _uiState.value = state.copy(isLoading = true, error = null)
         repository.login(state.countryCode, state.phone, state.password)
@@ -44,6 +49,20 @@ class LoginViewModel(
                 _effects.emit(LoginEffect.Failure(message))
             }
         _uiState.value = _uiState.value.copy(isLoading = false)
+    }
+
+    private fun loginWithGoogle() = scope.launch {
+        if (_uiState.value.isBusy) return@launch
+        val provider = googleAuthProvider ?: return@launch
+        _uiState.value = _uiState.value.copy(isGoogleLoading = true, error = null)
+        provider.signIn()
+            .onSuccess { _effects.emit(LoginEffect.Success) }
+            .onFailure {
+                val message = googleFailureMessage
+                _uiState.value = _uiState.value.copy(error = message)
+                _effects.emit(LoginEffect.Failure(message))
+            }
+        _uiState.value = _uiState.value.copy(isGoogleLoading = false)
     }
 
     fun close() {

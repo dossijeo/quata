@@ -66,6 +66,29 @@ Detalle del [modelo operativo](../../MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md)
 - La sesión debe ser renovable y los fallos HTTP, timeout y cancelación deben propagarse de forma
   honesta.
 
+### Google OAuth y vinculación de identidad
+
+- Android, Web e iOS abren Google mediante Supabase Auth y PKCE S256. Los clientes sólo contienen
+  la URL pública de Supabase y la publishable key; el client secret de Google pertenece a la
+  configuración remota de Auth.
+- El login federado sólo acepta una identidad Auth enlazada a exactamente un
+  `community_profiles.auth_user_id` activo. Ausencia, ambigüedad, desactivación, cuarentena o un
+  cambio concurrente de actor fallan cerrados y no crean ni eligen un perfil Qüata.
+- La vinculación se inicia desde Gestión de cuenta con una sesión Qüata autenticada. El intercambio
+  final debe devolver el mismo Auth user; Android e iOS reemplazan su sesión renovable y Web rota
+  los tokens sin perder el `web_session` del navegador.
+- Producción mantiene `enable_manual_linking=true`, `enable_signup=false` y permite
+  `quata://oauth/callback`. Así un Google desconocido no puede crear un usuario Auth huérfano;
+  el alta Qüata sigue pasando por su Edge Function administrativa y su custodia propia.
+- Google Cloud debe declarar como redirect URI el callback de Supabase
+  `https://<project-ref>.supabase.co/auth/v1/callback`. Supabase conserva el client ID y secret de
+  ese cliente y habilita el proveedor Google. Ninguno de esos valores se copia al repositorio,
+  logs, evidencias o mensajes.
+- Antes de promover: ejecutar los contratos `GoogleOAuthContractTest` y
+  `LoginViewModelGoogleTest`, compilar los tres adaptadores, comprobar `quata-auth-bridge` con Deno
+  y probar que un actor enlazado entra en su perfil exacto mientras uno no enlazado queda
+  rechazado sin filas nuevas de perfil.
+
 ## 9. Criterios que nunca justifican un atajo
 
 - Backend temporalmente inseguro: se implementa el contrato actual y se documenta la deuda.

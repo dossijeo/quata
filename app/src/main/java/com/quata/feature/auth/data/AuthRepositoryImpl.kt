@@ -29,6 +29,8 @@ import com.quata.feature.chat.data.SupabaseChatCacheStore
 import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.GoogleAuthProvider
+import com.quata.feature.auth.domain.GoogleIdentityLinker
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import androidx.core.app.NotificationManagerCompat
@@ -50,7 +52,7 @@ internal class AuthRepositoryImpl(
             report = { issue -> android.util.Log.w(AUTH_BOUNDARY_TAG, "Auth bridge contract mismatch: $issue") }
         )
     )
-) : AuthRepository {
+) : AuthRepository, GoogleAuthProvider, GoogleIdentityLinker {
 
     private val logoutMutex = Mutex()
     private val logoutCleanupPreferences = appContext.getSharedPreferences(LOGOUT_CLEANUP_PREFERENCES, Context.MODE_PRIVATE)
@@ -167,8 +169,18 @@ internal class AuthRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    suspend fun loginWithGoogle(context: Context): Result<AuthSession> {
-        return googleAuthHelper.signIn(context).onSuccess { sessionManager.setSession(it) }
+    override suspend fun signIn(): Result<AuthSession> = runCatching {
+        recoverPendingLogoutCleanup()
+        googleAuthHelper.signIn(appContext).getOrThrow()
+    }.onSuccess { sessionManager.setSession(it) }
+
+    override suspend fun linkGoogleIdentity(): Result<AuthSession> {
+        val current = supabaseApi.ensureFreshSession()
+            ?: return Result.failure(IllegalStateException("google_identity_session_required"))
+        return googleAuthHelper.link(appContext, current).mapCatching { linked ->
+            sessionManager.publishSessionIfActorMatches(current, linked)
+                ?: error("google_identity_session_changed")
+        }
     }
 
     override suspend fun deactivateAccount(password: String): Result<Unit> = runCatching {

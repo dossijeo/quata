@@ -32,6 +32,21 @@ class SessionManager(
         setSession(session)
     }
 
+    /**
+     * Publishes an actor-bound response without overwriting credentials refreshed in the meantime.
+     * A null result means logout or actor replacement won the race.
+     */
+    fun publishSessionIfActorMatches(expected: AuthSession, replacement: AuthSession): AuthSession? =
+        withSessionMutationLock {
+            require(expected.sameActorAs(replacement)) { "session_replacement_actor_mismatch" }
+            val latest = currentSessionUnlocked()
+                ?.takeIf { it.sameActorAs(expected) }
+                ?: return@withSessionMutationLock null
+            if (latest != expected) return@withSessionMutationLock latest
+            setSessionUnlocked(replacement)
+            replacement
+        }
+
     suspend fun ensureFreshSession(
         force: Boolean = false,
         refresh: suspend (AuthSession) -> AuthSession?
@@ -125,4 +140,7 @@ class SessionManager(
             sessionMutationInProgress.store(false)
         }
     }
+
+    private fun AuthSession.sameActorAs(other: AuthSession): Boolean =
+        userId == other.userId && authUserId == other.authUserId
 }

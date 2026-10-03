@@ -6,3 +6,8 @@ import com.quata.core.model.AuthSession
 fun interface GoogleAuthProvider {
     suspend fun signIn(): Result<AuthSession>
 }
+
+/** Authenticated account action; linking never creates or selects a Qüata profile. */
+fun interface GoogleIdentityLinker {
+    suspend fun linkGoogleIdentity(): Result<AuthSession>
+}

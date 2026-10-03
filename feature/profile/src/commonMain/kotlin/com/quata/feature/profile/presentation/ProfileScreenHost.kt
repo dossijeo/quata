@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import kotlinx.coroutines.launch
 
 const val ProfileAvatarChangeTestTag = "profile.avatar.change"
 const val ProfileAvatarGalleryTestTag = "profile.avatar.gallery"
@@ -80,6 +82,7 @@ const val ProfileManagementRootTestTag = "profile.management.root"
 const val ProfileManagementBackTestTag = "profile.management.back"
 const val ProfileDeactivateOpenTestTag = "profile.management.deactivate"
 const val ProfileDeleteOpenTestTag = "profile.management.delete"
+const val ProfileGoogleLinkTestTag = "profile.management.google-link"
 const val ProfileDangerDialogTestTag = "profile.management.confirmation"
 const val ProfileDangerConfirmTestTag = "profile.management.confirm"
 const val ProfileDangerCancelTestTag = "profile.management.cancel"
@@ -98,6 +101,7 @@ fun ProfileScreenHost(
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     slots: ProfileScreenSlots,
+    onLinkGoogleIdentity: (suspend () -> Result<Unit>)? = null,
     onEmergencySettingsSaved: () -> Unit = {},
     refreshKey: Long = 0L,
     contentPadding: PaddingValues = PaddingValues(),
@@ -185,6 +189,7 @@ fun ProfileScreenHost(
                         onBack = { page = ProfileAccountPage.Overview },
                         onDeactivate = { confirmation = ProfileDangerousAction.Deactivate },
                         onDelete = { confirmation = ProfileDangerousAction.DeleteData },
+                        onLinkGoogleIdentity = onLinkGoogleIdentity,
                     )
                 }
                 state.errorMessage?.let {
@@ -566,27 +571,58 @@ private fun ProfileSecretQuestion(state: ProfileUiState, selected: String, strin
 }
 
 @Composable
-private fun ProfileManagementContent(strings: ProfileScreenStrings, onBack: () -> Unit, onDeactivate: () -> Unit, onDelete: () -> Unit) =
-    ProfileAccountManagementContent(
-        strings.management,
-        strings.managementDescription,
-        quataTheme().colors.textSecondary,
-        listOf(
-            ProfileManagementAction(strings.deactivate, ProfileDeactivateOpenTestTag, onDeactivate),
-            ProfileManagementAction(strings.deleteData, ProfileDeleteOpenTestTag, onDelete),
-        ),
-        backButton = {
-            CompactIconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .testTag(ProfileManagementBackTestTag)
-                    .semantics { contentDescription = ProfileManagementBackTestTag },
-            ) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back) }
-        },
-        modifier = Modifier
-            .testTag(ProfileManagementRootTestTag)
-            .semantics { contentDescription = ProfileManagementRootTestTag },
-    )
+private fun ProfileManagementContent(
+    strings: ProfileScreenStrings,
+    onBack: () -> Unit,
+    onDeactivate: () -> Unit,
+    onDelete: () -> Unit,
+    onLinkGoogleIdentity: (suspend () -> Result<Unit>)?,
+) {
+    val scope = rememberCoroutineScope()
+    var isLinkingGoogle by remember { mutableStateOf(false) }
+    var googleLinkMessage by remember { mutableStateOf<String?>(null) }
+    Column {
+        ProfileAccountManagementContent(
+            strings.management,
+            strings.managementDescription,
+            quataTheme().colors.textSecondary,
+            buildList {
+                if (onLinkGoogleIdentity != null) add(
+                    ProfileManagementAction(
+                        if (isLinkingGoogle) strings.linkingGoogle else strings.linkGoogle,
+                        ProfileGoogleLinkTestTag,
+                        onClick = {
+                            if (!isLinkingGoogle) scope.launch {
+                                isLinkingGoogle = true
+                                googleLinkMessage = null
+                                googleLinkMessage = onLinkGoogleIdentity().fold(
+                                    onSuccess = { strings.googleLinked },
+                                    onFailure = { strings.googleLinkFailed },
+                                )
+                                isLinkingGoogle = false
+                            }
+                        },
+                        enabled = !isLinkingGoogle,
+                    ),
+                )
+                add(ProfileManagementAction(strings.deactivate, ProfileDeactivateOpenTestTag, onDeactivate))
+                add(ProfileManagementAction(strings.deleteData, ProfileDeleteOpenTestTag, onDelete))
+            },
+            backButton = {
+                CompactIconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .testTag(ProfileManagementBackTestTag)
+                        .semantics { contentDescription = ProfileManagementBackTestTag },
+                ) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back) }
+            },
+            modifier = Modifier
+                .testTag(ProfileManagementRootTestTag)
+                .semantics { contentDescription = ProfileManagementRootTestTag },
+        )
+        googleLinkMessage?.let { Text(it, color = quataTheme().colors.textSecondary) }
+    }
+}
 
 private enum class ProfileAccountPage { Overview, Details, Management }
 private enum class ProfileDangerousAction { Deactivate, DeleteData }
@@ -601,6 +637,10 @@ data class ProfileScreenStrings(
     val passwordUnavailable: String,
     val loadingError: String,
     val retry: String,
+    val linkGoogle: String = "Link Google account",
+    val linkingGoogle: String = "Linking Google account…",
+    val googleLinked: String = "Google account linked.",
+    val googleLinkFailed: String = "Google account could not be linked.",
 )
 
 data class ProfileScreenSlots(
