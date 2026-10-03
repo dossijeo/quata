@@ -65,7 +65,7 @@ en [la ronda funcional final del propietario](MIGRATION_OWNER_FUNCTIONAL_ROUND.m
 conserva el estado que tenía la evidencia de deep links el 14 de septiembre; no describe el cierre
 global actual.
 
-### Conteo exacto de renovación nativa — candidata local del 29 de septiembre
+### Conteo exacto de renovación nativa — integrado por #482 el 29 de septiembre
 
 Sobre producto `f8f45b0281c08a2b9e607154e1d553bef42e5b64`, los coordinadores
 Android frío e iOS frío repitieron únicamente el gate afectado. Cada uno fijó el
@@ -481,10 +481,12 @@ Esta evidencia usa el repositorio productivo con transporte inyectado. No atribu
 efectiva de una sesión backend concreta ni latencia acotada frente a una red que no responde.
 Android y Web no cambiaron y no se repitieron sólo por el nuevo SHA.
 
-### Límite de latencia del logout remoto iOS
+### Límite de latencia del logout remoto iOS — integrado por #517
 
-Product SHA `2dd5c781bf722bbe0426572c1ea47714a905c217` cierra después el límite de
-red no responsiva. Sólo el intento autenticado a `/auth/v1/logout` queda envuelto en un plazo de
+Product SHA final `1fb1a307c26f04cc5c303d92079c09f9749a28d0`, integrado por
+[#517](https://github.com/dossijeo/quata/pull/517), cierra el límite de red no responsiva. La
+ejecución focal se obtuvo sobre `2dd5c781bf722bbe0426572c1ea47714a905c217`. Sólo el intento
+autenticado a `/auth/v1/logout` queda envuelto en un plazo de
 15 segundos. Al vencer, la cancelación alcanza el transporte URLSession, la sesión de Keychain se
 retira en el `finally` existente y `logout()` completa; una cancelación externa del caller conserva
 su propagación después de la retirada local.
@@ -519,14 +521,14 @@ Permanecen fuera expiración criptográfica, rechazo caliente, todas las rutas d
 device token emitido por Apple, autenticación/entrega APNs y una recertificación global
 nueva. Manifest: `docs/candidate-attestations/ios-apns-logout-remote.json`.
 
-## Vencimiento criptográfico nativo — candidata local del 29 de septiembre de 2026
+## Vencimiento criptográfico nativo — integrado por #483 el 29 de septiembre de 2026
 
 Android e iOS Simulator esperaron el `exp` real del JWT firmado con la app detenida. Auth rechazó ese JWT y la cadena propia de refresh permaneció sin rotaciones antes de instalar la sesión y justo antes de entregar el enlace externo. El arranque frío causado por esa entrega produjo exactamente una rotación; después se verificaron identidad propia, mensaje sintético exacto, vuelta y limpieza completa.
 
 Android run `80eddb81-db69-457b-bc15-a6d89ed90d1f`; iOS run `3fe2b024-65c8-4462-8821-c27fb85d6a43`. Atestación saneada: [`native-session-cryptographic-expiry-20260929.json`](candidate-attestations/evidence/native-session-cryptographic-expiry-20260929.json).
 
-El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back mientras seguía montado el splash; fue reconciliado exactamente. El observador pasó después un control real y el ensayo definitivo al exigir mensaje pulsable y ausencia del splash. Android no se repitió por este cambio exclusivo de iOS. La atribución queda acotada al arranque frío causado por el enlace; no se afirma una traza HTTP a nivel de paquete. En este corte histórico seguían separados el rechazo caliente, APNs y las rutas no incluidas; la candidata del 30/09 cierra después únicamente el rechazo caliente nativo.
+El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back mientras seguía montado el splash; fue reconciliado exactamente. El observador pasó después un control real y el ensayo definitivo al exigir mensaje pulsable y ausencia del splash. Android no se repitió por este cambio exclusivo de iOS. La atribución queda acotada al arranque frío causado por el enlace; no se afirma una traza HTTP a nivel de paquete. En este corte histórico seguían separados el rechazo caliente, APNs y las rutas no incluidas; la unidad integrada por #484 cierra después únicamente el rechazo caliente nativo.
 
-## Rechazo caliente de sesión nativa — candidata local del 30 de septiembre de 2026
+## Rechazo caliente de sesión nativa — integrado por #484 el 30 de septiembre de 2026
 
 Android run `8b359154-8e36-4f54-90e6-9be6d08e65d6` e iOS run `af9ce066-58e6-4cf6-91d9-c01bb74f6d81` acreditan el rechazo terminal HTTP 400 con el proceso caliente, barrera pública, cancelación y Feed sin destino privado. iOS pasó y cerró limpio sobre `4a2d54f97c20d54ffcd189b3cfc191548c10ad71`; Android conserva el resultado administrativo original y su recuperación exacta separada. Atestación saneada: [`native-session-hot-rejection-20260930.json`](candidate-attestations/evidence/native-session-hot-rejection-20260930.json). La causal, los NO-GO previos y el alcance exacto permanecen en el [plan nativo](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#rechazo-caliente-de-sesión-nativa--candidata-local-del-30-de-septiembre-de-2026). No acredita traza HTTP de paquete, APNs, dispositivo físico/distribución ni rutas no ensayadas.
