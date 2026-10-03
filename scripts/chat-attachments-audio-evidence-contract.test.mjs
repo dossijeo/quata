@@ -207,9 +207,13 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(webRunner, /--document-retry-local-only/);
   assert.match(webRunner, /openLocalDocumentRetryPage\(browser, server\.origin, faults\)/);
   assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE/);
-  assert.match(iosRuntimeBootstrap, /openLocalEvidenceAttachment\(attachment\)/);
-  assert.match(iosAttachmentPreviewService, /internal suspend fun openLocalEvidenceAttachment/);
+  assert.match(iosRuntimeBootstrap, /createIosDocumentRetryLocalRuntimeBootstrap/);
+  assert.match(iosRuntimeBootstrap, /supabaseUrl = "https:\/\/document-retry\.invalid"/);
+  assert.match(iosRuntimeBootstrap, /localAttachmentOpener\.open\(attachment\)/);
+  assert.match(iosRuntimeBootstrap, /attachmentPreviewService\?\.openRemoteAttachment\(attachment\)/);
   assert.match(iosAppDelegate, /case "document-retry-local"/);
+  assert.match(iosAppDelegate, /createIosDocumentRetryLocalRuntimeBootstrap\(\)/);
+  assert.match(iosAppDelegate, /localAttachmentOpener: services\.documentOpener/);
   assert.match(iosUiTest, /testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend/);
   assert.match(iosUiTest, /exerciseDocumentRetry\(/);
   assert.match(iosUiTest, /QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN/);

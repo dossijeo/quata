@@ -841,7 +841,8 @@ private final class IosAppCompositionRoot {
             guard
                 ProcessInfo.processInfo.environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"] ==
                     "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE",
-                let chatRuntimeBootstrap
+                let localChatRuntimeBootstrap = IosChatRuntimeBootstrapKt
+                    .createIosDocumentRetryLocalRuntimeBootstrap()
             else {
                 fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-document-retry-local"
                 fixtureRoot.view.accessibilityLabel = "Quata iOS local document retry fixture unavailable"
@@ -850,7 +851,7 @@ private final class IosAppCompositionRoot {
             let router = IosAuthenticatedHostRouter(platformServices: platformServices)
             router.installUiTestRoutes()
             router.installAuthenticatedChat(
-                chatRuntimeBootstrap,
+                localChatRuntimeBootstrap,
                 profileOpeningState: memberProfileOpeningState,
                 onOpenProfile: { _ in },
             )
@@ -3193,6 +3194,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 },
                 onBackToList: { [weak self] in self?.returnFromChat() },
                 attachmentPreviewService: attachmentPreviewService,
+                localAttachmentOpener: services.documentOpener,
                 onOpenExternalLink: { value in
                     guard let url = URL(string: value),
                           ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }

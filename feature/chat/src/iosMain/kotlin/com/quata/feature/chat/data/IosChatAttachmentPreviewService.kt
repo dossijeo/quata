@@ -70,18 +70,6 @@ class IosChatAttachmentPreviewService(
         }
     }
 
-    /** Local evidence input already resides in the app sandbox and therefore skips only download. */
-    internal suspend fun openLocalEvidenceAttachment(attachment: PlatformFile): PlatformResult<Unit> {
-        if (!supportsQuickLook(attachment)) return PlatformResult.Unsupported
-        return when (val opened = documentOpener.open(attachment)) {
-            is PlatformResult.Success -> opened
-            is PlatformResult.Failure ->
-                PlatformResult.Failure(opened.reason ?: "ios_chat_local_attachment_preview_failed")
-            PlatformResult.Cancelled -> PlatformResult.Failure("ios_chat_local_attachment_preview_cancelled")
-            PlatformResult.Unsupported -> PlatformResult.Failure("ios_chat_local_attachment_preview_unsupported")
-        }
-    }
-
     /**
      * Objective-C/Swift-friendly variant: Kotlin/Native maps a thrown failure to the completion
      * handler's NSError, so the UIKit edge does not need to inspect a generic sealed result.

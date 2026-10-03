@@ -9,6 +9,7 @@ import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
@@ -101,6 +102,7 @@ class IosChatRuntimeBootstrap(
         onOpenMessageConversation: (String, String) -> Unit,
         onBackToList: () -> Unit,
         attachmentPreviewService: IosChatAttachmentPreviewService?,
+        localAttachmentOpener: DocumentOpenService,
         onOpenExternalLink: (String) -> Unit,
         onOpenMapLink: (String) -> ChatMapOpenResult = { value ->
             onOpenExternalLink(value)
@@ -134,7 +136,7 @@ class IosChatRuntimeBootstrap(
                     documentOpenFailurePending = false
                     PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
                 } else if (localDocumentRetryFixture?.path == attachment.reference) {
-                    attachmentPreviewService?.openLocalEvidenceAttachment(attachment) ?: PlatformResult.Unsupported
+                    localAttachmentOpener.open(attachment)
                 } else {
                     attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
                 }
@@ -153,10 +155,7 @@ private data class IosChatDocumentRetryLocalFixture(
 )
 
 private fun iosChatDocumentRetryLocalFixtureOrNull(): IosChatDocumentRetryLocalFixture? {
-    val environment = NSProcessInfo.processInfo.environment
-    if (environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"]?.toString() !=
-        "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"
-    ) return null
+    if (!iosChatDocumentRetryLocalFixtureOptedIn()) return null
     val path = NSTemporaryDirectory().trimEnd('/') + "/quata-document-retry.rtf"
     val rtf = "{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Helvetica;}}\\f0\\fs28 Qüata document retry fixture\\par}"
     if (!rtf.encodeToByteArray().toFoundationData().writeToFile(path, atomically = true)) return null
@@ -253,3 +252,22 @@ fun createIosChatRuntimeBootstrap(
     configuration: IosChatRuntimeConfiguration,
     authSession: IosRenewableAuthSession,
 ): IosChatRuntimeBootstrap = IosChatRuntimeBootstrap(configuration, authSession)
+
+/**
+ * Exact opt-in composition for the no-backend document retry XCTest. The common repository owns
+ * an immutable local RTF and the `.invalid` deployment can never address a real Supabase host.
+ * Production launch remains on [createIosChatRuntimeBootstrap] with the shared renewable session.
+ */
+fun createIosDocumentRetryLocalRuntimeBootstrap(): IosChatRuntimeBootstrap? {
+    if (!iosChatDocumentRetryLocalFixtureOptedIn()) return null
+    return IosChatRuntimeBootstrap(
+        configuration = IosChatRuntimeConfiguration(
+            supabaseUrl = "https://document-retry.invalid",
+            supabasePublishableKey = "document-retry-local-not-a-credential",
+        ),
+    )
+}
+
+private fun iosChatDocumentRetryLocalFixtureOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"]?.toString() ==
+        "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"
