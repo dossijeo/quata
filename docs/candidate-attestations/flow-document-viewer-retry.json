@@ -4,11 +4,11 @@
     "FLOW-DOCUMENT-VIEWER",
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "c1745952698825d9c356488163b4b27fe40a388e",
+  "productSha": "67afc8db8528790ffd60dc9d80af5a6e7944b4c6",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c1745952698825d9c356488163b4b27fe40a388e",
+      "sha": "67afc8db8528790ffd60dc9d80af5a6e7944b4c6",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-web-b96cd844.json",
       "reportSha256": "173d54360ff0c9f7836b7effc8b974a60bdb1ba21d1dc95cb7ab4cbab9ffc093",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c1745952698825d9c356488163b4b27fe40a388e",
+      "sha": "67afc8db8528790ffd60dc9d80af5a6e7944b4c6",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-android-b96cd844.json",
       "reportSha256": "c22eec539c3b1abd51ad7a827923ca795d3b1321f857757a93f2429a45bf5752",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c1745952698825d9c356488163b4b27fe40a388e",
+      "sha": "67afc8db8528790ffd60dc9d80af5a6e7944b4c6",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-c1745952.json",
       "reportSha256": "59ef78a2246fab42a1c602828ab9ae0653a0424f23e762e0fa2706ee4d4dd970",
       "reportStatus": "passed",
@@ -99,7 +99,8 @@
     "The iOS custody preserves the earlier remote HTTP 402, unavailable-bootstrap, unarmed-failure and clean-XCFramework Metal attempts, the exact-82514fd1 assertion failure and passing rerun, and the accepted 981eb3e3 run. The current coordinator rejects pre-existing result-bundle destinations.",
     "The accepted current iOS run compiled the Swift host and UI tests from c1745952698825d9c356488163b4b27fe40a388e against the stable bd63e56c155936d4b10e9278f86453d85d00a554 KMP framework. The only KMP source delta is PR #514 keyboard ownership in three emergency-contact profile surfaces; it does not intersect Chat document attachment state, retry, native presentation or cleanup.",
     "Web and Android ran on the pending runtime tree later captured exactly by 7569719fc866c323dadbb14ee0fb5e1351983f9c. Subsequent executable changes through c1745952698825d9c356488163b4b27fe40a388e are iOS document evidence integration and PR #514 emergency-contact keyboard behavior, neither of which changes the Web/Wasm or Android Chat document retry runtime; their focal evidence was retained rather than repeated for SHA-only custody changes.",
-    "Product SHA c1745952698825d9c356488163b4b27fe40a388e is the rebased candidate source used by the fresh iOS host build and focal run. Later attestation-only commits do not alter runtime behavior.",
+    "Runtime source SHA c1745952698825d9c356488163b4b27fe40a388e is the rebased candidate used by the fresh iOS host build and focal run.",
+    "Product SHA 67afc8db8528790ffd60dc9d80af5a6e7944b4c6 differs from the tested runtime only by aligning the fail-closed Web authentication contract with the already bounded local document-retry fixture exception; no product runtime, evidence runner or platform behavior changed, so platform E2E evidence was retained.",
     "This candidate removes the generic recoverable-open/retry limit for Chat document attachments. Unsupported formats, provider-specific behavior and real network failures remain separate boundaries and are not claimed by this hermetic failure injection.",
     "Raw screenshots, videos, logs and XCTest bundles remain host-local. The committed projections contain no credentials, profile identifiers, conversation identifiers from a backend, or secret-bearing paths.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; later attestation-only commits remain subject to scripts/validate-candidate-attestation.mjs."
