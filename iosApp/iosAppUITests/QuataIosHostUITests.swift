@@ -1079,8 +1079,16 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         let searchMarker = "qa"
-        search.tap()
-        search.typeText(searchMarker)
+        search.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let focusedSearch = app.descendants(matching: .any)
+            .matching(identifier: search.identifier)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        XCTAssertTrue(
+            focusedSearch.waitForExistence(timeout: 2),
+            "The real Profile SOS search field must receive focus at its observed center.",
+        )
+        focusedSearch.typeText(searchMarker)
         assertAuthenticatedProfileSearch(
             search,
             contains: searchMarker,
