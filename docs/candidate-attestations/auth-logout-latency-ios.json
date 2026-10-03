@@ -4,12 +4,12 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "2dd5c781bf722bbe0426572c1ea47714a905c217",
+  "productSha": "8d81d72b4098fb38f716ab2bad1ee732630f08f1",
   "certification": "ios-nonresponsive-remote-logout-latency-bounded-local-evidence-passed-independent-review-go-and-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "2dd5c781bf722bbe0426572c1ea47714a905c217",
+      "sha": "8d81d72b4098fb38f716ab2bad1ee732630f08f1",
       "report": "docs/candidate-attestations/evidence/auth-logout-latency-ios-2dd5c781.json",
       "reportSha256": "57b3add7ccb3a80ccffc5adb0f6c3a95a6ef1139597767b84eb6222d28dc82e4",
       "reportStatus": "passed",
@@ -46,6 +46,7 @@
     "Independent review returned GO without P0-P3 on review head ff6f0ac5. It confirmed that withTimeoutOrNull consumes only the internal deadline, the 5000 millisecond caller timeout propagates after local retirement, source and report hashes match, the exact Product SHA suite records 8/8, and the contract, validator, diff-check, clean tree and secret hygiene pass.",
     "This evidence removes only the documented unbounded iOS repository logout latency. It does not attribute backend revocation to one UI gesture, recertify routes outside logout or change APNs, Android or Web runtime.",
     "No backend row, credential, token or remote object was read or mutated by this hermetic test.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs.",
+    "The five-commit series was rebased onto main at 811fcb63908c466c397e7480282de387d2f2e591 with a 5/5 patch-equivalent range-diff. IosAuthRepository.kt, IosAuthLogoutOrderingTest.kt and the logout contract are byte-identical between the original exact-SHA evidence head 2dd5c781bf722bbe0426572c1ea47714a905c217 and the rebased product head 8d81d72b4098fb38f716ab2bad1ee732630f08f1. Intervening main changes are the emergency-contact keyboard work from PR #514 and Chat document retry work from PR #515 and do not change iOS authentication or logout. The historical 8/8 iosX64 evidence remains applicable, so it was not repeated solely for the rebased SHA."
   ]
 }
