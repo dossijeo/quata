@@ -13,6 +13,7 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryFailure
+import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryRefreshSignals
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
 import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
@@ -27,6 +28,7 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -67,6 +69,7 @@ class IosNeighborhoodsReadRepository(
     private val configuration: IosNeighborhoodsRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession?,
     private val chatRepository: ChatRepository,
+    private val directoryRefreshIntervalMillis: Long = DirectoryRefreshIntervalMillis,
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, IosCachedCommunityProfile>()
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
@@ -77,13 +80,17 @@ class IosNeighborhoodsReadRepository(
     private val feedConfiguration = IosFeedRuntimeConfiguration(configuration.supabaseUrl, configuration.supabasePublishableKey)
     private val feedTransport = IosFeedReadTransport(feedConfiguration, authSession)
 
-    override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
-        try {
-            emit(loadCommunities())
-        } catch (error: IosNeighborhoodHttpException) {
-            throw neighborhoodDirectoryFailure(error.statusCode, error)
+    override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> =
+        neighborhoodDirectoryRefreshSignals(
+            realtimeChanges = chatRepository.observeCommunityDirectoryChanges(),
+            fallbackIntervalMillis = directoryRefreshIntervalMillis,
+        ).map {
+            try {
+                loadCommunities()
+            } catch (error: IosNeighborhoodHttpException) {
+                throw neighborhoodDirectoryFailure(error.statusCode, error)
+            }
         }
-    }
 
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = runCatching {
         val cleanNeighborhood = neighborhood.trim().takeIf(String::isNotEmpty)
@@ -302,15 +309,33 @@ class IosNeighborhoodsReadRepository(
             }
             return profiles
         }
-        return loadProfileBatch(null)
+        return loadCompleteKeyset(
+            pageSize = DirectoryPageSize,
+            cursorOf = NeighborhoodUser::id,
+        ) { afterExclusive, limit ->
+            loadProfilePage(afterExclusive, limit)
+        }
     }
+
+    private suspend fun loadProfilePage(
+        afterIdExclusive: String?,
+        limit: Int,
+    ): List<NeighborhoodUser> = rows(
+        table = "community_profiles",
+        query = buildMap {
+            put("select", ProfileSelect)
+            afterIdExclusive?.let { put("id", "gt.${it.requireIosNeighborhoodIdentifier()}") }
+            put("order", "id.asc")
+            put("limit", limit.toString())
+        },
+    ).map(Map<*, *>::toIosNeighborhoodUser)
 
     private suspend fun loadProfileBatch(ids: List<String>?): List<NeighborhoodUser> = rows(
         table = "community_profiles",
         query = buildMap {
             put("select", ProfileSelect)
             put("order", "display_name.asc")
-            put("limit", DirectoryLimit.toString())
+            put("limit", ProfileIdBatchSize.toString())
             ids?.takeIf { it.isNotEmpty() }?.let { put("id", it.toIosNeighborhoodInFilter()) }
         },
     ).map(Map<*, *>::toIosNeighborhoodUser)
@@ -376,15 +401,21 @@ class IosNeighborhoodsReadRepository(
     }
 
     private suspend fun loadWalls(): List<IosCommunityWallStats> {
-        val walls = rows(
-            table = "community_walls_stats",
-            query = mapOf(
-                "select" to WallStatsSelect,
-                "is_active" to "eq.true",
-                "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
-                "limit" to WallLimit.toString(),
-            ),
-        ).map(Map<*, *>::toIosCommunityWallStats)
+        val walls = loadCompleteKeyset(
+            pageSize = WallPageSize,
+            cursorOf = IosCommunityWallStats::id,
+        ) { afterExclusive, limit ->
+            rows(
+                table = "community_walls_stats",
+                query = buildMap {
+                    put("select", WallStatsSelect)
+                    put("is_active", "eq.true")
+                    afterExclusive?.let { put("id", "gt.${it.requireIosNeighborhoodIdentifier()}") }
+                    put("order", "id.asc")
+                    put("limit", limit.toString())
+                },
+            ).map(Map<*, *>::toIosCommunityWallStats)
+        }
         wallsByKey = walls.flatMap { wall -> wall.communityKeys().map { key -> key to wall } }.toMap()
         return walls
     }
@@ -422,10 +453,11 @@ class IosNeighborhoodsReadRepository(
         ?: error("ios_communities_session_missing")
 
     private companion object {
-        const val DirectoryLimit = 500
+        const val DirectoryPageSize = 500
+        const val DirectoryRefreshIntervalMillis = 30_000L
         const val ProfileFollowPageSize = 500
         const val ProfileIdBatchSize = 100
-        const val WallLimit = 250
+        const val WallPageSize = 250
         const val ProfilePostLimit = 200
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
         const val WallStatsSelect = "id,slug,name,normalized_name"

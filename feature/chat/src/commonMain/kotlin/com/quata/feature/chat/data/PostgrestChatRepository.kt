@@ -27,8 +27,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -112,6 +114,7 @@ open class PostgrestChatRepository(
     private val realtimeOnlineState = MutableStateFlow(false)
     private val _typingProfileIds = MutableStateFlow<Set<String>>(emptySet())
     private val _syncStatus = MutableStateFlow(ChatSyncStatus.Offline)
+    private val communityDirectoryChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val observedNetworkAvailable = MutableStateFlow(true)
     val isDeviceNetworkAvailable: StateFlow<Boolean> =
         realtimeGateway?.isNetworkAvailable ?: observedNetworkAvailable.asStateFlow()
@@ -147,6 +150,7 @@ open class PostgrestChatRepository(
     override val isRealtimeOnline: StateFlow<Boolean> = realtimeGateway?.isOnline ?: realtimeOnlineState.asStateFlow()
     override val typingProfileIds: StateFlow<Set<String>> = realtimeGateway?.typingProfileIds ?: _typingProfileIds.asStateFlow()
     override val syncStatus: StateFlow<ChatSyncStatus> = _syncStatus.asStateFlow()
+    override fun observeCommunityDirectoryChanges(): Flow<Unit> = communityDirectoryChanges.asSharedFlow()
 
     init {
         realtimeGateway?.let { gateway ->
@@ -170,7 +174,13 @@ open class PostgrestChatRepository(
             // detect accidental removal even before the collector is scheduled.
             val changeStream = gateway.changes
             scope.launch {
-                changeStream.collect { change -> refreshForRealtimeChange(change) }
+                changeStream.collect { change ->
+                    if (change.table in CommunityDirectoryRealtimeTables) {
+                        communityDirectoryChanges.tryEmit(Unit)
+                    } else {
+                        refreshForRealtimeChange(change)
+                    }
+                }
             }
         }
     }

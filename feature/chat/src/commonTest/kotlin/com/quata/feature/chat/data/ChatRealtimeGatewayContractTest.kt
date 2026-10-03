@@ -284,12 +284,53 @@ class ChatRealtimeGatewayContractTest {
     }
 
     @Test
+    fun directoryRealtimeChangeIsForwardedWithoutRefreshingTheChatInbox() = runTest {
+        val gateway = RecordingGateway()
+        val calls = mutableListOf<String>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName
+                    return ChatPostgrestResponse.Success("{}")
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            realtimeGateway = gateway,
+            scope = backgroundScope,
+        )
+        val invalidation = async(start = CoroutineStart.UNDISPATCHED) {
+            repository.observeCommunityDirectoryChanges().first()
+        }
+
+        gateway.awaitSubscriber()
+        gateway.emit(ChatRealtimeChange("community_profiles"))
+
+        withTimeout(5_000L) { invalidation.await() }
+        assertEquals(emptyList(), calls)
+        assertTrue(CommunityDirectoryRealtimeTables.all(ChatRealtimeTables::contains))
+    }
+
+    @Test
     fun lifecycleDisconnectsAndReconnectsOnlyWhenAllRequirementsHold() {
         assertTrue(shouldConnectChatRealtime(true, true, true))
         assertFalse(shouldConnectChatRealtime(false, true, true))
         assertFalse(shouldConnectChatRealtime(true, false, true))
         assertFalse(shouldConnectChatRealtime(true, true, false))
         assertFalse(shouldConnectChatRealtime(true, true, true, closed = true))
+    }
+
+    @Test
+    fun publicDirectoryRealtimeConnectsWithoutAChatSessionAndUsesOnlyDirectoryTables() {
+        assertTrue(shouldConnectCommunityDirectoryRealtime(foreground = true, networkAvailable = true))
+        assertFalse(shouldConnectCommunityDirectoryRealtime(foreground = false, networkAvailable = true))
+        assertFalse(shouldConnectCommunityDirectoryRealtime(foreground = true, networkAvailable = false))
+        assertFalse(shouldConnectCommunityDirectoryRealtime(foreground = true, networkAvailable = true, closed = true))
+        assertEquals(PublicCommunityDirectoryRealtimeTables.toList(), chatDatabaseRealtimeTables(false))
+        assertFalse("community_messages" in chatDatabaseRealtimeTables(false))
+        assertTrue(chatDatabaseRealtimeTables(true).containsAll(CommunityDirectoryRealtimeTables))
+        assertTrue("chat_threads" in chatDatabaseRealtimeTables(true))
+        assertFalse("chat_threads" in chatDatabaseRealtimeTables(false))
     }
 
     @Test

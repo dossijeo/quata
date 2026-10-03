@@ -7,6 +7,7 @@ import com.quata.core.model.Message
 import com.quata.core.model.User
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 data class ChatConversationCandidate(
     val profileId: String,
@@ -69,6 +70,8 @@ interface ChatRepository {
     val isRealtimeOnline: StateFlow<Boolean>
     val typingProfileIds: StateFlow<Set<String>>
     val syncStatus: StateFlow<ChatSyncStatus>
+    /** Authenticated database wakeups that invalidate the public Communities directory snapshot. */
+    fun observeCommunityDirectoryChanges(): Flow<Unit> = emptyFlow()
     fun setDeviceNetworkAvailable(isAvailable: Boolean)
     fun currentUser(): User?
     suspend fun currentActorId(): String? = currentUser()?.id

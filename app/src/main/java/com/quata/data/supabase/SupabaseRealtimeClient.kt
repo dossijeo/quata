@@ -152,11 +152,13 @@ class SupabaseRealtimeClient(
         activeTopic = topic
         onChannelJoined = onJoined
         val realtimeApiKey = accessToken.takeIf { it.isNotBlank() } ?: config.anonKey
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(config.realtimeUrl(realtimeApiKey))
             .header("apikey", config.anonKey)
-            .header("Authorization", "Bearer $accessToken")
-            .build()
+        accessToken.takeIf { it.isNotBlank() }?.let {
+            requestBuilder.header("Authorization", "Bearer $it")
+        }
+        val request = requestBuilder.build()
         socket = okHttp.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 if (socket !== webSocket) return
@@ -275,7 +277,7 @@ class SupabaseRealtimeClient(
         tables: List<String>,
         presenceEnabled: Boolean
     ): JsonObject = buildJsonObject {
-        put("access_token", accessToken)
+        accessToken.takeIf { it.isNotBlank() }?.let { put("access_token", it) }
         putJsonObject("config") {
             putJsonObject("broadcast") {
                 put("ack", false)

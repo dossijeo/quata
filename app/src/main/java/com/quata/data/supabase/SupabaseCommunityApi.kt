@@ -41,6 +41,25 @@ class SupabaseCommunityApi(
         )
     )
 
+    suspend fun getCompleteActiveWallsStats(
+        pageSize: Int = DIRECTORY_WALL_PAGE_SIZE,
+    ): List<CommunityWallStats> = loadCompleteKeyset(
+        pageSize = pageSize,
+        cursorOf = CommunityWallStats::id,
+    ) { afterExclusive, limit ->
+        client.getList(
+            "community_walls_stats",
+            mapOf(
+                "select" to WALL_STATS_SELECT,
+                "is_active" to "eq.true",
+                "id" to afterExclusive?.let { "gt.$it" },
+                "order" to "id.asc",
+                "limit" to limit.toString(),
+            ),
+            cacheMode = SupabaseCacheMode.NETWORK_ONLY,
+        )
+    }
+
     suspend fun getWalls(ids: Collection<String>? = null, limit: Int = 500): List<CommunityWall> = client.getList(
         "community_walls",
         mapOf(
@@ -114,6 +133,24 @@ class SupabaseCommunityApi(
             "limit" to limit.toString()
         )
     )
+
+    suspend fun getCompleteDirectoryProfiles(
+        pageSize: Int = DIRECTORY_PROFILE_PAGE_SIZE,
+    ): List<CommunityProfile> = loadCompleteKeyset(
+        pageSize = pageSize,
+        cursorOf = CommunityProfile::id,
+    ) { afterExclusive, limit ->
+        client.getList(
+            "community_profiles",
+            mapOf(
+                "select" to PROFILE_PUBLIC_SELECT,
+                "id" to afterExclusive?.let { "gt.$it" },
+                "order" to "id.asc",
+                "limit" to limit.toString(),
+            ),
+            cacheMode = SupabaseCacheMode.NETWORK_ONLY,
+        )
+    }
 
     fun observeProfilesBatched(
         ids: Collection<String>,
@@ -1230,6 +1267,8 @@ class SupabaseCommunityApi(
     private fun mapOfNotNull(vararg pairs: Pair<String, String?>): Map<String, String> = pairs.mapNotNull { (k, v) -> v?.let { k to it } }.toMap()
 
     private companion object {
+        const val DIRECTORY_PROFILE_PAGE_SIZE = 500
+        const val DIRECTORY_WALL_PAGE_SIZE = 250
         const val CommentPageSize = 500
         const val PROFILE_FOLLOW_PAGE_SIZE = 500
         const val PROFILE_ID_BATCH_SIZE = 100

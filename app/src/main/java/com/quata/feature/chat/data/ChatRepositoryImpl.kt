@@ -43,11 +43,12 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -97,6 +98,7 @@ class ChatRepositoryImpl(
     private val _pendingDeletedConversation = MutableStateFlow<Conversation?>(null)
     private val _isRealtimeOnline = MutableStateFlow(true)
     private val _syncStatus = MutableStateFlow(ChatSyncStatus.Refreshing)
+    private val communityDirectoryChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val appForegroundState = MutableStateFlow(false)
     private val deviceNetworkAvailable = MutableStateFlow(true)
     private var realtimeProfileId: String? = null
@@ -118,6 +120,7 @@ class ChatRepositoryImpl(
     private var cacheProfileId: String? = null
 
     override val activeConversationId: StateFlow<String?> = _activeConversationId.asStateFlow()
+    override fun observeCommunityDirectoryChanges(): Flow<Unit> = communityDirectoryChanges.asSharedFlow()
     override val isAppForeground: StateFlow<Boolean> = appForegroundState.asStateFlow()
     override val pendingDeletedConversation: StateFlow<Conversation?> = _pendingDeletedConversation.asStateFlow()
     override val isRealtimeOnline: StateFlow<Boolean> = _isRealtimeOnline.asStateFlow()
@@ -183,6 +186,8 @@ class ChatRepositoryImpl(
                 if (!isCurrentNetworkRecovery(recoveryGeneration)) return@launch
                 flushPendingMessages()
             }
+        } ?: run {
+            if (appForegroundState.value) connectDirectoryRealtime()
         }
     }
 
@@ -231,7 +236,12 @@ class ChatRepositoryImpl(
     }
 
     private suspend fun switchChatProfile(profileId: String?) {
-        if (cacheProfileId == profileId) return
+        if (cacheProfileId == profileId) {
+            if (profileId == null && appForegroundState.value && deviceNetworkAvailable.value) {
+                connectDirectoryRealtime()
+            }
+            return
+        }
         stopRealtime()
         cacheProfileId = profileId
         _activeConversationId.value = null
@@ -245,7 +255,10 @@ class ChatRepositoryImpl(
         lastFavoritesRefreshAtMillis = 0L
         favoritesPager.switchActor(profileId)
         notificationFactory.clearChatMessages()
-        if (profileId == null) return
+        if (profileId == null) {
+            if (appForegroundState.value && deviceNetworkAvailable.value) connectDirectoryRealtime()
+            return
+        }
         restoreCache(profileId)
         if (appForegroundState.value && deviceNetworkAvailable.value) {
             refreshAndConnectRealtime(profileId)
@@ -290,7 +303,7 @@ class ChatRepositoryImpl(
                         refreshMessages(conversationId, force = true)
                     }
                 }
-            }
+            } ?: connectDirectoryRealtime()
         } else {
             stopRealtime()
         }
@@ -1423,7 +1436,7 @@ class ChatRepositoryImpl(
         supabaseRealtimeClient.connect(
             accessToken = accessToken,
             presenceKey = session.userId,
-            tables = RealtimeTables,
+            tables = chatDatabaseRealtimeTables(hasAuthenticatedSession = true),
             onEvent = ::handleRealtimeEvent,
             onStatus = onStatus@ { status ->
                 when (status) {
@@ -1458,6 +1471,53 @@ class ChatRepositoryImpl(
         )
     }
 
+    private fun connectDirectoryRealtime() {
+        if (AppConfig.USE_MOCK_BACKEND) return
+        if (!appForegroundState.value || !deviceNetworkAvailable.value) return
+        if (activeDatabaseRealtimeSession() != null) return
+        if (realtimeProfileId == PublicDirectoryRealtimeProfileId &&
+            (isRealtimeConnecting || realtimeReadyProfileId == PublicDirectoryRealtimeProfileId)
+        ) return
+        reconnectJob?.cancel()
+        reconnectJob = null
+        realtimeTokenRefreshJob?.cancel()
+        realtimeTokenRefreshJob = null
+        isRealtimeConnecting = true
+        realtimeProfileId = PublicDirectoryRealtimeProfileId
+        realtimeAccessToken = null
+        realtimeReadyProfileId = null
+        supabaseRealtimeClient.connect(
+            accessToken = "",
+            presenceKey = PublicDirectoryRealtimeProfileId,
+            tables = chatDatabaseRealtimeTables(hasAuthenticatedSession = false),
+            onEvent = ::handleRealtimeEvent,
+            onStatus = onStatus@ { status ->
+                when (status) {
+                    RealtimeStatus.Connected, RealtimeStatus.Subscribed -> Unit
+                    RealtimeStatus.PostgresReady -> {
+                        isRealtimeConnecting = false
+                        activeDatabaseRealtimeSession()?.let { session ->
+                            stopRealtime()
+                            connectRealtime(session)
+                            return@onStatus
+                        }
+                        realtimeReadyProfileId = PublicDirectoryRealtimeProfileId
+                        reconnectAttempt = 0
+                    }
+                    RealtimeStatus.Closed, RealtimeStatus.Error -> {
+                        isRealtimeConnecting = false
+                        realtimeReadyProfileId = null
+                        scheduleReconnect()
+                    }
+                }
+            },
+            onFailure = {
+                isRealtimeConnecting = false
+                scheduleReconnect()
+            },
+        )
+    }
+
     private fun scheduleReconnect() {
         if (AppConfig.USE_MOCK_BACKEND) return
         if (!appForegroundState.value) return
@@ -1467,9 +1527,9 @@ class ChatRepositoryImpl(
             val baseDelay = (2_000L shl reconnectAttempt.coerceAtMost(5)).coerceAtMost(60_000L)
             reconnectAttempt = (reconnectAttempt + 1).coerceAtMost(6)
             delay(baseDelay + Random.nextLong(0L, 1_000L))
-            val session = sessionManager.currentSession() ?: return@launch
+            val session = sessionManager.currentSession()
             realtimeProfileId = null
-            refreshAndConnectRealtime(session.userId)
+            if (session == null) connectDirectoryRealtime() else refreshAndConnectRealtime(session.userId)
         }
     }
 
@@ -1509,16 +1569,27 @@ class ChatRepositoryImpl(
     private suspend fun refreshAndConnectRealtime(profileId: String) {
         if (AppConfig.USE_MOCK_BACKEND) return
         if (!deviceNetworkAvailable.value) return
-        remote.ensureFreshSession()
+        val refreshed = remote.ensureFreshSession()
         currentCoroutineContext().ensureActive()
         if (!deviceNetworkAvailable.value) return
+        val usableSession = (refreshed ?: sessionManager.currentSession())
+            ?.takeIf { it.userId == profileId && it.isSupabaseAuthenticated() && !it.shouldRefresh() }
+        if (usableSession == null) {
+            if (appForegroundState.value) connectDirectoryRealtime()
+            return
+        }
         refreshAll(profileId, force = true)
         currentCoroutineContext().ensureActive()
-        val freshSession = sessionManager.currentSession()?.takeIf { it.userId == profileId } ?: return
+        val freshSession = activeDatabaseRealtimeSession()?.takeIf { it.userId == profileId } ?: return
         if (appForegroundState.value && deviceNetworkAvailable.value) {
             connectRealtime(freshSession)
         }
     }
+
+    private fun activeDatabaseRealtimeSession(): AuthSession? =
+        sessionManager.currentSession()?.takeIf {
+            it.isSupabaseAuthenticated() && !it.shouldRefresh()
+        }
 
     private fun stopRealtime() {
         reconnectJob?.cancel()
@@ -1536,12 +1607,16 @@ class ChatRepositoryImpl(
 
     private fun handleRealtimeEvent(event: RealtimeRawEvent) {
         if (AppConfig.USE_MOCK_BACKEND) return
+        val table = event.table.orEmpty()
+        if (table in CommunityDirectoryRealtimeTables) {
+            communityDirectoryChanges.tryEmit(Unit)
+            return
+        }
         val session = sessionManager.currentSession() ?: return
         scope.launch {
             val active = _activeConversationId.value
             val threadId = event.record?.long("thread_id") ?: event.oldRecord?.long("thread_id")
             val conversationId = threadId?.let(::supabaseChatConversationId)
-            val table = event.table.orEmpty()
             Log.d(TAG, "Realtime event table=$table thread=$threadId active=$active")
             when (table) {
                 "chat_message_favorites" -> refreshFavorites(session.userId)
@@ -1853,6 +1928,7 @@ class ChatRepositoryImpl(
 
     private companion object {
         const val TAG = "QuataChat"
+        const val PublicDirectoryRealtimeProfileId = "community-directory-public"
         const val FULL_REFRESH_MIN_INTERVAL_MILLIS = 8_000L
         const val INBOX_PAGE_SIZE = 100
         const val FAVORITES_PAGE_SIZE = 250
@@ -1871,15 +1947,6 @@ class ChatRepositoryImpl(
         const val CHAT_FORWARD_FIXTURE_OPT_IN = "I_ACCEPT_ANDROID_CHAT_FORWARD_FAILURE_FIXTURE"
         const val CHAT_FORWARD_OPT_IN_KEY = "forwardFailure.optIn"
         const val CHAT_FORWARD_FAILURE_KEY = "forwardFailure.pending"
-        val RealtimeTables = listOf(
-            "chat_threads",
-            "chat_participants",
-            "chat_messages",
-            "chat_attachments",
-            "chat_message_favorites",
-            "chat_message_reads",
-            "chat_message_states"
-        )
     }
 
     private fun shouldFailAttachmentRegistrationForEvidence(): Boolean {
