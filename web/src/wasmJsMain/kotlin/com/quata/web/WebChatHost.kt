@@ -166,7 +166,7 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
-        onOpenAttachment = { file -> file.openWebAttachment(documentOpener) },
+        onOpenAttachment = { file -> file.openWebAttachmentWithEvidenceFailure(documentOpener) },
         onDownloadAttachment = { file -> file.downloadWebAttachment() },
         onShareAttachment = { file -> file.shareWebAttachment(shareService) },
         onOpenExternalLink = ::openWebExternalLink,
@@ -731,6 +731,37 @@ internal fun observeChatBrowserDocumentVisibility(onChanged: (Boolean) -> Unit):
     })()
     """,
 )
+
+private suspend fun PlatformFile.openWebAttachmentWithEvidenceFailure(
+    documentOpener: DocumentOpenService,
+): PlatformResult<Unit> {
+    if (consumeWebDocumentOpenFailure(reference, displayName.orEmpty(), mimeType.orEmpty())) {
+        return PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
+    }
+    return openWebAttachment(documentOpener)
+}
+
+@JsFun(
+    """(reference, name, mimeType) => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-chat-document-attachment-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.chat_document_attachment.e2e') === '1';
+      if (!local || !optedIn || globalThis.__QUATA_DOCUMENT_OPEN_EVIDENCE__ !== true) return false;
+      const identity = String(reference ?? '') + '\n' + String(name ?? '') + '\n' + String(mimeType ?? '');
+      const attempts = globalThis.__quataDocumentOpenEvidenceAttempts || [];
+      const forced = globalThis.__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ === true;
+      attempts.push(Object.freeze({ identity, name: String(name ?? ''), forced }));
+      globalThis.__quataDocumentOpenEvidenceAttempts = attempts;
+      if (forced) globalThis.__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ = false;
+      return forced;
+    }""",
+)
+private external fun consumeWebDocumentOpenFailure(
+    reference: String,
+    name: String,
+    mimeType: String,
+): Boolean
 
 private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService): PlatformResult<Unit> =
     when (DocumentSupport.describe(reference, displayName, mimeType).kind) {

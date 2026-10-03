@@ -104,33 +104,41 @@ class IosChatRuntimeBootstrap(
         },
         onOpenAvatar: (String) -> Unit,
         profileOpeningState: IosMemberProfileOpeningState,
-    ): IosChatHostDependencies = IosChatHostDependencies(
-        repository = repository(),
-        preferences = preferences,
-        audioPlayer = audioPlayer,
-        audioRecorder = audioRecorder,
-        filePicker = filePicker,
-        cameraCapture = cameraCapture,
-        contactPicker = contactPicker,
-        attachmentDownloader = attachmentDownloader,
-        shareService = shareService,
-        mediaViewerFactory = mediaViewerFactory,
-        audioSeekAccessibilityFactory = audioSeekAccessibilityFactory,
-        conversationId = conversationId,
-        focusedMessageId = focusedMessageId,
-        onFocusedMessageHandled = onFocusedMessageHandled,
-        languageTag = languageTag,
-        onOpenConversation = onOpenConversation,
-        onOpenMessageConversation = onOpenMessageConversation,
-        onBackToList = onBackToList,
-        onOpenAttachment = { attachment ->
-            attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
-        },
-        onOpenExternalLink = onOpenExternalLink,
-        onOpenMapLink = onOpenMapLink,
-        onOpenAvatar = onOpenAvatar,
-        profileOpeningState = profileOpeningState,
-    )
+    ): IosChatHostDependencies {
+        var documentOpenFailurePending = iosChatDocumentOpenFailureFixtureOptedIn()
+        return IosChatHostDependencies(
+            repository = repository(),
+            preferences = preferences,
+            audioPlayer = audioPlayer,
+            audioRecorder = audioRecorder,
+            filePicker = filePicker,
+            cameraCapture = cameraCapture,
+            contactPicker = contactPicker,
+            attachmentDownloader = attachmentDownloader,
+            shareService = shareService,
+            mediaViewerFactory = mediaViewerFactory,
+            audioSeekAccessibilityFactory = audioSeekAccessibilityFactory,
+            conversationId = conversationId,
+            focusedMessageId = focusedMessageId,
+            onFocusedMessageHandled = onFocusedMessageHandled,
+            languageTag = languageTag,
+            onOpenConversation = onOpenConversation,
+            onOpenMessageConversation = onOpenMessageConversation,
+            onBackToList = onBackToList,
+            onOpenAttachment = { attachment ->
+                if (documentOpenFailurePending) {
+                    documentOpenFailurePending = false
+                    PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
+                } else {
+                    attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
+                }
+            },
+            onOpenExternalLink = onOpenExternalLink,
+            onOpenMapLink = onOpenMapLink,
+            onOpenAvatar = onOpenAvatar,
+            profileOpeningState = profileOpeningState,
+        )
+    }
 }
 
 /** Swift-facing subscription; it adds no platform network monitor. */
@@ -202,6 +210,13 @@ private fun iosChatForwardFailureFixtureOptedIn(): Boolean {
     val environment = NSProcessInfo.processInfo.environment
     return environment["QUATA_IOS_CHAT_FORWARD_FAILURE_FIXTURE_OPT_IN"]?.toString() == "I_ACCEPT_IOS_CHAT_FORWARD_FAILURE_FIXTURE" &&
         environment["QUATA_IOS_CHAT_FORWARD_FORCE_FAILURE"]?.toString() == "1"
+}
+
+private fun iosChatDocumentOpenFailureFixtureOptedIn(): Boolean {
+    val environment = NSProcessInfo.processInfo.environment
+    return environment["QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN"]?.toString() ==
+        "I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE" &&
+        environment["QUATA_IOS_DOCUMENT_OPEN_FORCE_FAILURE"]?.toString() == "1"
 }
 
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */

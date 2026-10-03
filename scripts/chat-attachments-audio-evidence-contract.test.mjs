@@ -37,6 +37,7 @@ const [
   iosAttachmentPreviewService,
   iosDocumentOpenService,
   iosHost,
+  iosRuntimeBootstrap,
   iosAppDelegate,
   iosMediaContent,
   iosMediaBridge,
@@ -97,6 +98,7 @@ const [
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosDocumentOpenService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt"),
   source("iosApp/iosApp/QuataIosApp.swift"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatMediaContent.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
@@ -146,6 +148,25 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(commonDocumentStatus, /dismissButton = onRetry\?\.let/);
   assert.match(commonHost, /retryFileOrNull\(allowPlatformFallbackForUnsupportedFormat = true\)/);
   assert.match(commonHost, /\.let \{ file -> \{ openAttachment\(file\) \} \}/);
+  assert.match(webHost, /location\?\.hostname === 'localhost' \|\| location\?\.hostname === '127\.0\.0\.1'/);
+  assert.match(webHost, /__QUATA_DOCUMENT_OPEN_EVIDENCE__ !== true/);
+  assert.match(webHost, /__QUATA_DOCUMENT_OPEN_FORCE_FAILURE__ === true/);
+  assert.match(webHost, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
+  assert.match(androidHost, /I_ACCEPT_ANDROID_DOCUMENT_OPEN_FAILURE_FIXTURE/);
+  assert.match(androidHost, /documentOpen\.attemptCount/);
+  assert.match(androidHost, /documentOpen\.sameIdentity/);
+  assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
+  assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE/);
+  assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
+  assert.match(iosRuntimeBootstrap, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
+  assert.match(webRunner, /document_viewer_retry_changed_document_identity/);
+  assert.match(webRunner, /web_document_open_failure_retried_same_file_into_real_docmentis_viewer/);
+  assert.match(androidUiTest, /document-viewer-status-retry/);
+  assert.match(androidUiTest, /assertDocumentOpenEvidence\(attemptCount = 2, failurePending = false\)/);
+  assert.match(androidUiTest, /waitForAndroidDocumentReader\(documentName\)/);
+  assert.match(iosUiTest, /QUATA_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE_OPT_IN/);
+  assert.match(iosUiTest, /document-viewer-status-retry/);
+  assert.match(iosUiTest, /assertQuickLookPresented\(documentName: documentName, context: "Chat document attachment retry"/);
 });
 
 test("ChatViewModel owns observable UI state on the main dispatcher", () => {
@@ -1048,10 +1069,10 @@ test("iOS document attachment evidence observes real Quick Look presentation and
   assert.doesNotMatch(iosUiTest, /document-viewer-status-root"\)\.firstMatch\.waitForExistence\(timeout: 15\)/);
 });
 
-test("iOS document actions evidence is focal and observes both native activity sheets", () => {
+test("iOS document actions evidence is focal and observes retry, Quick Look, and both native activity sheets", () => {
   assert.match(iosRunner, /--document-actions-only/);
   assert.match(iosRunner, /single_real_chat_document_attachment_seeded/);
-  assert.match(iosRunner, /ios_xctest_document_download_and_share_native_sheets_verified/);
+  assert.match(iosRunner, /ios_xctest_document_failure_retry_quicklook_download_share_verified/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_DOCUMENT_ACTIONS_UI_E2E/);
   assert.match(iosWrapper, /testDocumentDownloadAndShareOpenNativeSheetAndReturn/);
   assert.match(iosUiTest, /func testDocumentDownloadAndShareOpenNativeSheetAndReturn\(\) throws/);

@@ -52,6 +52,7 @@ import com.quata.feature.chat.data.resolveForAction
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.Locale
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -115,7 +116,9 @@ fun AndroidChatProductScreen(
             onOpenConversation = onOpenConversation,
             onOpenMessageConversation = onOpenMessageConversation,
             onBackToList = onBack,
-            onOpenAttachment = { file -> documentOpenService.open(file) },
+            onOpenAttachment = { file ->
+                openAndroidChatDocumentWithEvidenceFailure(context, file, documentOpenService)
+            },
             onDownloadAttachment = { file ->
                 attachmentFileResolver.resolveForAction(file) { localFile ->
                     context.saveChatAttachmentToDownloads(localFile, attachmentFallbackName)
@@ -183,6 +186,35 @@ fun AndroidChatProductScreen(
             )
         }
     }
+}
+
+private const val AndroidDocumentOpenEvidencePreferences = "quata_chat_evidence"
+private const val AndroidDocumentOpenEvidenceOptIn = "I_ACCEPT_ANDROID_DOCUMENT_OPEN_FAILURE_FIXTURE"
+
+private suspend fun openAndroidChatDocumentWithEvidenceFailure(
+    context: Context,
+    file: PlatformFile,
+    documentOpenService: DocumentOpenService,
+): PlatformResult<Unit> {
+    val preferences = context.getSharedPreferences(AndroidDocumentOpenEvidencePreferences, Context.MODE_PRIVATE)
+    if (preferences.getString("documentOpen.optIn", null) != AndroidDocumentOpenEvidenceOptIn) {
+        return documentOpenService.open(file)
+    }
+    val identity = MessageDigest.getInstance("SHA-256")
+        .digest("${file.reference}\n${file.displayName.orEmpty()}\n${file.mimeType.orEmpty()}".toByteArray())
+        .joinToString(separator = "") { byte -> "%02x".format(byte) }
+    val firstIdentity = preferences.getString("documentOpen.firstIdentity", null)
+    val sameIdentity = preferences.getBoolean("documentOpen.sameIdentity", true) &&
+        (firstIdentity == null || firstIdentity == identity)
+    val failurePending = preferences.getBoolean("documentOpen.failurePending", false)
+    preferences.edit()
+        .putInt("documentOpen.attemptCount", preferences.getInt("documentOpen.attemptCount", 0) + 1)
+        .putString("documentOpen.firstIdentity", firstIdentity ?: identity)
+        .putBoolean("documentOpen.sameIdentity", sameIdentity)
+        .putBoolean("documentOpen.failurePending", false)
+        .commit()
+    if (failurePending) return PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
+    return documentOpenService.open(file)
 }
 
 private fun PlatformFile.toAttachmentPreview(fallbackName: String): AttachmentPreview = AttachmentPreview(

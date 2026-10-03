@@ -766,7 +766,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : attachmentsAudioOnly
       ? "ios_xctest_document_and_audio_attachment_chrome_verified"
       : documentActionsOnly
-      ? "ios_xctest_document_download_and_share_native_sheets_verified"
+      ? "ios_xctest_document_failure_retry_quicklook_download_share_verified"
       : composerEmojiOnly
       ? "ios_xctest_composer_emoji_link_marker_sent"
       : attachmentPickerOnly

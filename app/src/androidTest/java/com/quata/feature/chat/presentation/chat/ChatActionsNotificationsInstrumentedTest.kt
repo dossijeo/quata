@@ -1823,6 +1823,36 @@ class ChatActionsNotificationsInstrumentedTest {
         withShellLaunchedChat("$chatUrl?message=${Uri.encode(documentMessageId)}") {
             waitForMarker(documentProbe.take(28), "document attachment message")
             waitForDocumentAttachment(documentName, "document attachment actions", messageId = documentMessageId)
+            configureDocumentOpenFailure()
+            try {
+                clickVisibleDocumentAttachmentOpen(documentName)
+                assertTrue(
+                    "The forced recoverable document failure must open the shared status surface.",
+                    waitForDocumentViewerStatusRoot(10_000),
+                )
+                compose.onNodeWithTag("document-viewer-status-retry", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                compose.onNodeWithTag("document-viewer-status-close", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                assertDocumentOpenEvidence(attemptCount = 1, failurePending = false)
+                saveScreenshot("android-chat-document-retry-visible")
+                compose.onNodeWithTag("document-viewer-status-retry", useUnmergedTree = true)
+                    .performClick()
+                assertTrue(
+                    "Retry must pass through the real Android document reader for the same attachment.",
+                    waitForAndroidDocumentReader(documentName),
+                )
+                assertDocumentOpenEvidence(attemptCount = 2, failurePending = false)
+                saveScreenshot("android-chat-document-retry-reader")
+                device.pressBack()
+                if (!documentAttachmentVisible(documentName, timeoutMillis = 5_000, messageId = documentMessageId)) {
+                    launchChatWithAmStart("$chatUrl?message=${Uri.encode(documentMessageId)}")
+                }
+                waitForDocumentAttachment(documentName, "document attachment after retry reader back", messageId = documentMessageId)
+                saveScreenshot("android-chat-document-retry-return")
+            } finally {
+                clearDocumentOpenFailure()
+            }
             deleteOwnedDownload(documentName)
             try {
                 clickStableTag(ChatDocumentAttachmentDownloadTestTag)
@@ -1850,6 +1880,51 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForDocumentAttachment(documentName, "document attachment after share return", messageId = documentMessageId)
             saveScreenshot("android-chat-document-share-return")
         }
+    }
+
+    private fun configureDocumentOpenFailure() {
+        val committed = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+            .edit()
+            .putString("documentOpen.optIn", "I_ACCEPT_ANDROID_DOCUMENT_OPEN_FAILURE_FIXTURE")
+            .putBoolean("documentOpen.failurePending", true)
+            .putInt("documentOpen.attemptCount", 0)
+            .putBoolean("documentOpen.sameIdentity", true)
+            .remove("documentOpen.firstIdentity")
+            .commit()
+        assertTrue("The document open failure fixture must be committed before the first open.", committed)
+    }
+
+    private fun assertDocumentOpenEvidence(attemptCount: Int, failurePending: Boolean) {
+        val preferences = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+        assertEquals(
+            "The product document adapter must receive the expected number of attempts.",
+            attemptCount,
+            preferences.getInt("documentOpen.attemptCount", -1),
+        )
+        assertEquals(
+            "The one-shot document failure state must match the expected value.",
+            failurePending,
+            preferences.getBoolean("documentOpen.failurePending", true),
+        )
+        assertTrue(
+            "Retry must preserve the exact document identity seen by the Android adapter.",
+            preferences.getBoolean("documentOpen.sameIdentity", false),
+        )
+        assertTrue(
+            "The Android document adapter must record a non-empty hashed identity.",
+            !preferences.getString("documentOpen.firstIdentity", null).isNullOrBlank(),
+        )
+    }
+
+    private fun clearDocumentOpenFailure() {
+        targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+            .edit()
+            .remove("documentOpen.optIn")
+            .remove("documentOpen.failurePending")
+            .remove("documentOpen.attemptCount")
+            .remove("documentOpen.sameIdentity")
+            .remove("documentOpen.firstIdentity")
+            .commit()
     }
 
     private fun waitForOwnedDownload(name: String, timeoutMillis: Long = 15_000): Boolean {
