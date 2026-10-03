@@ -12,6 +12,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
+import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryFailure
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
 import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
@@ -77,7 +78,11 @@ class IosNeighborhoodsReadRepository(
     private val feedTransport = IosFeedReadTransport(feedConfiguration, authSession)
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
-        emit(loadCommunities())
+        try {
+            emit(loadCommunities())
+        } catch (error: IosNeighborhoodHttpException) {
+            throw neighborhoodDirectoryFailure(error.statusCode, error)
+        }
     }
 
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = runCatching {
@@ -494,12 +499,15 @@ private class IosNeighborhoodDataTaskDelegate(
         }
         val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
-            continuation.resumeWithException(IllegalStateException("ios_communities_http_${status ?: "unknown"}"))
+            continuation.resumeWithException(IosNeighborhoodHttpException(status))
             return
         }
         continuation.resume(chunks.toIosNeighborhoodData())
     }
 }
+
+private class IosNeighborhoodHttpException(val statusCode: Int?) :
+    IllegalStateException("ios_communities_http_${statusCode ?: "unknown"}")
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toIosNeighborhoodBytes(): ByteArray =

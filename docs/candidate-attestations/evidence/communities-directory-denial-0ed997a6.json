@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "unit": "SCR-COMMUNITIES",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-10-03",
+  "productSha": "0ed997a6c11d5fc027c482b9e72086bd6c336e41",
+  "git": {
+    "head": "0ed997a6c11d5fc027c482b9e72086bd6c336e41",
+    "workingTreeDirty": false
+  },
+  "scope": "Visible Communities directory authorization denial and explicit retry",
+  "steps": [
+    "directory_401_403_portable_mapping_contract_passed",
+    "non_authorization_transport_failures_preserved",
+    "communities_directory_denial_compose_ui_wasm_passed",
+    "communities_directory_retry_state_wasm_passed",
+    "android_debug_compilation_passed",
+    "web_wasm_compilation_passed",
+    "ios_x64_directory_denial_tests_passed",
+    "capability_matrix_contract_passed",
+    "fast_contract_suite_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "SupabaseApiException status mapping contract",
+        "shared Compose denial and retry surface",
+        "compileDebugKotlin"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "WebPostgrestReadException status mapping contract",
+        "NeighborhoodDirectoryDeniedUiTest on Wasm browser",
+        "NeighborhoodDirectoryFailureTest on Wasm browser",
+        "NeighborhoodsViewModel retry test on Wasm browser",
+        "compileKotlinWasmJs"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "typed HTTP status propagation compiled at exact Product SHA",
+        "NeighborhoodDirectoryDeniedUiTest on iosX64",
+        "NeighborhoodDirectoryFailureTest on iosX64",
+        "NeighborhoodsViewModel retry test on iosX64"
+      ]
+    }
+  },
+  "assertions": [
+    "Android, Web and iOS convert real directory HTTP 401 and 403 responses to one portable authorization failure.",
+    "Null, connectivity and non-authorization HTTP failures preserve their original transport cause.",
+    "The shared directory renders localized denial copy and a stable retry anchor instead of a transport key.",
+    "Retry stops the failed collection, starts one replacement collection and clears stale denial state before recovery emits.",
+    "The Compose UI test observes the denial message and dispatches exactly one retry on both Wasm and iOS x64.",
+    "No authentication requirement, RLS policy, backend data, signing configuration or product permission was changed."
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no remote fixture or backend mutation used"
+  },
+  "limitations": [
+    "The live Supabase policy intentionally keeps the public directory readable, so the deterministic focal proof injects the exact normalized 401/403 transport result rather than changing production RLS to manufacture a denial.",
+    "GitHub final jobs retain responsibility for clean-runner integrated certification. Pagination, realtime exhaustiveness and visual pixel parity remain separate Communities scopes."
+  ]
+}

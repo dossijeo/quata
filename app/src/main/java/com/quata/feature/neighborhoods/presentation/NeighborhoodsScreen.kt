@@ -164,6 +164,8 @@ fun NeighborhoodsScreen(
                 timeLabel = { communityTimeLabel(context, it) },
                 chatUnavailable = stringResource(R.string.neighborhoods_chat_unavailable),
                 chatErrorPrefix = stringResource(R.string.neighborhoods_chat_error_prefix),
+                directoryAccessDenied = stringResource(R.string.neighborhoods_directory_access_denied),
+                retry = stringResource(R.string.common_retry),
             ),
             members = NeighborhoodUsersStrings(
                 title = { name -> resources.getString(R.string.neighborhoods_users_title, name) },

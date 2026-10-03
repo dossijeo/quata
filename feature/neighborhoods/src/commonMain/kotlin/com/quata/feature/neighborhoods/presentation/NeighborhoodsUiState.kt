@@ -21,4 +21,6 @@ data class NeighborhoodsUiState(
     val selectedProfile: CommunityUserProfile? = null,
     val error: String? = null,
     val chatErrorNeighborhood: String? = null,
+    val directoryLoadFailed: Boolean = false,
+    val directoryAccessDenied: Boolean = false,
 )

@@ -21,6 +21,8 @@ fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsSc
                 timeLabel = { if (it == null) "Nuevo" else "Actividad reciente" },
                 chatUnavailable = "Esta comunidad todavía no tiene un chat activo.",
                 chatErrorPrefix = "No se pudo abrir el chat comunitario",
+                directoryAccessDenied = "No tienes permiso para consultar el directorio de comunidades.",
+                retry = "Reintentar",
             ),
             members = NeighborhoodUsersStrings(
                 title = { "Usuarios · $it" },
@@ -47,6 +49,8 @@ fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsSc
                 timeLabel = { if (it == null) "Nouveau" else "Activité récente" },
                 chatUnavailable = "Cette communauté n’a pas encore de chat actif.",
                 chatErrorPrefix = "Impossible d’ouvrir le chat communautaire",
+                directoryAccessDenied = "Vous n’avez pas l’autorisation de consulter l’annuaire des communautés.",
+                retry = "Réessayer",
             ),
             members = NeighborhoodUsersStrings(
                 title = { "Utilisateurs · $it" },
@@ -73,6 +77,8 @@ fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsSc
                 timeLabel = { if (it == null) "New" else "Recent activity" },
                 chatUnavailable = "This community does not have an active chat yet.",
                 chatErrorPrefix = "Could not open community chat",
+                directoryAccessDenied = "You do not have permission to view the communities directory.",
+                retry = "Retry",
             ),
             members = NeighborhoodUsersStrings(
                 title = { "Users · $it" },

@@ -465,6 +465,7 @@
     <string name="neighborhoods_open_chat">Abrir chat</string>
     <string name="neighborhoods_chat_unavailable">Esta comunidad todavía no tiene un chat activo.</string>
     <string name="neighborhoods_chat_error_prefix">No se pudo abrir el chat comunitario</string>
+    <string name="neighborhoods_directory_access_denied">No tienes permiso para consultar el directorio de comunidades.</string>
     <string name="neighborhood_chat_initial_message">Los chicos de %1$s ya están por aquí</string>
     <string name="neighborhoods_users_title">Usuarios · %1$s</string>
     <string name="neighborhoods_users_subtitle">Comunidad creada por usuarios de QUATA</string>
