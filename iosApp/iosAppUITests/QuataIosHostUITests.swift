@@ -1071,15 +1071,14 @@ final class QuataIosHostUITests: XCTestCase {
             openSos.waitForExistence(timeout: 15),
             "The production authenticated router must contain the real shared Profile surface.",
         )
-        // The shell-layout fixture exposes a full-frame, noninteractive accessibility marker
-        // above the embedded production surface. XCTest therefore reports the visible Compose
-        // button as non-hittable even though UIKit dispatches this point through the marker.
-        openSos.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(openSos.isHittable, "The real Profile SOS entry action must receive input through the evidence marker.")
+        openSos.tap()
 
         let search = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.search")
             .firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10))
+        XCTAssertTrue(search.isHittable, "The real Profile SOS search field must receive input through the evidence marker.")
         let searchMarker = "qa"
         search.tap()
         search.typeText(searchMarker)

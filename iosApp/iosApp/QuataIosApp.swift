@@ -2164,6 +2164,7 @@ private func makeShellLayoutFixtureViewController(
     marker.accessibilityLabel = "Quata iOS shell layout content frame: \(route)"
     marker.accessibilityValue = route
     marker.isAccessibilityElement = true
+    marker.isUserInteractionEnabled = false
     marker.text = "\(route) layout fixture"
     marker.alpha = 0.01
     controller.view.addSubview(marker)

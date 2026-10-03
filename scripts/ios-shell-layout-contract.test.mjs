@@ -171,6 +171,7 @@ test("layout frame markers are confined to the deterministic UI-test fixture", (
   assert.match(appHost, /primaryNavigationLayoutMarker/);
   assert.match(appHost, /quata-ios-authenticated-top-chrome-layout-frame/);
   assert.match(appHost, /quata-ios-authenticated-primary-navigation-layout-frame/);
+  assert.match(appHost, /marker\.isUserInteractionEnabled = false/);
   assert.match(appHost, /-quata-ui-test-shell-offline/);
   assert.match(appHost, /quata-ios-shell-layout-reconnect/);
   assert.match(appHost, /router\?\.updateNetworkAvailable\(true\)/);
