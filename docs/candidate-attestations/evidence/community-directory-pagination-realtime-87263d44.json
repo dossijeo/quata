@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "unit": "SCR-COMMUNITIES",
+  "check": "COMMUNITY_DIRECTORY_PAGINATION_REALTIME",
+  "productSha": "87263d44eb091b95f371ec12521a55eb73d5531f",
+  "git": {
+    "head": "87263d44eb091b95f371ec12521a55eb73d5531f",
+    "workingTreeDirty": false
+  },
+  "status": "passed-with-external-runtime-limitation",
+  "steps": [
+    "android_profiles_1205_keyset_pagination_passed",
+    "android_walls_601_keyset_pagination_passed",
+    "web_and_ios_complete_keyset_pagination_compiled",
+    "immediate_realtime_and_30_second_fallback_refresh_contract_passed",
+    "anonymous_realtime_excludes_community_message_bodies",
+    "authenticated_realtime_includes_community_message_invalidation",
+    "owned_fixture_insert_remove_passed",
+    "durable_fixture_journal_recovery_passed",
+    "owned_fixture_residue_zero",
+    "full_encrypted_database_backup_and_restore_drill_passed",
+    "production_publication_release_committed_and_reverified",
+    "supabase_realtime_http_402_recorded_before_session_or_mutation",
+    "capability_matrix_and_fast_contracts_passed"
+  ],
+  "pagination": {
+    "status": "passed",
+    "android": "1205 profiles in 500/500/205 pages and 601 walls in 250/250/101 pages",
+    "web": "keyset pagination by id until the partial final page",
+    "ios": "keyset pagination by id until the partial final page"
+  },
+  "refresh": {
+    "status": "passed",
+    "initialSnapshot": true,
+    "realtimeInvalidation": true,
+    "fallbackIntervalMillis": 30000,
+    "anonymousTables": [
+      "community_profiles",
+      "community_walls",
+      "community_members",
+      "community_posts"
+    ],
+    "authenticatedAdditionalTable": "community_messages",
+    "anonymousMessageBodySubscription": false
+  },
+  "databaseRelease": {
+    "status": "passed",
+    "migration": "20261003183000_community_directory_realtime.sql",
+    "migrationSha256": "80d9fe01055aa91e6cedd890ae412ff9dfca6281eb6c6adbe6e29dba84cc2224",
+    "productionApplyEvidenceSha256": "78d592d29960bf4d910a218c37e8530078025bdddb5fee3cc3c414e67ce3096d",
+    "fullEncryptedBackupCreated": true,
+    "backupRestoreDrill": "passed_profile_follow_scope_182_129",
+    "verifiedAfterReconnect": true,
+    "newPublicationColumnsSafe": true,
+    "newPublishedColumns": {
+      "community_profiles": ["id"],
+      "community_walls": ["id"],
+      "community_members": ["wall_id", "profile_id"],
+      "community_posts": ["id"]
+    }
+  },
+  "fixtureCustody": {
+    "status": "passed",
+    "ownedInsertRemove": true,
+    "durableJournalRecovery": true,
+    "foreignRowMutation": false,
+    "remainingOwnedRows": 0,
+    "remainingJournal": false
+  },
+  "externalRuntime": {
+    "status": "blocked",
+    "reason": "supabase_realtime_http_402_exceed_egress_quota",
+    "reportSha256": "4dc8ba2afac01e708b7c9d9cede4cfac63d320c40613879fb70c0f81dd24d6fa",
+    "realtimePreflightPassed": false,
+    "mutationStarted": false,
+    "sessionCreated": false,
+    "cleanupRequired": false,
+    "secretsPersisted": false
+  },
+  "validation": [
+    "git diff --check",
+    "node --test scripts/community-directory-realtime-contract.test.mjs",
+    "node scripts/capability-matrix-contract.mjs",
+    "npm run test:ci-fast-contracts (820 passed)",
+    "Gradle focal pagination, refresh, Android unit/compile, Web/Wasm browser/compile and iOS x64 compile",
+    "owned production fixture insert/remove and durable journal recovery",
+    "production publication audit and reconnect verification"
+  ],
+  "cleanup": {
+    "status": "completed",
+    "databaseFixtureResidue": 0,
+    "credentialMaterialRecorded": false
+  }
+}
