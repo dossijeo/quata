@@ -4,17 +4,17 @@
     "FLOW-IOS-LAYOUT"
   ],
   "status": "passed",
-  "productSha": "27b7e19c5c07a72f3e52aeb0f8f62f22ddaf87a4",
+  "productSha": "2221d66a1b46367d3349213cc5bf9ae950989edc",
   "certification": "exact-sha-simulator-signed-focal-xctest-passed-independent-rereview-go-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "27b7e19c5c07a72f3e52aeb0f8f62f22ddaf87a4",
-      "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-2426a740.json",
-      "reportSha256": "3236eeab64348061c6ea2b22380d048b42df0b0410ab8c63e8f4a41eabe80865",
+      "sha": "2221d66a1b46367d3349213cc5bf9ae950989edc",
+      "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-2221d66a.json",
+      "reportSha256": "b65c083508aeaa7381f4498f2cb025df9ac421c19f64decd7d99126ce9e52aff",
       "reportStatus": "passed",
-      "reportGitHead": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+      "reportGitHead": "2221d66a1b46367d3349213cc5bf9ae950989edc",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -55,7 +55,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "aa65ece8e234cc9860dd4effe058017142f871f7",
+    "reviewedSha": "2221d66a1b46367d3349213cc5bf9ae950989edc",
     "blockingFindings": []
   },
   "notes": [
@@ -73,6 +73,9 @@
     "Exact replays at 06dcf98c and 232cec17 separated marker occlusion from Compose semantics: the full route already completed, while temporary UIKit isHittable assertions deliberately kept those attempts red. The final fix places the real embedded surface above the noninteractive evidence marker and asserts the Compose input through real tap, typed value, keyboard focus and downstream behavior.",
     "Exact Product SHA 2426a740 passed the SimulatorSigned build and the bounded focal XCTest 1/1 with zero failures in 108.228 seconds. Five screenshots, the UI log and xcresult are retained on the Mac with hashes in the evidence report; no backend or remote state was mutated.",
     "Custody Product SHA 27b7e19c5 adds only the reviewed capability-matrix hashes and documentary evidence after execution SHA 2426a740; every runtime and test blob is byte-identical, while reportGitHead remains bound to the exact executed tree.",
-    "Independent custody rereview on aa65ece8e returned GO with no P0-P3 findings and reproduced 47/47 affected contracts, attestation validation and diff check on a clean tree."
+    "Independent custody rereview on aa65ece8e returned GO with no P0-P3 findings and reproduced 47/47 affected contracts, attestation validation and diff check on a clean tree.",
+    "GitHub final iOS run 37085115400 exposed a harness-only Compose hit-testing failure at head 4feae260: the visible Search TextView existed but XCTest tap() rejected isHittable before any keyboard assertion ran.",
+    "Exact Product SHA 2221d66a uses the observed center of the already identified Search element, requires hasKeyboardFocus on that same identifier, and writes through the focused control. The Mac SimulatorSigned focal rerun passed 1/1 with zero failures in 184.163 seconds and retained five fresh screenshots plus the xcresult; all downstream product assertions are unchanged.",
+    "Independent exact-delta rereview on 2221d66a returned GO with no P0-P3 findings and reproduced 8/8 shell-layout contracts plus diff check; it confirmed there is no repair tap after rotation or direct handler invocation."
   ]
 }
