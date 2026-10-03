@@ -55,11 +55,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "7def46002fea75399359125068fa8c12c971a38a",
-      "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-bd63e56c.json",
-      "reportSha256": "577c5fe3b5592fe8eab64c7c8a584f3ce8f8fd1f2d25d639a4c6871886d4b89b",
+      "sha": "c1c95002afc68ed0f7292a610a00d89a01ac67c4",
+      "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-c1c95002.json",
+      "reportSha256": "8021ff432d1dd0c9c43bcc81e8c561050972320b07ec85cac71f6854393f4b34",
       "reportStatus": "passed",
-      "reportGitHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "reportGitHead": "c1c95002afc68ed0f7292a610a00d89a01ac67c4",
       "reportWorkingTreeDirty": true,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -70,7 +70,8 @@
         "recoverable_document_open_failure_visible",
         "retry_opened_real_quick_look_for_the_same_document",
         "quick_look_closed_and_returned_to_the_same_attachment",
-        "ios_xctest_document_failure_retry_quicklook_return_verified"
+        "ios_xctest_document_failure_retry_quicklook_return_verified",
+        "local_fixture_file_absent_after_cleanup"
       ],
       "cleanup": {
         "verified": true,
@@ -85,15 +86,15 @@
     "./gradlew.bat :feature:chat:compileKotlinIosX64 --console=plain",
     "Android API 35 focal instrumentation: OK (1 test)",
     "Web/Wasm local document retry focal: PASS",
-    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
+    "QUATA_IOS_DERIVED_DATA_PATH=... QUATA_IOS_SIMULATOR_UDID=... bash scripts/run-ios-document-retry-local-ui-test.sh",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/flow-document-viewer-retry.json"
   ],
   "notes": [
-    "The shared document failure surface now distinguishes recoverable and terminal failures. Retry reuses the exact attachment identity and clears the failure surface only after the native viewer opens successfully.",
+    "The shared document failure surface distinguishes recoverable and terminal failures. Retry reuses the exact attachment identity and moves the shared surface to Opening immediately; a successful native open resolves it to Idle, while a failed retry returns to the appropriate failure state.",
     "Web/Wasm forces one local recoverable open failure, retries the same DOCX into the real DocMentis viewer, verifies download/share, closes the viewer and returns to the same attachment without authentication, backend mutation or remote storage.",
     "Android API 35 forces one local recoverable open failure, exposes Retry, opens the real document reader, returns to the same attachment and proves both its fixture preference and local file are absent after cleanup.",
-    "iOS SimulatorSigned forces one local recoverable open failure, exposes the common Retry action, opens Quick Look for quata-document-retry.rtf and returns to the same attachment. The one selected XCTest passed with three named screenshots and no backend configuration.",
-    "The iOS custody preserves three earlier failures: remote authentication was blocked by the external Supabase HTTP 402 egress quota; the first local bootstrap was unavailable; and the next local host did not arm the one-shot failure. The accepted bd63e56c run fixes each cause without hiding or relabelling those attempts.",
+    "iOS SimulatorSigned forces one local recoverable open failure, exposes the common Retry action, opens Quick Look for quata-document-retry.rtf, returns to the same attachment and removes the fixed local fixture through the bounded coordinator. The selected XCTest passed with three named screenshots and no backend configuration.",
+    "The iOS custody preserves the earlier remote HTTP 402, unavailable-bootstrap and unarmed-failure attempts, plus the clean XCFramework attempt that exposed direct Metal device discovery unsupported by the virtualized simulator. The accepted c1c95002 coordinator reuses the bd63e56c runtime artifact only after proving the executable source tree is identical outside documentation, evidence scripts and capability declarations.",
     "Web and Android ran on the pending runtime tree later captured exactly by 7569719fc866c323dadbb14ee0fb5e1351983f9c. The only production delta from that commit through bd63e56c is iOS-specific; their focal matrices were therefore retained instead of repeated solely for the SHA advance.",
     "Product SHA 7def46002fea75399359125068fa8c12c971a38a adds only the reviewed capability declarations for the already tested Web and iOS composition sources after the runtime evidence commit; it does not change executable behavior.",
     "This candidate removes the generic recoverable-open/retry limit for Chat document attachments. Unsupported formats, provider-specific behavior and real network failures remain separate boundaries and are not claimed by this hermetic failure injection.",

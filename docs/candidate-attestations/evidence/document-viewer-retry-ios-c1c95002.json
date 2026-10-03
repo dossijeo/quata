@@ -1,25 +1,28 @@
 {
-  "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-001",
+  "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-002",
   "status": "passed",
   "git": {
-    "head": "bd63e56c155936d4b10e9278f86453d85d00a554",
+    "head": "c1c95002afc68ed0f7292a610a00d89a01ac67c4",
     "workingTreeDirty": true
   },
   "steps": [
     "mac_checkout_sha_matches_local_candidate",
+    "runtime_source_tree_matches_tested_bd63e56c_artifact",
     "ios_x64_framework_and_simulator_signed_build_succeeded_on_mac",
     "immutable_local_document_message_rendered_without_auth_or_backend",
     "recoverable_document_open_failure_visible",
     "retry_opened_real_quick_look_for_the_same_document",
     "quick_look_closed_and_returned_to_the_same_attachment",
-    "ios_xctest_document_failure_retry_quicklook_return_verified"
+    "ios_xctest_document_failure_retry_quicklook_return_verified",
+    "local_fixture_file_absent_after_cleanup"
   ],
   "cleanup": {
     "state": "completed",
     "hardCleanup": {
       "residueCounts": {
         "backend_mutations": 0,
-        "remote_storage_objects": 0
+        "remote_storage_objects": 0,
+        "local_fixture_files": 0
       }
     }
   },
@@ -28,17 +31,19 @@
     "backend": "not_used",
     "simulator": "iPhone 16, iOS 18.3.1, x86_64",
     "xctest": "testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
-    "result": "1 passed, 0 failed, 0 skipped"
+    "result": "1 passed, 0 failed, 0 skipped in 38.894 seconds"
   },
   "custody": {
-    "macProject": "/Users/gabriel/StudioProjects/quata-doc-retry-0507d0b2",
-    "workingTreeDirtyReason": "The only untracked path was the locally generated iosApp/QuataIos.xcodeproj used by Xcode; tracked source matched the recorded commit.",
-    "testLogSha256": "e4e9ec8c98328d855fffca57324865bc6aa2543edce7d358e8e8074b3030e9fe",
+    "workingTreeDirtyReason": "Only generated, untracked build products remained; tracked source matched the recorded coordinator commit.",
+    "testLogSha256": "28cd55317afe5c800eb7d5d3681262a27129e3803813959fdf80368375a00b73",
     "screenshotsSha256": {
-      "failure": "9eed247f24960255a51e8b1ccd82280b3583f0814505fc91749aca405b3fe985",
-      "quickLook": "81502b330140e3484dd7d27d029c6a6c55d5183b4dfe09bee2c338a4c3794ce5",
-      "return": "8d3eb09801b6bafa7d55b6a1f64e41f8436efa86383bd98b461146284f303272"
-    }
+      "failure": "c33fdd15196ec648e6725b3a3d73cc7e94b0ddb5b1ed17d587dde7e3ecd6cf25",
+      "quickLook": "afa9b7bdc1371f7474f1e309816b5eccec109d30c5e87fb9add3f6954e8190e2",
+      "return": "ee8f38cbd92aa8fff4cd2f9ebac2c1a2ae730902dc22c817cb8a54a11f6afcb1"
+    },
+    "runtimeArtifactHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
+    "runtimeSourceDiff": "zero outside documentation, evidence scripts and capability declarations",
+    "cleanupLogSha256": "b549d6936e276f063fa7c33ea33dc836ec098c73f056a366c82fe476b82c4a79"
   },
   "priorAttempts": [
     {
@@ -57,6 +62,11 @@
       "status": "failed_assertion",
       "reason": "The local host appeared but the one-shot recoverable failure was not armed, so Retry never appeared.",
       "videoSha256": "ad97945cebc85eeb0fc73785c404009dc87dd0693ed0becb4abe73c40433d1ba"
+    },
+    {
+      "head": "c66863f2e816985032b06979fa44493a0a8f7eac",
+      "status": "failed_before_interaction",
+      "reason": "A clean x86_64 XCFramework linked direct Metal device discovery; the virtualized Simulator returned no Metal device. The production runtime change was reverted and cleanup moved to the hermetic coordinator."
     }
   ]
 }

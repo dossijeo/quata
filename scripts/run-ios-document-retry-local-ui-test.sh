@@ -57,9 +57,13 @@ with open(path, "wb") as destination:
 PY
 
 cleanup_fixture() {
-  local container fixture
+  local require_container="${1:-1}" container fixture
   xcrun simctl terminate "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios >/dev/null 2>&1 || true
-  container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+  if ! container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data 2>/dev/null)"; then
+    [[ "$require_container" == "0" ]] && return 0
+    echo "iOS document retry app container missing after XCTest" >&2
+    return 1
+  fi
   case "$container" in
     "$HOME/Library/Developer/CoreSimulator/Devices/$QUATA_IOS_SIMULATOR_UDID/data/Containers/Data/Application/"*) ;;
     *) echo "Refusing unexpected Simulator data container" >&2; return 1 ;;
@@ -76,7 +80,8 @@ cleanup_fixture() {
 }
 
 # Remove residue from an interrupted prior run before creating this run's one fixed fixture.
-cleanup_fixture
+trap 'cleanup_fixture 0 || true' EXIT
+cleanup_fixture 0
 
 result_args=()
 if [[ -n "$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE" ]]; then
@@ -97,7 +102,8 @@ set -e
 cat "$log"
 
 # Cleanup is part of the gate and runs before interpreting XCTest's terminal result.
-cleanup_fixture
+cleanup_fixture 1
+trap - EXIT
 /usr/bin/python3 scripts/check-ios-xctest-executed.py \
   --method "$method" --log "$log" --require-terminal-success-marker
 [[ "$xcode_status" -eq 0 ]] || exit "$xcode_status"

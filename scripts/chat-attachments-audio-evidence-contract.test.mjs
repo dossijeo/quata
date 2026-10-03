@@ -228,7 +228,7 @@ test("the hermetic iOS document retry coordinator removes only its fixed fixture
   assert.match(runner, /get_app_container "\$QUATA_IOS_SIMULATOR_UDID" com\.quata\.ios data/);
   assert.match(runner, /fixture="\$container\/tmp\/quata-document-retry\.rtf"/);
   assert.match(runner, /local_fixture_file_absent=true/);
-  assert.match(runner, /cleanup_fixture\n\/usr\/bin\/python3 scripts\/check-ios-xctest-executed\.py/);
+  assert.match(runner, /cleanup_fixture 1\ntrap - EXIT\n\/usr\/bin\/python3 scripts\/check-ios-xctest-executed\.py/);
 });
 
 test("ChatViewModel owns observable UI state on the main dispatcher", () => {
