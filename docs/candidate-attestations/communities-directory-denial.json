@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-COMMUNITIES"
+  ],
+  "status": "passed",
+  "productSha": "c68857369742426728e13a846ecd74da250e7b85",
+  "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
+  "evidenceKind": "COMMUNITIES_DIRECTORY_AUTHORIZATION_DENIAL",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "c68857369742426728e13a846ecd74da250e7b85",
+      "report": "docs/candidate-attestations/evidence/communities-directory-denial-0ed997a6.json",
+      "reportSha256": "fa5fa85633edfb13084c4f2bda8ea6ed3ec14c19d23ab0a9b54cedeee9dda722",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "0ed997a6c11d5fc027c482b9e72086bd6c336e41",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "directory_401_403_portable_mapping_contract_passed",
+        "non_authorization_transport_failures_preserved",
+        "communities_directory_denial_compose_ui_wasm_passed",
+        "communities_directory_retry_state_wasm_passed",
+        "android_debug_compilation_passed",
+        "web_wasm_compilation_passed",
+        "ios_x64_directory_denial_tests_passed",
+        "capability_matrix_contract_passed",
+        "fast_contract_suite_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-remote-fixture-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/communities-directory-denial-contract.test.mjs",
+    "node scripts/capability-matrix-contract.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.domain.NeighborhoodDirectoryFailureTest --tests com.quata.feature.neighborhoods.presentation.NeighborhoodDirectoryDeniedUiTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.directory authorization failure is explicit and one retry can recover\" :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon --console=plain",
+    "macOS exact Product SHA: bash gradlew :feature:neighborhoods:iosX64Test --tests com.quata.feature.neighborhoods.domain.NeighborhoodDirectoryFailureTest --tests com.quata.feature.neighborhoods.presentation.NeighborhoodDirectoryDeniedUiTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.directory authorization failure is explicit and one retry can recover\" --no-daemon --console=plain"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "f3dcd7f4d87341b6867b7a8d14ceaa1a0601863d",
+    "reviewedProductSha": "f3dcd7f4d87341b6867b7a8d14ceaa1a0601863d",
+    "blockingFindings": []
+  },
+  "notes": [
+    "This focal reduction closes only the previously documented Communities directory authorization-denial boundary: real platform transports preserve HTTP status, 401/403 become one portable failure, the shared surface shows localized copy and one explicit retry.",
+    "The executable Compose proof runs against the same common UI on Wasm and iOS x64. Android compiles the same common UI with its resource adapter and its Supabase status mapping; no platform-specific replacement UI was introduced.",
+    "The production directory remains anonymous-readable. No RLS or backend mutation was introduced merely to manufacture a remote denial; the exact 401/403 boundary is exercised deterministically before the shared UI test.",
+    "This candidate does not claim exhaustive directory pagination/realtime behavior or visual pixel parity, and does not broaden SCR-COMMUNITIES into dependent Chat or public-profile scopes.",
+    "Product SHA c6885736 advances runtime SHA f3dcd7f4 only by the source-of-truth inventory update; their executable tree is identical. The post-#534 rebase is tree-identical at every boundary: 0ed997a6=f3dcd7f4, 8d38a52c=c6885736 and 563b0264=2d93bde3, so only affected documentation gates are renewed."
+  ]
+}
