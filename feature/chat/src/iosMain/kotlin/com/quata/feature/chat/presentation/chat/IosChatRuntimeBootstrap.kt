@@ -111,7 +111,11 @@ class IosChatRuntimeBootstrap(
         onOpenAvatar: (String) -> Unit,
         profileOpeningState: IosMemberProfileOpeningState,
     ): IosChatHostDependencies {
-        var documentOpenFailurePending = iosChatDocumentOpenFailureFixtureOptedIn()
+        // The exact local retry composition owns one deterministic recoverable failure. Keeping
+        // that behavior with the immutable local repository avoids a second environment read
+        // deciding whether the purpose-built no-backend fixture actually exercises Retry.
+        var documentOpenFailurePending = localDocumentRetryFixture != null ||
+            iosChatDocumentOpenFailureFixtureOptedIn()
         return IosChatHostDependencies(
             repository = repository(),
             preferences = preferences,

@@ -167,7 +167,7 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_state_commit_failed"\)/);
   assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
   assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE/);
-  assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
+  assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = localDocumentRetryFixture != null \|\|\s*iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
   assert.match(iosRuntimeBootstrap, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
   assert.match(webRunner, /document_viewer_retry_changed_document_identity/);
   assert.match(webRunner, /assertVisibleTagOrText\([\s\S]{0,220}"document-viewer-status-retry"/);
