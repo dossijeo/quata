@@ -2174,7 +2174,7 @@ private func makeShellLayoutFixtureViewController(
         embeddedController.view.frame = controller.view.bounds
         embeddedController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         embeddedController.view.isAccessibilityElement = false
-        controller.view.insertSubview(embeddedController.view, belowSubview: marker)
+        controller.view.insertSubview(embeddedController.view, aboveSubview: marker)
         embeddedController.didMove(toParent: controller)
     }
 

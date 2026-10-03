@@ -51,6 +51,7 @@ test("the authenticated shell keeps a real shared Profile draft above its global
   assert.match(uiTest, /keyboardBackdropFrame\(from: backdrop/);
   assert.match(uiTest, /ios-profile-sos-global-keyboard-(?:portrait|landscape|restored-portrait)/);
   assert.match(appHost, /embeddedController: IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController/);
+  assert.match(appHost, /insertSubview\(embeddedController\.view, aboveSubview: marker\)/);
   assert.match(appHost, /-quata-ui-test-expose-keyboard-backdrop/);
   assert.match(appHost, /controller\.backdropView\.isAccessibilityElement = true/);
   assert.match(appHost, /backdropView\.accessibilityValue = \[overlap\.minX, overlap\.minY, overlap\.width, overlap\.height\]/);
