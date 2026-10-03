@@ -21,3 +21,11 @@ interface NeighborhoodRepository {
     fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>>
     suspend fun getUserProfile(userId: String): Result<CommunityUserProfile>
 }
+
+/** A public directory read was rejected by the backend authorization boundary. */
+class NeighborhoodDirectoryAccessDeniedException(cause: Throwable? = null) :
+    IllegalStateException("neighborhood_directory_access_denied", cause)
+
+/** Preserves all non-authorization failures while normalizing 401/403 across platform transports. */
+fun neighborhoodDirectoryFailure(statusCode: Int?, cause: Throwable): Throwable =
+    if (statusCode == 401 || statusCode == 403) NeighborhoodDirectoryAccessDeniedException(cause) else cause

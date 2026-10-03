@@ -11,6 +11,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
+import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryFailure
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.data.loadCompleteKeyset
@@ -56,7 +57,11 @@ class WebNeighborhoodsRepository(
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
         while (currentCoroutineContext().isActive) {
-            emit(loadCommunities())
+            try {
+                emit(loadCommunities())
+            } catch (error: WebPostgrestReadException) {
+                throw neighborhoodDirectoryFailure(error.failure.statusCode, error)
+            }
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
         }
     }

@@ -4,6 +4,7 @@ import com.quata.core.common.AppDispatchers
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
+import com.quata.feature.neighborhoods.domain.NeighborhoodDirectoryAccessDeniedException
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.core.model.Post
@@ -38,19 +39,28 @@ class NeighborhoodsViewModel(
     override fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
         communitiesJob = scope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                directoryLoadFailed = false,
+                directoryAccessDenied = false,
+            )
             repository.observeCommunities()
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "No se pudieron cargar las comunidades"
+                        error = error.message ?: "No se pudieron cargar las comunidades",
+                        directoryLoadFailed = true,
+                        directoryAccessDenied = error is NeighborhoodDirectoryAccessDeniedException,
                     )
                 }
                 .collect { communities ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         communities = communities,
-                        error = null
+                        error = null,
+                        directoryLoadFailed = false,
+                        directoryAccessDenied = false,
                     )
                 }
         }

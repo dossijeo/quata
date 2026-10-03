@@ -60,6 +60,8 @@ data class NeighborhoodListStrings(
     val timeLabel: (Long?) -> String,
     val chatUnavailable: String = "Community chat is not available yet.",
     val chatErrorPrefix: String = "Could not open community chat",
+    val directoryAccessDenied: String = "The communities directory could not be accessed.",
+    val retry: String = "Retry",
 )
 
 const val NeighborhoodDirectoryRootTestTag = "neighborhood.directory.root"
@@ -67,6 +69,7 @@ const val NeighborhoodDirectorySearchTestTag = "neighborhood.directory.search"
 const val NeighborhoodDirectoryLoadingTestTag = "neighborhood.directory.loading"
 const val NeighborhoodDirectoryEmptyTestTag = "neighborhood.directory.empty"
 const val NeighborhoodDirectoryErrorTestTag = "neighborhood.directory.error"
+const val NeighborhoodDirectoryRetryTestTag = "neighborhood.directory.retry"
 
 fun neighborhoodMembersButtonTestTag(communityName: String): String =
     "neighborhood.members.${communityName.toNeighborhoodTestTagSuffix()}"
@@ -93,11 +96,14 @@ fun NeighborhoodListContent(
     query: String,
     isLoading: Boolean,
     error: String?,
+    directoryLoadFailed: Boolean,
+    directoryAccessDenied: Boolean,
     currentUserId: String?,
     openingNeighborhood: String?,
     chatErrorNeighborhood: String?,
     strings: NeighborhoodListStrings,
     onQueryChange: (String) -> Unit,
+    onRetry: () -> Unit,
     onShowUsers: (NeighborhoodCommunity) -> Unit,
     onOpenChat: (NeighborhoodCommunity) -> Unit
 ) {
@@ -127,7 +133,8 @@ fun NeighborhoodListContent(
                     .semantics { contentDescription = NeighborhoodDirectorySearchTestTag }
             )
             Spacer(Modifier.height(18.dp))
-            error?.let {
+            val visibleError = if (directoryAccessDenied) strings.directoryAccessDenied else error
+            visibleError?.let {
                 Text(
                     it,
                     color = MaterialTheme.colorScheme.error,
@@ -136,6 +143,17 @@ fun NeighborhoodListContent(
                         .testTag(NeighborhoodDirectoryErrorTestTag)
                         .semantics { contentDescription = NeighborhoodDirectoryErrorTestTag },
                 )
+                if (directoryLoadFailed) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onRetry,
+                        modifier = Modifier
+                            .testTag(NeighborhoodDirectoryRetryTestTag)
+                            .semantics { contentDescription = NeighborhoodDirectoryRetryTestTag },
+                    ) {
+                        Text(strings.retry)
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
             }
             if (isLoading && communities.isEmpty()) {
@@ -148,7 +166,7 @@ fun NeighborhoodListContent(
                 ) {
                     Text(strings.loading, color = template.colors.textSecondary, fontWeight = FontWeight.SemiBold)
                 }
-            } else if (visibleCommunities.isEmpty() && error == null) {
+            } else if (visibleCommunities.isEmpty() && visibleError == null) {
                 Box(
                     Modifier
                         .fillMaxSize()

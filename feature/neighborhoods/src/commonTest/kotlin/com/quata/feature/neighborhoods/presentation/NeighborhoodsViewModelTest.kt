@@ -7,6 +7,7 @@ import com.quata.core.model.User
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
+import com.quata.feature.neighborhoods.domain.NeighborhoodDirectoryAccessDeniedException
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import kotlinx.coroutines.CompletableDeferred
@@ -80,6 +81,51 @@ class NeighborhoodsViewModelTest {
         assertFalse(model.uiState.value.isLoading)
         assertTrue(model.uiState.value.communities.isEmpty())
         assertEquals("offline", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `directory authorization failure is explicit and one retry can recover`() = runTest {
+        val recovered = NeighborhoodCommunity(
+            name = "Barrio",
+            users = emptyList(),
+            conversationId = null,
+            lastMessagePreview = null,
+            lastMessageAtMillis = null,
+            messageCount = 0,
+        )
+        val repository = FakeNeighborhoodRepository().apply {
+            communitiesFlow = flow { throw NeighborhoodDirectoryAccessDeniedException() }
+        }
+        val model = model(repository)
+
+        model.startObservingCommunities()
+        advanceUntilIdle()
+
+        assertTrue(model.uiState.value.directoryLoadFailed)
+        assertTrue(model.uiState.value.directoryAccessDenied)
+        assertEquals("neighborhood_directory_access_denied", model.uiState.value.error)
+
+        val retryRelease = CompletableDeferred<Unit>()
+        repository.communitiesFlow = flow {
+            retryRelease.await()
+            emit(listOf(recovered))
+        }
+        model.retryCommunities()
+        runCurrent()
+
+        assertTrue(model.uiState.value.isLoading)
+        assertFalse(model.uiState.value.directoryLoadFailed)
+        assertFalse(model.uiState.value.directoryAccessDenied)
+        assertEquals(null, model.uiState.value.error)
+
+        retryRelease.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf(recovered), model.uiState.value.communities)
+        assertFalse(model.uiState.value.directoryLoadFailed)
+        assertFalse(model.uiState.value.directoryAccessDenied)
+        assertEquals(null, model.uiState.value.error)
         model.close()
     }
 

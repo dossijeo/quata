@@ -20,6 +20,7 @@ import com.quata.data.supabase.CommunityPostLike
 import com.quata.data.supabase.CommunityProfile
 import com.quata.data.supabase.CommunityProfileFollow
 import com.quata.data.supabase.CommunityWallStats
+import com.quata.data.supabase.SupabaseApiException
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.feature.chat.data.wallConversationId
 import com.quata.feature.chat.domain.ChatRepository
@@ -33,6 +34,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
+import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryFailure
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -104,6 +106,9 @@ class NeighborhoodRepositoryImpl(
                     compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
                         .thenBy { it.name.lowercase() }
                 )
+            }.catch { error ->
+                val statusCode = (error as? SupabaseApiException)?.statusCode
+                throw neighborhoodDirectoryFailure(statusCode, error)
             }
             combine(communitiesFlow, chatRepository.observeConversations()) { communities, conversations ->
                 communities.map { community ->

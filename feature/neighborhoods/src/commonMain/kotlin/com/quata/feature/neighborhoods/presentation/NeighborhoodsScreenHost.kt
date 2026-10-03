@@ -29,6 +29,10 @@ interface NeighborhoodsScreenModel {
 
     fun startObservingCommunities()
     fun stopObservingCommunities()
+    fun retryCommunities() {
+        stopObservingCommunities()
+        startObservingCommunities()
+    }
     fun openChat(neighborhood: String, onOpened: (String) -> Unit)
     fun toggleFollowUser(userId: String)
     fun ensureFollowUserState(userId: String, desiredState: Boolean)
@@ -199,11 +203,14 @@ fun NeighborhoodsScreenHost(
             query = query,
             isLoading = state.isLoading,
             error = state.error,
+            directoryLoadFailed = state.directoryLoadFailed,
+            directoryAccessDenied = state.directoryAccessDenied,
             currentUserId = currentUserId,
             openingNeighborhood = state.openingChatNeighborhood,
             chatErrorNeighborhood = state.chatErrorNeighborhood,
             strings = strings.list,
             onQueryChange = { query = it },
+            onRetry = viewModel::retryCommunities,
             onShowUsers = { selectedCommunity = it.name },
             onOpenChat = { community ->
                 if (canPerformNeighborhoodPrivateAction(currentUserId)) {
