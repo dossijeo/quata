@@ -74,6 +74,7 @@ class IosChatRealtimeGateway(
     private var typingReconnect: Job? = null
     private var reachabilityPolling: Job? = null
     private var databaseChannel: IosChatPhoenixChannel? = null
+    private var databaseChannelSessionUserId: String? = null
     private var typingChannel: IosChatPhoenixChannel? = null
     private var typingChannelSession: AuthSession? = null
     private var typingSubscribed = false
@@ -90,12 +91,13 @@ class IosChatRealtimeGateway(
             while (!closed) {
                 delay(ReachabilityPollMillis)
                 reachabilityHost?.let(::iosChatNetworkAvailable)?.let(::setNetworkAvailable)
+                reconcile()
             }
         }
     }
 
     override fun setForeground(isForeground: Boolean) {
-        if (closed || foreground == isForeground) return
+        if (closed) return
         foreground = isForeground
         reconcile()
     }
@@ -139,25 +141,37 @@ class IosChatRealtimeGateway(
     }
 
     private fun reconcile() {
-        if (!shouldConnect()) {
+        if (!shouldConnectDatabase()) {
             disconnectDatabase()
-            disconnectTyping()
-            return
+        } else {
+            val restoredSession = authSession.restoredSession()?.takeUnless { it.shouldRefresh() }
+            if (databaseChannel != null && databaseChannelSessionUserId != restoredSession?.userId) {
+                disconnectDatabase()
+            }
+            if (databaseChannel == null) scope.launch { connectDatabase(authSession.currentSession()) }
         }
-        if (databaseChannel == null) scope.launch { connectDatabase(authSession.currentSession()) }
+        if (!shouldConnectTyping()) {
+            disconnectTyping()
+        }
         reconcileTyping()
     }
 
     private fun reconcileTyping() {
         val conversationId = visibleConversationId
-        if (!shouldConnect() || conversationId == null) {
+        if (!shouldConnectTyping() || conversationId == null) {
             disconnectTyping()
         } else if (typingChannel == null) {
             scope.launch { connectTyping(authSession.currentSession(), conversationId) }
         }
     }
 
-    private fun shouldConnect(): Boolean = shouldConnectChatRealtime(
+    private fun shouldConnectDatabase(): Boolean = shouldConnectCommunityDirectoryRealtime(
+        foreground = foreground,
+        networkAvailable = networkAvailable,
+        closed = closed,
+    )
+
+    private fun shouldConnectTyping(): Boolean = shouldConnectChatRealtime(
         foreground = foreground,
         networkAvailable = networkAvailable,
         hasAuthenticatedSession = authSession.restoredSession() != null,
@@ -166,17 +180,18 @@ class IosChatRealtimeGateway(
 
     private fun connectDatabase(session: AuthSession?) {
         val freshSession = session?.takeUnless { it.shouldRefresh() }
-        if (freshSession == null || !shouldConnect() || databaseChannel != null) return
+        if (!shouldConnectDatabase() || databaseChannel != null) return
+        val subscribedTables = chatDatabaseRealtimeTables(freshSession != null)
         lateinit var channel: IosChatPhoenixChannel
         channel = IosChatPhoenixChannel(
             configuration = configuration,
             session = freshSession,
             topic = ChatRealtimePostgresTopic,
-            tables = ChatRealtimeTables,
+            tables = subscribedTables,
             onSubscribed = {},
             onReady = {
                 scope.launch {
-                    if (databaseChannel === channel && sessionStillCurrent(freshSession)) {
+                    if (databaseChannel === channel && databaseSessionStillCurrent(freshSession)) {
                         databaseAttempt = 0
                         online.value = true
                     } else if (databaseChannel === channel) {
@@ -187,7 +202,7 @@ class IosChatRealtimeGateway(
             },
             onEvent = { event, payload ->
                 scope.launch {
-                    if (databaseChannel === channel && !sessionStillCurrent(freshSession)) {
+                    if (databaseChannel === channel && !databaseSessionStillCurrent(freshSession)) {
                         disconnectDatabase()
                         reconcile()
                     } else if (databaseChannel === channel) parseChatRealtimeChange(event, payload)?.let {
@@ -200,19 +215,21 @@ class IosChatRealtimeGateway(
                 scope.launch {
                     if (databaseChannel === channel) {
                         databaseChannel = null
+                        databaseChannelSessionUserId = null
                         online.value = false
                         scheduleDatabaseReconnect()
                     }
                 }
             },
         )
+        databaseChannelSessionUserId = freshSession?.userId
         databaseChannel = channel
         channel.connect()
     }
 
     private fun connectTyping(session: AuthSession?, conversationId: String) {
         val freshSession = session?.takeUnless { it.shouldRefresh() }
-        if (freshSession == null || !shouldConnect() || visibleConversationId != conversationId || typingChannel != null) return
+        if (freshSession == null || !shouldConnectTyping() || visibleConversationId != conversationId || typingChannel != null) return
         lateinit var channel: IosChatPhoenixChannel
         channel = IosChatPhoenixChannel(
             configuration = configuration,
@@ -332,6 +349,7 @@ class IosChatRealtimeGateway(
     private fun disconnectDatabase() {
         databaseReconnect?.cancel(); databaseReconnect = null
         val channel = databaseChannel; databaseChannel = null
+        databaseChannelSessionUserId = null
         channel?.close()
         online.value = false
     }
@@ -346,7 +364,7 @@ class IosChatRealtimeGateway(
     }
 
     private fun scheduleDatabaseReconnect() {
-        if (!shouldConnect() || databaseReconnect?.isActive == true) return
+        if (!shouldConnectDatabase() || databaseReconnect?.isActive == true) return
         databaseReconnect = scope.launch {
             delay(chatRealtimeReconnectDelayMillis(databaseAttempt))
             databaseAttempt = (databaseAttempt + 1).coerceAtMost(6)
@@ -355,7 +373,7 @@ class IosChatRealtimeGateway(
     }
 
     private fun scheduleTypingReconnect() {
-        if (!shouldConnect() || visibleConversationId == null || typingReconnect?.isActive == true) return
+        if (!shouldConnectTyping() || visibleConversationId == null || typingReconnect?.isActive == true) return
         typingReconnect = scope.launch {
             delay(chatRealtimeReconnectDelayMillis(typingAttempt))
             typingAttempt = (typingAttempt + 1).coerceAtMost(6)
@@ -368,6 +386,13 @@ class IosChatRealtimeGateway(
             !it.shouldRefresh() && it.userId == channelSession.userId && it.bearerToken == channelSession.bearerToken
         } == true
 
+    private fun databaseSessionStillCurrent(channelSession: AuthSession?): Boolean =
+        if (channelSession == null) {
+            authSession.restoredSession()?.takeUnless { it.shouldRefresh() } == null
+        } else {
+            sessionStillCurrent(channelSession)
+        }
+
     private companion object {
         const val ReachabilityPollMillis = 5_000L
         const val TypingBroadcastIntervalMillis = 2_000L
@@ -377,7 +402,7 @@ class IosChatRealtimeGateway(
 
 private class IosChatPhoenixChannel(
     private val configuration: IosChatRuntimeConfiguration,
-    private val session: AuthSession,
+    private val session: AuthSession?,
     private val topic: String,
     private val tables: List<String>,
     private val onSubscribed: () -> Unit,
@@ -473,7 +498,7 @@ private class IosChatPhoenixChannel(
     }
 
     private fun buildJoinPayload() = buildJsonObject {
-        put("access_token", session.bearerToken)
+        session?.bearerToken?.takeIf(String::isNotBlank)?.let { put("access_token", it) }
         put("config", buildJsonObject {
             put("broadcast", buildJsonObject { put("ack", false); put("self", false) })
             put("presence", buildJsonObject { put("enabled", false) })

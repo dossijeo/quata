@@ -34,6 +34,17 @@ data class ChatRealtimeChange(
     val threadId: Long? = null,
 )
 
+val PublicCommunityDirectoryRealtimeTables: Set<String> = setOf(
+    "community_profiles",
+    "community_walls",
+    "community_members",
+    "community_posts",
+)
+
+val CommunityDirectoryRealtimeTables: Set<String> = PublicCommunityDirectoryRealtimeTables + setOf(
+    "community_messages",
+)
+
 val ChatRealtimeTables: List<String> = listOf(
     "chat_threads",
     "chat_participants",
@@ -42,7 +53,16 @@ val ChatRealtimeTables: List<String> = listOf(
     "chat_message_favorites",
     "chat_message_reads",
     "chat_message_states",
-)
+) + CommunityDirectoryRealtimeTables
+
+fun chatDatabaseRealtimeTables(hasAuthenticatedSession: Boolean): List<String> =
+    if (hasAuthenticatedSession) ChatRealtimeTables else PublicCommunityDirectoryRealtimeTables.toList()
+
+fun shouldConnectCommunityDirectoryRealtime(
+    foreground: Boolean,
+    networkAvailable: Boolean,
+    closed: Boolean = false,
+): Boolean = foreground && networkAvailable && !closed
 
 const val ChatRealtimePostgresTopic = "realtime:public"
 

@@ -5,13 +5,14 @@ package com.quata.web
 import com.quata.feature.chat.data.ChatRealtimeChange
 import com.quata.feature.chat.data.ChatRealtimeGateway
 import com.quata.feature.chat.data.ChatRealtimePostgresTopic
-import com.quata.feature.chat.data.ChatRealtimeTables
 import com.quata.feature.chat.data.ChatTypingBroadcastRoster
+import com.quata.feature.chat.data.chatDatabaseRealtimeTables
 import com.quata.feature.chat.data.chatRealtimeReconnectDelayMillis
 import com.quata.feature.chat.data.chatTypingTopic
 import com.quata.feature.chat.data.parseChatRealtimeChange
 import com.quata.feature.chat.data.parseChatTypingBroadcast
 import com.quata.feature.chat.data.shouldConnectChatRealtime
+import com.quata.feature.chat.data.shouldConnectCommunityDirectoryRealtime
 import kotlin.js.JsAny
 import kotlin.js.JsString
 import kotlin.js.toJsString
@@ -65,6 +66,7 @@ class WebChatRealtimeGateway(
     private var databaseHeartbeatTimer: JsAny? = null
     private var typingHeartbeatTimer: JsAny? = null
     private var databaseJoinRef: String? = null
+    private var databaseSessionUserId: String? = null
     private var typingJoinRef: String? = null
     private var typingSubscribed = false
     private var databaseAttempt = 0
@@ -87,7 +89,7 @@ class WebChatRealtimeGateway(
     )
 
     override fun setForeground(isForeground: Boolean) {
-        if (closed || foreground == isForeground) return
+        if (closed) return
         foreground = isForeground
         reconcile()
     }
@@ -103,7 +105,7 @@ class WebChatRealtimeGateway(
         stopLocalTyping(sendStop = true)
         visibleConversationId = conversationId
         disconnectTyping("chat-route-changed")
-        reconcileTyping()
+        reconcile()
     }
 
     override fun setTyping(conversationId: String, isTyping: Boolean) {
@@ -133,24 +135,36 @@ class WebChatRealtimeGateway(
     }
 
     private fun reconcile() {
-        if (!shouldConnect()) {
+        if (!shouldConnectDatabase()) {
             disconnectDatabase("chat-paused")
+        } else {
+            val desiredSessionUserId = authRepository.activeRealtimeSessionOrNull()?.userId
+            if (databaseSocket != null && databaseSessionUserId != desiredSessionUserId) {
+                disconnectDatabase("chat-session-changed")
+            }
+            if (databaseSocket == null) connectDatabase()
+        }
+        if (!shouldConnectTyping()) {
             disconnectTyping("chat-paused")
             if (canAttemptSessionRefresh()) refreshSessionAndReconnect()
-            return
         }
-        if (databaseSocket == null) connectDatabase()
         reconcileTyping()
     }
 
     private fun reconcileTyping() {
-        if (!shouldConnect() || visibleConversationId == null) {
+        if (!shouldConnectTyping() || visibleConversationId == null) {
             disconnectTyping("chat-typing-paused")
             if (canAttemptSessionRefresh()) refreshSessionAndReconnect()
         } else if (typingSocket == null) connectTyping(visibleConversationId ?: return)
     }
 
-    private fun shouldConnect(): Boolean = shouldConnectChatRealtime(
+    private fun shouldConnectDatabase(): Boolean = shouldConnectCommunityDirectoryRealtime(
+        foreground = foreground,
+        networkAvailable = networkAvailable,
+        closed = closed,
+    )
+
+    private fun shouldConnectTyping(): Boolean = shouldConnectChatRealtime(
         foreground = foreground,
         networkAvailable = networkAvailable,
         hasAuthenticatedSession = authRepository.activeRealtimeSessionOrNull() != null,
@@ -158,8 +172,11 @@ class WebChatRealtimeGateway(
     )
 
     private fun connectDatabase() {
-        val session = authRepository.activeRealtimeSessionOrNull() ?: return
-        scheduleSessionRenewal()
+        if (!shouldConnectDatabase()) return
+        val session = authRepository.activeRealtimeSessionOrNull()
+        session?.let { scheduleSessionRenewal() }
+        val subscribedTables = chatDatabaseRealtimeTables(session != null)
+        databaseSessionUserId = session?.userId
         lateinit var socket: JsAny
         socket = createWebChatRealtimeSocket(
             baseUrl = configuration.supabaseUrl?.trim()?.trimEnd('/')?.toJsString() ?: return,
@@ -168,7 +185,14 @@ class WebChatRealtimeGateway(
                 if (databaseSocket === socket && !closed) {
                     val joinRef = nextRef()
                     databaseJoinRef = joinRef
-                    send(databaseSocket, joinRef, joinRef, ChatRealtimePostgresTopic, "phx_join", postgresJoinPayload(session.accessToken))
+                    send(
+                        databaseSocket,
+                        joinRef,
+                        joinRef,
+                        ChatRealtimePostgresTopic,
+                        "phx_join",
+                        postgresJoinPayload(session?.accessToken, subscribedTables),
+                    )
                     startDatabaseHeartbeat(socket)
                 }
             },
@@ -201,8 +225,15 @@ class WebChatRealtimeGateway(
     }
 
     private fun onDatabaseMessage(text: String) {
-        if (authRepository.activeRealtimeSessionOrNull() == null) {
-            refreshSessionAndReconnect()
+        val activeSessionUserId = authRepository.activeRealtimeSessionOrNull()?.userId
+        if (activeSessionUserId != databaseSessionUserId) {
+            val connectedWithSession = databaseSessionUserId != null
+            disconnectDatabase("chat-session-changed")
+            if (connectedWithSession && canAttemptSessionRefresh()) {
+                refreshSessionAndReconnect()
+            } else {
+                reconcile()
+            }
             return
         }
         val frame = parseFrame(text) ?: return
@@ -313,6 +344,7 @@ class WebChatRealtimeGateway(
     private fun disconnectDatabase(reason: String) {
         databaseReconnectTimer?.let(::webChatClearTimeout); databaseReconnectTimer = null
         stopDatabaseHeartbeat(); databaseJoinRef = null
+        databaseSessionUserId = null
         val current = databaseSocket; databaseSocket = null
         current?.let { closeWebChatRealtimeSocket(it, reason.toJsString()) }
         online.value = false
@@ -327,14 +359,14 @@ class WebChatRealtimeGateway(
     }
 
     private fun scheduleDatabaseReconnect() {
-        if (!shouldConnect() || databaseReconnectTimer != null) return
+        if (!shouldConnectDatabase() || databaseReconnectTimer != null) return
         databaseReconnectTimer = webChatSetTimeout(chatRealtimeReconnectDelayMillis(databaseAttempt).toInt()) {
             databaseReconnectTimer = null; databaseAttempt = (databaseAttempt + 1).coerceAtMost(6); reconcile()
         }
     }
 
     private fun scheduleTypingReconnect() {
-        if (!shouldConnect() || visibleConversationId == null || typingReconnectTimer != null) return
+        if (!shouldConnectTyping() || visibleConversationId == null || typingReconnectTimer != null) return
         typingReconnectTimer = webChatSetTimeout(chatRealtimeReconnectDelayMillis(typingAttempt).toInt()) {
             typingReconnectTimer = null; typingAttempt = (typingAttempt + 1).coerceAtMost(6); reconcileTyping()
         }
@@ -343,9 +375,13 @@ class WebChatRealtimeGateway(
     private fun startDatabaseHeartbeat(socket: JsAny) {
         stopDatabaseHeartbeat()
         databaseHeartbeatTimer = webChatSetInterval(HeartbeatMillis) {
-            if (databaseSocket === socket && authRepository.activeRealtimeSessionOrNull() != null) {
+            val activeSessionUserId = authRepository.activeRealtimeSessionOrNull()?.userId
+            if (databaseSocket === socket && activeSessionUserId == databaseSessionUserId) {
                 send(databaseSocket, null, nextRef(), "phoenix", "heartbeat", JsonObject(emptyMap()))
-            } else if (databaseSocket === socket) refreshSessionAndReconnect()
+            } else if (databaseSocket === socket) {
+                disconnectDatabase("chat-session-changed")
+                reconcile()
+            }
         }
     }
 
@@ -371,7 +407,7 @@ class WebChatRealtimeGateway(
     private fun refreshSessionAndReconnect() {
         if (!canAttemptSessionRefresh() || sessionRefreshJob?.isActive == true) return
         sessionRenewalTimerJob?.cancel(); sessionRenewalTimerJob = null
-        disconnectDatabase("chat-session-refresh")
+        if (databaseSessionUserId != null) disconnectDatabase("chat-session-refresh")
         disconnectTyping("chat-session-refresh")
         sessionRefreshJob = scope.launch {
             val refreshed = authRepository.sessionForAuthenticatedRequest()
@@ -380,6 +416,7 @@ class WebChatRealtimeGateway(
                 sessionRefreshAttempt = 0
                 reconcile()
             } else if (canAttemptSessionRefresh()) {
+                if (databaseSocket == null && shouldConnectDatabase()) connectDatabase()
                 scheduleSessionRefreshRetry()
             }
         }
@@ -409,12 +446,12 @@ class WebChatRealtimeGateway(
         socket?.let { sendWebChatRealtimeFrame(it, Json.encodeToString(JsonArray.serializer(), frame).toJsString()) }
     }
 
-    private fun postgresJoinPayload(accessToken: String) = buildJsonObject {
-        put("access_token", accessToken)
+    private fun postgresJoinPayload(accessToken: String?, tables: List<String>) = buildJsonObject {
+        accessToken?.takeIf(String::isNotBlank)?.let { put("access_token", it) }
         put("config", buildJsonObject {
             put("broadcast", buildJsonObject { put("ack", false); put("self", false) })
             put("presence", buildJsonObject { put("enabled", false) })
-            put("postgres_changes", JsonArray(ChatRealtimeTables.map { table -> buildJsonObject { put("event", "*"); put("schema", "public"); put("table", table) } }))
+            put("postgres_changes", JsonArray(tables.map { table -> buildJsonObject { put("event", "*"); put("schema", "public"); put("table", table) } }))
             put("private", false)
         })
     }

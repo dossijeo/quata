@@ -12,6 +12,7 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryFailure
+import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryRefreshSignals
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.data.loadCompleteKeyset
@@ -19,6 +20,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -55,16 +57,17 @@ class WebNeighborhoodsRepository(
     private val profileCache = mutableMapOf<String, WebCachedCommunityProfile>()
     private var wallsByKey = emptyMap<String, WebCommunityWallStats>()
 
-    override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
-        while (currentCoroutineContext().isActive) {
+    override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> =
+        neighborhoodDirectoryRefreshSignals(
+            realtimeChanges = chatRepository.observeCommunityDirectoryChanges(),
+            fallbackIntervalMillis = pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis),
+        ).map {
             try {
-                emit(loadCommunities())
+                loadCommunities()
             } catch (error: WebPostgrestReadException) {
                 throw neighborhoodDirectoryFailure(error.failure.statusCode, error)
             }
-            delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
         }
-    }
 
     override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = runCatching {
         authenticatedUserId()
@@ -279,16 +282,23 @@ class WebNeighborhoodsRepository(
     }
 
     private suspend fun loadWalls(): List<WebCommunityWallStats> {
-        val walls = client.rows(
-            table = "community_walls_stats",
-            query = mapOf(
-                "select" to WallStatsSelect,
-                "is_active" to "eq.true",
-                "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
-            ),
-            limit = DirectoryLimit,
-            authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory),
-        ).map(JsonObject::toWallStats)
+        val authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory)
+        val walls = loadCompleteKeyset(
+            pageSize = WallPageSize,
+            cursorOf = WebCommunityWallStats::id,
+        ) { afterExclusive, limit ->
+            client.rows(
+                table = "community_walls_stats",
+                query = buildMap {
+                    put("select", WallStatsSelect)
+                    put("is_active", "eq.true")
+                    afterExclusive?.let { put("id", "gt.${it.requireWebCommunityIdentifier()}") }
+                    put("order", "id.asc")
+                },
+                limit = limit,
+                authMode = authMode,
+            ).map(JsonObject::toWallStats)
+        }
         wallsByKey = walls.flatMap { wall -> wall.communityKeys().map { key -> key to wall } }.toMap()
         return walls
     }
@@ -308,8 +318,28 @@ class WebNeighborhoodsRepository(
                 loadProfileBatch(batch, authMode)
             }
         }
-        return loadProfileBatch(null, authMode)
+        return loadCompleteKeyset(
+            pageSize = DirectoryPageSize,
+            cursorOf = NeighborhoodUser::id,
+        ) { afterExclusive, limit ->
+            loadProfilePage(authMode, afterExclusive, limit)
+        }
     }
+
+    private suspend fun loadProfilePage(
+        authMode: WebPostgrestAuthMode,
+        afterIdExclusive: String?,
+        limit: Int,
+    ): List<NeighborhoodUser> = client.rows(
+        table = "community_profiles",
+        query = buildMap {
+            put("select", ProfileSelect)
+            afterIdExclusive?.let { put("id", "gt.${it.requireWebCommunityIdentifier()}") }
+            put("order", "id.asc")
+        },
+        limit = limit,
+        authMode = authMode,
+    ).map(JsonObject::toNeighborhoodUser)
 
     private suspend fun loadProfileBatch(
         ids: List<String>?,
@@ -320,7 +350,7 @@ class WebNeighborhoodsRepository(
             put("select", ProfileSelect)
             ids?.takeIf { it.isNotEmpty() }?.let { put("id", it.toPostgrestInFilter()) }
         },
-        limit = DirectoryLimit,
+        limit = ProfileIdBatchSize,
         authMode = authMode,
     ).map(JsonObject::toNeighborhoodUser)
 
@@ -404,7 +434,8 @@ class WebNeighborhoodsRepository(
     }
 
     private companion object {
-        const val DirectoryLimit = 500
+        const val DirectoryPageSize = 500
+        const val WallPageSize = 250
         const val ProfileFollowPageSize = 500
         const val ProfileIdBatchSize = 100
         const val DefaultPollIntervalMillis = 30_000L

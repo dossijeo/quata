@@ -17,6 +17,8 @@ class ProfileRemoteDataSource(
 
     suspend fun getDirectoryProfiles() = api.getProfiles()
 
+    suspend fun getCompleteDirectoryProfiles() = api.getCompleteDirectoryProfiles()
+
     fun observeDirectoryProfiles() = api.observeProfiles()
 
     suspend fun getEmergencyCandidates() = api.getProfiles(limit = EmergencyCandidateLimit)

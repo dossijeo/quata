@@ -35,6 +35,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryFailure
+import com.quata.feature.neighborhoods.domain.neighborhoodDirectoryRefreshSignals
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -72,10 +73,12 @@ class NeighborhoodRepositoryImpl(
                 )
             }
         } else {
-            val communitiesFlow = combine(
-                profileRemote.observeDirectoryProfiles(),
-                supabaseApi.observeActiveWallsStats()
-            ) { profiles, walls ->
+            val communitiesFlow = neighborhoodDirectoryRefreshSignals(
+                realtimeChanges = chatRepository.observeCommunityDirectoryChanges(),
+                fallbackIntervalMillis = DirectoryRefreshIntervalMillis,
+            ).map {
+                val profiles = profileRemote.getCompleteDirectoryProfiles()
+                val walls = supabaseApi.getCompleteActiveWallsStats()
                 val usersByNeighborhood = profiles
                     .map { it.toNeighborhoodUserReal() }
                     .filter { it.neighborhood.isNotBlank() }
@@ -730,3 +733,5 @@ class NeighborhoodRepositoryImpl(
             ).distinct()
     }
 }
+
+private const val DirectoryRefreshIntervalMillis = 30_000L
