@@ -85,7 +85,11 @@ cleanup_fixture 0
 
 result_args=()
 if [[ -n "$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE" ]]; then
-  rm -rf "$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE"
+  [[ ! -e "$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE" ]] || {
+    echo "Refusing existing iOS document retry result bundle path" >&2
+    exit 2
+  }
+  mkdir -p "$(dirname "$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE")"
   result_args=(-resultBundlePath "$QUATA_IOS_DOCUMENT_RETRY_RESULT_BUNDLE")
 fi
 

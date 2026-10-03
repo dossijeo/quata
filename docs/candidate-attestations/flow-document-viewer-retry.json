@@ -90,7 +90,7 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/flow-document-viewer-retry.json"
   ],
   "notes": [
-    "The shared document failure surface distinguishes recoverable and terminal failures. Retry reuses the exact attachment identity and moves the shared surface to Opening immediately; a successful native open resolves it to Idle, while a failed retry returns to the appropriate failure state.",
+    "The shared document failure surface distinguishes recoverable and terminal failures. Retry reuses the exact attachment identity and moves the shared surface to Opening immediately; a successful native open resolves it to Presented, which Chat hides after native presentation, while a failed retry returns to the appropriate failure state.",
     "Web/Wasm forces one local recoverable open failure, retries the same DOCX into the real DocMentis viewer, verifies download/share, closes the viewer and returns to the same attachment without authentication, backend mutation or remote storage.",
     "Android API 35 forces one local recoverable open failure, exposes Retry, opens the real document reader, returns to the same attachment and proves both its fixture preference and local file are absent after cleanup.",
     "iOS SimulatorSigned forces one local recoverable open failure, exposes the common Retry action, opens Quick Look for quata-document-retry.rtf, returns to the same attachment and removes the fixed local fixture through the bounded coordinator. The selected XCTest passed with three named screenshots and no backend configuration.",
