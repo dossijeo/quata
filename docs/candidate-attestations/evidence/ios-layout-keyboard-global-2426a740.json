@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+    "workingTreeDirty": false,
+    "cleanScope": "tracked-source-and-index"
+  },
+  "environment": {
+    "host": "macOS Hyper-V VM",
+    "xcode": "26.6 (17F113)",
+    "simulator": {
+      "model": "iPhone 16",
+      "os": "18.3.1 (22D8075)",
+      "architecture": "x86_64",
+      "deviceSelector": "explicit private simulator UDID supplied at execution time"
+    },
+    "configuration": "SimulatorSigned"
+  },
+  "scope": {
+    "unit": "FLOW-IOS-LAYOUT",
+    "surface": "real shared Profile/SOS search and message inputs inside the production authenticated router",
+    "orientations": [
+      "portrait",
+      "landscapeLeft",
+      "restoredPortrait"
+    ]
+  },
+  "evidenceBinding": {
+    "executionProductSha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+    "integratedBaseSha": "20f7934addb907d2da54837dc58c93b9193e529a",
+    "bindingMethod": "The exact candidate was materialized on the Mac, compiled into the signed x86_64 Simulator bundle and executed through the bounded focal XCTest runner.",
+    "changedBlobs": {
+      "iosApp/iosApp/QuataIosApp.swift": "50ff7bbea5337ab7a7f2058dad8d28865ececbd2",
+      "iosApp/iosAppUITests/QuataIosHostUITests.swift": "5305c6b5cfe11e7cd2f28919b051e28c037a2f2e",
+      "scripts/ios-shell-layout-contract.test.mjs": "8e8d54f703710055b29dcf9978172b9f2ae3470b"
+    },
+    "exactShaPreflights": {
+      "diffCheck": "passed",
+      "shellLayoutContracts": "8/8 passed",
+      "simulatorSignedBuild": "passed",
+      "focalXCTest": "1/1 passed, 0 failed, 0 skipped"
+    }
+  },
+  "result": {
+    "test": "QuataIosUITests/QuataIosHostUITests/testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 108.228,
+    "executionProductSha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+    "assertions": {
+      "realSharedProfileSurfaceMounted": true,
+      "searchDraftPreservedAcrossBothRotations": true,
+      "searchRetainedKeyboardFocus": true,
+      "searchNeverTransferredFocusToMessage": true,
+      "exactMessageDraftPreservedAcrossBothRotations": true,
+      "messageRetainedKeyboardFocusWithoutTestRepair": true,
+      "softwareKeyboardVisibleInEveryObservedOrientation": true,
+      "focusedMessageStayedAboveKeyboard": true,
+      "productionOpaqueBackdropCoveredKeyboardBounds": true,
+      "topChromeContentAndPrimaryNavigationStayedContained": true
+    }
+  },
+  "artifacts": {
+    "xcresult": "build/reports/ios/FLOW-IOS-LAYOUT-ui-2426a740-results/ios-shell-layout.xcresult",
+    "uiLogSha256": "5bc8f9994248c49b31c35cebcd222cf2984fd79d3acfdb29ff13271a8a2bb029",
+    "attachmentManifestSha256": "b841c82170b07429a660ebd3c757ba9fd2bc35a52213fc4964e1bbc553cb759f",
+    "screenshots": {
+      "searchLandscapeSha256": "2244843bd4dfdb693c63315887b47b09daa71ac01b4bc28e7773bc74fc4e07c3",
+      "searchRestoredPortraitSha256": "3f73e5ee51fa27a30f0d24e9535b9450f77aece076bf055a4068d1d93ad54511",
+      "messagePortraitSha256": "6ec4377e4245142814af71922d0042a44079afd3a1b52a37b6e6d3ba7c52dc60",
+      "messageLandscapeSha256": "e8d0318ff843d081069a314c8ab94b25f40e9af1c1f074d680177d28b768d405",
+      "messageRestoredPortraitSha256": "f7df6bdefd6b3fc0ef5d24eb89cb782f89aa057d1c484c969b99771f06edd780"
+    }
+  },
+  "steps": [
+    "exact_candidate_sha_materialized_on_mac",
+    "tracked_source_and_index_clean_at_receipt",
+    "simulator_signed_build_for_testing_succeeded",
+    "production_authenticated_router_mounted_real_shared_profile_sos_surface",
+    "exclusive_search_draft_entered_through_real_compose_search_input",
+    "search_focus_keyboard_and_exact_draft_preserved_across_both_orientation_changes",
+    "search_rotation_never_transferred_focus_to_message",
+    "exclusive_synthetic_message_draft_entered_through_real_compose_text_input",
+    "portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "landscape_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "restored_portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+    "exact_message_draft_preserved_across_both_orientation_changes_without_test_repair",
+    "top_chrome_content_and_primary_navigation_containment_verified",
+    "xctest_passed_once_with_zero_failures",
+    "five_named_screenshots_exported",
+    "evidence_marker_does_not_intercept_real_profile_controls",
+    "affected_contracts_passed_on_exact_candidate"
+  ],
+  "diagnosticHistory": [
+    "At 4d3d1833 the first focal run preserved portrait input but lost focus and keyboard after rotation; the failing xcresult remains on the Mac.",
+    "At 3fe86d1e focus, draft and keyboard survived rotation, while an equality assertion incorrectly compared the larger opaque backdrop with the narrower accessibility keyboard frame; that failing xcresult also remains on the Mac.",
+    "At a717c456 the containment assertion passed, but independent review rejected IME visibility as sufficient authority to restore message focus and found that the XCTest could tap the message input after rotation.",
+    "At fc794f68 the product tracks whether Search or Message owns the keyboard session, the XCTest first proves Search retains its own focus, and all post-rotation assertions pass without tapping either input.",
+    "After comments pagination merged as 20f7934a, the unit rebased to cbf04403. All six non-documentary unit blobs remained identical; the 25 affected contracts and Profile Wasm compilation passed on the rebased product. Product SHA f1be9a64 then refreshed only the reviewed capability-matrix hashes for the already-changed QuataIosApp.swift source; its 22 capability contracts and the eight focal shell-layout contracts pass. The UI run remains attributed to fc794f68 and final GitHub iOS certification is required for the combined tree.",
+    "GitHub final iOS CI at 2ec310db failed before rotation because the full-frame evidence marker sat above the embedded Profile surface and XCTest rejected the compact search tap as not hittable.",
+    "The exact 06dcf98c replay proved the entire functional route but intentionally failed two newly added UIKit isHittable assertions, separating marker occlusion from product behavior.",
+    "The exact 232cec17 replay proved that placing the real content above the marker restored the Profile entry button; only the inapplicable isHittable assertion on the Compose TextField remained while its real tap, typing and downstream assertions all succeeded.",
+    "At exact candidate 2426a740 the same helper tapped the real Profile entry and Compose search input, typed both exclusive drafts, preserved focus and keyboard through portrait-landscape-portrait, verified backdrop and shell containment, and passed 1/1 with zero failures."
+  ],
+  "limitations": [
+    "This closes the production shell's global keyboard-layout policy with the real shared Profile/SOS search and message inputs; it does not claim every feature-specific input path.",
+    "Native Split View and Stage Manager gestures and scene lifecycle remain externally unavailable in this Simulator environment.",
+    "Overlays and route-specific overrides outside the observed Profile/SOS editor remain separate coverage units.",
+    "No backend, session, notification, remote data or signing-distribution mutation occurred."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "local_fixture_no_backend_or_remote_mutation"
+  }
+}

@@ -856,7 +856,14 @@ private final class IosAppCompositionRoot {
                 makeShellLayoutFixtureViewController(route: "notifications")
             }
             router.installProfileSosFactory {
-                makeShellLayoutFixtureViewController(route: "profile-sos")
+                makeShellLayoutFixtureViewController(
+                    route: "profile-sos",
+                    embeddedController: IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
+                        languageCode: Locale.preferredLanguages.first,
+                        onOpened: { _ in },
+                        forceSosSaveError: false,
+                    ),
+                )
             }
             router.installCommunitiesFactory {
                 makeShellLayoutFixtureViewController(route: "communities")
@@ -2146,6 +2153,7 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
 
 private func makeShellLayoutFixtureViewController(
     route: String,
+    embeddedController: UIViewController? = nil,
     onReconnect: (() -> Void)? = nil
 ) -> UIViewController {
     let controller = UIViewController()
@@ -2156,9 +2164,19 @@ private func makeShellLayoutFixtureViewController(
     marker.accessibilityLabel = "Quata iOS shell layout content frame: \(route)"
     marker.accessibilityValue = route
     marker.isAccessibilityElement = true
+    marker.isUserInteractionEnabled = false
     marker.text = "\(route) layout fixture"
     marker.alpha = 0.01
     controller.view.addSubview(marker)
+
+    if let embeddedController {
+        controller.addChild(embeddedController)
+        embeddedController.view.frame = controller.view.bounds
+        embeddedController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        embeddedController.view.isAccessibilityElement = false
+        controller.view.insertSubview(embeddedController.view, aboveSubview: marker)
+        embeddedController.didMove(toParent: controller)
+    }
 
     guard let onReconnect else { return controller }
     // Fixture-only control that sends the same availability update as the production
@@ -2382,6 +2400,9 @@ final class IosKeyboardBackdropController {
         }
         backdropView.backgroundColor = Self.commonSurfaceRaisedColor(for: container.traitCollection)
         backdropView.frame = overlap
+        backdropView.accessibilityValue = [overlap.minX, overlap.minY, overlap.width, overlap.height]
+            .map { String(format: "%.3f", $0) }
+            .joined(separator: ",")
         backdropView.isHidden = false
         bringToFront()
     }
@@ -2392,6 +2413,7 @@ final class IosKeyboardBackdropController {
         latestKeyboardFrame = nil
         backdropView.isHidden = true
         backdropView.frame = .zero
+        backdropView.accessibilityValue = nil
     }
 
     func scheduleHide(after delay: TimeInterval) {
@@ -2712,6 +2734,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func installKeyboardBackdrop() {
         let controller = IosKeyboardBackdropController(hostView: view)
+        if ProcessInfo.processInfo.arguments.contains("-quata-ui-test-expose-keyboard-backdrop") {
+            controller.backdropView.isAccessibilityElement = true
+            controller.backdropView.accessibilityLabel = "Quata opaque keyboard backdrop"
+        }
         controller.install()
         keyboardBackdropController = controller
     }

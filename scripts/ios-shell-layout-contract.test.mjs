@@ -38,6 +38,25 @@ test("the focal iOS shell test observes the real authenticated host across rotat
   assert.match(uiTest, /ios-shell-layout-restored-online/);
 });
 
+test("the authenticated shell keeps a real shared Profile draft above its global keyboard backdrop", () => {
+  assert.match(uiTest, /func testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation\(\)/);
+  assert.match(uiTest, /fixtureApp\([\s\S]{0,180}"shell-layout"[\s\S]{0,180}shellRoute: "profile-sos"[\s\S]{0,180}exposeKeyboardBackdrop: true/);
+  assert.match(uiTest, /profile\.sos\.message\.input/);
+  assert.match(uiTest, /hasKeyboardFocus == 1/);
+  assert.match(uiTest, /quata-ios-keyboard-opaque-backdrop/);
+  assert.match(uiTest, /measuredFrame\.minX[\s\S]{0,180}keyboardFrame\.minX \+ tolerance/);
+  assert.match(uiTest, /measuredFrame\.minY[\s\S]{0,180}keyboardFrame\.minY \+ tolerance/);
+  assert.match(uiTest, /measuredFrame\.maxX[\s\S]{0,180}keyboardFrame\.maxX - tolerance/);
+  assert.match(uiTest, /measuredFrame\.maxY[\s\S]{0,180}keyboardFrame\.maxY - tolerance/);
+  assert.match(uiTest, /keyboardBackdropFrame\(from: backdrop/);
+  assert.match(uiTest, /ios-profile-sos-global-keyboard-(?:portrait|landscape|restored-portrait)/);
+  assert.match(appHost, /embeddedController: IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController/);
+  assert.match(appHost, /insertSubview\(embeddedController\.view, aboveSubview: marker\)/);
+  assert.match(appHost, /-quata-ui-test-expose-keyboard-backdrop/);
+  assert.match(appHost, /controller\.backdropView\.isAccessibilityElement = true/);
+  assert.match(appHost, /backdropView\.accessibilityValue = \[overlap\.minX, overlap\.minY, overlap\.width, overlap\.height\]/);
+});
+
 test("the real iOS shell contains every route layout variant in bounded focal tests", () => {
   assert.match(uiTest, /func testAuthenticatedShellContainsPrimaryRouteLayoutVariants\(\)/);
   assert.match(uiTest, /func testAuthenticatedShellContainsSecondaryRouteLayoutVariants\(\)/);
@@ -153,6 +172,7 @@ test("layout frame markers are confined to the deterministic UI-test fixture", (
   assert.match(appHost, /primaryNavigationLayoutMarker/);
   assert.match(appHost, /quata-ios-authenticated-top-chrome-layout-frame/);
   assert.match(appHost, /quata-ios-authenticated-primary-navigation-layout-frame/);
+  assert.match(appHost, /marker\.isUserInteractionEnabled = false/);
   assert.match(appHost, /-quata-ui-test-shell-offline/);
   assert.match(appHost, /quata-ios-shell-layout-reconnect/);
   assert.match(appHost, /router\?\.updateNetworkAvailable\(true\)/);

@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-IOS-LAYOUT"
+  ],
+  "status": "passed",
+  "productSha": "2221d66a1b46367d3349213cc5bf9ae950989edc",
+  "certification": "exact-sha-simulator-signed-focal-xctest-passed-independent-rereview-go-final-CI-pending",
+  "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "2221d66a1b46367d3349213cc5bf9ae950989edc",
+      "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-2221d66a.json",
+      "reportSha256": "b65c083508aeaa7381f4498f2cb025df9ac421c19f64decd7d99126ce9e52aff",
+      "reportStatus": "passed",
+      "reportGitHead": "2221d66a1b46367d3349213cc5bf9ae950989edc",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "exact_candidate_sha_materialized_on_mac",
+        "tracked_source_and_index_clean_at_receipt",
+        "simulator_signed_build_for_testing_succeeded",
+        "production_authenticated_router_mounted_real_shared_profile_sos_surface",
+        "exclusive_search_draft_entered_through_real_compose_search_input",
+        "search_focus_keyboard_and_exact_draft_preserved_across_both_orientation_changes",
+        "search_rotation_never_transferred_focus_to_message",
+        "exclusive_synthetic_message_draft_entered_through_real_compose_text_input",
+        "portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+        "landscape_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+        "restored_portrait_keyboard_focus_input_above_keyboard_and_backdrop_coverage_verified",
+        "exact_message_draft_preserved_across_both_orientation_changes_without_test_repair",
+        "top_chrome_content_and_primary_navigation_containment_verified",
+        "xctest_passed_once_with_zero_failures",
+        "five_named_screenshots_exported",
+        "evidence_marker_does_not_intercept_real_profile_controls",
+        "affected_contracts_passed_on_exact_candidate"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_or_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/ios-shell-layout-contract.test.mjs",
+    ".\\gradlew.bat :feature:profile:compileKotlinWasmJs --no-daemon --console=plain",
+    "./gradlew :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --no-daemon",
+    "xcodebuild build-for-testing -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -destination platform=iOS Simulator,id=$UDID",
+    "QUATA_IOS_SHELL_LAYOUT_TEST_METHOD=testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation bash scripts/run-ios-shell-layout-ui-test.sh",
+    "xcrun xcresulttool get test-results summary",
+    "xcrun xcresulttool export attachments"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "2221d66a1b46367d3349213cc5bf9ae950989edc",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The production IosAuthenticatedHostRouter mounts the real shared Profile/SOS surface; the test does not substitute an inert route controller for the edited content.",
+    "The Search and Message inputs each own their keyboard session explicitly. Search preserves its exact draft and focus across both rotations without transferring focus to Message; Message then preserves its exact draft and focus across the same transitions.",
+    "Post-rotation XCTest assertions never tap either input. The focused Message input stays above the keyboard, and the production opaque UIWindow backdrop contains the complete keyboard bounds in every observed phase.",
+    "The backdrop intentionally exceeds the accessibility keyboard frame in landscape to cover the side regions behind the inset keyboard. Equality of those rectangles was a false test assumption; containment is the product invariant demonstrated by the retained screenshots.",
+    "The failed 4d3d1833 and 3fe86d1e xcresults remain retained on the Mac, and the independent NO-GO on 7a6e507 is preserved in the report history. No failed attempt or review was rewritten as a passing result.",
+    "Independent exact-SHA review on f40768ff1 returned GO with no P0-P3 findings and reproduced the 8/8 focal contract, attestation validator and diff check.",
+    "After #513 merged, the unit rebased to cbf044037 and Product SHA f1be9a64 refreshed only the four reviewed capability-matrix references to the already-changed QuataIosApp.swift source. All six non-documentary unit blobs were byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, 22/22 capability contracts, the eight focal shell-layout contracts, diff check and Profile Wasm compilation passed on the composed tree. Independent exact-SHA rereview on a2814956f returned GO with no P0-P3 findings.",
+    "Final iOS CI on 5ffecbaf reached the focal test but the full-frame noninteractive shell marker made XCTest reject openSos.tap() as non-hittable before rotation. Product SHA 02e9ab60 replaces only that entry gesture with a center coordinate on the already-resolved visible element; the destination search remains the immediate fail-closed assertion and the product runtime is unchanged. The runtime rotation evidence remains attributed to fc794f68; final GitHub iOS certification must validate this corrected combined candidate.",
+    "Independent static rereview on 447d68396 returned GO with no P0-P3 findings and reproduced the shell/capability contracts, attestation validator and diff check. The reviewer confirmed that the gesture is anchored to the identified visible control and immediately requires the expected production destination.",
+    "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation.",
+    "GitHub iOS certification on 2ec310db failed at the new focal method because the full-frame accessibility evidence marker sat above the embedded Profile surface. The failure is preserved and was not treated as a product keyboard regression.",
+    "Exact replays at 06dcf98c and 232cec17 separated marker occlusion from Compose semantics: the full route already completed, while temporary UIKit isHittable assertions deliberately kept those attempts red. The final fix places the real embedded surface above the noninteractive evidence marker and asserts the Compose input through real tap, typed value, keyboard focus and downstream behavior.",
+    "Exact Product SHA 2426a740 passed the SimulatorSigned build and the bounded focal XCTest 1/1 with zero failures in 108.228 seconds. Five screenshots, the UI log and xcresult are retained on the Mac with hashes in the evidence report; no backend or remote state was mutated.",
+    "Custody Product SHA 27b7e19c5 adds only the reviewed capability-matrix hashes and documentary evidence after execution SHA 2426a740; every runtime and test blob is byte-identical, while reportGitHead remains bound to the exact executed tree.",
+    "Independent custody rereview on aa65ece8e returned GO with no P0-P3 findings and reproduced 47/47 affected contracts, attestation validation and diff check on a clean tree.",
+    "GitHub final iOS run 37085115400 exposed a harness-only Compose hit-testing failure at head 4feae260: the visible Search TextView existed but XCTest tap() rejected isHittable before any keyboard assertion ran.",
+    "Exact Product SHA 2221d66a uses the observed center of the already identified Search element, requires hasKeyboardFocus on that same identifier, and writes through the focused control. The Mac SimulatorSigned focal rerun passed 1/1 with zero failures in 184.163 seconds and retained five fresh screenshots plus the xcresult; all downstream product assertions are unchanged.",
+    "Independent exact-delta rereview on 2221d66a returned GO with no P0-P3 findings and reproduced 8/8 shell-layout contracts plus diff check; it confirmed there is no repair tap after rotation or direct handler invocation."
+  ]
+}

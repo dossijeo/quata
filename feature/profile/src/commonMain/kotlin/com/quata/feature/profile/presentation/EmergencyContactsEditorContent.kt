@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -25,7 +26,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,6 +58,8 @@ data class EmergencyContactsEditorStrings(
     val savePortrait: String,
     val saveLandscape: String,
 )
+
+private enum class EmergencyContactsKeyboardOwner { Search, Message }
 
 /**
  * Full portable SOS-contact editor.
@@ -89,15 +95,41 @@ fun EmergencyContactsEditorContent(
     val messageScrollState = rememberScrollState()
     val contactsListState = rememberLazyListState()
     val messageBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val messageFocusRequester = remember { FocusRequester() }
+    val searchFocusRequester = remember { FocusRequester() }
     var isMessageFocused by remember { mutableStateOf(false) }
+    var isSearchFocused by remember { mutableStateOf(false) }
+    var keyboardOwner by remember { mutableStateOf<EmergencyContactsKeyboardOwner?>(null) }
     val selectedIdSet = selectedIds.toSet()
     val visibleUsers = filterEmergencyContactCandidates(candidates, selectedIdSet, query)
 
     SideEffect {
         onTabChanged(selectedTab)
     }
-    LaunchedEffect(isMessageFocused, isImeVisible) {
+    LaunchedEffect(isMessageFocused, isSearchFocused, isImeVisible) {
         if (isMessageFocused && isImeVisible) messageBringIntoViewRequester.bringIntoView()
+        if (!isMessageFocused && !isSearchFocused && !isImeVisible) keyboardOwner = null
+    }
+    val messageInputIsMounted = isLandscapeLayout || selectedTab == EmergencyContactsTab.Message
+    val searchInputIsMounted = isLandscapeLayout || selectedTab == EmergencyContactsTab.Contacts
+    val restoreKeyboardOwnerAfterLayoutChange =
+        keyboardOwner != null && (isMessageFocused || isSearchFocused || isImeVisible)
+    LaunchedEffect(isLandscapeLayout) {
+        if (restoreKeyboardOwnerAfterLayoutChange) {
+            val ownerToRestore = keyboardOwner ?: return@LaunchedEffect
+            withFrameNanos { }
+            when (ownerToRestore) {
+                EmergencyContactsKeyboardOwner.Search -> {
+                    if (searchInputIsMounted) searchFocusRequester.requestFocus()
+                }
+                EmergencyContactsKeyboardOwner.Message -> {
+                    if (messageInputIsMounted) {
+                        messageFocusRequester.requestFocus()
+                        messageBringIntoViewRequester.bringIntoView()
+                    }
+                }
+            }
+        }
     }
     LaunchedEffect(isImeVisible, selectedTab) {
         if (!isImeVisible && selectedTab == EmergencyContactsTab.Contacts) {
@@ -137,6 +169,11 @@ fun EmergencyContactsEditorContent(
                                 singleLine = true,
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .focusRequester(searchFocusRequester)
+                                    .onFocusChanged {
+                                        isSearchFocused = it.isFocused
+                                        if (it.isFocused) keyboardOwner = EmergencyContactsKeyboardOwner.Search
+                                    }
                                     .semantics {
                                         testTag = ProfileSosSearchTestTag
                                         contentDescription = ProfileSosSearchTestTag
@@ -160,7 +197,7 @@ fun EmergencyContactsEditorContent(
                     )
                 },
                 message = { modifier ->
-                    Column(modifier.verticalScroll(messageScrollState)) {
+                    Column(modifier.verticalScroll(messageScrollState).imePadding()) {
                         EmergencyContactsLandscapeMessageIntroContent(
                             tabLabel = strings.header.messageTab,
                             description = strings.header.description,
@@ -177,8 +214,12 @@ fun EmergencyContactsEditorContent(
                                             testTag = ProfileSosMessageInputTestTag
                                             contentDescription = ProfileSosMessageInputTestTag
                                         }
+                                        .focusRequester(messageFocusRequester)
                                         .bringIntoViewRequester(messageBringIntoViewRequester)
-                                        .onFocusChanged { isMessageFocused = it.isFocused },
+                                        .onFocusChanged {
+                                            isMessageFocused = it.isFocused
+                                            if (it.isFocused) keyboardOwner = EmergencyContactsKeyboardOwner.Message
+                                        },
                                     message,
                                     onMessageChange,
                                     4,
@@ -207,6 +248,11 @@ fun EmergencyContactsEditorContent(
                             networkUsersLabel = strings.networkUsers,
                             onTabSelected = { selectedTab = it },
                             onDismiss = onDismiss,
+                            searchModifier = Modifier.focusRequester(searchFocusRequester),
+                            onSearchFocusChanged = {
+                                isSearchFocused = it
+                                if (it) keyboardOwner = EmergencyContactsKeyboardOwner.Search
+                            },
                             contactActions = contactActions,
                             userRow = { user, selected ->
                                 userRow(user, selected) { onToggleContact(user) }
@@ -230,8 +276,12 @@ fun EmergencyContactsEditorContent(
                                             testTag = ProfileSosMessageInputTestTag
                                             contentDescription = ProfileSosMessageInputTestTag
                                         }
+                                        .focusRequester(messageFocusRequester)
                                         .bringIntoViewRequester(messageBringIntoViewRequester)
-                                        .onFocusChanged { isMessageFocused = it.isFocused },
+                                        .onFocusChanged {
+                                            isMessageFocused = it.isFocused
+                                            if (it.isFocused) keyboardOwner = EmergencyContactsKeyboardOwner.Message
+                                        },
                                     message,
                                     onMessageChange,
                                     8,
