@@ -1,0 +1,44 @@
+{
+  "check": "FLOW-DOCUMENT-VIEWER-ANDROID-LOCAL-001",
+  "status": "passed",
+  "git": {
+    "head": "b96cd8445003f8c06f7e9b4b180b355028692fe2",
+    "workingTreeDirty": true
+  },
+  "runtimeTreeCommittedAs": "7569719fc866c323dadbb14ee0fb5e1351983f9c",
+  "steps": [
+    "android_api35_focal_instrumentation_passed_1_of_1",
+    "immutable_local_document_message_rendered_without_backend",
+    "recoverable_document_open_failure_visible",
+    "retry_opened_the_real_android_document_reader",
+    "document_reader_closed_and_returned_to_the_same_attachment",
+    "local_fixture_preferences_empty_after_cleanup",
+    "local_fixture_file_absent_after_cleanup"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "local_fixture_preference_entries": 0,
+        "local_fixture_files": 0,
+        "backend_mutations": 0
+      }
+    }
+  },
+  "scope": {
+    "fixture": "immutable local Chat document",
+    "backend": "not_used",
+    "emulator": "Android API 35",
+    "instrumentation": "OK (1 test)"
+  },
+  "custody": {
+    "rawReportSha256": "50f1dfff14f9cfb906566f4aaf937136dbef899a5b1d75a8c6a565bc13080a68",
+    "screenshotsSha256": {
+      "failure": "edd5989bd660f89f9998c9f2dc86e277e85af2674e7015a3b1f01bad38d6a3cc",
+      "reader": "34f3f27f6689d02e732984e6a8e102f9cd97ebcb3cad0d6679fbc48bcba3b079",
+      "return": "910222e9c7fc06a6635c96fb289ad4e7ffeaed3d1aa8f0e6207c76dd61becabf"
+    },
+    "dirtyReason": "The run preceded the commit that captured the exact tested runtime tree; commit 7569719fc866c323dadbb14ee0fb5e1351983f9c records that tree.",
+    "laterRuntimeDelta": "git diff --name-only 7569719fc866c323dadbb14ee0fb5e1351983f9c..bd63e56c155936d4b10e9278f86453d85d00a554 contains only iOS runtime/test-contract files."
+  }
+}

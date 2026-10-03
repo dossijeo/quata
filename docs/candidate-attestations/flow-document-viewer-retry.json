@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-DOCUMENT-VIEWER",
+    "CHAT-ATTACHMENTS"
+  ],
+  "productSha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "report": "docs/candidate-attestations/evidence/document-viewer-retry-web-b96cd844.json",
+      "reportSha256": "173d54360ff0c9f7836b7effc8b974a60bdb1ba21d1dc95cb7ab4cbab9ffc093",
+      "reportStatus": "passed",
+      "reportGitHead": "b96cd8445003f8c06f7e9b4b180b355028692fe2",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "recoverable_document_open_failure_visible",
+        "retry_reopened_the_same_document",
+        "real_docmentis_viewer_rendered_the_retried_document",
+        "document_viewer_closed_and_returned_to_the_same_attachment"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "mode": "hermetic-local-document-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "report": "docs/candidate-attestations/evidence/document-viewer-retry-android-b96cd844.json",
+      "reportSha256": "c22eec539c3b1abd51ad7a827923ca795d3b1321f857757a93f2429a45bf5752",
+      "reportStatus": "passed",
+      "reportGitHead": "b96cd8445003f8c06f7e9b4b180b355028692fe2",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_api35_focal_instrumentation_passed_1_of_1",
+        "recoverable_document_open_failure_visible",
+        "retry_opened_the_real_android_document_reader",
+        "document_reader_closed_and_returned_to_the_same_attachment",
+        "local_fixture_file_absent_after_cleanup"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "mode": "hermetic-local-document-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-bd63e56c.json",
+      "reportSha256": "577c5fe3b5592fe8eab64c7c8a584f3ce8f8fd1f2d25d639a4c6871886d4b89b",
+      "reportStatus": "passed",
+      "reportGitHead": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_x64_framework_and_simulator_signed_build_succeeded_on_mac",
+        "recoverable_document_open_failure_visible",
+        "retry_opened_real_quick_look_for_the_same_document",
+        "quick_look_closed_and_returned_to_the_same_attachment",
+        "ios_xctest_document_failure_retry_quicklook_return_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "mode": "hermetic-local-document-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node scripts/chat-attachments-audio-evidence-contract.test.mjs",
+    "./gradlew.bat :feature:chat:compileKotlinIosX64 --console=plain",
+    "Android API 35 focal instrumentation: OK (1 test)",
+    "Web/Wasm local document retry focal: PASS",
+    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/flow-document-viewer-retry.json"
+  ],
+  "notes": [
+    "The shared document failure surface now distinguishes recoverable and terminal failures. Retry reuses the exact attachment identity and clears the failure surface only after the native viewer opens successfully.",
+    "Web/Wasm forces one local recoverable open failure, retries the same DOCX into the real DocMentis viewer, verifies download/share, closes the viewer and returns to the same attachment without authentication, backend mutation or remote storage.",
+    "Android API 35 forces one local recoverable open failure, exposes Retry, opens the real document reader, returns to the same attachment and proves both its fixture preference and local file are absent after cleanup.",
+    "iOS SimulatorSigned forces one local recoverable open failure, exposes the common Retry action, opens Quick Look for quata-document-retry.rtf and returns to the same attachment. The one selected XCTest passed with three named screenshots and no backend configuration.",
+    "The iOS custody preserves three earlier failures: remote authentication was blocked by the external Supabase HTTP 402 egress quota; the first local bootstrap was unavailable; and the next local host did not arm the one-shot failure. The accepted bd63e56c run fixes each cause without hiding or relabelling those attempts.",
+    "Web and Android ran on the pending runtime tree later captured exactly by 7569719fc866c323dadbb14ee0fb5e1351983f9c. The only production delta from that commit through bd63e56c is iOS-specific; their focal matrices were therefore retained instead of repeated solely for the SHA advance.",
+    "This candidate removes the generic recoverable-open/retry limit for Chat document attachments. Unsupported formats, provider-specific behavior and real network failures remain separate boundaries and are not claimed by this hermetic failure injection.",
+    "Raw screenshots, videos, logs and XCTest bundles remain host-local. The committed projections contain no credentials, profile identifiers, conversation identifiers from a backend, or secret-bearing paths.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; later attestation-only commits remain subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

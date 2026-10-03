@@ -1,0 +1,62 @@
+{
+  "check": "FLOW-DOCUMENT-VIEWER-IOS-LOCAL-001",
+  "status": "passed",
+  "git": {
+    "head": "bd63e56c155936d4b10e9278f86453d85d00a554",
+    "workingTreeDirty": true
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_x64_framework_and_simulator_signed_build_succeeded_on_mac",
+    "immutable_local_document_message_rendered_without_auth_or_backend",
+    "recoverable_document_open_failure_visible",
+    "retry_opened_real_quick_look_for_the_same_document",
+    "quick_look_closed_and_returned_to_the_same_attachment",
+    "ios_xctest_document_failure_retry_quicklook_return_verified"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_mutations": 0,
+        "remote_storage_objects": 0
+      }
+    }
+  },
+  "scope": {
+    "fixture": "immutable local Chat RTF",
+    "backend": "not_used",
+    "simulator": "iPhone 16, iOS 18.3.1, x86_64",
+    "xctest": "testLocalDocumentRetryOpensQuickLookAndReturnsWithoutBackend",
+    "result": "1 passed, 0 failed, 0 skipped"
+  },
+  "custody": {
+    "macProject": "/Users/gabriel/StudioProjects/quata-doc-retry-0507d0b2",
+    "workingTreeDirtyReason": "The only untracked path was the locally generated iosApp/QuataIos.xcodeproj used by Xcode; tracked source matched the recorded commit.",
+    "testLogSha256": "e4e9ec8c98328d855fffca57324865bc6aa2543edce7d358e8e8074b3030e9fe",
+    "screenshotsSha256": {
+      "failure": "9eed247f24960255a51e8b1ccd82280b3583f0814505fc91749aca405b3fe985",
+      "quickLook": "81502b330140e3484dd7d27d029c6a6c55d5183b4dfe09bee2c338a4c3794ce5",
+      "return": "8d3eb09801b6bafa7d55b6a1f64e41f8436efa86383bd98b461146284f303272"
+    }
+  },
+  "priorAttempts": [
+    {
+      "head": "0507d0b2dc0994630fd988b207ab514c1bdc5b13",
+      "status": "failed_before_ui",
+      "reason": "public_auth_request_failed:http_402",
+      "reportSha256": "00cf11378b91ab7cf76d80a0d3514eaeb9b04462f36522ff9dd5914945d1862c"
+    },
+    {
+      "head": "7569719fc866c323dadbb14ee0fb5e1351983f9c",
+      "status": "failed_before_interaction",
+      "reason": "The local fixture still depended on the unavailable production runtime bootstrap."
+    },
+    {
+      "head": "cbeb799a49c5eb218f99f4a4d2991173a3e54a43",
+      "status": "failed_assertion",
+      "reason": "The local host appeared but the one-shot recoverable failure was not armed, so Retry never appeared.",
+      "videoSha256": "ad97945cebc85eeb0fc73785c404009dc87dd0693ed0becb4abe73c40433d1ba"
+    }
+  ]
+}

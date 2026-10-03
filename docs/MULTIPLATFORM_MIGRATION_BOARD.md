@@ -78,10 +78,16 @@ residuo cero. [Attestation](./candidate-attestations/document-viewer-actions.jso
 La PR [#382](https://github.com/dossijeo/quata/pull/382) integró el head `860e4441` mediante merge
 `688d74e0`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
+La candidata de recuperación `bd63e56c` amplía el cierre al fallo recuperable de apertura sin
+backend: Web/Wasm reintenta el mismo DOCX en DocMentis, Android abre el lector documental real en
+API 35 y limpia preferencia/archivo, e iOS abre Quick Look para el mismo RTF y vuelve a la misma
+tarjeta. Los tres recorridos conservan el primer fallo visible y exigen Retry antes del visor.
+[Atestación de recuperación](./candidate-attestations/flow-document-viewer-retry.json).
+
 La evidencia integrada de `PROF-SHARED-CHAT-DOCUMENTS` sigue siendo la autoridad para el productor
 de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos porque no producen
 adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
-formatos no soportados, comportamiento específico de proveedores y fallos de red forzados.
+formatos no soportados, comportamiento específico de proveedores y fallos reales de red.
 
 ## OVR-COMMENTS / FLOW-EMOJI — reconciliación 2026-10-02
 
