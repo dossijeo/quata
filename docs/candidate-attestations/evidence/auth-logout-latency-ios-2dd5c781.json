@@ -1,0 +1,47 @@
+{
+  "check": "AUTH-LOGOUT-LATENCY-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "2dd5c781bf722bbe0426572c1ea47714a905c217",
+    "branch": "codex/ios-logout-latency",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "host": "macos-intel",
+    "xcode": "26.6",
+    "xcodeBuild": "17F113",
+    "target": "iosX64",
+    "settings": "temporary-focal-project-selection-with-production-root-name"
+  },
+  "sourceSha256": {
+    "repository": "cc6c2daf6ac8daec13989a3e34f1ae8753829b90400be677f780e974d4f870b7",
+    "test": "e402409769323b88eeebada7036f74471edc180bb52ce6b2be4757526883d4f6"
+  },
+  "testResult": {
+    "suite": "iosX64Test.com.quata.feature.auth.data.IosAuthLogoutOrderingTest",
+    "tests": 8,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "xmlSha256": "5c63793936d26877d2648b2994784126e9ff743c7b6809ac9aa8529a600ef1d3"
+  },
+  "steps": [
+    "exact_candidate_sha_materialized_on_mac",
+    "ios_x64_product_and_test_sources_compiled",
+    "nonresponsive_remote_cancelled_at_15000_milliseconds",
+    "internal_timeout_completed_logout_without_propagating_cancellation",
+    "local_keychain_session_cleared_after_timeout",
+    "caller_timeout_propagated_at_5000_milliseconds_after_local_retirement",
+    "external_cancellation_still_propagated_after_local_retirement",
+    "existing_success_http_failure_and_transport_exception_policies_preserved"
+  ],
+  "diagnostics": [
+    "The default JDK 17 first attempted Gradle toolchain provisioning and could not classify the VM kernel architecture string; no product test ran.",
+    "The full root settings then failed while compiling the unrelated Android :app build script on macOS; no product test ran.",
+    "A temporary settings file selected only core, designsystem and feature:auth while preserving rootProject.name=Quata and the production build scripts. Its first draft used a different root name and failed generated-resource imports before any test; the corrected selection produced the passing result above."
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "temporary_mac_worktrees_and_focal_settings_removed_no_backend_or_remote_mutation"
+  }
+}

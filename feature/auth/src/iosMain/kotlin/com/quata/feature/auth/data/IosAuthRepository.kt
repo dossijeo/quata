@@ -18,6 +18,7 @@ import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -60,6 +61,8 @@ data class IosAuthRuntimeConfiguration(
 interface IosRegistrationChallengeProvider {
     suspend fun acquire(): String
 }
+
+internal const val IOS_AUTH_LOGOUT_TIMEOUT_MILLIS = 15_000L
 
 /** Small injectable URLSession boundary so host tests can exercise auth parsing without a network. */
 interface IosAuthHttpTransport {
@@ -228,11 +231,13 @@ class IosAuthRepository(
         val bearerToken = session.restoredSession()?.bearerToken
         try {
             bearerToken?.let { token ->
-                post(
-                    endpoint = configuration.supabaseLogoutEndpoint(),
-                    accessToken = token,
-                    body = "{}",
-                )
+                withTimeoutOrNull(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS) {
+                    post(
+                        endpoint = configuration.supabaseLogoutEndpoint(),
+                        accessToken = token,
+                        body = "{}",
+                    )
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled

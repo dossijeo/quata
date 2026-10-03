@@ -642,6 +642,19 @@ contiene únicamente hashes y booleanos; credenciales y recibo privado se elimin
 El alcance es Android y una sola sesión local: no acredita logout global de otros dispositivos,
 entrega FCM, APNs, vencimiento criptográfico del JWT, rechazo caliente ni una recertificación de Web/iOS.
 
+### Logout iOS — latencia remota acotada
+
+Product SHA `2dd5c781bf722bbe0426572c1ea47714a905c217` limita a 15 segundos el intento
+autenticado de logout Supabase antes de retirar la sesión local. El timeout cancela el transporte,
+limpia Keychain y completa el logout como fallo remoto best-effort; la cancelación externa conserva
+su semántica y se propaga después de la limpieza. La suite `IosAuthLogoutOrderingTest` pasó 8/8 en
+macOS Intel y acredita el límite exacto con tiempo virtual y un timeout del caller a 5 segundos,
+además de mantener verdes éxito, HTTP fallido, excepción de transporte y cancelación. Manifest:
+`docs/candidate-attestations/auth-logout-latency-ios.json`.
+
+El cambio es exclusivo de iOS y no repite matrices Android/Web. No atribuye revocación backend a
+un único gesto UI, entrega APNs, rutas de retorno ajenas ni recertificación global.
+
 ## Auditoría honesta #154 — Create Post
 
 #154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el

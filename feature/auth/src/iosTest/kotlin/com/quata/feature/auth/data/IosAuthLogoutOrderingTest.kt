@@ -4,10 +4,15 @@ import com.quata.core.model.AuthSession
 import com.quata.core.preferences.SessionStorage
 import com.quata.core.session.IosRenewableAuthSession
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertEquals
@@ -125,6 +130,71 @@ class IosAuthLogoutOrderingTest {
         repository.logout()
 
         kotlin.test.assertEquals(1, remoteCalls)
+        assertNull(session.restoredSession())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun nonresponsiveRemoteIsCancelledAtTheBoundAndLocalKeychainSessionIsCleared() = runTest {
+        val storage = MemorySessionStorage()
+        val session = renewableSession(storage)
+        session.save(authSession())
+        val remoteStarted = CompletableDeferred<Unit>()
+        val remoteCancelled = CompletableDeferred<Unit>()
+        val repository = repository(session, object : IosAuthHttpTransport {
+            override suspend fun post(endpoint: String, headers: Map<String, String>, body: String): IosAuthHttpResponse {
+                remoteStarted.complete(Unit)
+                try {
+                    awaitCancellation()
+                } finally {
+                    remoteCancelled.complete(Unit)
+                }
+            }
+
+            override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse =
+                error("logout_must_not_get")
+        })
+
+        val startedAt = currentTime
+        repository.logout()
+
+        remoteStarted.await()
+        remoteCancelled.await()
+        assertEquals(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS, currentTime - startedAt)
+        assertNull(session.restoredSession())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun callerTimeoutPropagatesBeforeTheInternalBoundAndLocalKeychainSessionIsCleared() = runTest {
+        val storage = MemorySessionStorage()
+        val session = renewableSession(storage)
+        session.save(authSession())
+        val remoteCancelled = CompletableDeferred<Unit>()
+        val repository = repository(session, object : IosAuthHttpTransport {
+            override suspend fun post(endpoint: String, headers: Map<String, String>, body: String): IosAuthHttpResponse =
+                try {
+                    awaitCancellation()
+                } finally {
+                    remoteCancelled.complete(Unit)
+                }
+
+            override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse =
+                error("logout_must_not_get")
+        })
+
+        val callerTimeoutMillis = 5_000L
+        val startedAt = currentTime
+        var failure: Throwable? = null
+        try {
+            withTimeout(callerTimeoutMillis) { repository.logout() }
+        } catch (caught: Throwable) {
+            failure = caught
+        }
+
+        remoteCancelled.await()
+        assertTrue(failure is TimeoutCancellationException)
+        assertEquals(callerTimeoutMillis, currentTime - startedAt)
         assertNull(session.restoredSession())
     }
 
