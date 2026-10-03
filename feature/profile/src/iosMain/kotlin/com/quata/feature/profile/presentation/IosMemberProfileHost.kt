@@ -11,7 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.feature.profile.domain.ProfileViewerRepository
@@ -28,7 +28,7 @@ class IosMemberProfileHostDependencies(
 
 fun QuataMemberProfileViewController(
     dependencies: IosMemberProfileHostDependencies,
-): UIViewController = ComposeUIViewController {
+): UIViewController = QuataComposeUIViewController {
     val viewModel = androidx.compose.runtime.remember(dependencies.profileId, dependencies.repository) {
         ProfileViewerViewModel(dependencies.profileId, dependencies.repository)
     }

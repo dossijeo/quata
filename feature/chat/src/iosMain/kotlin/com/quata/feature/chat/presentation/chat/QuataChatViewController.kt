@@ -1,6 +1,6 @@
 package com.quata.feature.chat.presentation.chat
 
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -98,7 +98,7 @@ class IosChatHostDependencies(
  * from creating a fake repository, manual Realtime client, player, cache or URI implementation.
  */
 fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         QuataTheme {
             val languageTag = dependencies.languageTag
             val chatText = remember(languageTag) { { value: ChatText -> chatTextForLanguage(value, languageTag) } }

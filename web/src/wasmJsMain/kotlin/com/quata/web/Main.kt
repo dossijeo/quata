@@ -33,6 +33,7 @@ import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.core.moderation.LegalDocument
@@ -315,15 +316,20 @@ private fun QuataWebApp(
         setWebMemberProfileMarker(feedMemberProfileRoute.profileId)
     }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
-    var touchFlowEnabled by remember { mutableStateOf(true) }
+    var touchFlowEnabled by remember { mutableStateOf(false) }
     var webPushOptedIn by remember { mutableStateOf(false) }
     fun changeTouchFlowEnabled(enabled: Boolean) {
+        val profileId = currentUserId ?: return
+        val key = webTouchFlowEnabledKey(profileId) ?: return
         touchFlowEnabled = enabled
-        scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
+        scope.launch { platformServices.preferences.putString(key, enabled.toString()) }
     }
     fun changeThemeMode(mode: QuataThemeMode) {
         themeMode = mode
         scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
+    }
+    LaunchedEffect(currentUserId, platformServices.preferences) {
+        touchFlowEnabled = restoreWebTouchFlowEnabled(platformServices.preferences, currentUserId)
     }
     fun completeLogin() {
         privateRouteAccess.invalidateAuthentication()
@@ -355,6 +361,7 @@ private fun QuataWebApp(
             platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
             currentUserId = null
             currentUserIsOfficial = false
+            touchFlowEnabled = false
             ugcTermsAccepted = null
             isSessionReady = false
             navigation.navigate("")
@@ -495,7 +502,6 @@ private fun QuataWebApp(
         currentUserId = restoredSession?.userId
         currentUserIsOfficial = restoredSession?.isOfficial == true
         themeMode = QuataThemeMode.fromStorageValue(platformServices.preferences.getString(WebThemeModeKey))
-        touchFlowEnabled = platformServices.preferences.getString(WebTouchFlowEnabledKey) != "false"
         webPushOptedIn = WebPushConsent.isEnabled(platformServices.preferences)
         isSessionResolved = true
     }
@@ -789,8 +795,13 @@ private fun QuataWebApp(
                                 platformServices.preferences.putString("web.push.subscription_status", result.diagnosticValue())
                             }
                         },
-                            onAccountLifecycleSuccess = {
-                            completeLogout()
+                        onAccountLifecycleSuccess = {
+                            val retiringProfileId = currentUserId
+                            scope.launch {
+                                webTouchFlowEnabledKey(retiringProfileId)?.let { platformServices.preferences.remove(it) }
+                                touchFlowEnabled = false
+                                completeLogout()
+                            }
                         },
                     )
                 } else if (webWhatsNewDestination(navigation.route) != null) {
@@ -1532,7 +1543,24 @@ internal fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): () -> U
 )
 
 private const val WebThemeModeKey = "quata_web_theme_mode"
-private const val WebTouchFlowEnabledKey = "quata_web_touch_flow_enabled"
+private const val WebLegacyTouchFlowEnabledKey = "quata_web_touch_flow_enabled"
+private const val WebTouchFlowEnabledPrefix = "quata_web_touch_flow_enabled_"
+
+internal fun webTouchFlowEnabledKey(userId: String?): String? =
+    userId?.trim()?.takeIf(String::isNotEmpty)?.let { WebTouchFlowEnabledPrefix + it }
+
+internal suspend fun restoreWebTouchFlowEnabled(
+    preferences: PreferenceStore,
+    userId: String?,
+): Boolean {
+    val key = webTouchFlowEnabledKey(userId) ?: return false
+    preferences.getString(key)?.let { return it == "true" }
+    val legacy = preferences.getString(WebLegacyTouchFlowEnabledKey) ?: return false
+    val enabled = legacy == "true"
+    preferences.putString(key, enabled.toString())
+    preferences.remove(WebLegacyTouchFlowEnabledKey)
+    return enabled
+}
 
 private val webNeighborhoodsScreenStrings = neighborhoodsScreenStringsForLanguage("es")
 private val webCommunityProfileCommentsTranslationGateway = FangTextTranslatorGateway(

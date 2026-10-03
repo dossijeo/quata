@@ -20,7 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
@@ -196,7 +196,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
  * No repository implementation is created here; the iOS composition root injects the real one.
  */
 fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         QuataTheme {
             val strings = defaultOfficialFeedScreenStrings(dependencies.preferredLanguageTag)
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
@@ -288,7 +288,7 @@ fun iosAuthenticatedOfficialEditorDependencies(
 
 /** Swift-callable UIKit factory for the shared Official editor root. */
 fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         QuataTheme {
             IosOfficialEditorHost(dependencies)
         }

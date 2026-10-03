@@ -238,7 +238,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 final class IosAppearancePreferences {
     private enum Key {
         static let themeMode = "quata_ios_theme_mode"
-        static let touchFlowEnabled = "quata_ios_touch_flow_enabled"
+        static let legacyTouchFlowEnabled = "quata_ios_touch_flow_enabled"
+        static let touchFlowEnabledPrefix = "quata_ios_touch_flow_enabled_"
     }
 
     private let defaults: UserDefaults
@@ -247,16 +248,27 @@ final class IosAppearancePreferences {
         self.defaults = defaults
     }
 
-    var touchFlowEnabled: Bool {
-        defaults.object(forKey: Key.touchFlowEnabled) as? Bool ?? false
+    func touchFlowEnabled(for userId: String?) -> Bool {
+        guard let key = touchFlowKey(for: userId) else { return false }
+        if let stored = defaults.object(forKey: key) as? Bool { return stored }
+        guard let legacy = defaults.object(forKey: Key.legacyTouchFlowEnabled) as? Bool else { return false }
+        defaults.set(legacy, forKey: key)
+        defaults.removeObject(forKey: Key.legacyTouchFlowEnabled)
+        return legacy
     }
 
     var themeModeStorageValue: String? {
         defaults.string(forKey: Key.themeMode)
     }
 
-    func setTouchFlowEnabled(_ enabled: Bool) {
-        defaults.set(enabled, forKey: Key.touchFlowEnabled)
+    func setTouchFlowEnabled(_ enabled: Bool, for userId: String?) {
+        guard let key = touchFlowKey(for: userId) else { return }
+        defaults.set(enabled, forKey: key)
+    }
+
+    func clearTouchFlow(for userId: String?) {
+        guard let key = touchFlowKey(for: userId) else { return }
+        defaults.removeObject(forKey: key)
     }
 
     func setThemeModeStorageValue(_ value: String) {
@@ -269,6 +281,13 @@ final class IosAppearancePreferences {
         case "light-mode": window.overrideUserInterfaceStyle = .light
         default: window.overrideUserInterfaceStyle = .unspecified
         }
+    }
+
+    private func touchFlowKey(for userId: String?) -> String? {
+        guard let userId = userId?.trimmingCharacters(in: .whitespacesAndNewlines), !userId.isEmpty else {
+            return nil
+        }
+        return Key.touchFlowEnabledPrefix + userId
     }
 }
 
@@ -408,6 +427,26 @@ private final class IosAppCompositionRoot {
                 supabasePublishableKey: configuration.supabasePublishableKey),
             authSession: renewableAuthSession)
     }()
+
+    private var validatedTouchFlowProfileId: String? {
+        guard hasValidatedAuthenticatedSession else { return nil }
+        return renewableAuthSession?.restoredSession()?.userId
+    }
+
+    private func currentTouchFlowEnabled() -> Bool {
+        appearancePreferences.touchFlowEnabled(for: validatedTouchFlowProfileId)
+    }
+
+    private func setCurrentTouchFlowEnabled(_ enabled: Bool) {
+        guard let profileId = validatedTouchFlowProfileId else { return }
+        appearancePreferences.setTouchFlowEnabled(enabled, for: profileId)
+        IosTouchFlowHostKt.setIosTouchFlowEnabled(enabled: enabled)
+    }
+
+    private func retireTouchFlowPreference(for profileId: String?) {
+        appearancePreferences.clearTouchFlow(for: profileId)
+        IosTouchFlowHostKt.setIosTouchFlowEnabled(enabled: false)
+    }
 
     func sendNotificationReply(target: QuataChatDeepLink, recipient: String, text: String,
                                clientID: String, completion: @escaping (NotificationReplyOutcome) -> Void) {
@@ -1417,7 +1456,7 @@ private final class IosAppCompositionRoot {
                 cameraCapture: self.platformServices.services.cameraCapture,
                 contacts: self.platformServices.services.contacts,
                 permissions: self.platformServices.services.permissions,
-                touchFlowEnabled: appearancePreferences.touchFlowEnabled,
+                touchFlowEnabled: self.currentTouchFlowEnabled(),
                 themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                 languageCode: Locale.current.languageCode ?? "en",
                 documentOpener: self.platformServices.services.documentOpener,
@@ -1429,8 +1468,8 @@ private final class IosAppCompositionRoot {
                         documentOpener: opener,
                     )
                 },
-                onTouchFlowEnabledChange: { enabled in
-                    appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
+                onTouchFlowEnabledChange: { [weak self] enabled in
+                    self?.setCurrentTouchFlowEnabled(enabled.boolValue)
                 },
                 onThemeModeStorageValueChange: { [weak self] value in
                     appearancePreferences.setThemeModeStorageValue(value)
@@ -1735,7 +1774,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installSettingsFactory { [weak self] in
             IosSettingsHostKt.QuataSettingsViewController(
                 dependencies: IosSettingsHostKt.createIosSettingsHostDependencies(
-                    touchFlowEnabled: appearancePreferences.touchFlowEnabled,
+                    touchFlowEnabled: self?.currentTouchFlowEnabled() ?? false,
                     themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                     languageCode: Locale.current.languageCode ?? "en",
                     documentOpener: self?.platformServices.services.documentOpener,
@@ -1747,8 +1786,8 @@ private final class IosAppCompositionRoot {
                             documentOpener: opener,
                         )
                     },
-                    onTouchFlowEnabledChange: { enabled in
-                        appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
+                    onTouchFlowEnabledChange: { [weak self] enabled in
+                        self?.setCurrentTouchFlowEnabled(enabled.boolValue)
                     },
                     onThemeModeStorageValueChange: { [weak self] value in
                         appearancePreferences.setThemeModeStorageValue(value)
@@ -1870,11 +1909,15 @@ private final class IosAppCompositionRoot {
                 return
             }
             self?.prepareChatDraftRetirement()
+            let retiringTouchFlowProfileId = self?.validatedTouchFlowProfileId
             handler.perform(
                 action: action,
                 password: password,
                 onSuccess: { [weak self] in
-                    DispatchQueue.main.async { self?.authenticatedHost.performLogout() }
+                    DispatchQueue.main.async {
+                        self?.retireTouchFlowPreference(for: retiringTouchFlowProfileId)
+                        self?.authenticatedHost.performLogout()
+                    }
                 },
                 onFailure: { [weak self] reason in
                     DispatchQueue.main.async {
@@ -2025,6 +2068,8 @@ private final class IosAppCompositionRoot {
     private func setValidatedAuthenticatedSession(_ authenticated: Bool) {
         authenticatedSessionGeneration.sessionChanged()
         hasValidatedAuthenticatedSession = authenticated
+        let enabled = authenticated ? currentTouchFlowEnabled() : false
+        IosTouchFlowHostKt.setIosTouchFlowEnabled(enabled: enabled)
     }
 
     private func installUgcTermsGateIfAvailable() {

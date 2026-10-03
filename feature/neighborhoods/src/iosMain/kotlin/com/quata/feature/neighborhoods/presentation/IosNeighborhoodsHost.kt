@@ -22,7 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.model.PostComment
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
@@ -135,7 +135,7 @@ fun createIosNeighborhoodsHostDependencies(
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
 fun QuataNeighborhoodsViewController(
     dependencies: IosNeighborhoodsHostDependencies,
-): UIViewController = ComposeUIViewController {
+): UIViewController = QuataComposeUIViewController {
     val state by dependencies.viewModel.uiState.collectAsState()
     var presentedProfileId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(state.selectedProfile) {
@@ -224,7 +224,7 @@ fun createIosCommunityProfileHostDependencies(
 /** UIKit adapter for the same complete public-profile Compose root used by Android and Web. */
 fun QuataCommunityProfileViewController(
     dependencies: IosCommunityProfileHostDependencies,
-): UIViewController = ComposeUIViewController {
+): UIViewController = QuataComposeUIViewController {
     val viewModel = remember(dependencies.repository) { NeighborhoodsViewModel(dependencies.repository) }
     val scope = rememberCoroutineScope()
     val state by viewModel.uiState.collectAsState()

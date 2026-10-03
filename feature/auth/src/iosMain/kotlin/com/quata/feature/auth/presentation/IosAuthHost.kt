@@ -1,7 +1,8 @@
 package com.quata.feature.auth.presentation
 
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
+import com.quata.core.ui.components.QuataTransparentComposeUIViewController
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -134,7 +135,7 @@ fun createIosAuthAccountLifecycleHandler(repository: AuthRepository): IosAuthAcc
     IosAuthAccountLifecycleHandler(repository)
 
 /** Stable Swift-exported UIViewController factory backed by common Auth ViewModels and Compose. */
-fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewController = QuataComposeUIViewController {
     val catalog = AuthCatalog.copy(dependencies.locale)
     QuataTheme {
         AuthProductHostContent(
@@ -149,7 +150,7 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
 }
 
 /** The registration choice is still the shared Auth product host; UIKit only selects its entry. */
-fun QuataRegistrationViewController(dependencies: IosAuthHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataRegistrationViewController(dependencies: IosAuthHostDependencies): UIViewController = QuataComposeUIViewController {
     val catalog = AuthCatalog.copy(dependencies.locale)
     QuataTheme {
         AuthProductHostContent(
@@ -224,12 +225,10 @@ fun QuataAuthRequiredDialogViewController(
     onDismiss: () -> Unit,
     onCreateAccount: () -> Unit,
     onLogin: () -> Unit,
-): UIViewController = ComposeUIViewController(configure = {
-    // This host is presented over the public application shell. Compose's default opaque Skia
-    // surface would paint an entire grey/white viewport behind AlertDialog and hide Feed/header/
-    // navigation even when UIKit's wrapper is transparent.
-    opaque = false
-}) {
+): UIViewController =
+    // This host is presented over the public application shell. The transparent factory keeps
+    // Feed/header/navigation visible behind the common dialog.
+    QuataTransparentComposeUIViewController {
     val spanish = languageCode.lowercase().startsWith("es")
     QuataTheme {
         QuataAuthRequiredDialogContent(

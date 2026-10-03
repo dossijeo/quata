@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.model.NotificationItem
 import com.quata.core.text.SosPreviewCatalog
 import com.quata.core.designsystem.theme.QuataTheme
@@ -79,7 +79,7 @@ fun createIosNotificationsHostDependencies(
     onDismissAuthenticationRequired = onDismissAuthenticationRequired,
 )
 
-fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependencies): UIViewController = QuataComposeUIViewController {
     // Match Android's literal second-level relative-time cadence.
     var nowMillis by remember { mutableLongStateOf(dependencies.timestampNowMillis) }
     LaunchedEffect(Unit) {

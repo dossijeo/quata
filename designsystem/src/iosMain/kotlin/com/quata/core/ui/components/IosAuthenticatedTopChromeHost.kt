@@ -3,7 +3,6 @@ package com.quata.core.ui.components
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import platform.UIKit.UIViewController
 
@@ -36,7 +35,7 @@ class IosAuthenticatedTopChromeHost(
         isSosSending = sending
     }
 
-    fun viewController(): UIViewController = ComposeUIViewController {
+    fun viewController(): UIViewController = QuataComposeUIViewController {
         QuataTheme {
             QuataAuthenticatedShellChrome(
                 notificationCount = notificationCount,

@@ -1,6 +1,6 @@
 package com.quata.feature.feed.presentation
 
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
@@ -170,7 +170,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
  * The screen, state and ViewModel are all common code; this iOS source merely creates the
  * Compose UIViewController.
  */
-fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = QuataComposeUIViewController {
     QuataTheme {
         val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
         val commentsTranslationGateway = remember {
@@ -250,7 +250,7 @@ private fun iosCommunityEmojiSelectorEvidenceCatalogState(
  * It is intentionally separate from [QuataFeedViewController], so a caller cannot mistake an
  * unconfigured deployment for a loaded feed.
  */
-fun QuataIosMigrationStatusViewController(): UIViewController = ComposeUIViewController {
+fun QuataIosMigrationStatusViewController(): UIViewController = QuataComposeUIViewController {
     QuataTheme {
         var acknowledged by remember { mutableStateOf(false) }
         FeedStatusContent(

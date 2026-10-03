@@ -42,24 +42,34 @@ final class QuataFeedFrameworkTests: XCTestCase {
         super.tearDown()
     }
 
-    func testAppearancePreferencesRestorePersistAndApplyThemeAtUIKitBoundary() throws {
+    func testAppearancePreferencesAreProfileScopedPersistedAndAppliedAtUIKitBoundary() throws {
         let suiteName = "quata-ios-appearance-tests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let preferences = IosAppearancePreferences(defaults: defaults)
         let window = UIWindow(frame: UIScreen.main.bounds)
 
-        XCTAssertFalse(preferences.touchFlowEnabled)
+        XCTAssertFalse(preferences.touchFlowEnabled(for: nil))
+        XCTAssertFalse(preferences.touchFlowEnabled(for: "profile-a"))
+        XCTAssertFalse(preferences.touchFlowEnabled(for: "profile-b"))
         XCTAssertNil(preferences.themeModeStorageValue)
         preferences.applyTheme(to: window)
         XCTAssertEqual(window.overrideUserInterfaceStyle, .unspecified)
 
-        preferences.setTouchFlowEnabled(true)
+        preferences.setTouchFlowEnabled(true, for: "profile-a")
         preferences.setThemeModeStorageValue("dark-mode")
-        XCTAssertTrue(IosAppearancePreferences(defaults: defaults).touchFlowEnabled)
+        XCTAssertTrue(IosAppearancePreferences(defaults: defaults).touchFlowEnabled(for: "profile-a"))
+        XCTAssertFalse(IosAppearancePreferences(defaults: defaults).touchFlowEnabled(for: "profile-b"))
         XCTAssertEqual(IosAppearancePreferences(defaults: defaults).themeModeStorageValue, "dark-mode")
         preferences.applyTheme(to: window)
         XCTAssertEqual(window.overrideUserInterfaceStyle, .dark)
+
+        preferences.clearTouchFlow(for: "profile-a")
+        XCTAssertFalse(preferences.touchFlowEnabled(for: "profile-a"))
+        defaults.set(true, forKey: "quata_ios_touch_flow_enabled")
+        XCTAssertTrue(preferences.touchFlowEnabled(for: "legacy-profile"))
+        XCTAssertNil(defaults.object(forKey: "quata_ios_touch_flow_enabled"))
+        XCTAssertFalse(preferences.touchFlowEnabled(for: "profile-b"))
 
         preferences.setThemeModeStorageValue("light-mode")
         preferences.applyTheme(to: window)

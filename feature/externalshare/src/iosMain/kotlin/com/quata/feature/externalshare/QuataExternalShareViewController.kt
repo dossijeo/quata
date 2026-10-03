@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.DocumentOpenService
@@ -32,7 +32,7 @@ class IosExternalShareHostDependencies(
 
 /** UIKit/Compose host for the common external-share state and destination selection flow. */
 fun QuataExternalShareViewController(dependencies: IosExternalShareHostDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         val attachmentScope = rememberCoroutineScope()
         QuataTheme {
             Surface(Modifier.fillMaxSize()) {

@@ -1,7 +1,7 @@
 package com.quata.feature.notifications.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.NotificationItem
 import com.quata.core.text.SosPreviewCatalog
@@ -15,7 +15,7 @@ fun QuataIosNotificationsEvidenceViewController(
     onOpenConversation: (String) -> Unit,
 ): UIViewController {
     val repository = IosNotificationsEvidenceRepository()
-    return ComposeUIViewController {
+    return QuataComposeUIViewController {
         QuataTheme {
             NotificationsHostContent(
                 padding = PaddingValues(),

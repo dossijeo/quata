@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.localization.QuataLanguage
@@ -66,7 +66,7 @@ fun createIosSettingsHostDependencies(
     onLogout = onLogout,
 )
 
-fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIViewController = QuataComposeUIViewController {
     var touchFlowEnabled by remember { mutableStateOf(dependencies.touchFlowEnabled) }
     var themeMode by remember { mutableStateOf(dependencies.themeMode) }
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
