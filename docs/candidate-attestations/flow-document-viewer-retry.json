@@ -4,11 +4,11 @@
     "FLOW-DOCUMENT-VIEWER",
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+  "productSha": "7def46002fea75399359125068fa8c12c971a38a",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "sha": "7def46002fea75399359125068fa8c12c971a38a",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-web-b96cd844.json",
       "reportSha256": "173d54360ff0c9f7836b7effc8b974a60bdb1ba21d1dc95cb7ab4cbab9ffc093",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "sha": "7def46002fea75399359125068fa8c12c971a38a",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-android-b96cd844.json",
       "reportSha256": "c22eec539c3b1abd51ad7a827923ca795d3b1321f857757a93f2429a45bf5752",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "bd63e56c155936d4b10e9278f86453d85d00a554",
+      "sha": "7def46002fea75399359125068fa8c12c971a38a",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-bd63e56c.json",
       "reportSha256": "577c5fe3b5592fe8eab64c7c8a584f3ce8f8fd1f2d25d639a4c6871886d4b89b",
       "reportStatus": "passed",
@@ -95,6 +95,7 @@
     "iOS SimulatorSigned forces one local recoverable open failure, exposes the common Retry action, opens Quick Look for quata-document-retry.rtf and returns to the same attachment. The one selected XCTest passed with three named screenshots and no backend configuration.",
     "The iOS custody preserves three earlier failures: remote authentication was blocked by the external Supabase HTTP 402 egress quota; the first local bootstrap was unavailable; and the next local host did not arm the one-shot failure. The accepted bd63e56c run fixes each cause without hiding or relabelling those attempts.",
     "Web and Android ran on the pending runtime tree later captured exactly by 7569719fc866c323dadbb14ee0fb5e1351983f9c. The only production delta from that commit through bd63e56c is iOS-specific; their focal matrices were therefore retained instead of repeated solely for the SHA advance.",
+    "Product SHA 7def46002fea75399359125068fa8c12c971a38a adds only the reviewed capability declarations for the already tested Web and iOS composition sources after the runtime evidence commit; it does not change executable behavior.",
     "This candidate removes the generic recoverable-open/retry limit for Chat document attachments. Unsupported formats, provider-specific behavior and real network failures remain separate boundaries and are not claimed by this hermetic failure injection.",
     "Raw screenshots, videos, logs and XCTest bundles remain host-local. The committed projections contain no credentials, profile identifiers, conversation identifiers from a backend, or secret-bearing paths.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; later attestation-only commits remain subject to scripts/validate-candidate-attestation.mjs."
