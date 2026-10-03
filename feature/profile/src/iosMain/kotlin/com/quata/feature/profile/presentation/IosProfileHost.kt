@@ -18,7 +18,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,7 +80,7 @@ class IosProfileHostDependencies(
     val openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
 )
 
-fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = QuataComposeUIViewController {
     var touchFlowEnabled by remember { mutableStateOf(dependencies.touchFlowEnabled) }
     var themeMode by remember { mutableStateOf(dependencies.themeMode) }
     QuataTheme(mode = themeMode) {

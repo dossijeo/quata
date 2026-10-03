@@ -8,7 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PermissionService
@@ -45,7 +45,7 @@ class IosProfileSosHostDependencies(
     val onClose: () -> Unit,
 )
 
-fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): UIViewController = ComposeUIViewController {
+fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): UIViewController = QuataComposeUIViewController {
     val state by dependencies.viewModel.uiState.collectAsState()
     val profile = state.profile
     QuataTheme {

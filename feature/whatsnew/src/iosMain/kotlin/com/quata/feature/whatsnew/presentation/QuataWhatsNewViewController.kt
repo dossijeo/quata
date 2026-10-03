@@ -1,7 +1,7 @@
 package com.quata.feature.whatsnew.presentation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.ui.components.QuataAboutDialogContent
 import com.quata.feature.whatsnew.domain.PendingRelease
@@ -22,7 +22,7 @@ class IosWhatsNewHostDependencies(
 
 /** Swift-callable UIKit factory for the shared What's New screen. */
 fun QuataWhatsNewViewController(dependencies: IosWhatsNewHostDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         QuataTheme {
             WhatsNewContent(
                 releases = dependencies.releases,
@@ -47,7 +47,7 @@ class IosReleaseHistoryHostDependencies(
 
 /** Swift-callable UIKit factory for the shared release-history viewport. */
 fun QuataReleaseHistoryViewController(dependencies: IosReleaseHistoryHostDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         QuataTheme {
             ReleaseHistoryContent(
                 repository = dependencies.repository,
@@ -76,7 +76,7 @@ class IosAboutHostDependencies(
 
 /** Swift-callable UIKit factory for the portable About dialog. */
 fun QuataAboutViewController(dependencies: IosAboutHostDependencies): UIViewController =
-    ComposeUIViewController {
+    QuataComposeUIViewController {
         QuataTheme {
             QuataAboutDialogContent(
                 title = dependencies.title,

@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
@@ -108,7 +108,7 @@ private val LanguageTagPattern = Regex("^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$")
 fun QuataIosManagedWhatsNewViewController(
     runtime: IosWhatsNewRuntimeBootstrap,
     onClose: () -> Unit,
-): UIViewController = ComposeUIViewController {
+): UIViewController = QuataComposeUIViewController {
     QuataTheme {
         WhatsNewScreenHost(
             repository = runtime.repository,

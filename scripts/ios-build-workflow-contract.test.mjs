@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -18,6 +18,17 @@ const iosProfileHostSource = resolve(import.meta.dirname, '..', 'feature', 'prof
 const iosProfileBootstrapSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileSosRuntimeBootstrap.kt');
 const ciLanePolicy = resolve(import.meta.dirname, '..', 'docs', 'CI_LANE_POLICY.md');
 const finalGateScript = resolve(import.meta.dirname, '..', 'scripts', 'check-final-certification.sh');
+const iosTouchFlowHostSource = resolve(import.meta.dirname, '..', 'designsystem', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'core', 'ui', 'components', 'IosTouchFlowHost.kt');
+
+async function kotlinSourcesBelow(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nested = await Promise.all(entries.map((entry) => {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) return kotlinSourcesBelow(path);
+    return entry.isFile() && entry.name.endsWith('.kt') ? [path] : [];
+  }));
+  return nested.flat();
+}
 
 function assertIosJavaContract(yaml) {
   assert.match(
@@ -616,6 +627,39 @@ test('iOS authenticated chat host wires the common map opener contract', async (
   );
 });
 
+test('iOS Touch Flow uses the common renderer in every Compose root and profile-scoped state', async () => {
+  const root = resolve(import.meta.dirname, '..');
+  const sourcePaths = [
+    ...(await kotlinSourcesBelow(resolve(root, 'designsystem', 'src', 'iosMain'))),
+    ...(await kotlinSourcesBelow(resolve(root, 'feature'))).filter((path) => path.replaceAll('\\', '/').includes('/src/iosMain/')),
+  ];
+  const [wrapper, swift, ...sources] = await Promise.all([
+    readFile(iosTouchFlowHostSource, 'utf8'),
+    readFile(iosAppSource, 'utf8'),
+    ...sourcePaths.filter((path) => path !== iosTouchFlowHostSource).map((path) => readFile(path, 'utf8')),
+  ]);
+
+  assert.match(wrapper, /private var iosTouchFlowEnabled by mutableStateOf\(false\)/);
+  assert.match(wrapper, /fun setIosTouchFlowEnabled\(enabled: Boolean\)[\s\S]*?iosTouchFlowEnabled = enabled/);
+  assert.match(wrapper, /Modifier[\s\S]*?fillMaxSize\(\)[\s\S]*?fluidTouchEffect\(enabled = iosTouchFlowEnabled\)/);
+  assert.match(wrapper, /fun QuataComposeUIViewController/);
+  assert.match(wrapper, /fun QuataTransparentComposeUIViewController/);
+  for (const source of sources) {
+    assert.doesNotMatch(source, /\bComposeUIViewController\b/, 'iOS product roots must use the Touch Flow factory');
+  }
+  const combined = sources.join('\n');
+  assert.ok((combined.match(/QuataComposeUIViewController/g) ?? []).length >= 20,
+    'all opaque iOS product roots must remain behind the shared factory');
+  assert.ok((combined.match(/QuataTransparentComposeUIViewController/g) ?? []).length >= 3,
+    'transparent dialog roots must remain behind the shared factory');
+
+  assert.match(swift, /func touchFlowEnabled\(for userId: String\?\) -> Bool/);
+  assert.match(swift, /func setTouchFlowEnabled\(_ enabled: Bool, for userId: String\?\)/);
+  assert.match(swift, /private var validatedTouchFlowProfileId: String\?/);
+  assert.match(swift, /setValidatedAuthenticatedSession[\s\S]*?IosTouchFlowHostKt\.setIosTouchFlowEnabled\(enabled: enabled\)/);
+  assert.match(swift, /retireTouchFlowPreference\(for profileId:[\s\S]*?clearTouchFlow\(for: profileId\)/);
+});
+
 test('iOS Profile appearance state is mandatory, persisted by Swift and applied by Compose', async () => {
   const [swift, host, bootstrap] = await Promise.all([
     readFile(iosAppSource, 'utf8'),
@@ -631,7 +675,7 @@ test('iOS Profile appearance state is mandatory, persisted by Swift and applied 
     assert.ok(bootstrap.includes(required), `Profile bootstrap must require ${required}`);
   }
   assert.match(bootstrap, /themeMode = QuataThemeMode\.fromStorageValue\(themeModeStorageValue\)/);
-  assert.match(swift, /final class IosAppearancePreferences[\s\S]*?UserDefaults[\s\S]*?touchFlowEnabled[\s\S]*?themeModeStorageValue/);
+  assert.match(swift, /final class IosAppearancePreferences[\s\S]*?UserDefaults[\s\S]*?touchFlowEnabled\(for userId: String\?\)[\s\S]*?themeModeStorageValue/);
   assert.match(swift, /appearancePreferences\.applyTheme\(to: window\)/);
-  assert.match(swift, /profileHostDependencies\([\s\S]*?touchFlowEnabled: appearancePreferences\.touchFlowEnabled[\s\S]*?themeModeStorageValue: appearancePreferences\.themeModeStorageValue/);
+  assert.match(swift, /profileHostDependencies\([\s\S]*?touchFlowEnabled: self\.currentTouchFlowEnabled\(\)[\s\S]*?themeModeStorageValue: appearancePreferences\.themeModeStorageValue/);
 });

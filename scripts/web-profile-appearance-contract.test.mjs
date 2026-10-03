@@ -19,7 +19,10 @@ function assertProfileAppearanceWiring(host, main) {
   assert.match(host, /ProfileScreenHost\([\s\S]*?touchFlowEnabled = touchFlowEnabled,[\s\S]*?onTouchFlowEnabledChange = onTouchFlowEnabledChange,[\s\S]*?themeMode = themeMode,[\s\S]*?onThemeModeChange = onThemeModeChange,/);
   assert.doesNotMatch(host, /touchFlowEnabled = false|themeMode = QuataThemeMode\.System|onTouchFlowEnabledChange = \{\}|onThemeModeChange = \{\}/);
 
-  assert.match(main, /fun changeTouchFlowEnabled\(enabled: Boolean\) \{\s*touchFlowEnabled = enabled\s*scope\.launch \{ platformServices\.preferences\.putString\(WebTouchFlowEnabledKey, enabled\.toString\(\)\) \}\s*\}/);
+  assert.match(main, /var touchFlowEnabled by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(main, /fun changeTouchFlowEnabled\(enabled: Boolean\) \{\s*val profileId = currentUserId \?: return\s*val key = webTouchFlowEnabledKey\(profileId\) \?: return\s*touchFlowEnabled = enabled\s*scope\.launch \{ platformServices\.preferences\.putString\(key, enabled\.toString\(\)\) \}\s*\}/);
+  assert.match(main, /LaunchedEffect\(currentUserId, platformServices\.preferences\)[\s\S]*?restoreWebTouchFlowEnabled\(platformServices\.preferences, currentUserId\)/);
+  assert.match(main, /Box\(Modifier\.fillMaxSize\(\)\.fluidTouchEffect\(enabled = touchFlowEnabled\)\)/);
   assert.match(main, /fun changeThemeMode\(mode: QuataThemeMode\) \{\s*themeMode = mode\s*scope\.launch \{ platformServices\.preferences\.putString\(WebThemeModeKey, mode\.storageValue\) \}\s*\}/);
   assert.match(main, /WebSettingsHost\([\s\S]*?touchFlowEnabled = touchFlowEnabled,[\s\S]*?themeMode = themeMode,[\s\S]*?onTouchFlowEnabledChange = ::changeTouchFlowEnabled,[\s\S]*?onThemeModeChange = ::changeThemeMode,/);
   assert.match(main, /WebProfileHost\([\s\S]*?touchFlowEnabled = touchFlowEnabled,[\s\S]*?themeMode = themeMode,[\s\S]*?onTouchFlowEnabledChange = ::changeTouchFlowEnabled,[\s\S]*?onThemeModeChange = ::changeThemeMode,/);
@@ -43,7 +46,8 @@ test('Web Profile appearance contract fails closed for hardcodes, no-ops, or mis
 
   const mainMutations = [
     ['Profile callback made no-op', main.replace(/(WebProfileHost\([\s\S]*?)onTouchFlowEnabledChange = ::changeTouchFlowEnabled,/, '$1onTouchFlowEnabledChange = {},')],
-    ['touch flow persistence removed', main.replace('scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }', '')],
+    ['touch flow persistence removed', main.replace('scope.launch { platformServices.preferences.putString(key, enabled.toString()) }', '')],
+    ['touch flow made global again', main.replace('val key = webTouchFlowEnabledKey(profileId) ?: return', 'val key = \"quata_web_touch_flow_enabled\"')],
     ['theme persistence removed', main.replace('scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }', '')],
   ];
   for (const [name, mutatedMain] of mainMutations) await t.test(name, () => {

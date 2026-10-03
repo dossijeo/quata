@@ -6,7 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.window.ComposeUIViewController
+import com.quata.core.ui.components.QuataTransparentComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
@@ -86,7 +86,7 @@ fun QuataUgcTermsDialogViewController(
     documentOpener: DocumentOpenService,
     onAccepted: () -> Unit,
     onLogout: () -> Unit,
-): UIViewController = ComposeUIViewController(configure = { opaque = false }) {
+): UIViewController = QuataTransparentComposeUIViewController {
     val language = languageCode.toUgcTermsLanguage()
     val scope = rememberCoroutineScope()
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
@@ -123,7 +123,7 @@ fun QuataIosUgcTermsEvidenceViewController(
     onOpened: (String) -> Unit,
     onAccepted: () -> Unit,
     onLogout: () -> Unit,
-): UIViewController = ComposeUIViewController(configure = { opaque = false }) {
+): UIViewController = QuataTransparentComposeUIViewController {
     val language = (languageCode ?: "es").toUgcTermsLanguage()
     val gateway = remember { IosUgcTermsEvidenceGateway() }
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
