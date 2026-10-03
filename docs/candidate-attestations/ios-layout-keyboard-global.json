@@ -4,17 +4,17 @@
     "FLOW-IOS-LAYOUT"
   ],
   "status": "passed",
-  "productSha": "02e9ab60ecf3be2f5039c83d90479fede6efe3f4",
-  "certification": "ci-entry-interaction-corrected-affected-gates-complete-independent-rereview-go-final-CI-pending",
+  "productSha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+  "certification": "exact-sha-simulator-signed-focal-xctest-passed-independent-rereview-pending-final-CI-pending",
   "evidenceKind": "REAL_SHARED_PROFILE_GLOBAL_KEYBOARD_ROTATION_XCTEST",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "02e9ab60ecf3be2f5039c83d90479fede6efe3f4",
-      "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-cbf04403.json",
-      "reportSha256": "2fcb26bc02f2a1c604366edca645f2b68c6c486f6db420947ad536bf346d0f8d",
+      "sha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
+      "report": "docs/candidate-attestations/evidence/ios-layout-keyboard-global-2426a740.json",
+      "reportSha256": "3236eeab64348061c6ea2b22380d048b42df0b0410ab8c63e8f4a41eabe80865",
       "reportStatus": "passed",
-      "reportGitHead": "fc794f68c1739b5c2fa660f0a95ff8d0369ae350",
+      "reportGitHead": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -34,8 +34,8 @@
         "top_chrome_content_and_primary_navigation_containment_verified",
         "xctest_passed_once_with_zero_failures",
         "five_named_screenshots_exported",
-        "rebased_non_documentary_unit_blobs_verified_identical",
-        "rebased_affected_contracts_and_profile_wasm_compilation_passed"
+        "evidence_marker_does_not_intercept_real_profile_controls",
+        "affected_contracts_passed_on_exact_candidate"
       ],
       "cleanup": {
         "verified": true,
@@ -54,8 +54,8 @@
     "xcrun xcresulttool export attachments"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "447d683968cca8a15d7d74e723b2c0aa97998551",
+    "status": "PENDING",
+    "reviewedSha": "2426a7409fd131d74fc6d688ad69c637aadf4b94",
     "blockingFindings": []
   },
   "notes": [
@@ -68,6 +68,9 @@
     "After #513 merged, the unit rebased to cbf044037 and Product SHA f1be9a64 refreshed only the four reviewed capability-matrix references to the already-changed QuataIosApp.swift source. All six non-documentary unit blobs were byte-identical to the runtime-tested fc794f68 product; 25/25 affected contracts, 22/22 capability contracts, the eight focal shell-layout contracts, diff check and Profile Wasm compilation passed on the composed tree. Independent exact-SHA rereview on a2814956f returned GO with no P0-P3 findings.",
     "Final iOS CI on 5ffecbaf reached the focal test but the full-frame noninteractive shell marker made XCTest reject openSos.tap() as non-hittable before rotation. Product SHA 02e9ab60 replaces only that entry gesture with a center coordinate on the already-resolved visible element; the destination search remains the immediate fail-closed assertion and the product runtime is unchanged. The runtime rotation evidence remains attributed to fc794f68; final GitHub iOS certification must validate this corrected combined candidate.",
     "Independent static rereview on 447d68396 returned GO with no P0-P3 findings and reproduced the shell/capability contracts, attestation validator and diff check. The reviewer confirmed that the gesture is anchored to the identified visible control and immediately requires the expected production destination.",
-    "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation."
+    "This closes the global keyboard-layout policy for the production shell. Feature-specific keyboard journeys, overlays and overrides retain their own coverage boundaries; native Split View and Stage Manager remain an external Simulator limitation.",
+    "GitHub iOS certification on 2ec310db failed at the new focal method because the full-frame accessibility evidence marker sat above the embedded Profile surface. The failure is preserved and was not treated as a product keyboard regression.",
+    "Exact replays at 06dcf98c and 232cec17 separated marker occlusion from Compose semantics: the full route already completed, while temporary UIKit isHittable assertions deliberately kept those attempts red. The final fix places the real embedded surface above the noninteractive evidence marker and asserts the Compose input through real tap, typed value, keyboard focus and downstream behavior.",
+    "Exact Product SHA 2426a740 passed the SimulatorSigned build and the bounded focal XCTest 1/1 with zero failures in 108.228 seconds. Five screenshots, the UI log and xcresult are retained on the Mac with hashes in the evidence report; no backend or remote state was mutated."
   ]
 }
