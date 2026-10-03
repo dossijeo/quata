@@ -10,6 +10,7 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.IosDismissAwareDocumentOpenService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
@@ -29,8 +30,10 @@ import com.quata.feature.chat.data.PreferenceChatOutgoingStore
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.writeToFile
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancel
@@ -114,7 +117,8 @@ class IosChatRuntimeBootstrap(
         // The exact local retry composition owns one deterministic recoverable failure. Keeping
         // that behavior with the immutable local repository avoids a second environment read
         // deciding whether the purpose-built no-backend fixture actually exercises Retry.
-        var documentOpenFailurePending = localDocumentRetryFixture != null ||
+        val retryFixture = localDocumentRetryFixture
+        var documentOpenFailurePending = retryFixture != null ||
             iosChatDocumentOpenFailureFixtureOptedIn()
         return IosChatHostDependencies(
             repository = repository(),
@@ -139,8 +143,19 @@ class IosChatRuntimeBootstrap(
                 if (documentOpenFailurePending) {
                     documentOpenFailurePending = false
                     PlatformResult.Failure("document_viewer_e2e_forced_open_failure")
-                } else if (localDocumentRetryFixture?.path == attachment.reference) {
-                    localAttachmentOpener.open(attachment)
+                } else if (retryFixture?.path == attachment.reference) {
+                    val dismissAwareOpener = localAttachmentOpener as? IosDismissAwareDocumentOpenService
+                    if (dismissAwareOpener == null) {
+                        retryFixture.discard()
+                        PlatformResult.Failure("document_retry_fixture_requires_dismiss_aware_opener")
+                    } else {
+                        val opened = dismissAwareOpener.open(
+                            file = attachment,
+                            onDismiss = retryFixture::discard,
+                        )
+                        if (opened !is PlatformResult.Success) retryFixture.discard()
+                        opened
+                    }
                 } else {
                     attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
                 }
@@ -156,7 +171,15 @@ class IosChatRuntimeBootstrap(
 private data class IosChatDocumentRetryLocalFixture(
     val repository: ChatRepository,
     val path: String,
-)
+) {
+    @OptIn(ExperimentalForeignApi::class)
+    fun discard() {
+        val manager = NSFileManager.defaultManager
+        if (manager.fileExistsAtPath(path)) {
+            manager.removeItemAtPath(path, error = null)
+        }
+    }
+}
 
 private fun iosChatDocumentRetryLocalFixtureOrNull(): IosChatDocumentRetryLocalFixture? {
     if (!iosChatDocumentRetryLocalFixtureOptedIn()) return null

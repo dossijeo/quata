@@ -167,7 +167,8 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_state_commit_failed"\)/);
   assert.match(androidHost, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
   assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_OPEN_FAILURE_FIXTURE/);
-  assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = localDocumentRetryFixture != null \|\|\s*iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
+  assert.match(iosRuntimeBootstrap, /val retryFixture = localDocumentRetryFixture/);
+  assert.match(iosRuntimeBootstrap, /var documentOpenFailurePending = retryFixture != null \|\|\s*iosChatDocumentOpenFailureFixtureOptedIn\(\)/);
   assert.match(iosRuntimeBootstrap, /PlatformResult\.Failure\("document_viewer_e2e_forced_open_failure"\)/);
   assert.match(webRunner, /document_viewer_retry_changed_document_identity/);
   assert.match(webRunner, /assertVisibleTagOrText\([\s\S]{0,220}"document-viewer-status-retry"/);
@@ -209,7 +210,10 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE/);
   assert.match(iosRuntimeBootstrap, /createIosDocumentRetryLocalRuntimeBootstrap/);
   assert.match(iosRuntimeBootstrap, /supabaseUrl = "https:\/\/document-retry\.invalid"/);
-  assert.match(iosRuntimeBootstrap, /localAttachmentOpener\.open\(attachment\)/);
+  assert.match(iosRuntimeBootstrap, /localAttachmentOpener as\? IosDismissAwareDocumentOpenService/);
+  assert.match(iosRuntimeBootstrap, /onDismiss = retryFixture::discard/);
+  assert.match(iosRuntimeBootstrap, /removeItemAtPath\(path, error = null\)/);
+  assert.match(iosRuntimeBootstrap, /dismissAwareOpener\.open\(/);
   assert.match(iosRuntimeBootstrap, /attachmentPreviewService\?\.openRemoteAttachment\(attachment\)/);
   assert.match(iosAppDelegate, /case "document-retry-local"/);
   assert.match(iosAppDelegate, /createIosDocumentRetryLocalRuntimeBootstrap\(\)/);
