@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+  "git": {
+    "head": "2dacc769bd8cb7b835d620ab74f951e2401685c5",
+    "workingTreeDirty": false
+  },
+  "executedAt": "2026-10-02T21:36:18.801Z",
+  "evidenceKind": "REAL_OFFICIAL_TRANSPORT_NETWORK_FAILURE_ANDROID_WEB_IOS",
+  "steps": [
+    "exact_product_head_verified_clean",
+    "official_transport_contracts_passed_8_of_8",
+    "android_actual_official_repository_network_failure_and_exact_retry_passed",
+    "web_actual_official_repository_fetch_rejection_mapped_to_network",
+    "web_fetch_override_restored",
+    "ios_actual_official_repository_urlsession_rejection_mapped_to_network",
+    "no_authorization_header_sent_by_public_android_and_web_reads",
+    "temporary_mac_worktree_removed",
+    "no_backend_or_remote_state_mutated"
+  ],
+  "results": {
+    "contracts": {
+      "status": "passed",
+      "command": "node --test scripts/official-feed-total-order-contract.test.mjs",
+      "tests": 8,
+      "failures": 0
+    },
+    "android": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.data.supabase.OfficialFeedNetworkFailureTest --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.377,
+      "timestamp": "2026-10-02T21:18:13.400Z",
+      "resultPath": "app/build/test-results/testDebugUnitTest/TEST-com.quata.data.supabase.OfficialFeedNetworkFailureTest.xml",
+      "resultSha256": "16262c8874d48421331604db77d24ef8059e0f2e56f2d568485b87ac11902989",
+      "observed": [
+        "The actual SupabaseCommunityApi HTTP client surfaced IOException on the first public Official request.",
+        "The explicit retry reused the exact composite cursor, limit and RPC request.",
+        "Neither request sent Authorization."
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebOfficialNetworkFailureTest --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.005,
+      "timestamp": "2026-10-02T21:21:10.447Z",
+      "resultPath": "web/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.web.WebOfficialNetworkFailureTest.xml",
+      "resultSha256": "a4a2a6ca7fb7e81f4b8d0c7c4106fc67ff09194e31c80320710f6a66c972a364",
+      "observed": [
+        "The actual WebOfficialRepository and WebPostgrestClient mapped a rejected fetch to Network with the original reason.",
+        "The request kept the exact URL, composite cursor and limit and omitted Authorization.",
+        "The test restored the previous global fetch implementation."
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "host": "macOS Hyper-V VM",
+      "command": "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash gradlew :feature:official:iosX64Test --tests com.quata.feature.official.data.IosOfficialPublicReadPolicyTest.actualRepositoryMapsRejectedOlderPageUrlSessionToNetworkFailure --configure-on-demand --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.38,
+      "timestamp": "2026-10-02T21:36:18.801Z",
+      "resultPath": "feature/official/build/test-results/iosX64Test/TEST-iosX64Test.com.quata.feature.official.data.IosOfficialPublicReadPolicyTest.xml",
+      "resultSha256": "6051d66274c169e387004a82934c50b5045ebe9e05410d6ad1bed3103b3b423e",
+      "observed": [
+        "The actual IosOfficialReadRepository made a URLSession request to an unreachable local endpoint.",
+        "The rejected request produced IosOfficialReadException kind Network with no HTTP status within the bounded timeout."
+      ]
+    }
+  },
+  "sourceBindings": {
+    "android": {
+      "path": "app/src/test/java/com/quata/data/supabase/OfficialFeedNetworkFailureTest.kt",
+      "gitBlob": "d80149ccc805540bd51dd5aca7b5a9abe65be8af",
+      "sha256": "77a0081e9365f4eb2f18ea39e76d69ea9838c57ba0c861ba80f5a8697b03ec47"
+    },
+    "web": {
+      "path": "web/src/wasmJsTest/kotlin/com/quata/web/WebOfficialNetworkFailureTest.kt",
+      "gitBlob": "25ca01134324066576378f1d751dca1da7c7e7d8",
+      "sha256": "71e6b34bfcfba09358fed30fe385c36f7f108e1cccf5725de35157aa506bc760"
+    },
+    "ios": {
+      "path": "feature/official/src/iosTest/kotlin/com/quata/feature/official/data/IosOfficialPublicReadPolicyTest.kt",
+      "gitBlob": "542e08ee6ce8a65bb849e01f5eb8d8cef763e8b0",
+      "sha256": "7cfb7427472f8bf181f9b73217a277bc34af2f18a0d0e09ba0133e6e70c48a61"
+    },
+    "contract": {
+      "path": "scripts/official-feed-total-order-contract.test.mjs",
+      "gitBlob": "64942d3d0d02c0fafdbf21422881f8919cd07c3b",
+      "sha256": "4331e9a9f7663903ba0050af458820fa0091c64d3e13e5ad16c4c086d94cff52"
+    }
+  },
+  "diagnosticHistory": [
+    "The first macOS attempt stopped before compilation because gradlew lacked execute permission in the temporary worktree.",
+    "The Java 17 bootstrap stopped before the focal test because Gradle misread the Hyper-V host architecture.",
+    "The first JBR 21 attempt stopped during unrelated Android app configuration before the focal task; --configure-on-demand removed that unrelated evaluation.",
+    "These three setup failures are retained as diagnostics and are not represented as focal test failures."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "hermetic-local-network-faults-no-backend",
+    "residueCounts": {
+      "macWorktrees": 0,
+      "backendRows": 0,
+      "remoteMutations": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "The production Android, Web and iOS Official read adapters surface an independently injected transport failure through their platform-specific network error contract.",
+      "The Android explicit retry preserves the failed composite cursor and request shape; Android and Web public reads omit Authorization.",
+      "The Web global transport override and temporary macOS checkout are restored with no residue."
+    ],
+    "doesNotProve": [
+      "A complete native UI E2E for SCR-OFFICIAL.",
+      "Unrelated Official detail, author, editor, comments, media, push or mutation flows.",
+      "A production Supabase mutation, deployment or live outage response."
+    ]
+  }
+}

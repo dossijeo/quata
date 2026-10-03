@@ -2,8 +2,10 @@ package com.quata.feature.official.data
 
 import com.quata.core.model.PostComment
 import com.quata.feature.official.domain.OfficialPostDraft
+import com.quata.feature.official.domain.OfficialFeedCursor
 import com.quata.feature.official.domain.OfficialPostType
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -105,6 +107,27 @@ class IosOfficialPublicReadPolicyTest {
         listOf(0, 400, 404, 418, 500).forEach { status ->
             assertEquals(IosOfficialReadFailureKind.Http, iosOfficialReadFailureKind(status))
         }
+    }
+
+    @Test
+    fun actualRepositoryMapsRejectedOlderPageUrlSessionToNetworkFailure() = runBlocking {
+        val repository = IosOfficialReadRepository(
+            IosOfficialRuntimeConfiguration("http://127.0.0.1:1", "public-client-key"),
+        )
+        val cursor = OfficialFeedCursor(
+            sortAt = "2026-10-02T09:00:00Z",
+            createdAt = "2026-10-02T08:00:00Z",
+            postId = "00000000-0000-4000-8000-000000000105",
+        )
+
+        val failure = withTimeout(10_000) {
+            repository.loadOlderOfficialFeedPage(cursor, 25).exceptionOrNull()
+        }
+
+        val readFailure = failure as? IosOfficialReadException
+            ?: error("expected IosOfficialReadException, got ${failure?.let { it::class.simpleName }}")
+        assertEquals(IosOfficialReadFailureKind.Network, readFailure.kind)
+        assertNull(readFailure.statusCode)
     }
 
     private fun assertSessionRequiredMutation(result: Result<*>) {
