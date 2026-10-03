@@ -12,3 +12,10 @@ export function officialFeedPageFixtureResponse({ method, authorization, query =
   }
   return { status: 200, body: [] };
 }
+
+export function isExpectedFixtureRealtimeConsoleError(message, serverOrigin) {
+  if (typeof message !== "string" || typeof serverOrigin !== "string") return false;
+  const websocketOrigin = serverOrigin.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+  const expectedUrl = `${websocketOrigin}/realtime/v1/websocket?apikey=fixture-public-anon-key&vsn=2.0.0`;
+  return message.startsWith(`WebSocket connection to '${expectedUrl}' failed:`);
+}

@@ -5,7 +5,10 @@ import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promi
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
-import { officialFeedPageFixtureResponse } from "./official-editor-web-evidence-policy.mjs";
+import {
+  isExpectedFixtureRealtimeConsoleError,
+  officialFeedPageFixtureResponse,
+} from "./official-editor-web-evidence-policy.mjs";
 
 const PROFILE_ID = "11111111-1111-4111-8111-111111111111";
 const ACCESS_TOKEN = "fixture.official.access.token";
@@ -71,6 +74,7 @@ try {
     if (entry.type() !== "error") return;
     const text = entry.text();
     if (/403|postgrest_http_403|fixture_publish_forbidden/i.test(text)) return;
+    if (isExpectedFixtureRealtimeConsoleError(text, server.origin)) return;
     faults.push(`console_error:${text.slice(0, 120)}`);
   });
   await page.goto(`${server.origin}/?quata-auth-e2e=1&quata-official-editor-e2e=1#official`, { waitUntil: "domcontentloaded" });

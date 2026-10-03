@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { officialFeedPageFixtureResponse } from "./official-editor-web-evidence-policy.mjs";
+import {
+  isExpectedFixtureRealtimeConsoleError,
+  officialFeedPageFixtureResponse,
+} from "./official-editor-web-evidence-policy.mjs";
 
 const runner = await readFile(new URL("./official-editor-web-evidence.mjs", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -88,6 +91,25 @@ test("Official editor Web evidence rejects every bearer on the public feed fixtu
     officialFeedPageFixtureResponse({ method: "GET", query: { p_limit: "50", p_before_id: "unexpected" } }),
     { status: 400, body: { error: "fixture_public_feed_initial_page_required" } },
   );
+});
+
+test("Official editor Web evidence ignores only its unavailable local Realtime fixture", () => {
+  const origin = "http://127.0.0.1:45385";
+  assert.equal(
+    isExpectedFixtureRealtimeConsoleError(
+      "WebSocket connection to 'ws://127.0.0.1:45385/realtime/v1/websocket?apikey=fixture-public-anon-key&vsn=2.0.0' failed: Error in connection establishment",
+      origin,
+    ),
+    true,
+  );
+  for (const message of [
+    "WebSocket connection to 'wss://production.invalid/realtime/v1/websocket?apikey=fixture-public-anon-key&vsn=2.0.0' failed: network",
+    "WebSocket connection to 'ws://127.0.0.1:45385/realtime/v1/websocket?apikey=other&vsn=2.0.0' failed: network",
+    "Uncaught TypeError: product fault",
+  ]) {
+    assert.equal(isExpectedFixtureRealtimeConsoleError(message, origin), false);
+  }
+  assert.match(runner, /isExpectedFixtureRealtimeConsoleError\(text, server\.origin\)/);
 });
 
 test("Official editor Web evidence runner and contract are callable from package scripts", () => {
