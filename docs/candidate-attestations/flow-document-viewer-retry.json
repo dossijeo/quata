@@ -4,11 +4,11 @@
     "FLOW-DOCUMENT-VIEWER",
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "7def46002fea75399359125068fa8c12c971a38a",
+  "productSha": "82514fd11d68731090a9a18b42b049f861fc5ab0",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "7def46002fea75399359125068fa8c12c971a38a",
+      "sha": "82514fd11d68731090a9a18b42b049f861fc5ab0",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-web-b96cd844.json",
       "reportSha256": "173d54360ff0c9f7836b7effc8b974a60bdb1ba21d1dc95cb7ab4cbab9ffc093",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "7def46002fea75399359125068fa8c12c971a38a",
+      "sha": "82514fd11d68731090a9a18b42b049f861fc5ab0",
       "report": "docs/candidate-attestations/evidence/document-viewer-retry-android-b96cd844.json",
       "reportSha256": "c22eec539c3b1abd51ad7a827923ca795d3b1321f857757a93f2429a45bf5752",
       "reportStatus": "passed",
@@ -55,11 +55,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c1c95002afc68ed0f7292a610a00d89a01ac67c4",
-      "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-c1c95002.json",
-      "reportSha256": "8021ff432d1dd0c9c43bcc81e8c561050972320b07ec85cac71f6854393f4b34",
+      "sha": "82514fd11d68731090a9a18b42b049f861fc5ab0",
+      "report": "docs/candidate-attestations/evidence/document-viewer-retry-ios-82514fd1.json",
+      "reportSha256": "2303ade3fe520bc8cf89e2b01d63ede0e1279bef5908e5c180618119a4bcbe0d",
       "reportStatus": "passed",
-      "reportGitHead": "c1c95002afc68ed0f7292a610a00d89a01ac67c4",
+      "reportGitHead": "82514fd11d68731090a9a18b42b049f861fc5ab0",
       "reportWorkingTreeDirty": true,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -94,9 +94,9 @@
     "Web/Wasm forces one local recoverable open failure, retries the same DOCX into the real DocMentis viewer, verifies download/share, closes the viewer and returns to the same attachment without authentication, backend mutation or remote storage.",
     "Android API 35 forces one local recoverable open failure, exposes Retry, opens the real document reader, returns to the same attachment and proves both its fixture preference and local file are absent after cleanup.",
     "iOS SimulatorSigned forces one local recoverable open failure, exposes the common Retry action, opens Quick Look for quata-document-retry.rtf, returns to the same attachment and removes the fixed local fixture through the bounded coordinator. The selected XCTest passed with three named screenshots and no backend configuration.",
-    "The iOS custody preserves the earlier remote HTTP 402, unavailable-bootstrap and unarmed-failure attempts, plus the clean XCFramework attempt that exposed direct Metal device discovery unsupported by the virtualized simulator. The accepted c1c95002 coordinator reuses the bd63e56c runtime artifact only after proving the executable source tree is identical outside documentation, evidence scripts and capability declarations.",
+    "The iOS custody preserves the earlier remote HTTP 402, unavailable-bootstrap, unarmed-failure and clean-XCFramework Metal attempts, plus the first exact-82514fd1 assertion failure. One identical rerun passed. The coordinator reuses the bd63e56c runtime artifact only after proving the executable source tree is identical outside documentation, evidence scripts and capability declarations.",
     "Web and Android ran on the pending runtime tree later captured exactly by 7569719fc866c323dadbb14ee0fb5e1351983f9c. The only production delta from that commit through bd63e56c is iOS-specific; their focal matrices were therefore retained instead of repeated solely for the SHA advance.",
-    "Product SHA 7def46002fea75399359125068fa8c12c971a38a adds only the reviewed capability declarations for the already tested Web and iOS composition sources after the runtime evidence commit; it does not change executable behavior.",
+    "Product SHA 82514fd11d68731090a9a18b42b049f861fc5ab0 adds only reviewed capability declarations, attestation projections and the bounded iOS evidence coordinator after the already tested runtime commit; executable product sources remain identical to bd63e56c outside documentation, evidence scripts and capability declarations.",
     "This candidate removes the generic recoverable-open/retry limit for Chat document attachments. Unsupported formats, provider-specific behavior and real network failures remain separate boundaries and are not claimed by this hermetic failure injection.",
     "Raw screenshots, videos, logs and XCTest bundles remain host-local. The committed projections contain no credentials, profile identifiers, conversation identifiers from a backend, or secret-bearing paths.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; later attestation-only commits remain subject to scripts/validate-candidate-attestation.mjs."
