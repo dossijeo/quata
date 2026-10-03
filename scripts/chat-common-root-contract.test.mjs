@@ -23,6 +23,7 @@ async function kotlinAndSwiftFiles(dir) {
 const [
   packageJson,
   inventory,
+  multiplatformInventory,
   verticalPlan,
   appNavGraph,
   androidHost,
@@ -30,6 +31,9 @@ const [
   webHost,
   iosHost,
   chatScreenHost,
+  chatProductScaffold,
+  proceduralBackgroundSpec,
+  proceduralBackgroundCanvas,
   conversationDetail,
   deepLinkFocus,
   selectedActions,
@@ -56,6 +60,7 @@ const [
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
+  source("docs/MULTIPLATFORM_INVENTORY.md"),
   source("docs/CHAT_MULTIPLATFORM_VERTICAL_PLAN.md"),
   source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
@@ -63,6 +68,9 @@ const [
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatProductScaffold.kt"),
+  source("designsystem/src/commonMain/kotlin/com/quata/designsystem/chat/ProceduralChatBackgroundSpec.kt"),
+  source("designsystem/src/commonMain/kotlin/com/quata/designsystem/chat/ProceduralChatBackgroundCanvas.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatMessageDeepLinkFocus.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
@@ -115,6 +123,36 @@ test("Android, Wasm and iOS product routes mount ChatProductHostContent", () => 
   assert.match(iosHost, /ChatProductHostContent\(/);
   assert.match(iosHost, /conversationList = \{ listModifier ->[\s\S]*?ConversationsScreenHost\(/);
   assert.match(iosHost, /onOpenFavorites = \{ dependencies\.onOpenConversation\(AppDestinations\.FavoriteMessagesConversationId\) \}/);
+});
+
+test("all product Chat routes use the deterministic common procedural background", () => {
+  assert.match(proceduralBackgroundSpec, /data class ProceduralChatBackgroundSpec\(/);
+  assert.match(proceduralBackgroundSpec, /fun fnv1a32\(value: String\): Long/);
+  assert.match(proceduralBackgroundSpec, /cacheKey = cacheHash\.toString\(\)/);
+  assert.match(proceduralBackgroundSpec, /paletteIndex = if \(paletteCount > 0\)/);
+  assert.doesNotMatch(proceduralBackgroundSpec, /android\.|platform\.UIKit|org\.w3c/);
+
+  assert.match(proceduralBackgroundCanvas, /fun ProceduralChatBackgroundCanvas\(/);
+  assert.match(proceduralBackgroundCanvas, /Canvas\(modifier\.fillMaxSize\(\)\) \{ drawProceduralBackground\(spec\.seed, palette\) \}/);
+  assert.match(proceduralBackgroundCanvas, /repeat\(18\)/);
+  assert.doesNotMatch(proceduralBackgroundCanvas, /android\.|platform\.UIKit|org\.w3c/);
+
+  assert.match(chatProductScaffold, /renderedBackground: \(@Composable \(\) -> Unit\)\? = null/);
+  assert.match(chatProductScaffold, /if \(renderedBackground != null\) \{[\s\S]*?renderedBackground\(\)[\s\S]*?\} else \{[\s\S]*?ProceduralChatBackgroundCanvas\(/);
+  assert.match(chatScreenHost, /ChatProductScaffold\(/);
+  assert.doesNotMatch(chatScreenHost, /renderedBackground\s*=/,
+    "the multiplatform product route must use the common renderer by default");
+
+  for (const host of [androidHost, webHost, iosHost]) {
+    assert.match(host, /ChatProductHostContent\(/);
+  }
+
+  const backgroundRow = multiplatformInventory.split(/\r?\n/).find((line) => line.startsWith("| Fondos procedurales de chat |"));
+  assert.ok(backgroundRow, "procedural Chat background inventory row must exist");
+  assert.match(backgroundRow, /renderer Compose determinista/);
+  assert.match(backgroundRow, /Android, Web\/Wasm e iOS/);
+  assert.match(backgroundRow, /Android aislada/);
+  assert.doesNotMatch(backgroundRow, /faltan adaptadores JS\/iOS|falta.*almacenamiento binario/i);
 });
 
 test("Chat route disposal preserves the active conversation of a replacement screen", () => {
