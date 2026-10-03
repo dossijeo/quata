@@ -17,9 +17,15 @@ const authDialog = await source(
 test("anonymous Web uses Android's common participation dialog instead of redirecting public Feed to Login", () => {
   assert.match(main, /QuataAuthRequiredDialogContent\(/);
   assert.match(main, /fun requestAuthenticationFor\([\s\S]*?isAuthRequiredPromptOpen = true/);
-  assert.match(main, /if \(navigation\.state\.requiresAuthentication\) navigation\.navigate\(""\)/);
+  assert.match(
+    main,
+    /if \(navigation\.state\.requiresAuthentication && !hasLocalDocumentRetryFixtureAccess\) navigation\.navigate\(""\)/,
+  );
   assert.match(main, /val hasAuthenticatedSession = isSessionReady && currentUserId != null/);
-  assert.match(main, /!hasAuthenticatedSession && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)/);
+  assert.match(
+    main,
+    /!hasAuthenticatedSession && !hasLocalDocumentRetryFixtureAccess && navigationState\.requiresAuthentication -> \{[\s\S]*?requestAuthenticationFor\(navigationState\.pendingAuthenticationFragment\(\)\)/,
+  );
   assert.match(main, /internal val WebNavigationState\.isPublicRoute[\s\S]*?quataWebRouteAccess\(/);
   assert.match(shellPolicy, /fun quataWebRouteAccess\([\s\S]*?"feed"[\s\S]*?"communities"[\s\S]*?"official"[\s\S]*?"notifications"/);
   assert.doesNotMatch(main, /requestAuthenticationForCurrentRoute\(\) \{[\s\S]*?navigation\.navigate\("auth"\)/);
