@@ -89,6 +89,46 @@ class OfficialRootStatesTest {
         }
         onNodeWithText("official-root-visible").assertIsDisplayed()
     }
+
+    @Test
+    fun liveRankingShowsLoadingUntilTheCompleteSnapshotArrives() = runComposeUiTest {
+        setContent {
+            QuataTheme {
+                OfficialRankingLoadStateContent(
+                    isLoading = true,
+                    error = null,
+                    errorMessage = "No se pudo cargar el ranking",
+                    retryLabel = "Reintentar",
+                    onRetry = {},
+                    modifier = Modifier,
+                ) {}
+            }
+        }
+
+        onNodeWithTag(OfficialRankingLoadingTestTag, useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun liveRankingFailureExposesAnExplicitRetry() = runComposeUiTest {
+        var retries = 0
+        setContent {
+            QuataTheme {
+                OfficialRankingLoadStateContent(
+                    isLoading = false,
+                    error = "forced-ranking-error",
+                    errorMessage = "No se pudo cargar el ranking",
+                    retryLabel = "Reintentar",
+                    onRetry = { retries += 1 },
+                    modifier = Modifier,
+                ) {}
+            }
+        }
+
+        onNodeWithTag(OfficialRankingErrorTestTag, useUnmergedTree = true).assertIsDisplayed()
+        onNodeWithTag(OfficialRankingRetryTestTag, useUnmergedTree = true).assertIsDisplayed()
+        onNodeWithText("Reintentar").performClick()
+        runOnIdle { assertEquals(1, retries) }
+    }
 }
 
 @androidx.compose.runtime.Composable
