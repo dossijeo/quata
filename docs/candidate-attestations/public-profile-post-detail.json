@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-POST-DETAIL"
+  ],
+  "status": "passed",
+  "productSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+  "certification": "local-focal-preflight-and-independent-product-review-complete-final-CI-pending",
+  "evidenceKind": "PUBLIC_PROFILE_POST_DETAIL_IDENTITY_AND_RETURN",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+      "report": "docs/candidate-attestations/evidence/public-profile-post-detail-b4cfc07b.json",
+      "reportSha256": "d5123e71737baecc4891526244ebaeccd560021b51b4f2fb6fa66a4d336dd960",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "public_profile_post_detail_wasm_compose_test_passed",
+        "public_profile_post_detail_android_common_source_compiled",
+        "public_profile_post_detail_ios_x64_compose_test_passed",
+        "post_detail_parity_contract_passed",
+        "independent_product_review_go"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-remote-fixture-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailTest",
+    ".\\gradlew.bat :feature:neighborhoods:compileAndroidMain",
+    "node --test scripts/post-detail-parity-contract.test.mjs",
+    "macOS: bash ./gradlew :feature:neighborhoods:iosX64Test --tests com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailTest --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/public-profile-post-detail.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "reviewedProductSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The public-profile gallery now opens the exact selected Post in shared detail chrome and returns to the retained pager page while reusing the existing action callbacks.",
+      "Nested image and unloaded-video controls no longer consume the primary gallery tap; their media behavior remains available inside detail and through the explicit expand action."
+    ]
+  },
+  "notes": [
+    "ProfilePostsPagerContent retains the pager state, resolves detail by stable post ID and restores the exact gallery page on back.",
+    "CommunityProfileScreenHost supplies QuataPostDetailChromeContent and reuses the existing like, comments, media, share and report behavior.",
+    "The three focal common Compose tests passed on Web/Wasm and iOS x64; Android compiled the same commonMain implementation. The parity contract passed 10 of 10 assertions.",
+    "Product SHA b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7 was executed directly on every affected platform after resolving the independent review findings for nested image and unloaded-video interactions.",
+    "No backend fixture or mutation was needed because the change is local navigation over already loaded profile posts and existing action transports.",
+    "This closes only the documented public-profile post-detail limit. Integrated comments and deep scroll restoration remain explicit OVR-POST-DETAIL limits; GitHub final jobs retain integrated certification."
+  ]
+}

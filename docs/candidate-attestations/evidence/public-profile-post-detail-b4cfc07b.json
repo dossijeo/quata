@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "unit": "OVR-POST-DETAIL",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-10-04",
+  "productSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+  "git": {
+    "head": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "workingTreeDirty": false
+  },
+  "scope": "Open the exact public-profile post in shared detail chrome and return to the retained gallery page",
+  "steps": [
+    "public_profile_post_detail_wasm_compose_test_passed",
+    "public_profile_post_detail_android_common_source_compiled",
+    "public_profile_post_detail_ios_x64_compose_test_passed",
+    "post_detail_parity_contract_passed",
+    "independent_product_review_go"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "feature_neighborhoods_compileAndroidMain"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "PublicProfilePostDetailTest_3_of_3"
+      ],
+      "rawResultSha256": "145d9b97128e68a4d5c326d36f549b62b32856b7bebf8ae5764e096803dc6efc"
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "feature_neighborhoods_compileKotlinIosX64",
+        "feature_neighborhoods_compileTestKotlinIosX64",
+        "feature_neighborhoods_linkDebugTestIosX64",
+        "PublicProfilePostDetailTest_3_of_3"
+      ],
+      "rawResultSha256": "a704e467a301ffad43ba7a251e765eb2aea933661a2c25e4c7bdf2a3e902b5cf"
+    }
+  },
+  "assertions": [
+    "selecting the second gallery page opens the exact second Post and never substitutes the first",
+    "closing detail reveals the same retained pager page",
+    "image and unloaded-video primary surfaces open detail from the gallery instead of consuming the tap as media interaction",
+    "inside detail, video loading and explicit media opening retain their existing callbacks",
+    "the shared public-profile preview keeps the existing like, comments, media, share and report callbacks",
+    "Android, Web/Wasm and iOS consume the same commonMain detail implementation"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Nested image media interaction no longer consumes the gallery tap before detail navigation.",
+      "The unloaded-video start overlay opens detail in the gallery and only starts video loading inside detail."
+    ]
+  },
+  "cleanup": {
+    "verified": true,
+    "mode": "no remote fixture or backend mutation used"
+  },
+  "limitations": [
+    "This focal evidence closes public-profile post-detail identity and pager return; integrated comments and deep scroll restoration remain separate OVR-POST-DETAIL limits.",
+    "GitHub final jobs retain clean-runner integrated certification."
+  ]
+}
