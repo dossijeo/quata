@@ -4,13 +4,13 @@
     "OVR-LIVE-RANKING"
   ],
   "status": "passed",
-  "productSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+  "productSha": "6c9d34e5c5708f1db0342e443e53d7b95cd947b3",
   "certification": "official-complete-total-order-ranking-fail-closed-retryable-navigation-independent-review-approved-final-ci-pending",
   "evidenceKind": "HERMETIC_SHARED_BROWSER_TESTS_PLATFORM_COMPILE_AND_EXISTING_TOTAL_ORDER_CONTRACT",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "sha": "6c9d34e5c5708f1db0342e443e53d7b95cd947b3",
       "report": "docs/candidate-attestations/evidence/official-ranking-completeness-f38a5527.json",
       "reportSha256": "4b8c251996bf9681ac6f4238e0be732fb44ddbce8d0ac8bf7e8e35798c19f647",
       "reportStatus": "passed",
@@ -34,7 +34,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "sha": "6c9d34e5c5708f1db0342e443e53d7b95cd947b3",
       "report": "docs/candidate-attestations/evidence/official-ranking-completeness-f38a5527.json",
       "reportSha256": "4b8c251996bf9681ac6f4238e0be732fb44ddbce8d0ac8bf7e8e35798c19f647",
       "reportStatus": "passed",
@@ -54,7 +54,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "sha": "6c9d34e5c5708f1db0342e443e53d7b95cd947b3",
       "report": "docs/candidate-attestations/evidence/official-ranking-completeness-f38a5527.json",
       "reportSha256": "4b8c251996bf9681ac6f4238e0be732fb44ddbce8d0ac8bf7e8e35798c19f647",
       "reportStatus": "passed",
@@ -82,7 +82,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+    "reviewedSha": "55bb0fb98f7b0e84a270651c19eeb6d6a1940bef",
+    "runtimeReviewedSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2: the first navigation implementation retained a failed remote ranking target and blocked the same-row retry; synchronous Loading reservation and the accepted real-ViewModel recovery test close the finding."
@@ -93,7 +94,16 @@
     "The ranking loader reuses the deployed quata_official_feed_page total-order cursor and scans until the first short page. No schema, migration, backend deployment or product data changed.",
     "The visible feed pager is not replaced by the ranking snapshot. A transport or integrity failure keeps the current feed visible and exposes explicit retry instead of presenting a partial list as complete.",
     "A ranked post outside the pager is loaded by exact stable identity before navigation. Failed and NotFound outcomes clear the pending target; selecting the same row reserves a fresh Loading state and retries.",
-    "The exact Product SHA passed 15 focal Chrome/Wasm tests, the 8 total-order contracts, Android common runtime compilation, iOS x64 test-source compilation and independent rereview.",
-    "The final GitHub platform jobs remain responsible for candidate-wide recertification. No unrelated E2E matrix was repeated solely for the frozen SHA."
-  ]
+    "Runtime validation SHA f38a5527 passed 15 focal Chrome/Wasm tests, the 8 total-order contracts, Android common runtime compilation, iOS x64 test-source compilation and independent rereview.",
+    "The final GitHub platform jobs remain responsible for candidate-wide recertification. No unrelated E2E matrix was repeated solely for the frozen SHA.",
+    "Product SHA 6c9d34e5 is the patch-equivalent executable commit after rebasing onto main 14051f5a7 following #543. Range-diff maps both candidate commits exactly; #543 changes Google OAuth parity and does not alter Official Ranking runtime, tests or the evidence report. The exact focal evidence from f38a5527 therefore remains applicable and was not repeated solely for the rebased SHA.",
+    "Independent composition review returned GO on review head 55bb0fb9 with no P0-P3 findings. It confirmed both commits patch-equivalent, all 12 candidate blobs identical, no path overlap or semantic interference from #543, a matching evidence-report hash, validator PASS and clean diff-check."
+  ],
+  "validationProvenance": {
+    "runtimeValidationSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+    "rebasedProductSha": "6c9d34e5c5708f1db0342e443e53d7b95cd947b3",
+    "baseSha": "14051f5a70ca1418614b2844d1f8e1738178611d",
+    "rangeDiff": "2_of_2_patch_equivalent",
+    "runtimeSourcesUnchanged": true
+  }
 }
