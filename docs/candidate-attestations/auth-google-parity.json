@@ -4,12 +4,12 @@
     "SCR-AUTH-GOOGLE"
   ],
   "status": "passed",
-  "productSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
-  "certification": "google-oauth-platform-parity-affected-gates-complete-final-ci-pending",
+  "productSha": "81f3f525544f875289bd81aa299278e789061641",
+  "certification": "google-oauth-platform-parity-affected-gates-complete-independent-review-complete-final-ci-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "sha": "81f3f525544f875289bd81aa299278e789061641",
       "report": "docs/candidate-attestations/evidence/auth-google-parity-dc31361f.json",
       "reportSha256": "bba4468fcb9891c18402bb51b91176a4a618cab7180ccc5bc2487800ef698396",
       "reportStatus": "passed",
@@ -33,7 +33,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "sha": "81f3f525544f875289bd81aa299278e789061641",
       "report": "docs/candidate-attestations/evidence/auth-google-parity-dc31361f.json",
       "reportSha256": "bba4468fcb9891c18402bb51b91176a4a618cab7180ccc5bc2487800ef698396",
       "reportStatus": "passed",
@@ -54,19 +54,19 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
-      "report": "docs/candidate-attestations/evidence/auth-google-parity-dc31361f.json",
-      "reportSha256": "bba4468fcb9891c18402bb51b91176a4a618cab7180ccc5bc2487800ef698396",
+      "sha": "81f3f525544f875289bd81aa299278e789061641",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-ios-81f3f525.json",
+      "reportSha256": "bfffe0cb1c3ebf24eac30c50272fd206da1f6214890f686cb94f283854939bc4",
       "reportStatus": "passed",
-      "reportGitHead": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "reportGitHead": "81f3f525544f875289bd81aa299278e789061641",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
       "requiredSteps": [
-        "common_google_oauth_pkce_contracts_passed",
-        "ios_profile_compile_ios_x64_passed_exact_combined_product_sha",
-        "ios_auth_ios_x64_tests_passed_exact_combined_product_sha",
-        "ios_simulator_signed_build_for_testing_passed_exact_combined_product_sha",
+        "prior_ios_google_oauth_runtime_evidence_unchanged",
+        "ios_profile_ios_x64_full_suite_52_of_52_passed_exact_product_sha",
+        "ios_profile_gateway_contract_17_of_17_passed_exact_product_sha",
+        "ios_profile_google_identity_linker_fixture_wiring_compiles",
         "independent_review_no_blocking_findings"
       ],
       "cleanup": {
@@ -81,17 +81,21 @@
     ".\\gradlew.bat :web:wasmJsTest :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon",
     ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.auth.AndroidGoogleOAuthPendingStoreInstrumentedTest --no-daemon",
     "bash ./gradlew :feature:auth:iosX64Test :feature:profile:compileKotlinIosX64 --no-daemon --console=plain",
+    "bash ./gradlew :feature:profile:iosX64Test --no-daemon --console=plain",
     "bash scripts/build-ios-intel-simulator-signed.sh",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-google-parity.json --head HEAD --json"
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+    "reviewedSha": "81f3f525544f875289bd81aa299278e789061641",
     "blockingFindings": [],
     "scopeLimit": "Local validation proves the OAuth lifecycle, exact profile resolution, session race guards and platform wiring. Remote Google provider activation and a real account round trip remain outside this candidate evidence.",
     "runtimeReviewedSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de"
   },
   "notes": [
+    "Independent rereview returned GO with no P0-P3 findings on Product SHA 81f3f525. It confirmed the one-line iosTest-only delta, production wiring unchanged, clean exact-SHA Mac evidence, local iOS test compilation, report hashes, 45/45 affected contracts and validator success.",
+    "GitHub iOS final certification exposed a stale iOS Profile contract fixture: it omitted the new optional GoogleIdentityLinker argument. Product SHA 81f3f525 passes null explicitly, changes no runtime source and passes the complete 52-test Profile iosX64 suite from a clean exact-SHA Mac worktree; the affected gateway suite passes 17/17.",
+    "Android and Web evidence remains bound to the existing clean reports because 81f3f525 changes only an iosTest fixture. Their runtimes, tests, evidence artifacts and reports are byte-unchanged and were not repeated solely for this iOS-only repair.",
     "The Android callback-router security fix was independently reviewed on exact Product SHA dc31361f3489d4ea878de1cf33de676aa2cac2de with no P0-P3 findings; Android lint, production/test compilation and the OAuth lifecycle contract pass on that SHA.",
     "Web and iOS remain bound to their recorded validated SHAs because dc31361f changes no Web, iOS or common runtime source; those matrices were not repeated solely because the candidate SHA changed.",
     "Android retains the prior 8/8 focal encrypted-pending-store run; the new runtime delta only relocates callback recognition into the application router and was revalidated with affected gates.",
