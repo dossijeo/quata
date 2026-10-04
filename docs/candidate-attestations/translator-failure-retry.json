@@ -4,13 +4,13 @@
     "FLOW-TRANSLATOR",
     "CHAT-TRANSLATION"
   ],
-  "productSha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+  "productSha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
-      "report": "docs/candidate-attestations/evidence/translator-failure-retry-web-05f80cb1.json",
-      "reportSha256": "3f9676da2b523ca2ae015064ba9be851764d25f6385fb60fb5c1cb3f1313b839",
+      "sha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-web-c28fc5a9.json",
+      "reportSha256": "777ec09f4ec22e9bdd40d37df5d27988a6c4cf5262a1077a9a6864807b3756aa",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -29,9 +29,9 @@
     },
     "android": {
       "status": "passed",
-      "sha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
-      "report": "docs/candidate-attestations/evidence/translator-failure-retry-android-05f80cb1.json",
-      "reportSha256": "258641f8435eec53a7f9c786b577db517efd452fb1e022518a3a79d5fe5445ad",
+      "sha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-android-c28fc5a9.json",
+      "reportSha256": "66e721b30e3aa813fb90fc10e877e7f3126aef4b7b6c2ab493994b33f3a57716",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -47,9 +47,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
-      "report": "docs/candidate-attestations/evidence/translator-failure-retry-ios-05f80cb1.json",
-      "reportSha256": "626f4f9677faa8fbca8451181900ec876fa50a46d0f42897bbc4e463fba69a8d",
+      "sha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-ios-c28fc5a9.json",
+      "reportSha256": "506b7c3b1186b0b6f8d07f63ed178e10e37d389065c1da7ec3aa5f034ba8b082",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -68,8 +68,7 @@
     "git diff --check",
     "node --test scripts/comments-translator-trigger-parity-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
     ".\\gradlew.bat :designsystem:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :designsystem:compileAndroidMain :feature:chat:compileAndroidMain --no-daemon",
-    "macOS documented Intel environment: ./gradlew :designsystem:iosX64Test :feature:chat:compileKotlinIosX64 (common main/test compilation completed; native test link hit daemon memory limit)",
-    "macOS documented Intel environment with 3 GiB heap: ./gradlew :feature:chat:compileKotlinIosX64 --no-daemon",
+    "macOS documented Intel environment with 3 GiB heap: ./gradlew :designsystem:compileKotlinIosX64 :designsystem:compileTestKotlinIosX64 :feature:chat:compileKotlinIosX64 --no-daemon",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/translator-failure-retry.json"
   ],
   "notes": [
@@ -78,6 +77,6 @@
     "The common tests force failure, retry, a stale success from the prior attempt, a current success, a removed box, and a null translation. The architectural contract binds both product overlays to that reducer.",
     "This closes the shared product-state gap for a recoverable translator failure and one retry. It does not claim a real provider outage, offline translation, exhaustive provider failures, or renewed visual comparison.",
     "No backend, credentials, device data, CI configuration, or existing runtime evidence was modified.",
-    "The candidate was rebased onto main #542. Translator runtime/test/contract blobs are byte-identical to the accepted execution, and 25/25 focal contracts plus Wasm, Android and iOS x64 affected targets passed on the rebased tree; unrelated E2E matrices were not repeated solely for the new SHA."
+    "The candidate was rebased onto main #544. Translator runtime, test and contract blobs are anchored at productSha; 25/25 focal contracts plus Wasm, Android and iOS x64 affected targets passed after the rebase, without repeating unrelated E2E matrices solely for the new SHA."
   ]
 }

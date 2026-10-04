@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "productSha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+  "productSha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
   "platform": "android",
   "steps": [
     "designsystem_android_main_compilation_passed",
@@ -15,6 +15,6 @@
   "notes": [
     "Android compilation proves that both shared overlays and the common attempt reducer integrate with the Android product modules.",
     "No Android runtime path outside translator failure and retry state changed.",
-    "After rebasing onto main #542, all decisive translator source and contract blobs remained byte-identical; affected contracts and platform compilation were repeated on the rebased candidate without renewing unrelated E2E matrices."
+    "After rebasing onto main #544, all decisive translator source and contract blobs remained byte-identical; the affected Android compilations and contracts were repeated on the rebased candidate without renewing unrelated E2E matrices."
   ]
 }
