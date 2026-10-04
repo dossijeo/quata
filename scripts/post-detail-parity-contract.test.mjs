@@ -22,6 +22,10 @@ const officialHost = await source("feature/official/src/commonMain/kotlin/com/qu
 const officialAuthor = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAuthorHeaderContent.kt");
 const officialDetailPanel = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostDetailPanelContent.kt");
 const officialText = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostTextContent.kt");
+const publicProfileHost = await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt");
+const publicProfilePager = await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePostsPagerContent.kt");
+const publicProfilePreview = await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfilePostPreviewContent.kt");
+const publicProfileDetailTest = await source("feature/neighborhoods/src/commonTest/kotlin/com/quata/feature/neighborhoods/presentation/PublicProfilePostDetailTest.kt");
 const androidNav = await source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
 const webMain = await source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosApp = await source("iosApp/iosApp/QuataIosApp.swift");
@@ -133,6 +137,32 @@ test("Official detail panel exposes common anchors for article link media and pr
   assert.match(officialDetailPanel, /\.testTag\(OfficialPostDetailProfileTestTag\)/);
   assert.match(officialText, /fun officialPostReadMoreTestTag\(postId: String\): String = "official\.detail\.read-more\.\$postId"/);
   assert.match(officialText, /\.testTag\(tag\)[\s\S]*?\.semantics \{ contentDescription = tag \}/);
+});
+
+test("public-profile posts open the common detail chrome and return to the retained pager", () => {
+  assert.match(publicProfileHost, /const val PublicProfilePostDetailChromeTestTagPrefix = "public-profile\.post\.detail\.chrome\."/);
+  assert.match(publicProfileHost, /const val PublicProfilePostDetailBackTestTagPrefix = "public-profile\.post\.detail\.back\."/);
+  assert.match(publicProfileHost, /postPreview = \{ post, commentsCount, openComments, openDetail ->/);
+  assert.match(publicProfileHost, /onOpenDetail = openDetail/);
+  assert.match(publicProfileHost, /detailChrome = \{ post, back ->[\s\S]*?QuataPostDetailChromeContent\(/);
+  assert.match(publicProfilePager, /var detailPostId by rememberSaveable/);
+  assert.match(publicProfilePager, /posts\.firstOrNull \{ it\.id == id \}/);
+  assert.match(publicProfilePager, /detailChrome\(detailPost\) \{ detailPostId = null \}/);
+  assert.match(publicProfilePager, /\{ detailPostId = post\.id \}/);
+  assert.match(publicProfilePreview, /onOpenDetail: \(\(\) -> Unit\)\? = null/);
+  assert.match(publicProfilePreview, /const val PublicProfilePostOpenDetailTestTagPrefix = "public-profile\.post\.detail\.open\."/);
+  assert.match(publicProfilePreview, /val primaryAction = onOpenDetail \?: onOpenMedia/);
+  assert.match(publicProfilePreview, /val tag = if \(opensDetail\)[\s\S]*?PublicProfilePostOpenDetailTestTagPrefix[\s\S]*?PublicProfilePostOpenMediaTestTagPrefix/);
+  assert.match(publicProfilePreview, /if \(onOpenDetail != null\)[\s\S]*?onOpenDetail\(\)[\s\S]*?else[\s\S]*?isVideoLoaded = true/);
+  assert.match(publicProfilePreview, /\.clickable\(onClick = onOpenMedia\)/);
+  assert.match(publicProfileDetailTest, /fun imagePreviewPrimarySurfaceOpensDetailInsteadOfMedia\(\)/);
+  assert.match(publicProfileDetailTest, /fun unloadedVideoPrimarySurfaceOpensDetailInsteadOfLoadingInTheGallery\(\)/);
+  assert.match(publicProfileDetailTest, /imageUrl = "https:\/\/example\.invalid\/post-with-image\.png"/);
+  assert.match(publicProfileDetailTest, /CommunityProfilePostPreviewContent\(/);
+  assert.match(publicProfileDetailTest, /onNodeWithTag\(PublicProfilePostOpenDetailTestTagPrefix \+ post\.id\)\.performClick\(\)/);
+  assert.match(publicProfileDetailTest, /onNodeWithTag\(PublicProfilePostVideoStartTestTagPrefix \+ post\.id\)\.performClick\(\)/);
+  assert.match(publicProfileDetailTest, /assertEquals\(1, detailOpens\)/);
+  assert.match(publicProfileDetailTest, /assertEquals\(0, mediaOpens\)/);
 });
 
 test("post-detail evidence exercises Official article link and profile routes on all platforms", () => {

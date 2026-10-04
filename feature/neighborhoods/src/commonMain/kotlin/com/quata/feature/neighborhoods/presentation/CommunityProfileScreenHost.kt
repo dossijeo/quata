@@ -40,7 +40,9 @@ import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.navigation.AuthenticationContinuationKind
 import com.quata.core.navigation.PendingAuthenticationContinuation
+import com.quata.core.text.withoutPostShortcodes
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
+import com.quata.core.ui.components.QuataPostDetailChromeContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
@@ -78,6 +80,8 @@ const val PublicProfileModerationDialogTestTagPrefix = "public-profile.safety.di
 const val PublicProfileModerationDialogConfirmTestTagPrefix = "public-profile.safety.dialog.confirm."
 const val PublicProfileModerationDialogCancelTestTag = "public-profile.safety.dialog.cancel"
 const val PublicProfileCommentsPendingTestTagPrefix = "public-profile.comments.pending."
+const val PublicProfilePostDetailChromeTestTagPrefix = "public-profile.post.detail.chrome."
+const val PublicProfilePostDetailBackTestTagPrefix = "public-profile.post.detail.back."
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -494,7 +498,7 @@ fun CommunityProfileScreenHost(
                                 modifier = Modifier.semantics {
                                     testTag = PublicProfileGalleryTestTagPrefix + profile.user.id
                                 },
-                                postPreview = { post, commentsCount, openComments ->
+                                postPreview = { post, commentsCount, openComments, openDetail ->
                                     CommunityProfilePostPreviewContent(
                                         post = post,
                                         commentsCount = commentsCount,
@@ -513,6 +517,7 @@ fun CommunityProfileScreenHost(
                                                 ),
                                             )
                                         },
+                                        onOpenDetail = openDetail,
                                         onOpenMedia = { selectedMediaPostId = post.id },
                                         onShare = { slots.sharePost(post) },
                                         onReport = {
@@ -527,6 +532,16 @@ fun CommunityProfileScreenHost(
                                             else if (!post.isReportedByCurrentUser) onReportPost(post.id)
                                         },
                                         media = { loaded, load -> slots.postMedia(this, post, loaded, load) },
+                                    )
+                                },
+                                detailChrome = { post, back ->
+                                    QuataPostDetailChromeContent(
+                                        title = post.author.displayName,
+                                        subtitle = post.text.withoutPostShortcodes().takeIf(String::isNotBlank),
+                                        backContentDescription = strings.back,
+                                        rootTestTag = PublicProfilePostDetailChromeTestTagPrefix + post.id,
+                                        backTestTag = PublicProfilePostDetailBackTestTagPrefix + post.id,
+                                        onBack = back,
                                     )
                                 },
                                 commentsDialog = { post, addComment, dismiss ->

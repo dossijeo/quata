@@ -44,8 +44,10 @@ import com.quata.core.text.withoutPostShortcodes
 import com.quata.core.ui.textCanvasBrush
 
 const val PublicProfilePostPreviewTestTagPrefix = "public-profile.post.preview."
+const val PublicProfilePostOpenDetailTestTagPrefix = "public-profile.post.detail.open."
 const val PublicProfilePostMediaTestTagPrefix = "public-profile.post.media."
 const val PublicProfilePostOpenMediaTestTagPrefix = "public-profile.post.media.open."
+const val PublicProfilePostVideoStartTestTagPrefix = "public-profile.post.video.start."
 const val PublicProfilePostTextFallbackTestTagPrefix = "public-profile.post.text."
 const val PublicProfilePostLikeActionTestTagPrefix = "public-profile.post.action.like."
 const val PublicProfilePostCommentsActionTestTagPrefix = "public-profile.post.action.comments."
@@ -68,6 +70,7 @@ fun CommunityProfilePostPreviewContent(
     onToggleLike: () -> Unit,
     onOpenComments: () -> Unit,
     onAuthRequired: () -> Unit,
+    onOpenDetail: (() -> Unit)? = null,
     onOpenMedia: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
@@ -81,19 +84,26 @@ fun CommunityProfilePostPreviewContent(
 
     ProfilePostPreviewFrameContent(
         backgroundSeed = mediaSeed,
-        modifier = modifier.semantics { testTag = PublicProfilePostPreviewTestTagPrefix + post.id },
+        modifier = modifier
+            .semantics { testTag = PublicProfilePostPreviewTestTagPrefix + post.id },
         media = {
             if (post.imageUrl != null || post.videoUrl != null) {
+                val primaryAction = onOpenDetail ?: onOpenMedia
+                val opensDetail = onOpenDetail != null
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .height(430.dp)
                         .clickable(
-                            enabled = post.imageUrl != null || (post.videoUrl != null && isVideoLoaded),
-                            onClick = onOpenMedia,
+                            enabled = opensDetail || post.imageUrl != null || (post.videoUrl != null && isVideoLoaded),
+                            onClick = primaryAction,
                         )
                         .semantics {
-                            val tag = PublicProfilePostOpenMediaTestTagPrefix + post.id
+                            val tag = if (opensDetail) {
+                                PublicProfilePostOpenDetailTestTagPrefix + post.id
+                            } else {
+                                PublicProfilePostOpenMediaTestTagPrefix + post.id
+                            }
                             testTag = tag
                             contentDescription = tag
                         },
@@ -101,7 +111,20 @@ fun CommunityProfilePostPreviewContent(
                     media(isVideoLoaded) { isVideoLoaded = true }
                     if (shouldShowProfileVideoStart(post, isVideoLoaded)) {
                         Box(
-                            modifier = Modifier.matchParentSize().clickable { isVideoLoaded = true },
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable {
+                                    if (onOpenDetail != null) {
+                                        onOpenDetail()
+                                    } else {
+                                        isVideoLoaded = true
+                                    }
+                                }
+                                .semantics {
+                                    val tag = PublicProfilePostVideoStartTestTagPrefix + post.id
+                                    testTag = tag
+                                    contentDescription = tag
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
@@ -145,6 +168,14 @@ fun CommunityProfilePostPreviewContent(
                         .fillMaxWidth()
                         .height(430.dp)
                         .background(textCanvasBrush(seedText))
+                        .then(onOpenDetail?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+                        .semantics {
+                            onOpenDetail?.let {
+                                val tag = PublicProfilePostOpenDetailTestTagPrefix + post.id
+                                testTag = tag
+                                contentDescription = tag
+                            }
+                        }
                         .padding(22.dp),
                     contentAlignment = Alignment.Center,
                 ) {
