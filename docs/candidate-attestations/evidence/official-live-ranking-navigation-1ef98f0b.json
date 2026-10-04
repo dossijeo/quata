@@ -13,7 +13,8 @@
     "web_official_fragment_and_compose_route_stay_in_sync",
     "ios_x64_selection_contract_passed_on_exact_product_sha",
     "ios_simulator_signed_host_build_passed_on_identical_product_tree_before_freeze",
-    "independent_review_go"
+    "independent_review_go",
+    "capability_matrix_rebound_and_contract_passed"
   ],
   "platforms": {
     "android": {
@@ -61,6 +62,13 @@
     "The Web route test verifies that the canonical fragment, WebNavigationController and parsed Compose route remain aligned for focused Official identity changes.",
     "The iOS x64 selection contract was forced to execute on the exact product commit after deleting only its generated test result output.",
     "The SimulatorSigned host build used the identical product source tree before the commit object was created; final GitHub iOS jobs remain the authoritative candidate recertification.",
-    "No backend, credentials, product rows or remote state were used or mutated."
-  ]
+    "No backend, credentials, product rows or remote state were used or mutated.",
+    "Product SHA 256ffbf54 changes only platform-capability-matrix.json after the frozen runtime source commit. The 22/22 capability contract recomputed and verified every decisive source hash; platform runtime evidence remains bound to 1ef98f0b and was not repeated solely for this declaration repair."
+  ],
+  "validationProvenance": {
+    "runtimeValidationSha": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+    "matrixBindingSha": "256ffbf54c87bdc5bb33686409a57150873f7473",
+    "runtimeSourcesUnchanged": true,
+    "capabilityMatrixContract": "passed_22_of_22"
+  }
 }
