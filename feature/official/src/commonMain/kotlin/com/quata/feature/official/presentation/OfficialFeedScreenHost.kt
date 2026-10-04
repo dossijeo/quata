@@ -196,6 +196,30 @@ internal fun dispatchOfficialLiveSelection(
     if (focusedPostId != null) onFocusedDetail(selectedPostId) else onFeedPager(selectedPostId)
 }
 
+internal sealed interface OfficialRankingTargetAction {
+    data class Scroll(val index: Int) : OfficialRankingTargetAction
+    data object RequestLoad : OfficialRankingTargetAction
+    data object WaitForLoad : OfficialRankingTargetAction
+    data object ClearFailedTarget : OfficialRankingTargetAction
+}
+
+internal fun resolveOfficialRankingTarget(
+    targetPostId: String,
+    visiblePostIds: List<String>,
+    loadState: OfficialFocusedPostLoad?,
+): OfficialRankingTargetAction {
+    val index = visiblePostIds.indexOf(targetPostId)
+    if (index >= 0) return OfficialRankingTargetAction.Scroll(index)
+    return when (loadState) {
+        null -> OfficialRankingTargetAction.RequestLoad
+        OfficialFocusedPostLoad.Loading -> OfficialRankingTargetAction.WaitForLoad
+        OfficialFocusedPostLoad.Loaded,
+        OfficialFocusedPostLoad.Failed,
+        OfficialFocusedPostLoad.NotFound,
+        -> OfficialRankingTargetAction.ClearFailedTarget
+    }
+}
+
 /**
  * Sole Official screen root shared by Android, Wasm and iOS.
  *
@@ -384,14 +408,28 @@ fun OfficialFeedScreenHost(
         if (!restored && activeFocusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
     }
     LaunchedEffect(pagerState.currentPage, visiblePosts) { if (restored) visiblePosts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id } }
-    LaunchedEffect(rankingTargetPostId, visiblePosts) {
+    LaunchedEffect(rankingTargetPostId, visiblePosts, state.focusedPostLoads) {
         val target = rankingTargetPostId ?: return@LaunchedEffect
-        val index = visiblePosts.indexOfFirst { it.id == target }
-        if (index >= 0) {
-            pagerState.scrollToPage(index)
-            retainedPostId = target
+        when (
+            val action = resolveOfficialRankingTarget(
+                targetPostId = target,
+                visiblePostIds = visiblePosts.map(OfficialPostItem::id),
+                loadState = state.focusedPostLoads[target],
+            )
+        ) {
+            is OfficialRankingTargetAction.Scroll -> {
+                pagerState.scrollToPage(action.index)
+                retainedPostId = target
+                rankingTargetPostId = null
+            }
+            OfficialRankingTargetAction.RequestLoad ->
+                viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(target))
+            OfficialRankingTargetAction.WaitForLoad -> Unit
+            OfficialRankingTargetAction.ClearFailedTarget -> {
+                rankingTargetPostId = null
+                message(strings.loadingError)
+            }
         }
-        rankingTargetPostId = null
     }
 
     val showsDetailChrome = activeFocusedPostId != null && onBackFromFocusedPost != null
@@ -501,7 +539,10 @@ fun OfficialFeedScreenHost(
                                     canModerate = state.currentUser?.isAdmin == true || post.author.id == effectiveUserId,
                                     strings = OfficialPostActionRailStrings(strings.like, strings.comments, strings.share, strings.rank, strings.live, strings.create, strings.delete),
                                     onCreate = ::create,
-                                    onOpenLive = { liveOpen = true },
+                                    onOpenLive = {
+                                        liveOpen = true
+                                        viewModel.onEvent(OfficialFeedUiEvent.LoadCompleteRanking)
+                                    },
                                     onLike = {
                                         if (effectiveUserId != null) viewModel.onEvent(OfficialFeedUiEvent.ToggleLike(post.id))
                                         else onAuthenticationContinuationRequired(
@@ -544,6 +585,7 @@ fun OfficialFeedScreenHost(
                                 onOpenLive = {
                                     overflowPost = null
                                     liveOpen = true
+                                    viewModel.onEvent(OfficialFeedUiEvent.LoadCompleteRanking)
                                 },
                                 onReport = {},
                                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 28.dp, bottom = 38.dp),
@@ -658,27 +700,42 @@ fun OfficialFeedScreenHost(
     }
     state.posts.firstOrNull { it.id == deletePost }?.let { post -> OfficialDeleteConfirmationDialogContent(strings.deleteTitle, strings.deleteMessage, strings.confirm, strings.cancel, { deletePost = null }, { viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id)); deletePost = null }) }
     if (liveOpen) QuataStandardFloatingPanelContent(onDismiss = { liveOpen = false }) { panelModifier, panelLandscape ->
-        val items = state.posts.sortedWith(compareByDescending<OfficialPostItem> { it.likesCount }.thenByDescending { it.createdAt }).mapIndexed { index, post -> QuataLiveRankingItem(post.id, post.author.id, ranks[post.id]?.position ?: index + 1, post.title, post.author.displayName, post.author.displayName, post.author.avatarUrl, true, post.likesCount) }
-        QuataLiveRankingPanelContent(
-            items,
-            panelLandscape,
-            QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore),
-            slots.rankingAvatar,
-            { liveOpen = false },
-            { id ->
-                dispatchOfficialLiveSelection(
-                    focusedPostId = activeFocusedPostId,
-                    selectedPostId = id,
-                    onFocusedDetail = { postId ->
-                        localFocusedPostId = postId
-                        onFocusedPostChanged(postId)
+        OfficialRankingLoadStateContent(
+            isLoading = state.isLoadingRanking,
+            error = state.rankingError,
+            errorMessage = strings.loadingError,
+            retryLabel = strings.retry,
+            onRetry = { viewModel.onEvent(OfficialFeedUiEvent.LoadCompleteRanking) },
+            modifier = panelModifier,
+        ) { contentModifier ->
+                val rankingPosts = state.rankingPosts ?: state.posts
+                val items = rankingPosts
+                    .sortedWith(compareByDescending<OfficialPostItem> { it.likesCount }.thenByDescending { it.createdAt })
+                    .mapIndexed { index, post -> QuataLiveRankingItem(post.id, post.author.id, index + 1, post.title, post.author.displayName, post.author.displayName, post.author.avatarUrl, true, post.likesCount) }
+                QuataLiveRankingPanelContent(
+                    items,
+                    panelLandscape,
+                    QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore),
+                    slots.rankingAvatar,
+                    { liveOpen = false },
+                    { id ->
+                        dispatchOfficialLiveSelection(
+                            focusedPostId = activeFocusedPostId,
+                            selectedPostId = id,
+                            onFocusedDetail = { postId ->
+                                localFocusedPostId = postId
+                                onFocusedPostChanged(postId)
+                            },
+                            onFeedPager = { postId ->
+                                viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(postId))
+                                rankingTargetPostId = postId
+                            },
+                        )
+                        liveOpen = false
                     },
-                    onFeedPager = { postId -> rankingTargetPostId = postId },
+                    contentModifier,
                 )
-                liveOpen = false
-            },
-            panelModifier,
-        )
+        }
     }
     // Native media viewers are deliberately injected at the platform seam; this host only owns selection.
     mediaPost?.let { id ->

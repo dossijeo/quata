@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "status": "passed",
+  "unit": "OVR-LIVE-RANKING",
+  "productSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+  "executedAtUtc": "2026-10-04T18:39:51Z",
+  "git": {
+    "head": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "complete_ranking_exhausts_the_existing_total_order_cursor",
+    "duplicate_oversized_invalid_or_non_advancing_pages_fail_closed",
+    "partial_transport_failure_never_publishes_a_partial_ranking",
+    "visible_feed_pager_is_preserved_while_the_ranking_snapshot_loads",
+    "loading_failure_and_explicit_retry_states_are_rendered",
+    "remote_ranking_selection_loads_the_exact_post_before_pager_navigation",
+    "failed_and_missing_exact_post_loads_allow_same_row_retry",
+    "official_wasm_browser_focal_suite_passed_15_of_15",
+    "official_total_order_contract_passed_8_of_8",
+    "android_official_common_runtime_compiled",
+    "ios_x64_official_test_sources_compiled",
+    "independent_review_go"
+  ],
+  "results": {
+    "webCommon": {
+      "status": "passed",
+      "runner": "ChromeHeadless 154 on Windows",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "resultXmlSha256": {
+        "OfficialCompleteRankingTest": "61dd8d8f05a446bb46feb0898bb942d0d1ffccecd96c7a9c41c8204939de3e6d",
+        "OfficialCompleteRankingViewModelTest": "18c1ec3a018a8fcd35d9134444e8d9de59c326ee7f4cdee41bdc627fb3229271",
+        "OfficialLiveFocusedNavigationTest": "dc591ef880226da57e1ce5d567e26992dc73abd8b7194de8f9ee52d6dbc2073f",
+        "OfficialRootStatesTest": "7d62e076e41473c3e0a248a811d60e82afd5cd3d0bc54679794ce7858ba4f9c1"
+      }
+    },
+    "transportContract": {
+      "status": "passed",
+      "tests": 8,
+      "failures": 0,
+      "contract": "scripts/official-feed-total-order-contract.test.mjs"
+    },
+    "android": {
+      "status": "passed",
+      "gate": ":feature:official:compileAndroidMain"
+    },
+    "ios": {
+      "status": "passed",
+      "gate": ":feature:official:compileTestKotlinIosX64"
+    }
+  },
+  "review": {
+    "status": "GO",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2: a failed or missing exact-post load retained the ranking target and blocked a second selection of the same row; the accepted path reserves Loading synchronously and proves Failed-to-Loading-to-NotFound-to-Loading-to-Loaded recovery with the real ViewModel."
+    ]
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "mode": "hermetic-tests-and-compile-only-gates"
+  },
+  "scope": {
+    "proves": [
+      "Official Live ranking derives positions from every page returned by the existing total-order Official feed contract instead of only the visible first page.",
+      "A ranking is published only after the complete scan succeeds; malformed pages, duplicates and transport failures remain explicit retryable failures.",
+      "Selecting a ranked post outside the visible pager performs the exact-post read and supports retry after Failed or NotFound before navigating by stable post identity.",
+      "The affected shared implementation passes in Chrome/Wasm and compiles for Android and iOS x64 on the exact Product SHA."
+    ],
+    "doesNotProve": [
+      "A native Android or iOS end-to-end interaction for the new complete-ranking panel.",
+      "Feed ranking completeness, media behavior or a global Live/Ranking end-to-end acceptance.",
+      "A new database deployment or production data mutation; the already deployed total-order RPC is reused unchanged."
+    ]
+  }
+}
