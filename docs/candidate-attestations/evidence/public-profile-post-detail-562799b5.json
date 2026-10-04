@@ -3,9 +3,9 @@
   "unit": "OVR-POST-DETAIL",
   "status": "passed-local-candidate",
   "executedAt": "2026-10-04",
-  "productSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+  "productSha": "562799b5ef71acf356843801df3736201a167a5d",
   "git": {
-    "head": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "head": "562799b5ef71acf356843801df3736201a167a5d",
     "workingTreeDirty": false
   },
   "scope": "Open the exact public-profile post in shared detail chrome and return to the retained gallery page",
@@ -14,7 +14,8 @@
     "public_profile_post_detail_android_common_source_compiled",
     "public_profile_post_detail_ios_x64_compose_test_passed",
     "post_detail_parity_contract_passed",
-    "independent_product_review_go"
+    "independent_product_review_go",
+    "profile_content_contract_passed_on_final_product_sha"
   ],
   "platforms": {
     "android": {
@@ -52,7 +53,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "reviewedSha": "562799b5ef71acf356843801df3736201a167a5d",
     "blockingFindings": [],
     "resolvedFindings": [
       "Nested image media interaction no longer consumes the gallery tap before detail navigation.",
@@ -66,5 +67,18 @@
   "limitations": [
     "This focal evidence closes public-profile post-detail identity and pager return; integrated comments and deep scroll restoration remain separate OVR-POST-DETAIL limits.",
     "GitHub final jobs retain clean-runner integrated certification."
-  ]
+  ],
+  "runtimeEvidenceReuse": {
+    "sourceProductSha": "b4cfc07b13ef7b6d6a3b514ae38b9074a4a217c7",
+    "finalProductSha": "562799b5ef71acf356843801df3736201a167a5d",
+    "runtimeChangedFiles": [],
+    "nonRuntimeChangesSinceSourceEvidence": [
+      "docs/candidate-attestations/evidence/public-profile-post-detail-b4cfc07b.json",
+      "docs/candidate-attestations/public-profile-post-detail.json",
+      "docs/MULTIPLATFORM_MIGRATION_BOARD.md",
+      "docs/SCREEN_MIGRATION_INVENTORY_V2.md",
+      "scripts/profile-content-contract.test.mjs"
+    ],
+    "reason": "The final product commit changes only the static profile-content contract so it asserts the new detail/media tag split. Runtime bytes and platform sources are unchanged, so the exact runtime evidence is retained under the documented SHA-only recertification policy."
+  }
 }
