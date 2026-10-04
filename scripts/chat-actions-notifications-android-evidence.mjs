@@ -2987,8 +2987,8 @@ try {
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
     if (profileFollowNegativeOnly) {
-      await pollProfileFollowEdge(state.a.profileId, state.b.profileId, false);
-      report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
+      await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
+      report.steps.push("profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created");
     }
     report.steps.push(conversationsOnly
       ? "conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"

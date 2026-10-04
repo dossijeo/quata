@@ -1909,6 +1909,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             XCTAssertEqual(follow.label, beforeAction, "Failed follow must restore the original action label.")
             XCTAssertEqual(followers.label, beforeFollowers, "Failed follow must restore the original follower count.")
             attachScreenshot(app, name: "ios-chat-profile-follow-negative-after")
+
+            let retry = app.descendants(matching: .any)
+                .matching(identifier: "public-profile.follow.retry.\(peerProfileId)")
+                .firstMatch
+            XCTAssertTrue(retry.waitForExistence(timeout: 5), "The failed follow must expose its exact retry action.")
+            retry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(loading.waitForExistence(timeout: 5), "The retry must expose its loading state.")
+            attachScreenshot(app, name: "ios-chat-profile-follow-negative-retrying")
+            XCTAssertTrue(loading.waitForNonExistence(timeout: 20), "The retry loading state must settle.")
+            XCTAssertTrue(retry.waitForNonExistence(timeout: 5), "The retry action must disappear after convergence.")
+            XCTAssertNotEqual(follow.label, beforeAction, "Retry must converge to the followed action label.")
+            XCTAssertNotEqual(followers.label, beforeFollowers, "Retry must update the follower count.")
+            attachScreenshot(app, name: "ios-chat-profile-follow-negative-retry-succeeded")
         } else {
             _ = loading.waitForNonExistence(timeout: 20)
             attachScreenshot(app, name: "ios-chat-profile-follow-after")

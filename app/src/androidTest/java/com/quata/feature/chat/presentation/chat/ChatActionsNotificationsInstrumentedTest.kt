@@ -3067,6 +3067,23 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("Failed follow must restore the original action label.", semanticsText(followTag) == beforeAction)
         assertTrue("Failed follow must restore the original follower count.", semanticsText(followersTag) == beforeFollowers)
         saveScreenshot("android-chat-profile-follow-negative-after")
+
+        val retryTag = "public-profile.follow.retry.$profileId"
+        compose.onNodeWithTag(retryTag, useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("public-profile.follow.loading.$profileId", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        saveScreenshot("android-chat-profile-follow-negative-retrying")
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag(retryTag, useUnmergedTree = true).fetchSemanticsNode()
+            }.isFailure && runCatching {
+                compose.onNodeWithTag("public-profile.follow.loading.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+        assertTrue("Retry must converge to the followed action label.", semanticsText(followTag) != beforeAction)
+        assertTrue("Retry must update the follower count.", semanticsText(followersTag) != beforeFollowers)
+        saveScreenshot("android-chat-profile-follow-negative-retry-succeeded")
         closePublicProfile(peerProbe)
         saveScreenshot("android-chat-profile-follow-negative-return")
     }

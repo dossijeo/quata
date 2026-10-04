@@ -66,22 +66,28 @@ test("platform repositories force the same opt-in pre-mutation failure", () => {
   }
 });
 
-test("Android, iOS and Web gates assert UI rollback and backend absence", () => {
+test("Android, iOS and Web gates assert rollback then visible retry convergence", () => {
   assert.match(androidUi, /runProfileFollowNegativeStage/);
   assert.match(androidUi, /Failed follow must restore the original follower count/);
   assert.match(androidRunner, /--profile-follow-negative-only/);
-  assert.match(androidRunner, /pollProfileFollowEdge\(state\.a\.profileId, state\.b\.profileId, false\)/);
+  assert.match(androidUi, /public-profile\.follow\.retry\./);
+  assert.match(androidUi, /android-chat-profile-follow-negative-retry-succeeded/);
+  assert.match(androidRunner, /pollProfileFollowEdge\(state\.a\.profileId, state\.b\.profileId, true\)/);
 
   assert.match(iosUi, /followMode == "negative"/);
   assert.match(iosUi, /Failed follow must restore the original follower count/);
   assert.match(iosRunner, /--profile-follow-negative-only/);
-  assert.match(iosRunner, /profile_follow_failure_rolled_back_and_backend_edge_remained_absent/);
+  assert.match(iosRepository, /profileFollowEvidenceFailureConsumed/);
+  assert.match(iosUi, /public-profile\.follow\.retry\./);
+  assert.match(iosUi, /ios-chat-profile-follow-negative-retry-succeeded/);
+  assert.match(iosRunner, /profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E.*negative/);
 
   assert.match(webHost, /data-quata-profile-follow-failed/);
   assert.match(webRunner, /toggleFollowFailureFromOpenProfile/);
   assert.match(webRunner, /profile_follow_negative_ui_rollback_mismatch/);
-  assert.match(webRunner, /pollProfileFollowEdge\(peerProfile\.actorProfileId, peerProfile\.profileId, false\)/);
+  assert.match(webRunner, /web-chat-profile-follow-negative-retry-succeeded/);
+  assert.match(webRunner, /pollProfileFollowEdge\(peerProfile\.actorProfileId, peerProfile\.profileId, true\)/);
 });
 
 test("the focused contract runs in both fast contract suites", () => {

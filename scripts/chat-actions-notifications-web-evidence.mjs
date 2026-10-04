@@ -2553,6 +2553,18 @@ async function toggleFollowFailureFromOpenProfile(page, peerProfile, evidenceDir
   } finally {
     await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = false; }).catch(() => {});
   }
+
+  await clickLabel(page, [/Reintentar|Retry|R[eé]essayer/i], "profile_follow_retry_action_not_clickable");
+  await page.waitForFunction(() => globalThis.document?.documentElement?.getAttribute("data-quata-profile-follow-loading") === "true", null, { timeout: 5_000 });
+  report.evidence.profileFollowNegativeRetrying = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-retrying");
+  await page.waitForFunction(() => {
+    const root = globalThis.document?.documentElement;
+    return root?.getAttribute("data-quata-profile-follow-loading") === "false" &&
+      root?.getAttribute("data-quata-profile-follow-failed") === "false" &&
+      root?.getAttribute("data-quata-profile-following") === "true";
+  }, null, { timeout: 20_000 });
+  await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
+  report.evidence.profileFollowNegativeRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-retry-succeeded");
 }
 
 async function prepareProfileContentFixture(fixture) {
@@ -8013,7 +8025,7 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       if (options.profileFollowNegativeOnly) {
         await toggleFollowFailureFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
-        report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
+        report.steps.push("profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created");
       } else {
         await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
         report.steps.push("profile_follow_toggled_and_verified_by_db");
