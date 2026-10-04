@@ -3,6 +3,11 @@ package com.quata.feature.neighborhoods.presentation
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 
+data class FailedProfileFollowAction(
+    val userId: String,
+    val desiredState: Boolean,
+)
+
 data class NeighborhoodsUiState(
     val isLoading: Boolean = true,
     val communities: List<NeighborhoodCommunity> = emptyList(),
@@ -13,6 +18,7 @@ data class NeighborhoodsUiState(
     val failedProfileUserId: String? = null,
     val refreshingProfileUserId: String? = null,
     val followingUserId: String? = null,
+    val failedProfileFollowAction: FailedProfileFollowAction? = null,
     val roleUpdatingUserId: String? = null,
     val commentingPostId: String? = null,
     val likingPostId: String? = null,

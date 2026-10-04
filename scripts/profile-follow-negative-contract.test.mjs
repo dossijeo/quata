@@ -6,6 +6,7 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 const [
   viewModelTest,
+  uiState,
   profileHost,
   androidRepository,
   androidFault,
@@ -21,6 +22,7 @@ const [
   packageJson,
 ] = await Promise.all([
   read("feature/neighborhoods/src/commonTest/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModelTest.kt"),
+  read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsUiState.kt"),
   read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   read("app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt"),
   read("app/src/main/java/com/quata/feature/neighborhoods/data/ProfileFollowEvidenceFaults.kt"),
@@ -40,6 +42,18 @@ test("shared profile follow state rolls back and exposes a stable error anchor",
   assert.match(viewModelTest, /follow is optimistic and rolls back on backend failure/);
   assert.match(viewModelTest, /assertFalse\(model\.uiState\.value\.selectedProfile\?\.user\?\.isFollowing == true\)/);
   assert.match(profileHost, /PublicProfileErrorTestTagPrefix = "public-profile\.error\."/);
+});
+
+test("shared retry preserves the failed follow intent and stays bound to its profile", () => {
+  assert.match(uiState, /data class FailedProfileFollowAction/);
+  assert.match(uiState, /val desiredState: Boolean/);
+  assert.match(viewModelTest, /unfollow retry preserves the exact desired state/);
+  assert.match(viewModelTest, /follow retry does not mutate a newer visible profile/);
+  assert.match(viewModelTest, /follow retry reconciliation cannot continue after profile navigation/);
+  assert.match(viewModelTest, /follow retry clears when backend already reached the desired state/);
+  assert.match(profileHost, /PublicProfileFollowRetryTestTagPrefix = "public-profile\.follow\.retry\."/);
+  assert.match(profileHost, /failedProfileFollowAction\?\.userId == profile\.user\.id/);
+  assert.match(profileHost, /onRetryFollowUser\(profile\.user\.id\)/);
 });
 
 test("platform repositories force the same opt-in pre-mutation failure", () => {

@@ -334,6 +334,7 @@ fun QuataCommunityProfileViewController(
                 currentUserIsAdmin = state.currentUserIsAdmin,
                 openingProfileUserId = state.openingProfileUserId,
                 errorMessage = state.error,
+                failedProfileFollowAction = state.failedProfileFollowAction,
                 onAuthRequired = dependencies.onAuthRequired,
                 onAuthenticationContinuationRequired = dependencies.onAuthenticationContinuationRequired,
                 authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
@@ -341,6 +342,7 @@ fun QuataCommunityProfileViewController(
                 onBack = { if (viewModel.closeUserProfile()) dependencies.onClose() },
                 onFollowUser = viewModel::toggleFollowUser,
                 onEnsureFollowUserState = viewModel::ensureFollowUserState,
+                onRetryFollowUser = viewModel::retryFollowUser,
                 onOpenPrivateChat = { userId ->
                     viewModel.openPrivateChat(userId) { conversationId ->
                         viewModel.clearUserProfile()
