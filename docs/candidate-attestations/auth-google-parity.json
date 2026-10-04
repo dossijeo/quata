@@ -4,16 +4,16 @@
     "SCR-AUTH-GOOGLE"
   ],
   "status": "passed",
-  "productSha": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
+  "productSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
   "certification": "google-oauth-platform-parity-affected-gates-complete-final-ci-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
-      "report": "docs/candidate-attestations/evidence/auth-google-parity-938b46ca.json",
-      "reportSha256": "8920669222cf613576f3375e0df588b0c7aa318c645d45c7ea4c3b491939d6f7",
+      "sha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-dc31361f.json",
+      "reportSha256": "bba4468fcb9891c18402bb51b91176a4a618cab7180ccc5bc2487800ef698396",
       "reportStatus": "passed",
-      "reportGitHead": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
+      "reportGitHead": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
@@ -23,7 +23,8 @@
         "android_compile_and_android_test_compile_passed",
         "independent_review_no_blocking_findings",
         "android_lint_debug_passed_exact_product_sha",
-        "android_compile_and_android_test_compile_passed_exact_product_sha"
+        "android_compile_and_android_test_compile_passed_exact_product_sha",
+        "android_oauth_callback_router_codeql_fix_validated_exact_product_sha"
       ],
       "cleanup": {
         "verified": true,
@@ -32,11 +33,11 @@
     },
     "web": {
       "status": "passed",
-      "sha": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
-      "report": "docs/candidate-attestations/evidence/auth-google-parity-938b46ca.json",
-      "reportSha256": "8920669222cf613576f3375e0df588b0c7aa318c645d45c7ea4c3b491939d6f7",
+      "sha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-dc31361f.json",
+      "reportSha256": "bba4468fcb9891c18402bb51b91176a4a618cab7180ccc5bc2487800ef698396",
       "reportStatus": "passed",
-      "reportGitHead": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
+      "reportGitHead": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
@@ -53,11 +54,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
-      "report": "docs/candidate-attestations/evidence/auth-google-parity-938b46ca.json",
-      "reportSha256": "8920669222cf613576f3375e0df588b0c7aa318c645d45c7ea4c3b491939d6f7",
+      "sha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-dc31361f.json",
+      "reportSha256": "bba4468fcb9891c18402bb51b91176a4a618cab7180ccc5bc2487800ef698396",
       "reportStatus": "passed",
-      "reportGitHead": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
+      "reportGitHead": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
@@ -85,18 +86,17 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "938b46ca4bf112d169db2bbab8363c62d7f21c99",
+    "reviewedSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
     "blockingFindings": [],
     "scopeLimit": "Local validation proves the OAuth lifecycle, exact profile resolution, session race guards and platform wiring. Remote Google provider activation and a real account round trip remain outside this candidate evidence.",
-    "runtimeReviewedSha": "938b46ca4bf112d169db2bbab8363c62d7f21c99"
+    "runtimeReviewedSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de"
   },
   "notes": [
-    "The Android-only lint correction was independently reviewed on exact Product SHA 938b46ca4bf112d169db2bbab8363c62d7f21c99 with no P0-P3 findings; Android lint and production/test compilation pass on that SHA.",
-    "Web and iOS evidence remains bound to its recorded validated SHAs because 938b46ca changes no Web, iOS or common runtime source; those matrices were not repeated solely because the candidate SHA changed.",
-    "Android was renewed on the final Google product runtime with 8/8 focal instrumented tests after the Android navigation fix; the later product commit only reconciles capability-source hashes.",
-    "Web remains bound to 903706b237b4f71caa70a4c6b3511f7114604489 because the later combined-base delta contains no Web runtime change; the Web Wasm suite and affected contracts remain applicable.",
-    "iOS was revalidated on the exact combined product SHA ebd9ca82ae98dff548c1c2562ac15b740d644ac1: Auth iosX64 tests, Profile iosX64 compilation, and the complete Intel SimulatorSigned build-for-testing lane all passed.",
-    "The final GitHub platform jobs remain responsible for candidate-wide recertification; no complete local E2E matrix was repeated solely because the SHA changed.",
+    "The Android callback-router security fix was independently reviewed on exact Product SHA dc31361f3489d4ea878de1cf33de676aa2cac2de with no P0-P3 findings; Android lint, production/test compilation and the OAuth lifecycle contract pass on that SHA.",
+    "Web and iOS remain bound to their recorded validated SHAs because dc31361f changes no Web, iOS or common runtime source; those matrices were not repeated solely because the candidate SHA changed.",
+    "Android retains the prior 8/8 focal encrypted-pending-store run; the new runtime delta only relocates callback recognition into the application router and was revalidated with affected gates.",
+    "Web remains bound to 903706b237b4f71caa70a4c6b3511f7114604489 and iOS to ebd9ca82ae98dff548c1c2562ac15b740d644ac1.",
+    "The GitHub CodeQL check must reanalyze the pushed head before the prior alert is considered closed; the final platform jobs remain responsible for candidate-wide recertification.",
     "No credentials, backend rows, provider settings, CI configuration or remote product data were used or mutated."
   ]
 }
