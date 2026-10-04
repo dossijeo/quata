@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-TRANSLATOR",
+    "CHAT-TRANSLATION"
+  ],
+  "productSha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-web-28073c9ad.json",
+      "reportSha256": "3bc0a145992d0f471603907af647287a598955ff3bf8188a2f622a9b8ce3fd82",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "common_reducer_failure_retry_latest_attempt_passed",
+        "stale_completion_after_box_removal_rejected",
+        "null_translation_retryable_failure_passed",
+        "designsystem_wasm_browser_tests_passed",
+        "feature_chat_wasm_browser_tests_passed",
+        "shared_overlay_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-tests-no-backend-no-credentials"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-android-28073c9ad.json",
+      "reportSha256": "d771401bc108b2dc1e8f9a96d2b5fce710ade1065271cf3807ebb7812e1cf6b9",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "designsystem_android_main_compilation_passed",
+        "feature_chat_android_main_compilation_passed",
+        "shared_overlay_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-static-contract-no-device-no-backend"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-ios-28073c9ad.json",
+      "reportSha256": "8cc7d855f7727d318b5b908aea1447e2d9deb85bb06aaf958df1bfb0be8903f0",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "designsystem_ios_x64_main_compilation_passed",
+        "designsystem_ios_x64_test_compilation_passed",
+        "feature_chat_ios_x64_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-macos-worktree-removed-no-backend-no-credentials"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/comments-translator-trigger-parity-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
+    ".\\gradlew.bat :designsystem:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :designsystem:compileAndroidMain :feature:chat:compileAndroidMain --no-daemon",
+    "macOS documented Intel environment with 3 GiB heap: ./gradlew :designsystem:compileKotlinIosX64 :designsystem:compileTestKotlinIosX64 :feature:chat:compileKotlinIosX64 --no-daemon",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/translator-failure-retry.json"
+  ],
+  "notes": [
+    "Chat and Comments now use one common attempt state. Each request receives an overlay-lifetime token, and a completion is published only while the same token is still the active loading attempt.",
+    "A failed or null result exposes the existing retryable error state. Starting a retry supersedes the earlier attempt; removing a visible box deletes its state, so a late completion cannot recreate the box or overwrite the retry.",
+    "The common tests force failure, retry, a stale success from the prior attempt, a current success, a removed box, and a null translation. The architectural contract binds both product overlays to that reducer.",
+    "This closes the shared product-state gap for a recoverable translator failure and one retry. It does not claim a real provider outage, offline translation, exhaustive provider failures, or renewed visual comparison.",
+    "No backend, credentials, device data, CI configuration, or existing runtime evidence was modified.",
+    "The candidate was rebased onto main #545. Translator runtime, test and contract blobs are anchored at productSha; 25/25 focal contracts plus Wasm, Android and iOS x64 affected targets passed after the rebase, without repeating unrelated E2E matrices solely for the new SHA."
+  ]
+}

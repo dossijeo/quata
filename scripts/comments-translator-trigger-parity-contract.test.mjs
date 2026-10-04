@@ -28,6 +28,8 @@ const files = {
   androidTranslationClient: await source("../app/src/main/java/com/quata/core/language/QuataTranslatorClient.kt"),
   androidStringsEs: await source("../app/src/main/res/values-es/strings.xml"),
   overlay: await source("../designsystem/src/commonMain/kotlin/com/quata/designsystem/translation/QuataTranslatorOverlayContent.kt"),
+  chatOverlay: await source("../feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatTranslatorOverlayContent.kt"),
+  attemptState: await source("../designsystem/src/commonMain/kotlin/com/quata/designsystem/translation/TranslatorAttemptState.kt"),
   fastTextDetector: await source("../core/src/commonMain/kotlin/com/quata/core/language/FastTextLanguageDetector.kt"),
   fastTextIdentifier: await source("../core/src/commonMain/kotlin/com/quata/core/language/FastTextTextLanguageIdentifier.kt"),
   iosFastTextIdentifier: await source("../core/src/iosMain/kotlin/com/quata/core/language/IosFastTextLanguageIdentifier.kt"),
@@ -121,9 +123,9 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.doesNotMatch(files.overlay, /consumeTranslatorBackdropGestures/);
   assert.doesNotMatch(files.overlay, /event\.changes\.forEach \{ change -> change\.consume\(\) \}/);
   assert.match(files.overlay, /displayText\.replaceFirst\(originalText, translatedText\)/);
-  assert.match(files.overlay, /translated\?\.let \{ TranslatorBoxUiState\(translation = it\) \}/);
-  assert.match(files.overlay, /\?: TranslatorBoxUiState\(failed = true\)/);
-  assert.doesNotMatch(files.overlay, /translation = it \?: TranslatorBoxState/);
+  assert.match(files.overlay, /TranslatorAttemptState<TranslatorBoxState>/);
+  assert.match(files.overlay, /completeTranslatorAttempt\(states\[box\.id\], token, translated\)/);
+  assert.match(files.overlay, /failTranslatorAttempt\(states\[box\.id\], token\)/);
   assert.doesNotMatch(files.overlay, /translatedText \?: failedText \?: displayText/);
   assert.match(files.overlay, /QuataTranslatableTextRegistry/);
   assert.match(files.overlay, /FangOverlayTranslationUseCase/);
@@ -154,6 +156,21 @@ test("The shared comments overlay remains in designsystem instead of coupling Fe
   assert.doesNotMatch(files.officialComments, /feature\.chat/);
   assert.doesNotMatch(files.profileHost, /feature\.chat/);
   assert.doesNotMatch(files.profileComments, /feature\.chat/);
+});
+
+test("Chat and Comments reject stale translator completions through one shared attempt reducer", () => {
+  for (const sourceText of [files.overlay, files.chatOverlay]) {
+    assert.match(sourceText, /mutableStateMapOf<String, TranslatorAttemptState<TranslatorBoxState>>/);
+    assert.match(sourceText, /TranslatorAttemptTokens\(\)/);
+    assert.match(sourceText, /TranslatorAttemptState\.loading\(token\)/);
+    assert.match(sourceText, /completeTranslatorAttempt\(states\[box\.id\], token,/);
+    assert.match(sourceText, /failTranslatorAttempt\(states\[box\.id\], token\)/);
+    assert.match(sourceText, /states\.keys\.filter \{ it !in visibleIds \}\.forEach\(states::remove\)/);
+  }
+  assert.match(files.attemptState, /current\?\.loading != true \|\| current\.token != token/);
+  assert.match(files.attemptState, /return current/);
+  assert.match(files.attemptState, /result\?\.let \{ TranslatorAttemptState\(result = it, token = token\) \}/);
+  assert.match(files.attemptState, /TranslatorAttemptState\(failed = true, token = token\)/);
 });
 
 test("Web focal evidence translates Feed and Official comments through exact common anchors", async () => {

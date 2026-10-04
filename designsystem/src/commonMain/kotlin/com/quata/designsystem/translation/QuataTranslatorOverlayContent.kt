@@ -122,12 +122,6 @@ fun quataTranslatorStringsForLanguage(languageTag: String?): QuataTranslatorStri
         )
     }
 
-private data class TranslatorBoxUiState(
-    val translation: TranslatorBoxState? = null,
-    val loading: Boolean = false,
-    val failed: Boolean = false,
-)
-
 const val QuataTranslatorOverlayTestTag = "translator.overlay"
 const val QuataTranslatorExitTestTag = "translator.exit"
 const val QuataTranslatorMessageTestTagPrefix = "translator.message."
@@ -168,7 +162,8 @@ private fun QuataTranslatorOverlaySurface(
     messageAction: QuataTranslatorMessageAction?,
 ) {
     val scope = rememberCoroutineScope()
-    val states = remember { mutableStateMapOf<String, TranslatorBoxUiState>() }
+    val states = remember { mutableStateMapOf<String, TranslatorAttemptState<TranslatorBoxState>>() }
+    val attemptTokens = remember { TranslatorAttemptTokens() }
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
     val boxes = registry.visibleBoxes
     val visibleIds = boxes.map { it.id }.toSet()
@@ -192,24 +187,23 @@ private fun QuataTranslatorOverlaySurface(
             val width = with(density) { box.bounds.width.coerceAtLeast(64f).toDp() }.coerceAtMost(maxWidth)
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
-            val translated = state?.translation?.takeIf { it.showTranslation }?.translation
+            val translated = state?.result?.takeIf { it.showTranslation }?.translation
             val messageTag = "$QuataTranslatorMessageTestTagPrefix${box.id}"
             val messageEnabled = state?.loading != true
             val onMessageClick: () -> Unit = {
-                val existing = state?.translation
+                val existing = state?.result
                 if (existing?.translation != null) {
-                    states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
+                    states[box.id] = state.copy(result = existing.copy(showTranslation = !existing.showTranslation))
                 } else {
-                    states[box.id] = TranslatorBoxUiState(loading = true)
+                    val token = attemptTokens.next()
+                    states[box.id] = TranslatorAttemptState.loading(token)
                     scope.launch {
-                        states[box.id] = runCatching { gateway.translate(box.text) }
+                        runCatching { gateway.translate(box.text) }
                             .fold(
-                                onSuccess = { translated ->
-                                    translated?.let { TranslatorBoxUiState(translation = it) }
-                                        ?: TranslatorBoxUiState(failed = true)
-                                },
-                                onFailure = { TranslatorBoxUiState(failed = true) },
+                                onSuccess = { translated -> completeTranslatorAttempt(states[box.id], token, translated) },
+                                onFailure = { failTranslatorAttempt(states[box.id], token) },
                             )
+                            ?.let { states[box.id] = it }
                     }
                 }
                 Unit
@@ -218,7 +212,7 @@ private fun QuataTranslatorOverlaySurface(
                 displayText = box.displayText,
                 originalText = box.text,
                 translatedText = translated,
-                directionLabel = state?.translation?.directionLabel,
+                directionLabel = state?.result?.directionLabel,
                 failedText = strings.error.takeIf { state?.failed == true },
                 loading = state?.loading == true,
                 enabled = messageEnabled && messageAction == null,

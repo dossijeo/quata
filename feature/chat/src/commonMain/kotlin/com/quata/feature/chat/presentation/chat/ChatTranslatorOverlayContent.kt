@@ -56,6 +56,10 @@ import com.quata.core.language.TranslatorBoxState
 import com.quata.core.language.shortCode
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorBackdrop
+import com.quata.designsystem.translation.TranslatorAttemptState
+import com.quata.designsystem.translation.TranslatorAttemptTokens
+import com.quata.designsystem.translation.completeTranslatorAttempt
+import com.quata.designsystem.translation.failTranslatorAttempt
 import kotlinx.coroutines.launch
 
 const val ChatTranslatorTriggerTestTag = "chat.translator.trigger"
@@ -133,12 +137,6 @@ fun chatTranslatorStringsForLanguage(languageTag: String?): ChatTranslatorString
         )
     }
 
-private data class ChatTranslatorBoxUiState(
-    val translation: TranslatorBoxState? = null,
-    val loading: Boolean = false,
-    val failed: Boolean = false,
-)
-
 /**
  * Portable Fang mode for `CHAT-TRANSLATION` / `FLOW-TRANSLATOR`.
  *
@@ -155,7 +153,8 @@ fun ChatTranslatorOverlayContent(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val states = remember { mutableStateMapOf<String, ChatTranslatorBoxUiState>() }
+    val states = remember { mutableStateMapOf<String, TranslatorAttemptState<TranslatorBoxState>>() }
+    val attemptTokens = remember { TranslatorAttemptTokens() }
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
     val boxes = registry.visibleBoxes
     val visibleIds = boxes.map { it.id }.toSet()
@@ -185,13 +184,13 @@ fun ChatTranslatorOverlayContent(
             val width = with(density) { box.bounds.width.coerceAtLeast(64f).toDp() }.coerceAtMost(maxWidth)
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
-            val translated = state?.translation?.takeIf { it.showTranslation }?.translation
+            val translated = state?.result?.takeIf { it.showTranslation }?.translation
             val accessibilityText = buildString {
                 append(box.displayText)
                 if (translated != null) {
                     append('\n')
                     append(translated)
-                    state.translation?.directionLabel?.let { direction ->
+                    state.result?.directionLabel?.let { direction ->
                         append('\n')
                         append(direction)
                     }
@@ -205,7 +204,7 @@ fun ChatTranslatorOverlayContent(
                 displayText = box.displayText,
                 originalText = box.text,
                 translatedText = translated,
-                directionLabel = state?.translation?.directionLabel,
+                directionLabel = state?.result?.directionLabel,
                 failedText = strings.error.takeIf { state?.failed == true },
                 loading = state?.loading == true,
                 modifier = Modifier
@@ -216,17 +215,19 @@ fun ChatTranslatorOverlayContent(
                         contentDescription = accessibilityText
                     }
                     .clickable(enabled = state?.loading != true) {
-                        val existing = state?.translation
+                        val existing = state?.result
                         if (existing?.translation != null) {
-                            states[box.id] = state.copy(translation = existing.copy(showTranslation = !existing.showTranslation))
+                            states[box.id] = state.copy(result = existing.copy(showTranslation = !existing.showTranslation))
                         } else {
-                            states[box.id] = ChatTranslatorBoxUiState(loading = true)
+                            val token = attemptTokens.next()
+                            states[box.id] = TranslatorAttemptState.loading(token)
                             scope.launch {
-                                states[box.id] = runCatching { gateway.translate(box.text, initialDirection) }
+                                runCatching { gateway.translate(box.text, initialDirection) }
                                     .fold(
-                                        onSuccess = { ChatTranslatorBoxUiState(translation = it) },
-                                        onFailure = { ChatTranslatorBoxUiState(failed = true) },
+                                        onSuccess = { completeTranslatorAttempt(states[box.id], token, it) },
+                                        onFailure = { failTranslatorAttempt(states[box.id], token) },
                                     )
+                                    ?.let { states[box.id] = it }
                             }
                         }
                     },
