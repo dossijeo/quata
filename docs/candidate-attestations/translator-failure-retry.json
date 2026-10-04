@@ -4,13 +4,13 @@
     "FLOW-TRANSLATOR",
     "CHAT-TRANSLATION"
   ],
-  "productSha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
+  "productSha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
-      "report": "docs/candidate-attestations/evidence/translator-failure-retry-web-c28fc5a9.json",
-      "reportSha256": "777ec09f4ec22e9bdd40d37df5d27988a6c4cf5262a1077a9a6864807b3756aa",
+      "sha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-web-28073c9ad.json",
+      "reportSha256": "3bc0a145992d0f471603907af647287a598955ff3bf8188a2f622a9b8ce3fd82",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -29,9 +29,9 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
-      "report": "docs/candidate-attestations/evidence/translator-failure-retry-android-c28fc5a9.json",
-      "reportSha256": "66e721b30e3aa813fb90fc10e877e7f3126aef4b7b6c2ab493994b33f3a57716",
+      "sha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-android-28073c9ad.json",
+      "reportSha256": "d771401bc108b2dc1e8f9a96d2b5fce710ade1065271cf3807ebb7812e1cf6b9",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -47,9 +47,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c28fc5a989f20c0a3bde69056591fd0e299ab5ed",
-      "report": "docs/candidate-attestations/evidence/translator-failure-retry-ios-c28fc5a9.json",
-      "reportSha256": "506b7c3b1186b0b6f8d07f63ed178e10e37d389065c1da7ec3aa5f034ba8b082",
+      "sha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-ios-28073c9ad.json",
+      "reportSha256": "8cc7d855f7727d318b5b908aea1447e2d9deb85bb06aaf958df1bfb0be8903f0",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -77,6 +77,6 @@
     "The common tests force failure, retry, a stale success from the prior attempt, a current success, a removed box, and a null translation. The architectural contract binds both product overlays to that reducer.",
     "This closes the shared product-state gap for a recoverable translator failure and one retry. It does not claim a real provider outage, offline translation, exhaustive provider failures, or renewed visual comparison.",
     "No backend, credentials, device data, CI configuration, or existing runtime evidence was modified.",
-    "The candidate was rebased onto main #544. Translator runtime, test and contract blobs are anchored at productSha; 25/25 focal contracts plus Wasm, Android and iOS x64 affected targets passed after the rebase, without repeating unrelated E2E matrices solely for the new SHA."
+    "The candidate was rebased onto main #545. Translator runtime, test and contract blobs are anchored at productSha; 25/25 focal contracts plus Wasm, Android and iOS x64 affected targets passed after the rebase, without repeating unrelated E2E matrices solely for the new SHA."
   ]
 }

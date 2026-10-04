@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "productSha": "28073c9ad90b8b606e35eb917274ac1ca6f48ca1",
+  "platform": "ios",
+  "steps": [
+    "designsystem_ios_x64_main_compilation_passed",
+    "designsystem_ios_x64_test_compilation_passed",
+    "feature_chat_ios_x64_compilation_passed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "verified": true,
+    "mode": "temporary-macos-worktree-removed-no-backend-no-credentials"
+  },
+  "notes": [
+    "A thin git bundle with SHA-256 c5a36a7ac78e3b9442b1cce4fdf50e7f3607a4768a0c042a5683bcd34d5059d2 was verified before checking out the exact productSha in the documented Hyper-V Intel environment.",
+    "The focused design system iOS x64 main and test compilations and feature Chat iOS x64 compilation completed successfully on the exact productSha; the retained build log has SHA-256 164be1b845d7ec80600b3f9c4242d6bc570c7e2abec452879bdd9e560eb3f44c.",
+    "The temporary macOS checkout was removed after validation.",
+    "After rebasing onto main #545, the iOS x64 affected targets were compiled again on the exact productSha without renewing unrelated E2E matrices."
+  ]
+}
