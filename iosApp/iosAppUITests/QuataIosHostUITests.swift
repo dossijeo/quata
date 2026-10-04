@@ -710,6 +710,35 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testExactFeedAndOfficialPostRoutesSurviveApplicationTerminationAndRelaunch() {
+        for scenario in [
+            (route: "feed-post:feed/team 9/á?tab=media", expected: "feed-post:feed/team 9/á?tab=media"),
+            (route: "official-post:official/team 4/ñ?source=push", expected: "official-post:official/team 4/ñ?source=push"),
+        ] {
+            let firstLaunch = fixtureApp("shell-layout", shellRoute: scenario.route)
+            firstLaunch.launch()
+            let firstMarker = firstLaunch.descendants(matching: .any)
+                .matching(identifier: "quata-ios-shell-layout-content-frame")
+                .firstMatch
+            XCTAssertTrue(firstMarker.waitForExistence(timeout: 10))
+            XCTAssertEqual(firstMarker.value as? String, scenario.expected)
+            firstLaunch.terminate()
+
+            let relaunched = fixtureApp("shell-layout", resetPrimaryRoute: false)
+            relaunched.launch()
+            let restoredMarker = relaunched.descendants(matching: .any)
+                .matching(identifier: "quata-ios-shell-layout-content-frame")
+                .firstMatch
+            XCTAssertTrue(restoredMarker.waitForExistence(timeout: 10))
+            XCTAssertEqual(
+                restoredMarker.value as? String,
+                scenario.expected,
+                "A new process without route injection must restore the exact focused post.",
+            )
+            relaunched.terminate()
+        }
+    }
+
     func testSafeSecondaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay() {
         let firstLaunch = fixtureApp("shell-layout", shellRoute: "settings")
         firstLaunch.launch()

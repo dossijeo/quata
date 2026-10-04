@@ -901,13 +901,17 @@ private final class IosAppCompositionRoot {
             // exercises real containment, safe-area and rotation layout without restoring
             // Keychain state, constructing repositories or contacting a backend.
             let router = IosAuthenticatedHostRouter(platformServices: platformServices)
-            router.installFeedFactory { [weak router] _ in
-                makeShellLayoutFixtureViewController(route: "feed") {
+            router.installFeedFactory { [weak router] postId in
+                makeShellLayoutFixtureViewController(
+                    route: postId.map { "feed-post:\($0)" } ?? "feed"
+                ) {
                     router?.updateNetworkAvailable(true)
                 }
             }
             router.installChatFactory { _, _ in makeShellLayoutFixtureViewController(route: "chat") }
-            router.installOfficialFactory { _ in makeShellLayoutFixtureViewController(route: "official") }
+            router.installOfficialFactory { postId in
+                makeShellLayoutFixtureViewController(route: postId.map { "official-post:\($0)" } ?? "official")
+            }
             router.installOfficialEditorFactory {
                 makeShellLayoutFixtureViewController(route: "official-editor")
             }
@@ -948,6 +952,12 @@ private final class IosAppCompositionRoot {
             if let routeIndex = arguments.firstIndex(of: "-quata-ui-test-shell-route"),
                arguments.indices.contains(routeIndex + 1) {
                 switch arguments[routeIndex + 1] {
+                case let route where route.hasPrefix("feed-post:"):
+                    let postId = String(route.dropFirst("feed-post:".count))
+                    router.showFeed(postId: postId.isEmpty ? nil : postId)
+                case let route where route.hasPrefix("official-post:"):
+                    let postId = String(route.dropFirst("official-post:".count))
+                    router.showOfficial(postId: postId.isEmpty ? nil : postId)
                 case "chat": router.showChat(conversationId: "layout-fixture", messageId: nil)
                 case "official": router.showOfficial(postId: nil)
                 case "official-editor": router.showOfficialEditor()
@@ -2521,9 +2531,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private static let persistedPrimaryRouteKey = "quata.ios.shell.primary-route"
     private static let persistedSecondaryRouteKey = "quata.ios.shell.secondary-route"
     private static let persistedChatRoutePrefix = "chat-v1:"
+    private static let persistedFeedPostRoutePrefix = "feed-v1:"
+    private static let persistedOfficialPostRoutePrefix = "official-v1:"
     private struct PersistedChatRoute: Codable {
         let conversationId: String
         let messageId: String?
+    }
+    private struct PersistedPostRoute: Codable {
+        let postId: String
     }
     private let platformServices: IosPlatformServiceComposition
     private let routeSelectionDefaults: UserDefaults
@@ -2822,11 +2837,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         hasPublicFeed = true
         installSharedShellIfNeeded()
         routeMenuButton.isHidden = true
+        let hadPendingRoute = pendingRoute != nil
         renderPendingRouteIfPossible()
         let safeSecondaryRouteIsVisible = visibleRoute.map {
             Self.persistedSecondaryRoute(for: $0) != nil
         } ?? false
-        if pendingRoute == nil, !safeSecondaryRouteIsVisible {
+        if !hadPendingRoute, pendingRoute == nil, !safeSecondaryRouteIsVisible {
             showFeed(postId: nil)
         } else if pendingRoute?.isAuthenticationRequired == true, let feedController = feedFactory?(nil) {
             // A protected deep link can arrive before the public runtime and Auth factories are
@@ -3385,6 +3401,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if case .feed = visibleRoute {
             routeSelectionRevision &+= 1
             visibleRoute = .feed(postId: nil)
+            persistVisiblePrimaryRouteIfUncontested()
         }
     }
 
@@ -3392,6 +3409,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if case .feed = visibleRoute {
             routeSelectionRevision &+= 1
             visibleRoute = .feed(postId: postId)
+            persistVisiblePrimaryRouteIfUncontested()
         }
     }
 
@@ -3443,6 +3461,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if case .official = visibleRoute {
             routeSelectionRevision &+= 1
             visibleRoute = .official(postId: nil)
+            persistVisiblePrimaryRouteIfUncontested()
         }
     }
 
@@ -3450,6 +3469,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if case .official = visibleRoute {
             routeSelectionRevision &+= 1
             visibleRoute = .official(postId: postId)
+            persistVisiblePrimaryRouteIfUncontested()
         }
     }
 
@@ -3885,6 +3905,15 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         )
     }
 
+    private func persistVisiblePrimaryRouteIfUncontested() {
+        guard pendingRoute == nil,
+              let visibleRoute,
+              let route = Self.persistedPrimaryRoute(for: visibleRoute) else {
+            return
+        }
+        persistPrimaryRoute(route)
+    }
+
     private func persistPrimaryRoute(_ route: String) {
         routeSelectionDefaults.set(route, forKey: Self.persistedPrimaryRouteKey)
         routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
@@ -3902,14 +3931,32 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             let snapshot = PersistedChatRoute(conversationId: conversationId, messageId: messageId)
             guard let data = try? JSONEncoder().encode(snapshot) else { return "conversations" }
             return persistedChatRoutePrefix + data.base64EncodedString()
-        case .official: return "official"
-        case .feed: return "feed"
+        case let .official(postId):
+            guard let postId, !postId.isEmpty else { return "official" }
+            return encodedPostRoute(postId: postId, prefix: persistedOfficialPostRoutePrefix) ?? "official"
+        case let .feed(postId):
+            guard let postId, !postId.isEmpty else { return "feed" }
+            return encodedPostRoute(postId: postId, prefix: persistedFeedPostRoutePrefix) ?? "feed"
         case .profileSos: return "profile"
         default: return nil
         }
     }
 
     private static func primaryRoute(storedValue: String?) -> PendingRoute? {
+        if let storedValue, storedValue.hasPrefix(persistedFeedPostRoutePrefix) {
+            guard let postId = decodedPostId(
+                storedValue: storedValue,
+                prefix: persistedFeedPostRoutePrefix
+            ) else { return nil }
+            return .feed(postId: postId)
+        }
+        if let storedValue, storedValue.hasPrefix(persistedOfficialPostRoutePrefix) {
+            guard let postId = decodedPostId(
+                storedValue: storedValue,
+                prefix: persistedOfficialPostRoutePrefix
+            ) else { return nil }
+            return .official(postId: postId)
+        }
         if let storedValue,
            storedValue.hasPrefix(persistedChatRoutePrefix),
            let data = Data(base64Encoded: String(storedValue.dropFirst(persistedChatRoutePrefix.count))),
@@ -3925,6 +3972,21 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case "profile": return .profileSos
         default: return nil
         }
+    }
+
+    private static func encodedPostRoute(postId: String, prefix: String) -> String? {
+        guard let data = try? JSONEncoder().encode(PersistedPostRoute(postId: postId)) else { return nil }
+        return prefix + data.base64EncodedString()
+    }
+
+    private static func decodedPostId(storedValue: String, prefix: String) -> String? {
+        guard storedValue.hasPrefix(prefix),
+              let data = Data(base64Encoded: String(storedValue.dropFirst(prefix.count))),
+              let snapshot = try? JSONDecoder().decode(PersistedPostRoute.self, from: data),
+              !snapshot.postId.isEmpty else {
+            return nil
+        }
+        return snapshot.postId
     }
 
     private static func persistedSecondaryRoute(for route: PendingRoute) -> String? {

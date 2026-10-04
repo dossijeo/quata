@@ -47,6 +47,18 @@ test("iOS persists and restores the exact Chat conversation and message without 
   assert.match(iosTests, /testExactChatConversationAndFocusedMessageSurviveRouterRecreation/);
 });
 
+test("iOS persists exact Feed and Official post routes without storing post content", () => {
+  assert.match(ios, /persistedFeedPostRoutePrefix = "feed-v1:"/);
+  assert.match(ios, /persistedOfficialPostRoutePrefix = "official-v1:"/);
+  assert.match(ios, /struct PersistedPostRoute: Codable/);
+  assert.match(ios, /encodedPostRoute\(postId: postId, prefix: persistedFeedPostRoutePrefix\)/);
+  assert.match(ios, /encodedPostRoute\(postId: postId, prefix: persistedOfficialPostRoutePrefix\)/);
+  assert.match(ios, /JSONDecoder\(\)\.decode\(PersistedPostRoute\.self/);
+  assert.match(iosTests, /testExactFeedAndOfficialPostIdsSurviveRouterRecreationAndAuthenticationUpgrade/);
+  assert.match(iosTests, /testFocusedPostChangesAndClosesRefreshThePersistedNestedRoute/);
+  assert.match(iosTests, /testMalformedPersistedPostRouteFailsClosedToTheNormalRoot/);
+});
+
 test("Web keeps an allowlisted Communities return only for the matching exact Chat route", () => {
   assert.match(web, /quata\.web\.chat-return\.conversation/);
   assert.match(web, /quata\.web\.chat-return\.fragment/);
