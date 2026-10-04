@@ -633,7 +633,7 @@
           "evidence": [
             {
               "path": "app/src/main/java/com/quata/core/di/AppContainer.kt",
-              "sha256": "34e9e4153d13bc15066f159f39b721ca322716240c538f837bd31fc34c8028d9",
+              "sha256": "766e44ba575857a7433d62bb7432dba19c3d81999d6f051d6e9fe51e7efa8ac5",
               "role": "composition"
             },
             {
@@ -707,7 +707,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "3852dd623f564611e97530e88b0c9b009f1831db8e3e1bb10868ccd87de7887b",
+              "sha256": "43c99f5bf4ba7c70a19ba64b7a167d42dcef8afd880d037fe1e8b9cc5f8763ea",
               "role": "composition"
             },
             {
@@ -770,7 +770,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "3852dd623f564611e97530e88b0c9b009f1831db8e3e1bb10868ccd87de7887b",
+              "sha256": "43c99f5bf4ba7c70a19ba64b7a167d42dcef8afd880d037fe1e8b9cc5f8763ea",
               "role": "runtime-bootstrap"
             },
             {
@@ -800,7 +800,7 @@
             },
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt",
-              "sha256": "c1c1e639e6ca236504a3eda12e2654142b3b8e576f43d53ca916c7c6f49e69de",
+              "sha256": "70f0562348c05966bd561d62b23d7bdfc63c6bddd015a15d681fe8e5cbea19eb",
               "role": "runtime-bootstrap"
             },
             {
