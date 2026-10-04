@@ -1,0 +1,66 @@
+{
+  "status": "passed",
+  "unit": "OVR-LIVE-RANKING",
+  "executedAtUtc": "2026-10-04T01:54:10Z",
+  "git": {
+    "head": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "focused_official_live_a_to_b_to_a_android_runtime",
+    "ordinary_official_live_selection_keeps_pager_android_runtime",
+    "official_live_selection_routes_focused_detail_and_pager_wasm",
+    "web_official_fragment_and_compose_route_stay_in_sync",
+    "ios_x64_selection_contract_passed_on_exact_product_sha",
+    "ios_simulator_signed_host_build_passed_on_identical_product_tree_before_freeze",
+    "independent_review_go"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "tests": 2,
+      "failures": 0,
+      "device": "QuataLivePr336Api35(AVD)-API-35",
+      "resultXmlSha256": "64f2df6e104d733f3054ac1349905960ca8dfe560227a31a1031e569009b3136"
+    },
+    "web": {
+      "status": "passed",
+      "routeTests": 1,
+      "selectionContractTests": 2,
+      "browser": "ChromeHeadless-154-Windows-10",
+      "routeResultXmlSha256": "706778d2914f6b3473bcd2e96700b987800f165ad34a257f6bde21be03cf44b9",
+      "selectionResultXmlSha256": "e5ae8cbc8a4e6770de8c62d4e6f36a37435b80cf7bfe9049ffdb02ed20eeded6"
+    },
+    "ios": {
+      "status": "passed",
+      "iosX64Tests": 2,
+      "failures": 0,
+      "resultXmlSha256": "b2a12d48cb89210cb3212e92730f1dacfdcc7c587c8faa9333b472c0f04cfa89",
+      "simulatorSignedHostBuild": {
+        "status": "passed",
+        "xcode": "26.6 (17F113)",
+        "sdk": "iPhoneOS 26.5",
+        "architecture": "x86_64",
+        "sourceTree": "identical to product commit; executed immediately before commit freeze",
+        "finalCiRecertification": "pending"
+      }
+    }
+  },
+  "review": {
+    "status": "GO",
+    "blockingFindings": []
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "macCheckoutRestoredTo": "bf584babe1a238ee2cd926feae1a4c23ebbd5552",
+    "temporaryBundleRemoved": true
+  },
+  "notes": [
+    "The Android runtime test mounts the real OfficialFeedScreenHost and operates the production Live controls for focused A-to-B-to-A navigation and ordinary pager navigation.",
+    "The Web route test verifies that the canonical fragment, WebNavigationController and parsed Compose route remain aligned for focused Official identity changes.",
+    "The iOS x64 selection contract was forced to execute on the exact product commit after deleting only its generated test result output.",
+    "The SimulatorSigned host build used the identical product source tree before the commit object was created; final GitHub iOS jobs remain the authoritative candidate recertification.",
+    "No backend, credentials, product rows or remote state were used or mutated."
+  ]
+}
