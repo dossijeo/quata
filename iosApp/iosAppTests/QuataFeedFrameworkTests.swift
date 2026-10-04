@@ -2881,6 +2881,187 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(restoredChat.view.accessibilityValue, "chat:sb:team/42?message=message 9/á")
     }
 
+    func testExactFeedAndOfficialPostIdsSurviveRouterRecreationAndAuthenticationUpgrade() {
+        let feedSuite = "QuataFeedFrameworkTests.feed-post-route.relaunch.\(UUID().uuidString)"
+        let feedDefaults = UserDefaults(suiteName: feedSuite)!
+        defer { feedDefaults.removePersistentDomain(forName: feedSuite) }
+        let feedPostId = "feed/team 9/á?tab=media"
+
+        let firstFeedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: feedDefaults
+        )
+        firstFeedRouter.disableStartupSplashForTesting()
+        firstFeedRouter.loadViewIfNeeded()
+        firstFeedRouter.installFeedFactory { _ in UIViewController() }
+        firstFeedRouter.showFeed(postId: feedPostId)
+
+        let restoredFeedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: feedDefaults
+        )
+        restoredFeedRouter.disableStartupSplashForTesting()
+        restoredFeedRouter.loadViewIfNeeded()
+        var publicFeedPostId: String?
+        restoredFeedRouter.installPublicFeed { postId in
+            publicFeedPostId = postId
+            return UIViewController()
+        }
+        XCTAssertEqual(publicFeedPostId, feedPostId)
+
+        restoredFeedRouter.preserveVisibleRouteAfterAuthenticationUpgrade()
+        var authenticatedFeedPostId: String?
+        restoredFeedRouter.installFeedFactory { postId in
+            authenticatedFeedPostId = postId
+            return UIViewController()
+        }
+        restoredFeedRouter.refreshVisibleRouteAfterAuthentication()
+        XCTAssertEqual(authenticatedFeedPostId, feedPostId)
+
+        let officialSuite = "QuataFeedFrameworkTests.official-post-route.relaunch.\(UUID().uuidString)"
+        let officialDefaults = UserDefaults(suiteName: officialSuite)!
+        defer { officialDefaults.removePersistentDomain(forName: officialSuite) }
+        let officialPostId = "official/team 4/ñ?source=push"
+
+        let firstOfficialRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: officialDefaults
+        )
+        firstOfficialRouter.disableStartupSplashForTesting()
+        firstOfficialRouter.loadViewIfNeeded()
+        firstOfficialRouter.installFeedFactory { _ in UIViewController() }
+        firstOfficialRouter.installOfficialFactory { _ in UIViewController() }
+        firstOfficialRouter.showOfficial(postId: officialPostId)
+
+        let restoredOfficialRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: officialDefaults
+        )
+        restoredOfficialRouter.disableStartupSplashForTesting()
+        restoredOfficialRouter.loadViewIfNeeded()
+        restoredOfficialRouter.installPublicFeed { _ in UIViewController() }
+        var restoredOfficialPostId: String?
+        restoredOfficialRouter.installOfficialFactory { postId in
+            restoredOfficialPostId = postId
+            return UIViewController()
+        }
+        XCTAssertEqual(restoredOfficialPostId, officialPostId)
+    }
+
+    func testFocusedPostChangesAndClosesRefreshThePersistedNestedRoute() {
+        let feedSuite = "QuataFeedFrameworkTests.feed-post-route.change.\(UUID().uuidString)"
+        let feedDefaults = UserDefaults(suiteName: feedSuite)!
+        defer { feedDefaults.removePersistentDomain(forName: feedSuite) }
+
+        let feedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: feedDefaults
+        )
+        feedRouter.disableStartupSplashForTesting()
+        feedRouter.loadViewIfNeeded()
+        feedRouter.installFeedFactory { _ in UIViewController() }
+        feedRouter.showFeed(postId: nil)
+        feedRouter.markFeedDetailChanged(postId: "feed-updated/á")
+
+        let restoredFeedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: feedDefaults
+        )
+        restoredFeedRouter.disableStartupSplashForTesting()
+        restoredFeedRouter.loadViewIfNeeded()
+        var restoredFeedPostId: String?
+        restoredFeedRouter.installPublicFeed { postId in
+            restoredFeedPostId = postId
+            return UIViewController()
+        }
+        XCTAssertEqual(restoredFeedPostId, "feed-updated/á")
+        restoredFeedRouter.markFeedDetailClosed()
+
+        let closedFeedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: feedDefaults
+        )
+        closedFeedRouter.disableStartupSplashForTesting()
+        closedFeedRouter.loadViewIfNeeded()
+        var closedFeedPostId: String? = "not-called"
+        closedFeedRouter.installPublicFeed { postId in
+            closedFeedPostId = postId
+            return UIViewController()
+        }
+        XCTAssertNil(closedFeedPostId)
+
+        let officialSuite = "QuataFeedFrameworkTests.official-post-route.change.\(UUID().uuidString)"
+        let officialDefaults = UserDefaults(suiteName: officialSuite)!
+        defer { officialDefaults.removePersistentDomain(forName: officialSuite) }
+
+        let officialRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: officialDefaults
+        )
+        officialRouter.disableStartupSplashForTesting()
+        officialRouter.loadViewIfNeeded()
+        officialRouter.installFeedFactory { _ in UIViewController() }
+        officialRouter.installOfficialFactory { _ in UIViewController() }
+        officialRouter.showOfficial(postId: nil)
+        officialRouter.markOfficialDetailChanged(postId: "official-updated/ñ")
+
+        let restoredOfficialRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: officialDefaults
+        )
+        restoredOfficialRouter.disableStartupSplashForTesting()
+        restoredOfficialRouter.loadViewIfNeeded()
+        restoredOfficialRouter.installFeedFactory { _ in UIViewController() }
+        var restoredOfficialPostId: String?
+        restoredOfficialRouter.installOfficialFactory { postId in
+            restoredOfficialPostId = postId
+            return UIViewController()
+        }
+        XCTAssertEqual(restoredOfficialPostId, "official-updated/ñ")
+        restoredOfficialRouter.markOfficialDetailClosed()
+
+        let closedOfficialRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: officialDefaults
+        )
+        closedOfficialRouter.disableStartupSplashForTesting()
+        closedOfficialRouter.loadViewIfNeeded()
+        closedOfficialRouter.installFeedFactory { _ in UIViewController() }
+        var closedOfficialPostId: String? = "not-called"
+        closedOfficialRouter.installOfficialFactory { postId in
+            closedOfficialPostId = postId
+            return UIViewController()
+        }
+        XCTAssertNil(closedOfficialPostId)
+    }
+
+    func testMalformedPersistedPostRouteFailsClosedToTheNormalRoot() {
+        for malformed in ["feed-v1:not-base64", "official-v1:%%%"] {
+            let suiteName = "QuataFeedFrameworkTests.post-route.malformed.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName)!
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            defaults.set(malformed, forKey: "quata.ios.shell.primary-route")
+
+            let router = IosFeedHostContainerViewController(
+                platformServices: makePlatformServiceComposition(),
+                routeSelectionDefaults: defaults
+            )
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            var restoredPostId: String? = "not-called"
+            router.installPublicFeed { postId in
+                restoredPostId = postId
+                return UIViewController()
+            }
+
+            XCTAssertNil(restoredPostId)
+            XCTAssertEqual(
+                authenticatedRouteController(in: router)?.view.accessibilityIdentifier,
+                "quata-ios-feed-host"
+            )
+        }
+    }
+
     func testRestoredPrivateSettingsSurvivesPublicFallbackAndAuthenticationUpgradeOrder() {
         let suiteName = "QuataFeedFrameworkTests.secondary-route.production-order.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

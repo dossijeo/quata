@@ -166,7 +166,11 @@ test("layout frame markers are confined to the deterministic UI-test fixture", (
   assert.match(appHost, /case "shell-layout":/);
   assert.match(
     appHost,
-    /router\.installFeedFactory \{ \[weak router\] _ in[\s\S]*makeShellLayoutFixtureViewController\(route: "feed"\) \{[\s\S]*router\?\.updateNetworkAvailable\(true\)/,
+    /router\.installFeedFactory \{ \[weak router\] postId in[\s\S]*postId\.map \{ "feed-post:\\\(\$0\)" \} \?\? "feed"[\s\S]*router\?\.updateNetworkAvailable\(true\)/,
+  );
+  assert.match(
+    appHost,
+    /router\.installOfficialFactory \{ postId in[\s\S]*postId\.map \{ "official-post:\\\(\$0\)" \} \?\? "official"/,
   );
   assert.match(appHost, /authenticatedTopChromeLayoutMarker/);
   assert.match(appHost, /primaryNavigationLayoutMarker/);

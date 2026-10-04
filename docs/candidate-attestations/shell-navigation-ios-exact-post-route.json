@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "a607c58208e4f16ae7d4992382ba286d2ec1f88a",
+  "certification": "focal-ios-exact-feed-official-post-relaunch-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "a607c58208e4f16ae7d4992382ba286d2ec1f88a",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-ios-exact-post-route-9ee67bd9.json",
+      "reportSha256": "132aa5bb00ddb04e71f42d33f9619edb2b9b1fe28f27ddfe761642f18180544b",
+      "reportStatus": "passed",
+      "reportGitHead": "9ee67bd9240a094211301f0e6684bbfbdfc32fdd",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "feed_exact_post_id_encoded_as_versioned_snapshot",
+        "official_exact_post_id_encoded_as_versioned_snapshot",
+        "unicode_slash_and_query_characters_round_trip",
+        "feed_exact_post_restored_after_application_termination",
+        "official_exact_post_restored_after_application_termination",
+        "restored_public_feed_not_overwritten_during_factory_install",
+        "exact_post_route_preserved_during_authentication_upgrade",
+        "focused_post_change_refreshes_persisted_route",
+        "focused_post_close_restores_root_route",
+        "malformed_snapshot_fails_closed_to_normal_root",
+        "cpu_raster_dependency_preflight_resolved_exact_component"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs scripts/ios-shell-layout-contract.test.mjs",
+    "Gradle dependency preflight resolved org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT",
+    "xcodebuild build-for-testing SimulatorSigned with the CPU-raster XCFramework",
+    "xcodebuild test-without-building ... three exact-route host tests",
+    "xcodebuild test-without-building ... testExactFeedAndOfficialPostRoutesSurviveApplicationTerminationAndRelaunch",
+    "codex review --commit 9ee67bd9240a094211301f0e6684bbfbdfc32fdd"
+  ],
+  "notes": [
+    "Feed and Official post identifiers use separate versioned Base64 Codable snapshots. Root-only legacy values remain accepted, and malformed snapshots fail closed.",
+    "The process-relaunch XCTest terminates the app and relaunches without route injection for both Feed and Official, preserving identifiers containing Unicode, slashes and query characters.",
+    "Focused-post changes and closes update the persisted route only when no pending destination owns navigation. Authentication upgrade retains the exact restored post.",
+    "The first executable attempt used stock Skiko and crashed in ComposeHostingViewController.viewWillAppear because the Hyper-V guest exposes no Metal service. LLDB preserved that diagnosis. The accepted build passed the documented exact CPU-raster dependency preflight and all focal tests.",
+    "Independent review reported no actionable regression in persistence, restoration or authentication-upgrade behavior. Its local Node execution was sandbox-limited; the primary lane separately passed the affected contracts and XCTest gates.",
+    "No backend, credentials, product data or remote state were used. Generated Xcode project output was removed and the Product SHA was clean after execution.",
+    "This closes the iOS exact Feed/Official post-route relaunch limit. Scroll, drafts, editor state, media playback position and general secondary backstacks remain owned by their existing units.",
+    "After #541 merged, the unit rebased to Product SHA a607c582. Its runtime and test patch is equivalent to the executed 9ee67bd9 product; the only additional product metadata change refreshes the reviewed capability-matrix hash for the resulting QuataIosApp.swift composition, so the focused XCTest evidence was not repeated.",
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+  ]
+}
