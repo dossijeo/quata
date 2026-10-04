@@ -3050,11 +3050,11 @@ try {
       report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
         fixture: state.profileRolesSafety,
         withDatabase,
-        expectedBlocked: false,
+        expectedBlocked: true,
         delay,
       });
-      report.steps.push("profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified");
-      report.steps.push("profile_safety_failed_block_absent_in_backend_verified_by_db");
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
+      report.steps.push("profile_safety_retry_block_persisted_verified_by_db");
     }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({

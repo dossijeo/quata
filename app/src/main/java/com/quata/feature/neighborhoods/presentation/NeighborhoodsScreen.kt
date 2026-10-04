@@ -221,6 +221,7 @@ fun CommunityProfileScreen(
     commentingPostId: String? = null,
     likingPostId: String? = null,
     profileSafetyUpdatingUserId: String? = null,
+    failedProfileSafetyAction: FailedProfileSafetyAction? = null,
     currentUserIsAdmin: Boolean = false,
     chatError: String? = null,
     failedProfileFollowAction: FailedProfileFollowAction? = null,
@@ -234,6 +235,7 @@ fun CommunityProfileScreen(
     onEnsurePostLikeState: (String, String, Boolean) -> Unit,
     onReportProfile: (String) -> Unit = {},
     onSetProfileBlocked: (String, Boolean) -> Unit = { _, _ -> },
+    onRetryProfileSafety: () -> Unit = {},
     onAddComment: (String, PostComment) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     onFollow: () -> Unit,
@@ -386,6 +388,7 @@ fun CommunityProfileScreen(
         commentingPostId = commentingPostId,
         likingPostId = likingPostId,
         profileSafetyUpdatingUserId = profileSafetyUpdatingUserId,
+        failedProfileSafetyAction = failedProfileSafetyAction,
         currentUserIsAdmin = currentUserIsAdmin,
         openingProfileUserId = openingProfileUserId,
         errorMessage = chatError,
@@ -407,6 +410,7 @@ fun CommunityProfileScreen(
         onEnsurePostLikeState = onEnsurePostLikeState,
         onReportProfile = onReportProfile,
         onSetProfileBlocked = onSetProfileBlocked,
+        onRetryProfileSafety = onRetryProfileSafety,
         onAddComment = onAddComment,
         createComment = { post, draft ->
             PostComment(

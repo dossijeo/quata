@@ -8,6 +8,12 @@ data class FailedProfileFollowAction(
     val desiredState: Boolean,
 )
 
+data class FailedProfileSafetyAction(
+    val userId: String,
+    val action: ProfileModerationAction,
+    val errorMessage: String,
+)
+
 data class NeighborhoodsUiState(
     val isLoading: Boolean = true,
     val communities: List<NeighborhoodCommunity> = emptyList(),
@@ -23,6 +29,7 @@ data class NeighborhoodsUiState(
     val commentingPostId: String? = null,
     val likingPostId: String? = null,
     val profileSafetyUpdatingUserId: String? = null,
+    val failedProfileSafetyAction: FailedProfileSafetyAction? = null,
     val currentUserIsAdmin: Boolean = false,
     val selectedProfile: CommunityUserProfile? = null,
     val error: String? = null,

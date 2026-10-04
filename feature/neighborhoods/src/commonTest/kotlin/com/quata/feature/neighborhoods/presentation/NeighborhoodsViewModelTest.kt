@@ -1196,6 +1196,117 @@ class NeighborhoodsViewModelTest {
         assertEquals(before, model.uiState.value.selectedProfile)
         assertEquals(null, model.uiState.value.profileSafetyUpdatingUserId)
         assertEquals("denied", model.uiState.value.error)
+        assertEquals(
+            FailedProfileSafetyAction("a", ProfileModerationAction.Block, "denied"),
+            model.uiState.value.failedProfileSafetyAction,
+        )
+        model.close()
+    }
+
+    @Test
+    fun `failed profile report retries the exact action and clears its retry state on success`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            reportResult = CompletableDeferred(Result.failure(IllegalStateException("report denied")))
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.reportProfile("a")
+        advanceUntilIdle()
+
+        assertEquals(
+            FailedProfileSafetyAction("a", ProfileModerationAction.Report, "report denied"),
+            model.uiState.value.failedProfileSafetyAction,
+        )
+        repository.reportResult = CompletableDeferred(Result.success(Unit))
+
+        model.retryProfileSafety()
+        advanceUntilIdle()
+
+        assertEquals(listOf("a", "a"), repository.reportCalls)
+        assertEquals(null, model.uiState.value.failedProfileSafetyAction)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `failed profile block retries its desired state after rollback`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            blockResult = CompletableDeferred(Result.failure(IllegalStateException("block denied")))
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.setProfileBlocked("a", true)
+        advanceUntilIdle()
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+
+        repository.blockResult = CompletableDeferred(Result.success(true))
+        model.retryProfileSafety()
+        advanceUntilIdle()
+
+        assertEquals(listOf("a" to true, "a" to true), repository.blockCalls)
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.failedProfileSafetyAction)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `failed profile unblock retries its desired state after rollback`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            blockResult = CompletableDeferred(Result.failure(IllegalStateException("unblock denied")))
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.blockResult = CompletableDeferred(Result.success(true))
+        model.setProfileBlocked("a", true)
+        advanceUntilIdle()
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+
+        repository.blockResult = CompletableDeferred(Result.failure(IllegalStateException("unblock denied")))
+        model.setProfileBlocked("a", false)
+        advanceUntilIdle()
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(
+            FailedProfileSafetyAction("a", ProfileModerationAction.Unblock, "unblock denied"),
+            model.uiState.value.failedProfileSafetyAction,
+        )
+
+        repository.blockResult = CompletableDeferred(Result.success(false))
+        model.retryProfileSafety()
+        advanceUntilIdle()
+
+        assertEquals(listOf("a" to true, "a" to false, "a" to false), repository.blockCalls)
+        assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.failedProfileSafetyAction)
+        assertEquals(null, model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `profile safety retry cannot mutate a newer visible profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            reportResult = CompletableDeferred(Result.failure(IllegalStateException("report denied")))
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        model.reportProfile("a")
+        advanceUntilIdle()
+
+        model.openUserProfile("b")
+        advanceUntilIdle()
+        repository.reportResult = CompletableDeferred(Result.success(Unit))
+        model.retryProfileSafety()
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf("a"), repository.reportCalls)
+        assertEquals("a", model.uiState.value.failedProfileSafetyAction?.userId)
         model.close()
     }
 

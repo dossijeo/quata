@@ -3161,7 +3161,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             attachScreenshot(app, name: "ios-chat-profile-safety-negative-optimistic")
             _ = profileElement("public-profile.error.\(peerProfileId)", in: app, context: "profile negative error")
             _ = profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative rollback")
+            let retry = profileElement("public-profile.safety.retry.block.\(peerProfileId)", in: app, context: "profile negative retry")
             attachScreenshot(app, name: "ios-chat-profile-safety-negative-restored")
+            retry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            _ = profileElement("public-profile.safety.unblock.\(peerProfileId)", in: app, context: "profile retry succeeded")
+            attachScreenshot(app, name: "ios-chat-profile-safety-negative-retry-succeeded")
 
             closePublicProfile(in: app)
             XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the failed block rollback.")

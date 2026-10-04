@@ -82,7 +82,7 @@ fun ProfileModerationConfirmation(
     )
 }
 
-private fun ProfileModerationAction.testTagSuffix(): String = when (this) {
+internal fun ProfileModerationAction.testTagSuffix(): String = when (this) {
     ProfileModerationAction.Report -> "report"
     ProfileModerationAction.Block -> "block"
     ProfileModerationAction.Unblock -> "unblock"

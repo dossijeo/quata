@@ -142,6 +142,7 @@ fun WebNeighborhoodsHost(
             commentingPostId = state.commentingPostId,
             likingPostId = state.likingPostId,
             profileSafetyUpdatingUserId = state.profileSafetyUpdatingUserId,
+            failedProfileSafetyAction = state.failedProfileSafetyAction,
             currentUserIsAdmin = state.currentUserIsAdmin,
             openingProfileUserId = state.openingProfileUserId,
             errorMessage = state.error,
@@ -174,6 +175,7 @@ fun WebNeighborhoodsHost(
             onEnsurePostLikeState = viewModel::ensureProfilePostLikeState,
             onReportProfile = viewModel::reportProfile,
             onSetProfileBlocked = viewModel::setProfileBlocked,
+            onRetryProfileSafety = viewModel::retryProfileSafety,
             onAddComment = viewModel::addProfileComment,
             createComment = { post, draft ->
                 PostComment(

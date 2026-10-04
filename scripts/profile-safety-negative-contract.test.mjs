@@ -11,6 +11,9 @@ const androidRepository = await read("../app/src/main/java/com/quata/feature/nei
 const androidFault = await read("../app/src/main/java/com/quata/feature/neighborhoods/data/ProfileSafetyEvidenceFaults.kt");
 const iosRepository = await read("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt");
 const webRepository = await read("../web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt");
+const androidHost = await read("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
+const webHost = await read("../web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt");
+const iosHost = await read("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt");
 const androidRunner = await read("./chat-actions-notifications-android-evidence.mjs");
 const androidUi = await read("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt");
 const webRunner = await read("./chat-actions-notifications-web-evidence.mjs");
@@ -29,28 +32,47 @@ test("PROF-SAFETY failure preserves the optimistic rollback state machine and ex
   assert.match(moderationActions, /PublicProfileModerationLoadingTestTagPrefix \+ userId/);
 });
 
-test("PROF-SAFETY fault hooks are debug or localhost scoped and fail before remote mutation", () => {
+test("PROF-SAFETY retry preserves the exact failed action across all three hosts", () => {
+  assert.match(viewModel, /FailedProfileSafetyAction\([\s\S]*action = ProfileModerationAction\.Report/);
+  assert.match(viewModel, /action = if \(blocked\) ProfileModerationAction\.Block else ProfileModerationAction\.Unblock/);
+  assert.match(viewModel, /fun retryProfileSafety\(\)[\s\S]*selectedProfile\?\.user\?\.id != failed\.userId[\s\S]*ProfileModerationAction\.Report -> reportProfile\(failed\.userId\)[\s\S]*ProfileModerationAction\.Block -> setProfileBlocked\(failed\.userId, true\)[\s\S]*ProfileModerationAction\.Unblock -> setProfileBlocked\(failed\.userId, false\)/);
+  assert.match(commonHost, /PublicProfileModerationRetryTestTagPrefix = "public-profile\.safety\.retry\."/);
+  assert.match(commonHost, /failedProfileSafetyAction\?\.takeIf[\s\S]*it\.userId == profile\.user\.id && it\.errorMessage == message[\s\S]*TextButton\([\s\S]*onClick = onRetryProfileSafety/);
+  for (const host of [androidHost, webHost, iosHost]) {
+    assert.match(host, /failedProfileSafetyAction/);
+    assert.match(host, /retryProfileSafety/);
+  }
+  assert.match(viewModelTest, /failed profile report retries the exact action and clears its retry state on success/);
+  assert.match(viewModelTest, /failed profile block retries its desired state after rollback/);
+  assert.match(viewModelTest, /failed profile unblock retries its desired state after rollback/);
+  assert.match(viewModelTest, /profile safety retry cannot mutate a newer visible profile/);
+});
+
+test("PROF-SAFETY fault hooks are debug or localhost scoped, one-shot and fail before remote mutation", () => {
   assert.match(androidRepository, /BuildConfig\.DEBUG && ProfileSafetyEvidenceFaults\.consumeBlockFailure\(\)[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*sessionManager\.currentSession\(\)/);
   assert.match(androidFault, /AtomicBoolean/);
-  assert.match(iosRepository, /iosProfileSafetyBlockEvidenceFailureRequested\(\)[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*authenticatedSession\(\)/);
+  assert.match(iosRepository, /iosProfileSafetyBlockEvidenceFailureRequested\(\) && !profileSafetyBlockEvidenceFailureConsumed[\s\S]*profileSafetyBlockEvidenceFailureConsumed = true[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*authenticatedSession\(\)/);
   assert.match(webRepository, /webProfileSafetyBlockEvidenceFailureRequested\(\)[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*authenticatedUserId\(\)/);
+  assert.match(webRepository, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ !== true\) return false;[\s\S]*__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ = false/);
   assert.match(webRepository, /\['localhost', '127\.0\.0\.1'\]\.includes/);
 });
 
-test("PROF-SAFETY focal runners prove optimistic state, error, rollback and backend absence", () => {
+test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same-control retry", () => {
   for (const runner of [androidRunner, webRunner, iosRunner]) {
     assert.match(runner, /profile-safety-negative-only/);
-    assert.match(runner, /expectedBlocked: false/);
-    assert.match(runner, /profile_safety_failed_block_optimistic_state_error/);
+    assert.match(runner, /expectedBlocked: true/);
+    assert.match(runner, /profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified/);
     assert.match(runner, /cleanupProfileRolesSafetyFixture/);
   }
   for (const ui of [androidUi, iosUi]) {
     assert.match(ui, /public-profile\.safety\.loading\./);
     assert.match(ui, /public-profile\.safety\.unblock\./);
+    assert.match(ui, /public-profile\.safety\.retry\.block\./);
     assert.match(ui, /public-profile\.error\./);
     assert.match(ui, /public-profile\.safety\.block\./);
   }
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__/);
+  assert.match(androidRunner, /profile_safety_retry_block_persisted_verified_by_db/);
   assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE/);
   assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*app\.wait\(for: \.runningForeground/);
   assert.match(iosUi, /\} else \{[\s\S]*feed\.waitForExistence\(timeout: 20\)[\s\S]*The seeded normal launch must restore Feed/);
