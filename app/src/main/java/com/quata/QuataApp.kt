@@ -113,11 +113,13 @@ class QuataApp : Application(), ImageLoaderFactory {
         }
     }
 
-    fun resumeGoogleOAuthCallback(callback: Uri) {
-        if (googleOAuthResumeJob?.isActive == true) return
+    fun resumeGoogleOAuthCallback(callback: Uri?): Boolean {
+        if (!AndroidGoogleOAuthCallbackCoordinator.isCallback(callback)) return false
+        val verifiedCallback = requireNotNull(callback)
+        if (googleOAuthResumeJob?.isActive == true) return true
         googleOAuthResumeJob = appScope.launch {
             try {
-                val exchange = container.exchangeGoogleOAuthCallback(callback)
+                val exchange = container.exchangeGoogleOAuthCallback(verifiedCallback)
                 val callbackExchange: AndroidGoogleOAuthExchange? = exchange.getOrNull()
                 val publication = callbackExchange?.outcome?.mapCatching { completion ->
                     container.publishGoogleOAuthRecovery(completion).getOrThrow()
@@ -142,6 +144,7 @@ class QuataApp : Application(), ImageLoaderFactory {
                 googleOAuthResumeJob = null
             }
         }
+        return true
     }
 
     private suspend fun refreshSupabaseSession(): AuthSession? =

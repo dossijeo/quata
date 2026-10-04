@@ -63,10 +63,11 @@ test('Android OAuth persists PKCE state before browser handoff and resumes an un
   assert.ok((helper.match(/onFailure \{ if \(it is CancellationException\) throw it \}/g) ?? []).length >= 3);
 
   const activity = await source('app/src/main/java/com/quata/MainActivity.kt');
-  assert.match(activity, /AndroidGoogleOAuthCallbackCoordinator\.isCallback\(callback\)[\s\S]*?resumeGoogleOAuthCallback[\s\S]*?sourceIntent\.data = null/);
-
   const application = await source('app/src/main/java/com/quata/QuataApp.kt');
-  assert.match(application, /googleOAuthResumeJob = appScope\.launch[\s\S]*?exchangeGoogleOAuthCallback\(callback\)[\s\S]*?val publication[\s\S]*?publishGoogleOAuthRecovery\(completion\)[\s\S]*?complete\([\s\S]*?callbackResult\.pending[\s\S]*?publication/);
+  assert.match(activity, /val callback = sourceIntent\?\.data\?\.takeIf \{ sourceIntent\.action == Intent\.ACTION_VIEW \}[\s\S]*?resumeGoogleOAuthCallback\(callback\)[\s\S]*?sourceIntent\?\.data = null/);
+  assert.match(application, /fun resumeGoogleOAuthCallback\(callback: Uri\?\): Boolean \{[\s\S]*?AndroidGoogleOAuthCallbackCoordinator\.isCallback\(callback\)[\s\S]*?verifiedCallback = requireNotNull\(callback\)[\s\S]*?exchangeGoogleOAuthCallback\(verifiedCallback\)/);
+
+  assert.match(application, /googleOAuthResumeJob = appScope\.launch[\s\S]*?exchangeGoogleOAuthCallback\(verifiedCallback\)[\s\S]*?val publication[\s\S]*?publishGoogleOAuthRecovery\(completion\)[\s\S]*?complete\([\s\S]*?callbackResult\.pending[\s\S]*?publication/);
   assert.match(application, /shouldPublishGoogleOAuthRecoveryNavigation\([\s\S]*?callbackExchange\?\.pending\?\.mode[\s\S]*?deliveredToActiveLogin[\s\S]*?publication\?\.isSuccess == true[\s\S]*?publishGoogleOAuthRecovery\(\)/);
   assert.match(application, /shouldPublishGoogleOAuthRecoveryNavigation[\s\S]*?mode == AndroidGoogleOAuthMode\.SIGN_IN[\s\S]*?!deliveredToActiveLogin[\s\S]*?publicationSucceeded/);
 
