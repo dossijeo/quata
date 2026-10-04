@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "unit": "OVR-POST-DETAIL-FEED-TEXT-READER-SCROLL",
+  "platform": "web",
+  "status": "passed",
+  "recordedAt": "2026-10-04T17:07:42Z",
+  "git": {
+    "head": "852c0d92f065ecc28336739baf06906fde655493",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "feed_text_reader_anchor_uses_exact_post_identity_and_pixel_offset",
+    "feed_text_reader_other_post_cannot_inherit_anchor",
+    "feed_text_reader_negative_offset_is_clamped",
+    "feed_text_reader_saver_round_trip_passed",
+    "web_wasm_focal_suite_passed"
+  ],
+  "execution": {
+    "task": ":feature:feed:wasmJsBrowserTest",
+    "suite": "com.quata.feature.feed.presentation.TextOnlyReelScrollAnchorTest",
+    "forcedRerun": true,
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "durationSeconds": 0.002,
+    "xmlTimestamp": "2026-10-04T17:07:42.275Z",
+    "xmlSha256": "77a936df3994ad772aebc69bd0905acc1048092e9a48c3eb49884b3bc982cd61"
+  },
+  "independentReview": {
+    "status": "GO",
+    "findingsP0ToP3": [],
+    "reviewedSha": "852c0d92f065ecc28336739baf06906fde655493"
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true
+  },
+  "limits": [
+    "This is a deterministic common identity, clamp and Saver contract executed by the Web/Wasm target; it is not a browser UI-dialog execution."
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-POST-DETAIL-FEED-TEXT-READER-SCROLL"
+  ],
+  "status": "passed",
+  "productSha": "40e1df3a95214ed7ba309de6f395f6a2adc3c1d6",
+  "certification": "focused-multiplatform-complete-independent-review-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "40e1df3a95214ed7ba309de6f395f6a2adc3c1d6",
+      "report": "docs/candidate-attestations/evidence/feed-text-reader-scroll-restoration-web-852c0d92.json",
+      "reportSha256": "611136ec303c9aa59d0bc9af0ec9b9c30a1399bd7273302ec6e85fe420ad6ef2",
+      "reportStatus": "passed",
+      "reportGitHead": "852c0d92f065ecc28336739baf06906fde655493",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "feed_text_reader_anchor_uses_exact_post_identity_and_pixel_offset",
+        "feed_text_reader_other_post_cannot_inherit_anchor",
+        "web_wasm_focal_suite_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-common-contract"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "40e1df3a95214ed7ba309de6f395f6a2adc3c1d6",
+      "report": "docs/candidate-attestations/evidence/feed-text-reader-scroll-restoration-android-852c0d92.json",
+      "reportSha256": "fe930121b8efe65ed8dc682698fa5ac5d60ae6abfde96db660f791f9280732a3",
+      "reportStatus": "passed",
+      "reportGitHead": "852c0d92f065ecc28336739baf06906fde655493",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "feed_text_reader_close_and_reopen_preserves_offset",
+        "android_instrumented_scroll_and_saved_state_restore_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "40e1df3a95214ed7ba309de6f395f6a2adc3c1d6",
+      "report": "docs/candidate-attestations/evidence/feed-text-reader-scroll-restoration-ios-0246331a.json",
+      "reportSha256": "b93ed318d51e4716ace3c1a0827303361e4e4dcbf5a3f7759bdab5511d25bf78",
+      "reportStatus": "passed",
+      "reportGitHead": "0246331a2d36dd4d2b131be980e4e2047fd5a568",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "feed_text_reader_saver_round_trip_passed",
+        "ios_x64_focal_suite_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-common-contract"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.presentation.TextOnlyReelScrollAnchorTest",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.feed.presentation.TextOnlyReelScrollRestorationInstrumentedTest",
+    "bash ./gradlew :feature:feed:iosX64Test --tests com.quata.feature.feed.presentation.TextOnlyReelScrollAnchorTest",
+    "node --test scripts/post-detail-parity-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/feed-text-reader-scroll-restoration.json"
+  ],
+  "notes": [
+    "The shared text-only Feed reader records exact post identity and pixel offset outside the conditional dialog subtree, captures synchronously on close and continues observing while open.",
+    "Closing and reopening the same reader resumes at the observed offset; changing stableId resets to zero and cannot leak another post's position.",
+    "Android performs a real swipe and restores the exact nonzero offset across saved-instance-state recreation. Web/Wasm and iOS x64 execute the shared identity, clamp and Saver contracts.",
+    "Web/Wasm and Android were rerun from a clean checkout at the exact Product SHA after review identified ambiguous custody in the earlier combined report. The iOS report names its actual clean execution commit and the identical decisive common blobs instead of claiming execution at Product SHA.",
+    "The iOS temporary worktree and patch were removed after collecting the focal XML hash. No backend or Storage mutation was performed.",
+    "Product SHA 40e1df3a is the clean rebase of the reviewed 852c0d92 product onto main after #545 and #546. The decisive common runtime, common test and Android instrumented-test blobs are unchanged; the reports retain their actual execution commits instead of claiming a rerun caused only by the SHA change.",
+    "Independent review returned GO with no P0-P3 findings for the unchanged product blobs. It reproduced the 11 post-detail contracts, attestation validation including report hashes and diff-check; final GitHub jobs remain the candidate recertification authority after promotion.",
+    "This focal closure applies only to the shared text-only Feed reader. Other post-detail origins retain their own evidence boundaries."
+  ]
+}
