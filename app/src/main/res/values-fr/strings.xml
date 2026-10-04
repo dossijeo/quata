@@ -486,7 +486,6 @@
     <string name="neighborhoods_time_months">Il y a %1$d mois</string>
     <string name="neighborhoods_time_one_year">Il y a 1 an</string>
     <string name="neighborhoods_time_years">Il y a %1$d ans</string>
-    <string name="notification_permission_not_configured">Google Sign-In non configure</string>
     <string name="notification_voice_note">Tu as recu une note vocale</string>
     <string name="notification_attachment">Nouvelle piece jointe</string>
     <string name="notification_new_message">Nouveau message</string>

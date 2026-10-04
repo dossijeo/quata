@@ -521,7 +521,6 @@
     <string name="neighborhoods_time_months">%1$d months ago</string>
     <string name="neighborhoods_time_one_year">1 year ago</string>
     <string name="neighborhoods_time_years">%1$d years ago</string>
-    <string name="notification_permission_not_configured">Google Sign-In is not configured</string>
     <string name="notification_voice_note">You received a voice note</string>
     <string name="notification_attachment">New attachment</string>
     <string name="notification_new_message">New message</string>

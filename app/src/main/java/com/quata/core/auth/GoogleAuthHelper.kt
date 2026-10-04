@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import com.quata.core.config.AppConfig
 import com.quata.core.model.AuthSession
 import com.quata.core.preferences.AndroidKeystorePreferenceValueCipher
@@ -115,7 +116,7 @@ class GoogleAuthHelper(
             withTimeout(AndroidGoogleOAuthPendingStore.PendingLifetimeMillis) {
                 AndroidGoogleOAuthCallbackCoordinator.awaitCompletion(pending) {
                     context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(authorizationUrl)).apply {
+                        Intent(Intent.ACTION_VIEW, authorizationUrl.toUri()).apply {
                             addCategory(Intent.CATEGORY_BROWSABLE)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         },
@@ -305,7 +306,7 @@ internal class AndroidGoogleOAuthPendingStore(context: Context) {
         }
     }
 
-    @SuppressLint("UseKtx")
+    @SuppressLint("ApplySharedPref", "UseKtx")
     private fun readLocked(): AndroidGoogleOAuthPending? {
         val encrypted = preferences.getString(PendingRecordKey, null) ?: return null
         val pending = runCatching {

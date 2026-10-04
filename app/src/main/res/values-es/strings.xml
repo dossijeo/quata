@@ -487,7 +487,6 @@
     <string name="neighborhoods_time_months">Hace %1$d meses</string>
     <string name="neighborhoods_time_one_year">Hace 1 año</string>
     <string name="neighborhoods_time_years">Hace %1$d años</string>
-    <string name="notification_permission_not_configured">Google Sign-In no configurado</string>
     <string name="notification_voice_note">Has recibido una nota de voz</string>
     <string name="notification_attachment">Nuevo adjunto</string>
     <string name="notification_new_message">Nuevo mensaje</string>
