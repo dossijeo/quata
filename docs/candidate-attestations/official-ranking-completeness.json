@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-LIVE-RANKING"
+  ],
+  "status": "passed",
+  "productSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+  "certification": "official-complete-total-order-ranking-fail-closed-retryable-navigation-independent-review-approved-final-ci-pending",
+  "evidenceKind": "HERMETIC_SHARED_BROWSER_TESTS_PLATFORM_COMPILE_AND_EXISTING_TOTAL_ORDER_CONTRACT",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "report": "docs/candidate-attestations/evidence/official-ranking-completeness-f38a5527.json",
+      "reportSha256": "4b8c251996bf9681ac6f4238e0be732fb44ddbce8d0ac8bf7e8e35798c19f647",
+      "reportStatus": "passed",
+      "reportGitHead": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "complete_ranking_exhausts_the_existing_total_order_cursor",
+        "partial_transport_failure_never_publishes_a_partial_ranking",
+        "visible_feed_pager_is_preserved_while_the_ranking_snapshot_loads",
+        "remote_ranking_selection_loads_the_exact_post_before_pager_navigation",
+        "failed_and_missing_exact_post_loads_allow_same_row_retry",
+        "official_wasm_browser_focal_suite_passed_15_of_15",
+        "independent_review_go"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-browser-tests-no-backend-mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "report": "docs/candidate-attestations/evidence/official-ranking-completeness-f38a5527.json",
+      "reportSha256": "4b8c251996bf9681ac6f4238e0be732fb44ddbce8d0ac8bf7e8e35798c19f647",
+      "reportStatus": "passed",
+      "reportGitHead": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "android_official_common_runtime_compiled",
+        "official_total_order_contract_passed_8_of_8",
+        "independent_review_go"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-only-no-device-or-backend-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "report": "docs/candidate-attestations/evidence/official-ranking-completeness-f38a5527.json",
+      "reportSha256": "4b8c251996bf9681ac6f4238e0be732fb44ddbce8d0ac8bf7e8e35798c19f647",
+      "reportStatus": "passed",
+      "reportGitHead": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "ios_x64_official_test_sources_compiled",
+        "official_total_order_contract_passed_8_of_8",
+        "independent_review_go"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-only-no-simulator-or-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/official-feed-total-order-contract.test.mjs",
+    ".\\gradlew.bat :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialRootStatesTest --tests com.quata.feature.official.domain.OfficialCompleteRankingTest --tests com.quata.feature.official.presentation.OfficialCompleteRankingViewModelTest --tests com.quata.feature.official.presentation.OfficialLiveFocusedNavigationTest --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:official:compileAndroidMain :feature:official:compileTestKotlinIosX64 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-ranking-completeness.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "f38a5527735accdf36e867b4e14cf92e386abf0d",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2: the first navigation implementation retained a failed remote ranking target and blocked the same-row retry; synchronous Loading reservation and the accepted real-ViewModel recovery test close the finding."
+    ],
+    "scopeLimit": "Complete Official ranking, fail-closed snapshot publication and exact-post pager navigation are proven by shared Chrome tests plus affected platform compilation. Feed ranking, native panel E2E, media and a global Live/Ranking acceptance remain separate scopes."
+  },
+  "notes": [
+    "The ranking loader reuses the deployed quata_official_feed_page total-order cursor and scans until the first short page. No schema, migration, backend deployment or product data changed.",
+    "The visible feed pager is not replaced by the ranking snapshot. A transport or integrity failure keeps the current feed visible and exposes explicit retry instead of presenting a partial list as complete.",
+    "A ranked post outside the pager is loaded by exact stable identity before navigation. Failed and NotFound outcomes clear the pending target; selecting the same row reserves a fresh Loading state and retries.",
+    "The exact Product SHA passed 15 focal Chrome/Wasm tests, the 8 total-order contracts, Android common runtime compilation, iOS x64 test-source compilation and independent rereview.",
+    "The final GitHub platform jobs remain responsible for candidate-wide recertification. No unrelated E2E matrix was repeated solely for the frozen SHA."
+  ]
+}
