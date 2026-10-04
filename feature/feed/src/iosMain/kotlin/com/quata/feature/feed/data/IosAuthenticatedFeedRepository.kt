@@ -16,7 +16,7 @@ class IosAuthenticatedFeedRepository(
     override fun observeFeed(): Flow<Result<List<Post>>> = read.observeFeed()
     override suspend fun getFeed(): Result<List<Post>> = read.getFeed()
     override suspend fun refreshFeed(): Result<List<Post>> = read.refreshFeed()
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> = read.loadOlderFeedPage(beforeCreatedAt, limit)
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int): Result<List<Post>> = read.loadOlderFeedPage(cursor, limit)
     override suspend fun refreshCurrentUser(): Result<User?> = read.refreshCurrentUser()
     override suspend fun refreshAuthor(userId: String): Result<User?> = read.refreshAuthor(userId)
     override suspend fun refreshPost(postId: String): Result<Post?> = read.refreshPost(postId)

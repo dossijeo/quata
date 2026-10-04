@@ -20,4 +20,7 @@ data class FeedUiState(
     val confirmedCommentIds: Set<String> = emptySet(),
     val confirmedCommentReportIds: Set<String> = emptySet(),
     val focusedPostLoads: Map<String, FeedFocusedPostLoad> = emptyMap(),
+    val rankingPosts: List<Post>? = null,
+    val isLoadingRanking: Boolean = false,
+    val rankingError: String? = null,
 )

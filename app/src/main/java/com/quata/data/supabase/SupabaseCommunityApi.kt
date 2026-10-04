@@ -346,6 +346,28 @@ class SupabaseCommunityApi(
         cacheMode = cacheMode
     )
 
+    suspend fun getCommunityFeedPage(
+        limit: Int,
+        beforeCreatedAt: String? = null,
+        beforeId: String? = null,
+        cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
+    ): List<CommunityPost> = client.getPublicList(
+        "rpc/quata_community_feed_page",
+        mapOf(
+            "p_limit" to limit.coerceIn(1, 100).toString(),
+            "p_before_created_at" to beforeCreatedAt,
+            "p_before_id" to beforeId,
+        ),
+        cacheTable = "community_posts",
+        cacheMode = cacheMode,
+    )
+
+    fun observeCommunityFeedPage(limit: Int = 50): Flow<List<CommunityPost>> = client.observePublicList(
+        "rpc/quata_community_feed_page",
+        mapOf("p_limit" to limit.coerceIn(1, 100).toString()),
+        cacheTable = "community_posts",
+    )
+
     fun observeFeedPosts(
         limit: Int = 15,
         offset: Int = 0,
@@ -647,11 +669,23 @@ class SupabaseCommunityApi(
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): List<CommunityPostLike> {
         if (postIds.isEmpty()) return emptyList()
-        return client.getList(
-            "community_post_likes",
-            mapOf("select" to LIKE_SELECT, "post_id" to postIds.toInFilter()),
-            cacheMode = cacheMode
-        )
+        val distinctPostIds = postIds.distinct()
+        return loadCompleteKeyset(
+            pageSize = LikePageSize,
+            cursorOf = CommunityPostLike::id,
+        ) { afterIdExclusive, limit ->
+            client.getList(
+                "community_post_likes",
+                buildMap {
+                    put("select", LIKE_SELECT)
+                    put("post_id", distinctPostIds.toInFilter())
+                    afterIdExclusive?.let { put("id", "gt.$it") }
+                    put("order", "id.asc")
+                    put("limit", limit.toString())
+                },
+                cacheMode = cacheMode,
+            )
+        }
     }
 
     fun observeLikes(postIds: Collection<String>): Flow<List<CommunityPostLike>> {
@@ -1280,6 +1314,7 @@ class SupabaseCommunityApi(
         const val POST_SELECT = "id,wall_id,profile_id,body,image_url,video_url,created_at,community_id,author_id,content"
         const val COMMENT_SELECT = "id,post_id,profile_id,body,created_at"
         const val LIKE_SELECT = "id,post_id,profile_id,created_at"
+        const val LikePageSize = 500
         const val REACTION_SELECT = "id,post_id,profile_id,reaction_type,created_at"
         const val MESSAGE_SELECT = "id,wall_id,profile_id,body,created_at"
         const val NOTIFICATION_SELECT = "id,recipient_profile_id,actor_profile_id,wall_id,post_id,comment_id,message_id,type,emoji,message,is_read,created_at"

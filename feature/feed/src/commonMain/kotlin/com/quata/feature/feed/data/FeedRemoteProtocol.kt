@@ -26,7 +26,11 @@ data class FeedRemoteComment(
     val createdAt: String? = null,
 )
 
-data class FeedRemoteLike(val postId: String? = null, val profileId: String? = null)
+data class FeedRemoteLike(
+    val id: String,
+    val postId: String? = null,
+    val profileId: String? = null,
+)
 
 data class FeedRemoteProfile(
     val id: String,
@@ -74,7 +78,11 @@ fun feedRemoteCommentFromFields(
     createdAt = field("created_at"),
 )
 
-fun feedRemoteLikeFromFields(field: (String) -> String?): FeedRemoteLike = FeedRemoteLike(
+fun feedRemoteLikeFromFields(
+    field: (String) -> String?,
+    missingIdError: () -> Throwable = { IllegalStateException("feed_remote_response_missing_id") },
+): FeedRemoteLike = FeedRemoteLike(
+    id = field.requiredFeedRemoteId(missingIdError),
     postId = field("post_id"),
     profileId = field("profile_id"),
 )
@@ -103,11 +111,9 @@ private fun ((String) -> String?).requiredFeedRemoteId(missingIdError: () -> Thr
 fun feedRemoteProfileIds(
     posts: List<FeedRemotePost>,
     comments: List<FeedRemoteComment> = emptyList(),
-    likes: List<FeedRemoteLike> = emptyList(),
 ): List<String> = (
     posts.mapNotNull { it.profileId ?: it.authorId } +
-        comments.mapNotNull(FeedRemoteComment::profileId) +
-        likes.mapNotNull(FeedRemoteLike::profileId)
+        comments.mapNotNull(FeedRemoteComment::profileId)
     ).distinct()
 
 fun buildFeedDomainPosts(

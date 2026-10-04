@@ -5,6 +5,8 @@ import com.quata.core.feed.QuataPagedFeedStore
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.feature.feed.domain.FeedRepository
+import com.quata.feature.feed.domain.FeedCursor
+import com.quata.feature.feed.domain.loadCompleteFeedRanking
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +41,7 @@ class FeedViewModel(
     private var feedJob: Job? = null
     private var refreshJob: Job? = null
     private var loadOlderJob: Job? = null
+    private var rankingJob: Job? = null
 
     init {
         observeFeed()
@@ -49,6 +52,7 @@ class FeedViewModel(
         when (event) {
             FeedUiEvent.Refresh -> refresh()
             FeedUiEvent.LoadOlderPage -> loadOlderPage()
+            FeedUiEvent.LoadCompleteRanking -> loadCompleteRanking()
             is FeedUiEvent.FocusPost -> focusPost(event.postId)
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
@@ -135,15 +139,16 @@ class FeedViewModel(
         val state = _uiState.value
         if (loadOlderJob?.isActive == true) return
         if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
-        val beforeCreatedAt = feedStore.olderCursor()
-        if (beforeCreatedAt == null) {
+        val lastPost = state.posts.lastOrNull()
+        if (lastPost == null || lastPost.createdAt.isBlank() || lastPost.id.isBlank()) {
             _uiState.update { it.copy(hasMoreOlderPosts = false) }
             return
         }
+        val cursor = FeedCursor(lastPost.createdAt, lastPost.id)
 
         loadOlderJob = scope.launch {
             _uiState.update { state -> state.copy(isLoadingOlder = true, error = null) }
-            repository.loadOlderFeedPage(beforeCreatedAt = beforeCreatedAt, limit = FeedPageSize)
+            repository.loadOlderFeedPage(cursor = cursor, limit = FeedPageSize)
                 .onSuccess { posts ->
                     val mergedPosts = feedStore.appendOlder(posts)
                     val hasMoreOlderPosts = feedStore.hasMoreOlderItems
@@ -159,6 +164,27 @@ class FeedViewModel(
                     _uiState.update { state -> state.copy(
                         isLoadingOlder = false,
                         error = error.message ?: state.error
+                    ) }
+                }
+        }
+    }
+
+    private fun loadCompleteRanking() {
+        if (rankingJob?.isActive == true) return
+        _uiState.update { state -> state.copy(isLoadingRanking = true, rankingError = null) }
+        rankingJob = scope.launch {
+            repository.loadCompleteFeedRanking()
+                .onSuccess { posts ->
+                    _uiState.update { state -> state.copy(
+                        rankingPosts = posts,
+                        isLoadingRanking = false,
+                        rankingError = null,
+                    ) }
+                }
+                .onFailure { error ->
+                    _uiState.update { state -> state.copy(
+                        isLoadingRanking = false,
+                        rankingError = error.message ?: "feed_ranking_load_failed",
                     ) }
                 }
         }

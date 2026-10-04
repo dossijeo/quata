@@ -7,12 +7,21 @@ import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import kotlinx.coroutines.flow.Flow
 
+data class FeedCursor(
+    val createdAt: String,
+    val postId: String,
+) {
+    init {
+        require(createdAt.isNotBlank() && postId.isNotBlank()) { "feed_cursor_invalid" }
+    }
+}
+
 /** Read boundary required by the portable feed browser. */
 interface FeedReadRepository {
     fun observeFeed(): Flow<Result<List<Post>>>
     suspend fun getFeed(): Result<List<Post>>
     suspend fun refreshFeed(): Result<List<Post>>
-    suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>>
+    suspend fun loadOlderFeedPage(cursor: FeedCursor, limit: Int): Result<List<Post>>
     suspend fun refreshCurrentUser(): Result<User?>
     suspend fun refreshAuthor(userId: String): Result<User?>
     suspend fun refreshPost(postId: String): Result<Post?>

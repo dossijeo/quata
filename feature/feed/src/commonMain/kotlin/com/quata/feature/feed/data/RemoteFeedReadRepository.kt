@@ -20,7 +20,7 @@ import kotlinx.coroutines.isActive
 interface FeedReadTransport {
     suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>>
     suspend fun fetchCommentsPage(request: FeedRemoteCommentPageRequest): Result<List<FeedRemoteComment>>
-    suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>>
+    suspend fun fetchLikesPage(request: FeedRemoteLikePageRequest): Result<List<FeedRemoteLike>>
     /**
      * Profiles rendered as part of a feed page. Hosts may expose this narrow read publicly while
      * retaining [fetchProfiles] for identity/profile screens behind a session boundary.
@@ -40,10 +40,17 @@ interface FeedReadTransport {
 data class FeedRemotePostRequest(
     val limit: Int,
     val beforeCreatedAt: String? = null,
+    val beforeId: String? = null,
     val postId: String? = null,
 )
 
 data class FeedRemoteCommentPageRequest(
+    val postIds: List<String>,
+    val afterIdExclusive: String? = null,
+    val limit: Int,
+)
+
+data class FeedRemoteLikePageRequest(
     val postIds: List<String>,
     val afterIdExclusive: String? = null,
     val limit: Int,
@@ -68,8 +75,15 @@ class RemoteFeedReadRepository(
 
     override suspend fun refreshFeed(): Result<List<Post>> = loadFeed(FeedPageSize)
 
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
-        loadFeed(limit.coerceAtLeast(1), beforeCreatedAt = beforeCreatedAt?.takeIf(String::isNotBlank))
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int): Result<List<Post>> =
+        loadFeed(
+            limit.coerceAtLeast(1),
+            beforeCreatedAt = cursor.createdAt.takeIf(String::isNotBlank),
+            beforeId = cursor.postId.takeIf(String::isNotBlank),
+        )
+
+    suspend fun loadFeedPage(limit: Int): Result<List<Post>> =
+        loadFeed(limit.coerceAtLeast(1))
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
         val userId = transport.currentUserId().getOrThrow() ?: return@runCatching null
@@ -88,10 +102,16 @@ class RemoteFeedReadRepository(
     private suspend fun loadFeed(
         limit: Int,
         beforeCreatedAt: String? = null,
+        beforeId: String? = null,
         postId: String? = null,
     ): Result<List<Post>> = runCatching {
         val posts = transport.fetchPosts(
-            FeedRemotePostRequest(limit = limit.coerceAtLeast(1), beforeCreatedAt = beforeCreatedAt, postId = postId),
+            FeedRemotePostRequest(
+                limit = limit.coerceAtLeast(1),
+                beforeCreatedAt = beforeCreatedAt,
+                beforeId = beforeId,
+                postId = postId,
+            ),
         ).getOrThrow()
         if (posts.isEmpty()) return@runCatching emptyList()
         val postIds = posts.map(FeedRemotePost::id)
@@ -107,8 +127,19 @@ class RemoteFeedReadRepository(
                 ),
             ).getOrThrow()
         }.sortedWith(compareBy<FeedRemoteComment> { it.createdAt.orEmpty() }.thenBy(FeedRemoteComment::id))
-        val likes = transport.fetchLikes(postIds).getOrThrow()
-        val profiles = transport.fetchFeedProfiles(feedRemoteProfileIds(posts, comments, likes)).getOrThrow()
+        val likes = loadCompleteKeyset(
+            pageSize = LikePageSize,
+            cursorOf = FeedRemoteLike::id,
+        ) { afterIdExclusive, pageSize ->
+            transport.fetchLikesPage(
+                FeedRemoteLikePageRequest(
+                    postIds = postIds,
+                    afterIdExclusive = afterIdExclusive,
+                    limit = pageSize,
+                ),
+            ).getOrThrow()
+        }
+        val profiles = transport.fetchFeedProfiles(feedRemoteProfileIds(posts, comments)).getOrThrow()
         buildFeedDomainPosts(
             posts = posts,
             comments = comments,
@@ -121,6 +152,7 @@ class RemoteFeedReadRepository(
     private companion object {
         const val FeedPageSize = 50
         const val CommentPageSize = 500
+        const val LikePageSize = 500
         const val DefaultPollIntervalMillis = 30_000L
         const val MinimumPollIntervalMillis = 5_000L
     }

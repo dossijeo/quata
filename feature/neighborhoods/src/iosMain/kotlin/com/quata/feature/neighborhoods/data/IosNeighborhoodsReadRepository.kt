@@ -255,7 +255,7 @@ class IosNeighborhoodsReadRepository(
         }.orEmpty()
         val posts = RemoteFeedReadRepository(
             IosFeedReadTransport(feedConfiguration, authSession, targetId),
-        ).loadOlderFeedPage(beforeCreatedAt = null, limit = ProfilePostLimit).getOrThrow()
+        ).loadFeedPage(ProfilePostLimit).getOrThrow()
         val actorId = authSession?.currentSession()?.userId
         val attachments = actorId?.let { loadSharedAttachments(it, targetId, user.displayName) }.orEmpty()
         val enriched = user.copy(

@@ -97,7 +97,7 @@ private class IosFeedPlaybackFixtureRepository : FeedRepository {
 
     override suspend fun refreshFeed(): Result<List<Post>> = Result.success(posts)
 
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int): Result<List<Post>> =
         Result.success(emptyList())
 
     override suspend fun refreshCurrentUser(): Result<User?> = Result.success(null)

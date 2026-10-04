@@ -20,8 +20,8 @@ class IosAnonymousFeedTransportContractTest {
             iosPublicFeedRequest(
                 baseUrl = "https://deployment.invalid/",
                 publishableKey = "public-key",
-                table = "community_posts",
-                query = mapOf("select" to "id", "order" to "created_at.desc"),
+                table = "rpc/quata_community_feed_page",
+                query = mapOf("p_limit" to "50", "p_before_created_at" to "2026-10-04T10:00:00Z", "p_before_id" to "post-7"),
             ),
             iosPublicFeedRequest(
                 baseUrl = "https://deployment.invalid/",
@@ -51,7 +51,7 @@ class IosAnonymousFeedTransportContractTest {
 
         assertEquals(
             listOf(
-                "community_posts",
+                "rpc/quata_community_feed_page",
                 "community_posts",
                 "community_comments",
                 "community_post_likes",

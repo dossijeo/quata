@@ -128,6 +128,12 @@ const approvedReleases = [
       ["20261002013000", "64241db48e63ee41c599ed0c2ef53030c6857bd3b942dc44fbf86a991f04eb63"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261004113000", "96a05a158a4faaa206c9c3ba7683f9df7a0ecd7b79e84f2b62dc82b98c0dee20"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -839,6 +845,58 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
         || !/\(language, COALESCE\(published_at, created_at\) DESC, created_at DESC, id DESC\) INCLUDE \(translation_group_id\)/i.test(indexDefinition)
         || !/is_published = true/i.test(predicate) || !/deleted_at is null/i.test(predicate)) {
       throw new Error("selective_release_official_feed_index_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261004113000")) {
+    const functionRows = (await client.query(`
+      select l.lanname as language,
+             p.provolatile as volatility,
+             p.prosecdef as security_definer,
+             p.proretset as returns_set,
+             p.prorettype='public.community_posts'::regtype as returns_community_posts,
+             p.proconfig as configuration,
+             pg_get_functiondef(p.oid) as definition,
+             exists (
+               select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                where acl.grantee=0 and acl.privilege_type='EXECUTE'
+             ) as public_execute,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon_execute,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute
+        from pg_proc p
+        join pg_namespace n on n.oid=p.pronamespace
+        join pg_language l on l.oid=p.prolang
+       where n.nspname='public'
+         and p.proname='quata_community_feed_page'
+         and pg_get_function_identity_arguments(p.oid)='p_limit integer, p_before_created_at timestamp with time zone, p_before_id uuid'
+    `)).rows;
+    const pageFunction = functionRows[0];
+    const definition = String(pageFunction?.definition ?? "").replace(/\s+/g, " ");
+    if (functionRows.length !== 1
+        || pageFunction.language !== "plpgsql" || pageFunction.volatility !== "s"
+        || pageFunction.security_definer || !pageFunction.returns_set || !pageFunction.returns_community_posts
+        || JSON.stringify(pageFunction.configuration) !== JSON.stringify(["search_path=public, pg_temp"])
+        || pageFunction.public_execute || !pageFunction.anon_execute || !pageFunction.authenticated_execute
+        || !/cursor_values not in \(0, 2\)/i.test(definition)
+        || !/\(post\.created_at, post\.id\).*<.*\(p_before_created_at, p_before_id\)/is.test(definition)
+        || !/order by post\.created_at desc, post\.id desc/i.test(definition)) {
+      throw new Error("selective_release_community_feed_function_postcondition_failed");
+    }
+
+    const indexRows = (await client.query(`
+      select i.indisvalid as valid,
+             i.indisready as ready,
+             i.indisunique as unique,
+             pg_get_indexdef(i.indexrelid) as definition
+        from pg_index i
+        join pg_class index_relation on index_relation.oid=i.indexrelid
+        join pg_namespace n on n.oid=index_relation.relnamespace
+       where n.nspname='public' and index_relation.relname='community_posts_public_total_order_idx'
+    `)).rows;
+    const feedIndex = indexRows[0];
+    const indexDefinition = String(feedIndex?.definition ?? "").replace(/\s+/g, " ");
+    if (indexRows.length !== 1 || !feedIndex.valid || !feedIndex.ready || feedIndex.unique
+        || !/\(created_at DESC, id DESC\)/i.test(indexDefinition)) {
+      throw new Error("selective_release_community_feed_index_postcondition_failed");
     }
   }
   if (selectedVersions.includes("20260927100000")

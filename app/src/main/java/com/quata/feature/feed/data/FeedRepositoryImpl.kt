@@ -72,13 +72,10 @@ class FeedRepositoryImpl(
     override suspend fun refreshFeed(): Result<List<Post>> =
         runCatching { loadPostShells(SupabaseCacheMode.NETWORK_ONLY, FeedPageSize, 0) }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
 
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int): Result<List<Post>> =
         runCatching {
             if (AppConfig.USE_MOCK_BACKEND) {
-                val cursorIndex = beforeCreatedAt
-                    ?.let { cursor -> MockData.posts.indexOfFirst { it.createdAt == cursor } }
-                    ?.takeIf { it >= 0 }
-                    ?: -1
+                val cursorIndex = MockData.posts.indexOfFirst { it.id == cursor.postId }
                 MockData.posts
                     .drop(cursorIndex + 1)
                     .take(limit.coerceAtLeast(1))
@@ -86,8 +83,8 @@ class FeedRepositoryImpl(
                 loadPostShells(
                     cacheMode = SupabaseCacheMode.CACHE_FIRST,
                     limit = limit.coerceAtLeast(1),
-                    offset = 0,
-                    createdBefore = beforeCreatedAt
+                    createdBefore = cursor.createdAt,
+                    idBefore = cursor.postId,
                 )
             }
         }.mapFailureToUserFacing(appContext, R.string.error_load_feed)
@@ -183,15 +180,16 @@ class FeedRepositoryImpl(
     private suspend fun loadPostShells(
         cacheMode: SupabaseCacheMode,
         limit: Int,
-        offset: Int,
-        createdBefore: String? = null
+        offset: Int = 0,
+        createdBefore: String? = null,
+        idBefore: String? = null,
     ): List<Post> {
         if (AppConfig.USE_MOCK_BACKEND) return MockData.posts.drop(offset.coerceAtLeast(0)).take(limit.coerceAtLeast(1))
 
         val posts = remote.getPosts(
             limit = limit,
-            offset = offset,
             createdBefore = createdBefore,
+            idBefore = idBefore,
             cacheMode = cacheMode
         )
         val postIds = posts.map { it.id }
@@ -225,8 +223,7 @@ class FeedRepositoryImpl(
         val likes = remote.getLikes(listOf(postId), cacheMode)
         val profileIds = (
             listOfNotNull(post.profile_id ?: post.author_id) +
-                comments.mapNotNull { it.profile_id } +
-                likes.mapNotNull { it.profile_id }
+                comments.mapNotNull { it.profile_id }
             ).distinct()
         val profilesById = if (profileIds.isEmpty()) emptyMap() else remote.getProfiles(profileIds, cacheMode).associateBy { it.id }
         val authorId = post.profile_id ?: post.author_id.orEmpty()
@@ -255,8 +252,7 @@ class FeedRepositoryImpl(
     ) {
         fun profileIds(): List<String> = (
             posts.mapNotNull { it.profile_id ?: it.author_id } +
-                comments.mapNotNull { it.profile_id } +
-                likes.mapNotNull { it.profile_id }
+                comments.mapNotNull { it.profile_id }
             ).distinct()
     }
 

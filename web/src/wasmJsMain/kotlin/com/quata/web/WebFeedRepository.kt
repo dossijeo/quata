@@ -8,6 +8,7 @@ import com.quata.feature.feed.data.FeedReadTransport
 import com.quata.feature.feed.data.FeedRemoteComment
 import com.quata.feature.feed.data.FeedRemoteCommentPageRequest
 import com.quata.feature.feed.data.FeedRemoteLike
+import com.quata.feature.feed.data.FeedRemoteLikePageRequest
 import com.quata.feature.feed.data.FeedRemotePost
 import com.quata.feature.feed.data.FeedRemotePostRequest
 import com.quata.feature.feed.data.FeedRemoteProfile
@@ -49,8 +50,8 @@ class WebFeedRepository(
     }
     override suspend fun getFeed(): Result<List<Post>> = readRepository.getFeed()
     override suspend fun refreshFeed(): Result<List<Post>> = readRepository.refreshFeed()
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int): Result<List<Post>> =
-        readRepository.loadOlderFeedPage(beforeCreatedAt, limit)
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int): Result<List<Post>> =
+        readRepository.loadOlderFeedPage(cursor, limit)
     override suspend fun refreshCurrentUser(): Result<User?> = readRepository.refreshCurrentUser()
     override suspend fun refreshAuthor(userId: String): Result<User?> = readRepository.refreshAuthor(userId)
     override suspend fun refreshPost(postId: String): Result<Post?> = readRepository.refreshPost(postId)
@@ -95,7 +96,7 @@ class WebFeedRepository(
             transport = WebFeedReadTransport(client, authRepository, profileId.requirePostgrestIdentifier()),
             pollIntervalMillis = DefaultPollIntervalMillis,
         )
-        return repository.loadOlderFeedPage(beforeCreatedAt = null, limit = ProfilePostLimit)
+        return repository.loadFeedPage(ProfilePostLimit)
     }
 
     private companion object {
@@ -142,17 +143,21 @@ private class WebFeedReadTransport(
     private val profileId: String? = null,
 ) : FeedReadTransport {
     override suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>> = runCatching {
-        val query = buildMap {
+        val isGlobalFeedPage = request.postId == null && profileId == null
+        val query = if (isGlobalFeedPage) buildMap {
+            put("p_limit", request.limit.coerceIn(1, 100).toString())
+            request.beforeCreatedAt?.let { put("p_before_created_at", it) }
+            request.beforeId?.let { put("p_before_id", it.requirePostgrestIdentifier()) }
+        } else buildMap {
             put("select", PostSelect)
-            put("order", "created_at.desc")
-            request.beforeCreatedAt?.let { put("created_at", "lt.$it") }
+            put("order", "created_at.desc,id.desc")
             request.postId?.let { put("id", "eq.${it.requirePostgrestIdentifier()}") }
             profileId?.let { put("profile_id", "eq.$it") }
         }
         client.rows(
-            table = "community_posts",
+            table = if (isGlobalFeedPage) "rpc/quata_community_feed_page" else "community_posts",
             query = query,
-            limit = request.limit,
+            limit = if (isGlobalFeedPage) null else request.limit,
             authMode = webFeedReadAuthMode(
                 if (request.postId == null) WebFeedReadOperation.Feed else WebFeedReadOperation.Detail,
             ),
@@ -173,10 +178,16 @@ private class WebFeedReadTransport(
         ).map(JsonObject::toFeedRemoteComment)
     }
 
-    override suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>> = runCatching {
-        if (postIds.isEmpty()) emptyList() else client.rows(
+    override suspend fun fetchLikesPage(request: FeedRemoteLikePageRequest): Result<List<FeedRemoteLike>> = runCatching {
+        if (request.postIds.isEmpty()) emptyList() else client.rows(
             table = "community_post_likes",
-            query = mapOf("select" to LikeSelect, "post_id" to postIds.toPostgrestInFilter()),
+            query = buildMap {
+                put("select", LikeSelect)
+                put("post_id", request.postIds.toPostgrestInFilter())
+                request.afterIdExclusive?.let { put("id", "gt.${it.requirePostgrestIdentifier()}") }
+                put("order", "id.asc")
+            },
+            limit = request.limit,
             authMode = webFeedReadAuthMode(WebFeedReadOperation.Feed),
         ).map(JsonObject::toFeedRemoteLike)
     }
@@ -238,7 +249,10 @@ private fun JsonObject.toFeedRemoteComment() = feedRemoteCommentFromFields(
     missingIdError = { IllegalStateException("web_feed_response_missing_id") },
 )
 
-private fun JsonObject.toFeedRemoteLike() = feedRemoteLikeFromFields { name -> stringOrNull(name) }
+private fun JsonObject.toFeedRemoteLike() = feedRemoteLikeFromFields(
+    field = { name -> stringOrNull(name) },
+    missingIdError = { IllegalStateException("web_feed_response_missing_id") },
+)
 private fun JsonObject.toFeedRemoteProfile() = feedRemoteProfileFromFields(
     field = { name -> stringOrNull(name) },
     booleanField = { name -> stringOrNull(name) == "true" },

@@ -79,7 +79,7 @@ class FeedReportCommentResultTest {
         override fun observeFeed(): Flow<Result<List<Post>>> = flowOf(Result.success(listOf(post)))
         override suspend fun getFeed() = Result.success(listOf(post))
         override suspend fun refreshFeed() = Result.success(listOf(post))
-        override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int) = Result.success(emptyList<Post>())
+        override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int) = Result.success(emptyList<Post>())
         override suspend fun refreshCurrentUser() = Result.success<User?>(null)
         override suspend fun refreshAuthor(userId: String) = Result.success<User?>(null)
         override suspend fun refreshPost(postId: String) = Result.success(post.takeIf { it.id == postId })
