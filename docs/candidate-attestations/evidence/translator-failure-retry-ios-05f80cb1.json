@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "productSha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+  "platform": "ios",
+  "steps": [
+    "designsystem_ios_x64_main_compilation_passed",
+    "designsystem_ios_x64_test_compilation_passed",
+    "feature_chat_ios_x64_compilation_passed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "verified": true,
+    "mode": "temporary-macos-worktree-removed-no-backend-no-credentials"
+  },
+  "notes": [
+    "The affected files were copied into a temporary checkout at the exact base and compiled with the documented Hyper-V Intel environment. The exact source delta was then captured by productSha.",
+    "The full native test link was not repeated after the Gradle daemon exhausted memory; common test compilation had completed, and the same reducer tests passed in the Wasm browser target. The focused feature Chat iOS x64 compilation then completed successfully with a 3 GiB heap.",
+    "The temporary macOS checkout was removed after validation.",
+    "After rebasing onto main #542, all decisive translator source and contract blobs remained byte-identical; affected contracts and platform compilation were repeated on the rebased candidate without renewing unrelated E2E matrices."
+  ]
+}

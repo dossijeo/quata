@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-TRANSLATOR",
+    "CHAT-TRANSLATION"
+  ],
+  "productSha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-web-05f80cb1.json",
+      "reportSha256": "3f9676da2b523ca2ae015064ba9be851764d25f6385fb60fb5c1cb3f1313b839",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "common_reducer_failure_retry_latest_attempt_passed",
+        "stale_completion_after_box_removal_rejected",
+        "null_translation_retryable_failure_passed",
+        "designsystem_wasm_browser_tests_passed",
+        "feature_chat_wasm_browser_tests_passed",
+        "shared_overlay_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-common-tests-no-backend-no-credentials"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-android-05f80cb1.json",
+      "reportSha256": "258641f8435eec53a7f9c786b577db517efd452fb1e022518a3a79d5fe5445ad",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "designsystem_android_main_compilation_passed",
+        "feature_chat_android_main_compilation_passed",
+        "shared_overlay_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-static-contract-no-device-no-backend"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+      "report": "docs/candidate-attestations/evidence/translator-failure-retry-ios-05f80cb1.json",
+      "reportSha256": "626f4f9677faa8fbca8451181900ec876fa50a46d0f42897bbc4e463fba69a8d",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "designsystem_ios_x64_main_compilation_passed",
+        "designsystem_ios_x64_test_compilation_passed",
+        "feature_chat_ios_x64_compilation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-macos-worktree-removed-no-backend-no-credentials"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/comments-translator-trigger-parity-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
+    ".\\gradlew.bat :designsystem:wasmJsBrowserTest :feature:chat:wasmJsBrowserTest :designsystem:compileAndroidMain :feature:chat:compileAndroidMain --no-daemon",
+    "macOS documented Intel environment: ./gradlew :designsystem:iosX64Test :feature:chat:compileKotlinIosX64 (common main/test compilation completed; native test link hit daemon memory limit)",
+    "macOS documented Intel environment with 3 GiB heap: ./gradlew :feature:chat:compileKotlinIosX64 --no-daemon",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/translator-failure-retry.json"
+  ],
+  "notes": [
+    "Chat and Comments now use one common attempt state. Each request receives an overlay-lifetime token, and a completion is published only while the same token is still the active loading attempt.",
+    "A failed or null result exposes the existing retryable error state. Starting a retry supersedes the earlier attempt; removing a visible box deletes its state, so a late completion cannot recreate the box or overwrite the retry.",
+    "The common tests force failure, retry, a stale success from the prior attempt, a current success, a removed box, and a null translation. The architectural contract binds both product overlays to that reducer.",
+    "This closes the shared product-state gap for a recoverable translator failure and one retry. It does not claim a real provider outage, offline translation, exhaustive provider failures, or renewed visual comparison.",
+    "No backend, credentials, device data, CI configuration, or existing runtime evidence was modified.",
+    "The candidate was rebased onto main #542. Translator runtime/test/contract blobs are byte-identical to the accepted execution, and 25/25 focal contracts plus Wasm, Android and iOS x64 affected targets passed on the rebased tree; unrelated E2E matrices were not repeated solely for the new SHA."
+  ]
+}

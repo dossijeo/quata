@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "productSha": "05f80cb10d9115a1cbf8cb304eeba6b587190396",
+  "platform": "web-wasm",
+  "steps": [
+    "common_reducer_failure_retry_latest_attempt_passed",
+    "stale_completion_after_box_removal_rejected",
+    "null_translation_retryable_failure_passed",
+    "designsystem_wasm_browser_tests_passed",
+    "feature_chat_wasm_browser_tests_passed",
+    "shared_overlay_contract_passed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "verified": true,
+    "mode": "hermetic-common-tests-no-backend-no-credentials"
+  },
+  "notes": [
+    "The browser tests exercised the common reducer and both affected modules. The exact tested source tree was captured by productSha after the run.",
+    "The Node contract verifies that Chat and Comments both consume the same token-bound reducer.",
+    "After rebasing onto main #542, all decisive translator source and contract blobs remained byte-identical; affected contracts and platform compilation were repeated on the rebased candidate without renewing unrelated E2E matrices."
+  ]
+}
