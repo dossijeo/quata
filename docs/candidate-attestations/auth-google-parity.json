@@ -4,16 +4,16 @@
     "SCR-AUTH-GOOGLE"
   ],
   "status": "passed",
-  "productSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+  "productSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
   "certification": "google-oauth-platform-parity-affected-gates-complete-final-ci-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "sha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
       "report": "docs/candidate-attestations/evidence/auth-google-parity-db6288f6.json",
-      "reportSha256": "69ce09300b93c8c86de3fa1b191e9bdf531b871f7e09f440a4cb939ea19ec913",
+      "reportSha256": "8c55a36fef8b2803a5fd11878c959d1479dbab7e32e73504702cbcad86ef2c4a",
       "reportStatus": "passed",
-      "reportGitHead": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "reportGitHead": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
@@ -30,11 +30,11 @@
     },
     "web": {
       "status": "passed",
-      "sha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "sha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
       "report": "docs/candidate-attestations/evidence/auth-google-parity-db6288f6.json",
-      "reportSha256": "69ce09300b93c8c86de3fa1b191e9bdf531b871f7e09f440a4cb939ea19ec913",
+      "reportSha256": "8c55a36fef8b2803a5fd11878c959d1479dbab7e32e73504702cbcad86ef2c4a",
       "reportStatus": "passed",
-      "reportGitHead": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "reportGitHead": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
@@ -51,44 +51,47 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "sha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
       "report": "docs/candidate-attestations/evidence/auth-google-parity-db6288f6.json",
-      "reportSha256": "69ce09300b93c8c86de3fa1b191e9bdf531b871f7e09f440a4cb939ea19ec913",
+      "reportSha256": "8c55a36fef8b2803a5fd11878c959d1479dbab7e32e73504702cbcad86ef2c4a",
       "reportStatus": "passed",
-      "reportGitHead": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "reportGitHead": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "not_required_no_mutation",
       "requiredSteps": [
         "common_google_oauth_pkce_contracts_passed",
-        "ios_profile_compile_ios_x64_passed_patch_equivalent",
-        "ios_auth_ios_x64_tests_passed_unchanged_sources",
+        "ios_profile_compile_ios_x64_passed_exact_combined_product_sha",
+        "ios_auth_ios_x64_tests_passed_exact_combined_product_sha",
+        "ios_simulator_signed_build_for_testing_passed_exact_combined_product_sha",
         "independent_review_no_blocking_findings"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "hermetic_ios_x64_compile_and_tests_no_backend_mutation"
+        "mode": "hermetic_ios_x64_tests_compile_and_simulator_signed_build_no_backend_mutation"
       }
     }
   },
   "preflight": [
     "git diff --check",
-    "node --test scripts/google-oauth-lifecycle-contract.test.mjs supabase/functions/quata-auth-bridge/federated-profile.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs scripts/google-oauth-lifecycle-contract.test.mjs supabase/functions/quata-auth-bridge/federated-profile.test.mjs",
     ".\\gradlew.bat :web:wasmJsTest :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon",
     ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.auth.AndroidGoogleOAuthPendingStoreInstrumentedTest --no-daemon",
-    "bash ./gradlew :feature:profile:compileKotlinIosX64 --no-daemon",
+    "bash ./gradlew :feature:auth:iosX64Test :feature:profile:compileKotlinIosX64 --no-daemon --console=plain",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-google-parity.json --head HEAD --json"
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+    "reviewedSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
     "blockingFindings": [],
     "scopeLimit": "Local validation proves the OAuth lifecycle, exact profile resolution, session race guards and platform wiring. Remote Google provider activation and a real account round trip remain outside this candidate evidence.",
-    "runtimeReviewedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e"
+    "runtimeReviewedSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1"
   },
   "notes": [
-    "Android was renewed on the final product SHA with 8/8 focal instrumented tests after the final Android-only navigation fix.",
-    "Web and iOS were validated on 903706b237b4f71caa70a4c6b3511f7114604489. The only later product delta is Android QuataApp navigation selection, its Android instrumented test and the matching documentary contract.",
+    "Android was renewed on the final Google product runtime with 8/8 focal instrumented tests after the Android navigation fix; the later product commit only reconciles capability-source hashes.",
+    "Web remains bound to 903706b237b4f71caa70a4c6b3511f7114604489 because the later combined-base delta contains no Web runtime change; the Web Wasm suite and affected contracts remain applicable.",
+    "iOS was revalidated on the exact combined product SHA ebd9ca82ae98dff548c1c2562ac15b740d644ac1: Auth iosX64 tests, Profile iosX64 compilation, and the complete Intel SimulatorSigned build-for-testing lane all passed.",
     "The final GitHub platform jobs remain responsible for candidate-wide recertification; no complete local E2E matrix was repeated solely because the SHA changed.",
     "No credentials, backend rows, provider settings, CI configuration or remote product data were used or mutated."
   ]
