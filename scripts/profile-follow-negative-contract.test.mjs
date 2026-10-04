@@ -8,6 +8,7 @@ const [
   viewModelTest,
   uiState,
   profileHost,
+  profilePrimaryActions,
   androidRepository,
   androidFault,
   androidUi,
@@ -19,11 +20,13 @@ const [
   webRepository,
   webHost,
   webRunner,
+  localFacade,
   packageJson,
 ] = await Promise.all([
   read("feature/neighborhoods/src/commonTest/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsViewModelTest.kt"),
   read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodsUiState.kt"),
   read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
+  read("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePrimaryActions.kt"),
   read("app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt"),
   read("app/src/main/java/com/quata/feature/neighborhoods/data/ProfileFollowEvidenceFaults.kt"),
   read("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
@@ -35,6 +38,7 @@ const [
   read("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt"),
   read("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt"),
   read("scripts/chat-actions-notifications-web-evidence.mjs"),
+  read("scripts/profile-follow-local-evidence-facade.mjs"),
   read("package.json"),
 ]);
 
@@ -54,6 +58,7 @@ test("shared retry preserves the failed follow intent and stays bound to its pro
   assert.match(profileHost, /PublicProfileFollowRetryTestTagPrefix = "public-profile\.follow\.retry\."/);
   assert.match(profileHost, /failedProfileFollowAction\?\.userId == profile\.user\.id/);
   assert.match(profileHost, /onRetryFollowUser\(profile\.user\.id\)/);
+  assert.match(profilePrimaryActions, /contentDescription = PublicProfileFollowActionTestTagPrefix \+ userId/);
 });
 
 test("platform repositories force the same opt-in pre-mutation failure", () => {
@@ -87,7 +92,22 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(webRunner, /toggleFollowFailureFromOpenProfile/);
   assert.match(webRunner, /profile_follow_negative_ui_rollback_mismatch/);
   assert.match(webRunner, /web-chat-profile-follow-negative-retry-succeeded/);
+  assert.match(webRunner, /MutationObserver/);
+  assert.match(webRunner, /profile_follow_negative_optimistic_transition_missing/);
+  assert.match(webRunner, /profile_follow_retry_loading_transition_missing/);
+  assert.match(webRunner, /public-profile\.follow\.\$\{peerProfile\.profileId\}/);
+  assert.match(webRunner, /public-profile\.follow\.retry\.\$\{peerProfile\.profileId\}/);
+  assert.match(webRunner, /item\.label\.split\(","\).*includes\(tag\)/);
+  assert.match(webRunner, /clickProfileAnchorOrText/);
+  assert.match(webRunner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_LOCAL_FACADE_AUTHORIZATION/);
+  assert.match(webRunner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_LOCAL_FACADE/);
+  assert.match(webRunner, /isNonBlockingAuthorizedLocalFacadeRealtimeFault/);
+  assert.match(webRunner, /Unexpected response code: 404/);
   assert.match(webRunner, /pollProfileFollowEdge\(peerProfile\.actorProfileId, peerProfile\.profileId, true\)/);
+  assert.match(localFacade, /profile\.pass_hash === sha256\(password\)/);
+  assert.match(localFacade, /on conflict \(profile_id, client_instance_id\) do nothing/);
+  assert.match(localFacade, /delete from public\.web_client_sessions where id = \$1 returning id/);
+  assert.match(localFacade, /receipt\.cleanupVerified = removed === createdWebSessionIds\.size/);
 });
 
 test("the focused contract runs in both fast contract suites", () => {

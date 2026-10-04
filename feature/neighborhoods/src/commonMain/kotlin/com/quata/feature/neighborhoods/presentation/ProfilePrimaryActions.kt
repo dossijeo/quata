@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +46,10 @@ fun ProfilePrimaryActions(
     onChat: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onFollow, enabled = !isOwnProfile && isFollowEnabled && !isFollowingLoading, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileFollowActionTestTagPrefix + userId }) {
+        Button(onClick = onFollow, enabled = !isOwnProfile && isFollowEnabled && !isFollowingLoading, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black), modifier = Modifier.weight(1f).semantics {
+            testTag = PublicProfileFollowActionTestTagPrefix + userId
+            contentDescription = PublicProfileFollowActionTestTagPrefix + userId
+        }) {
             if (isFollowingLoading) CircularProgressIndicator(Modifier.size(18.dp).semantics { testTag = PublicProfileFollowLoadingTestTagPrefix + userId }, color = Color.Black, strokeWidth = 2.dp)
             else CompactIcon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp)); Text(if (isFollowing) strings.following else strings.follow, fontSize = 18.sp)
