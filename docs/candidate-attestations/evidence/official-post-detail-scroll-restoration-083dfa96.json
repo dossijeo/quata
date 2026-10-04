@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "unit": "OVR-POST-DETAIL-DEEP-SCROLL",
+  "status": "passed",
+  "recordedAt": "2026-10-04T06:22:01Z",
+  "git": {
+    "head": "083dfa965b98fd1462dac1c145c207ea18ba3314",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "official_detail_scroll_anchor_uses_post_and_stable_section_identity",
+    "official_detail_optional_sections_remap_without_index_drift",
+    "official_detail_other_post_or_missing_section_cannot_inherit_anchor",
+    "official_detail_media_round_trip_restores_observed_anchor",
+    "official_detail_explicit_dismiss_clears_anchor",
+    "official_detail_saved_instance_state_restores_exact_nonzero_offset",
+    "web_wasm_focal_suite_passed",
+    "android_instrumented_scroll_and_restore_passed",
+    "ios_x64_focal_suite_passed",
+    "independent_review_go_no_p0_p3"
+  ],
+  "platforms": {
+    "web": {
+      "task": ":feature:official:wasmJsBrowserTest",
+      "suite": "com.quata.feature.official.presentation.OfficialPostDetailScrollAnchorTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "xmlSha256": "ae5c14aba88d5e9f3e7827515d57a0e9efc8c503199bf5e5dece8c9d2a2e6fd4",
+      "exactShaVerification": "Gradle verified the focal task UP-TO-DATE on the clean Product SHA; the retained XML was produced from the identical source and test inputs before the source commit. Per the migration policy, no matrix was repeated solely because the same bytes acquired a commit SHA."
+    },
+    "android": {
+      "runner": "scripts/run-android-tests-preserve-app.ps1",
+      "device": "emulator-5556",
+      "test": "OfficialPostDetailScrollRestorationInstrumentedTest.savedInstanceStateRestoresTheExactObservedOfficialDetailAnchor",
+      "tests": 1,
+      "failures": 0,
+      "durationSeconds": 10.362,
+      "assertion": "A real Compose scroll produced a positive article offset and StateRestorationTester restored the exact observed anchor."
+    },
+    "ios": {
+      "task": ":feature:official:iosX64Test",
+      "suite": "com.quata.feature.official.presentation.OfficialPostDetailScrollAnchorTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "xmlSha256": "dc52375f5bd060c04813a8cdfecfe68d3bb6bfd61ae54809f42a63297bc0e0e0",
+      "kotlinNativeHome": "/Volumes/QuataMigrationCapacity/archived-caches/konan-da90c065/kotlin-native-prebuilt-macos-x86_64-2.2.21",
+      "temporaryWorktreeRemoved": true
+    }
+  },
+  "independentReview": {
+    "status": "go",
+    "findingsP0ToP3": 0,
+    "reviewedSha": "083dfa965b98fd1462dac1c145c207ea18ba3314"
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "residueCounts": {
+      "backendRows": 0,
+      "storageObjects": 0,
+      "temporaryMacWorktrees": 0
+    }
+  },
+  "limits": [
+    "This evidence closes deep-scroll restoration only for the Official detail panel, including its media-viewer round trip and host state recreation.",
+    "It does not claim comments integration, public-profile post detail, exhaustive visual matrices, or scroll restoration for other surfaces."
+  ]
+}

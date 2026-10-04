@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-POST-DETAIL-DEEP-SCROLL"
+  ],
+  "status": "passed",
+  "productSha": "530162d55e8b93fb25e5859e22179091daea5205",
+  "certification": "focused-multiplatform-complete-independent-review-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "530162d55e8b93fb25e5859e22179091daea5205",
+      "report": "docs/candidate-attestations/evidence/official-post-detail-scroll-restoration-083dfa96.json",
+      "reportSha256": "e5fd0aa179f13bd829a100d0986b23c61b8aa4c09931ed6170fe5a9908b40749",
+      "reportStatus": "passed",
+      "reportGitHead": "083dfa965b98fd1462dac1c145c207ea18ba3314",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "official_detail_scroll_anchor_uses_post_and_stable_section_identity",
+        "official_detail_media_round_trip_restores_observed_anchor",
+        "web_wasm_focal_suite_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-compose-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "530162d55e8b93fb25e5859e22179091daea5205",
+      "report": "docs/candidate-attestations/evidence/official-post-detail-scroll-restoration-083dfa96.json",
+      "reportSha256": "e5fd0aa179f13bd829a100d0986b23c61b8aa4c09931ed6170fe5a9908b40749",
+      "reportStatus": "passed",
+      "reportGitHead": "083dfa965b98fd1462dac1c145c207ea18ba3314",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "official_detail_saved_instance_state_restores_exact_nonzero_offset",
+        "android_instrumented_scroll_and_restore_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-instrumented-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "530162d55e8b93fb25e5859e22179091daea5205",
+      "report": "docs/candidate-attestations/evidence/official-post-detail-scroll-restoration-083dfa96.json",
+      "reportSha256": "e5fd0aa179f13bd829a100d0986b23c61b8aa4c09931ed6170fe5a9908b40749",
+      "reportStatus": "passed",
+      "reportGitHead": "083dfa965b98fd1462dac1c145c207ea18ba3314",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "official_detail_media_round_trip_restores_observed_anchor",
+        "ios_x64_focal_suite_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-compose-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialPostDetailScrollAnchorTest --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:official:compileAndroidMain :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\scripts\\run-android-tests-preserve-app.ps1 -DeviceId emulator-5556 -TestClass com.quata.feature.official.presentation.OfficialPostDetailScrollRestorationInstrumentedTest",
+    "bash ./gradlew :feature:official:iosX64Test --tests com.quata.feature.official.presentation.OfficialPostDetailScrollAnchorTest -Pkotlin.native.home=/Volumes/QuataMigrationCapacity/archived-caches/konan-da90c065/kotlin-native-prebuilt-macos-x86_64-2.2.21 --configure-on-demand --no-daemon --console=plain",
+    "node --test scripts/post-detail-parity-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-post-detail-scroll-restoration.json"
+  ],
+  "notes": [
+    "The common Official detail panel records a stable post ID, section key and pixel offset. Optional sections therefore cannot shift a restored anchor to unrelated content.",
+    "Opening the native or browser media viewer temporarily unmounts the detail without clearing its anchor; returning recreates the same post at the last observed position. Explicit panel dismissal clears the matching anchor.",
+    "Android additionally performs a real Compose scroll and restores the exact nonzero observed anchor through saved-instance-state recreation. Web/Wasm and iOS x64 exercise the shared mapping, saver and media-viewer remount contract.",
+    "Independent review of 083dfa96 returned GO with no P0-P3 findings. After rebasing, Product SHA 530162d5 has the same stable patch-id and identical blobs for every file changed by the product commit; the retained report therefore keeps reportGitHead 083dfa96 while the candidate binds to 530162d5.",
+    "This focal closure removes only the deep-scroll restoration limit for Official detail. Comments integration, public-profile post detail and scroll restoration in other surfaces retain their separate evidence units.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
