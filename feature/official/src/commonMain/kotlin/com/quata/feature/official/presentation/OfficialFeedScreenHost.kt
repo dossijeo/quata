@@ -240,6 +240,9 @@ fun OfficialFeedScreenHost(
     var commentsPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaReturnReadMorePost by rememberSaveable { mutableStateOf<String?>(null) }
+    var detailScrollAnchor by rememberSaveable(stateSaver = OfficialPostDetailScrollAnchor.Saver) {
+        mutableStateOf(OfficialPostDetailScrollAnchor.Empty)
+    }
     var deletePost by rememberSaveable { mutableStateOf<String?>(null) }
     var liveOpen by rememberSaveable { mutableStateOf(false) }
     var overflowPost by rememberSaveable { mutableStateOf<String?>(null) }
@@ -567,10 +570,16 @@ fun OfficialFeedScreenHost(
     }
     state.posts.firstOrNull { it.id == readMorePost }?.let { post ->
         OfficialPostDetailPanelContent(
+            postId = post.id,
             title = strings.readMoreLabel(post.readMoreLabel),
             closeLabel = strings.close,
             link = post.linkUrl,
-            onDismiss = { readMorePost = null },
+            onDismiss = {
+                readMorePost = null
+                if (detailScrollAnchor.postId == post.id) {
+                    detailScrollAnchor = OfficialPostDetailScrollAnchor.Empty
+                }
+            },
             articleContent = { slots.article(post, it) },
             author = {
                 OfficialAuthorHeaderContent(
@@ -599,6 +608,8 @@ fun OfficialFeedScreenHost(
             },
             resourceContent = post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } },
             navigationContent = { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } },
+            initialScrollAnchor = detailScrollAnchor.takeIf { it.postId == post.id },
+            onScrollAnchorChanged = { detailScrollAnchor = it },
         )
     }
     OfficialCommentsPanelEntryContent(state.posts.firstOrNull { it.id == commentsPost }, state.posts, effectiveUserId, onAuthRequired, { postId, comment -> viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment)) }, { id -> viewModel.onEvent(OfficialFeedUiEvent.ReportComment(id)) }, { commentsPost = null }) { post, canParticipate, add, report, dismiss ->

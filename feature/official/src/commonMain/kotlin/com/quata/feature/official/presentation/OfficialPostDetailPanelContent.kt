@@ -9,9 +9,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.QuataFloatingPanelContent
+import kotlinx.coroutines.flow.collectLatest
 
 const val OfficialPostDetailPanelTestTag = "official.detail.panel"
 const val OfficialPostDetailCloseTestTag = "official.detail.panel.close"
@@ -31,6 +38,56 @@ const val OfficialPostDetailArticleTestTag = "official.detail.article"
 const val OfficialPostDetailMediaTestTag = "official.detail.media"
 const val OfficialPostDetailLinkTestTag = "official.detail.link"
 const val OfficialPostDetailProfileTestTag = "official.detail.profile"
+const val OfficialPostDetailScrollTestTag = "official.detail.scroll"
+
+internal const val OfficialPostDetailAuthorSectionKey = "author"
+internal const val OfficialPostDetailMediaSectionKey = "media"
+internal const val OfficialPostDetailArticleSectionKey = "article"
+internal const val OfficialPostDetailResourceSectionKey = "resource"
+internal const val OfficialPostDetailNavigationSectionKey = "navigation"
+
+data class OfficialPostDetailScrollAnchor(
+    val postId: String,
+    val sectionKey: String,
+    val scrollOffsetPx: Int,
+) {
+    companion object {
+        val Empty = OfficialPostDetailScrollAnchor("", OfficialPostDetailArticleSectionKey, 0)
+        val Saver: Saver<OfficialPostDetailScrollAnchor, Any> = listSaver(
+            save = { listOf(it.postId, it.sectionKey, it.scrollOffsetPx) },
+            restore = {
+                OfficialPostDetailScrollAnchor(
+                    postId = it[0] as String,
+                    sectionKey = it[1] as String,
+                    scrollOffsetPx = it[2] as Int,
+                )
+            },
+        )
+    }
+}
+
+internal fun officialPostDetailSectionKeys(
+    hasAuthor: Boolean,
+    hasMedia: Boolean,
+    hasResource: Boolean,
+    hasNavigation: Boolean,
+): List<String> = buildList {
+    if (hasAuthor) add(OfficialPostDetailAuthorSectionKey)
+    if (hasMedia) add(OfficialPostDetailMediaSectionKey)
+    add(OfficialPostDetailArticleSectionKey)
+    if (hasResource) add(OfficialPostDetailResourceSectionKey)
+    if (hasNavigation) add(OfficialPostDetailNavigationSectionKey)
+}
+
+internal fun officialPostDetailInitialScrollPosition(
+    postId: String,
+    sectionKeys: List<String>,
+    anchor: OfficialPostDetailScrollAnchor?,
+): Pair<Int, Int> {
+    val matching = anchor?.takeIf { it.postId == postId }
+    val index = matching?.sectionKey?.let(sectionKeys::indexOf)?.takeIf { it >= 0 }
+    return if (index != null) index to matching.scrollOffsetPx.coerceAtLeast(0) else 0 to 0
+}
 
 /**
  * Shared detail panel shell. Hosts inject avatar/author, media, external resources and
@@ -39,6 +96,7 @@ const val OfficialPostDetailProfileTestTag = "official.detail.profile"
  */
 @Composable
 fun OfficialPostDetailPanelContent(
+    postId: String,
     title: String,
     closeLabel: String,
     link: String?,
@@ -48,9 +106,43 @@ fun OfficialPostDetailPanelContent(
     media: (@Composable (Modifier) -> Unit)? = null,
     resourceContent: (@Composable (Modifier) -> Unit)? = null,
     navigationContent: (@Composable (Modifier) -> Unit)? = null,
+    initialScrollAnchor: OfficialPostDetailScrollAnchor? = null,
+    onScrollAnchorChanged: (OfficialPostDetailScrollAnchor) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val template = quataTheme()
+    val sectionKeys = remember(
+        author != null,
+        media != null,
+        resourceContent != null,
+        link?.isNotBlank() == true,
+        navigationContent != null,
+    ) {
+        officialPostDetailSectionKeys(
+            hasAuthor = author != null,
+            hasMedia = media != null,
+            hasResource = resourceContent != null || link?.isNotBlank() == true,
+            hasNavigation = navigationContent != null,
+        )
+    }
+    val listState = remember(postId) {
+        val (index, offset) = officialPostDetailInitialScrollPosition(postId, sectionKeys, initialScrollAnchor)
+        LazyListState(index, offset)
+    }
+    LaunchedEffect(postId, listState, sectionKeys) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collectLatest { (index, offset) ->
+                sectionKeys.getOrNull(index)?.let { sectionKey ->
+                    onScrollAnchorChanged(
+                        OfficialPostDetailScrollAnchor(
+                            postId = postId,
+                            sectionKey = sectionKey,
+                            scrollOffsetPx = offset,
+                        ),
+                    )
+                }
+            }
+    }
     QuataFloatingPanelContent(
         onDismiss = onDismiss,
         modifier = modifier
@@ -79,14 +171,15 @@ fun OfficialPostDetailPanelContent(
             }
             Spacer(Modifier.height(12.dp))
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(OfficialPostDetailScrollTestTag),
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 author?.let { authorSlot ->
-                    item { authorSlot(Modifier.fillMaxWidth()) }
+                    item(key = OfficialPostDetailAuthorSectionKey) { authorSlot(Modifier.fillMaxWidth()) }
                 }
                 media?.let { mediaSlot ->
-                    item {
+                    item(key = OfficialPostDetailMediaSectionKey) {
                         mediaSlot(
                             Modifier
                                 .fillMaxWidth()
@@ -96,7 +189,7 @@ fun OfficialPostDetailPanelContent(
                         )
                     }
                 }
-                item {
+                item(key = OfficialPostDetailArticleSectionKey) {
                     Box(
                         Modifier
                             .fillMaxWidth()
@@ -107,7 +200,7 @@ fun OfficialPostDetailPanelContent(
                     }
                 }
                 when {
-                    resourceContent != null -> item {
+                    resourceContent != null -> item(key = OfficialPostDetailResourceSectionKey) {
                         resourceContent(
                             Modifier
                                 .fillMaxWidth()
@@ -115,7 +208,7 @@ fun OfficialPostDetailPanelContent(
                                 .semantics { contentDescription = OfficialPostDetailLinkTestTag },
                         )
                     }
-                    link?.isNotBlank() == true -> item {
+                    link?.isNotBlank() == true -> item(key = OfficialPostDetailResourceSectionKey) {
                         Text(
                             link,
                             color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
@@ -127,7 +220,7 @@ fun OfficialPostDetailPanelContent(
                     }
                 }
                 navigationContent?.let { navigationSlot ->
-                    item {
+                    item(key = OfficialPostDetailNavigationSectionKey) {
                         navigationSlot(
                             Modifier
                                 .fillMaxWidth()

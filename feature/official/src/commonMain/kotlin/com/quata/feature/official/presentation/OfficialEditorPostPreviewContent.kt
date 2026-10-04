@@ -43,6 +43,7 @@ fun OfficialEditorPostPreviewContent(
     }
     readMorePost?.let { selectedPost ->
         OfficialPostDetailPanelContent(
+            postId = selectedPost.id,
             title = readMoreLabel,
             closeLabel = closeLabel,
             link = selectedPost.linkUrl,
