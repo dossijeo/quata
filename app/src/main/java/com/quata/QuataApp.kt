@@ -3,6 +3,7 @@ package com.quata
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import android.net.Uri
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -12,6 +13,9 @@ import com.quata.core.di.AppContainer
 import com.quata.core.diagnostics.AndroidStartupDiagnostics
 import com.quata.core.media.QuataMediaCache
 import com.quata.core.model.AuthSession
+import com.quata.core.auth.AndroidGoogleOAuthCallbackCoordinator
+import com.quata.core.auth.AndroidGoogleOAuthExchange
+import com.quata.core.auth.AndroidGoogleOAuthMode
 import com.quata.feature.chat.data.ChatMessageStateWorkScheduler
 import com.quata.feature.chat.data.ChatOutboxWorkScheduler
 import com.quata.core.session.AuthState
@@ -37,6 +41,7 @@ class QuataApp : Application(), ImageLoaderFactory {
     var isAppForeground: Boolean = false
         private set
     private var supabaseSessionRefreshJob: Job? = null
+    private var googleOAuthResumeJob: Job? = null
 
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(base)
@@ -106,6 +111,40 @@ class QuataApp : Application(), ImageLoaderFactory {
             refreshSupabaseSession()
             scheduleNextSupabaseSessionRefresh()
         }
+    }
+
+    fun resumeGoogleOAuthCallback(callback: Uri?): Boolean {
+        if (!AndroidGoogleOAuthCallbackCoordinator.isCallback(callback)) return false
+        val verifiedCallback = requireNotNull(callback)
+        if (googleOAuthResumeJob?.isActive == true) return true
+        googleOAuthResumeJob = appScope.launch {
+            try {
+                val exchange = container.exchangeGoogleOAuthCallback(verifiedCallback)
+                val callbackExchange: AndroidGoogleOAuthExchange? = exchange.getOrNull()
+                val publication = callbackExchange?.outcome?.mapCatching { completion ->
+                    container.publishGoogleOAuthRecovery(completion).getOrThrow()
+                }
+                val deliveredToActiveLogin = callbackExchange?.let { callbackResult ->
+                    AndroidGoogleOAuthCallbackCoordinator.complete(
+                        callbackResult.pending,
+                        publication ?: Result.failure(
+                            IllegalStateException("google_oauth_callback_publication_missing"),
+                        ),
+                    )
+                } ?: false
+                if (shouldPublishGoogleOAuthRecoveryNavigation(
+                        mode = callbackExchange?.pending?.mode,
+                        deliveredToActiveLogin = deliveredToActiveLogin,
+                        publicationSucceeded = publication?.isSuccess == true,
+                    )
+                ) {
+                    container.publishGoogleOAuthRecovery()
+                }
+            } finally {
+                googleOAuthResumeJob = null
+            }
+        }
+        return true
     }
 
     private suspend fun refreshSupabaseSession(): AuthSession? =
@@ -211,3 +250,11 @@ class QuataApp : Application(), ImageLoaderFactory {
         const val SUPABASE_REFRESH_RETRY_MILLIS = 60_000L
     }
 }
+
+internal fun shouldPublishGoogleOAuthRecoveryNavigation(
+    mode: AndroidGoogleOAuthMode?,
+    deliveredToActiveLogin: Boolean,
+    publicationSucceeded: Boolean,
+): Boolean = mode == AndroidGoogleOAuthMode.SIGN_IN &&
+    !deliveredToActiveLogin &&
+    publicationSucceeded

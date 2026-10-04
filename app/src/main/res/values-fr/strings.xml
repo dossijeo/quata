@@ -486,7 +486,6 @@
     <string name="neighborhoods_time_months">Il y a %1$d mois</string>
     <string name="neighborhoods_time_one_year">Il y a 1 an</string>
     <string name="neighborhoods_time_years">Il y a %1$d ans</string>
-    <string name="notification_permission_not_configured">Google Sign-In non configure</string>
     <string name="notification_voice_note">Tu as recu une note vocale</string>
     <string name="notification_attachment">Nouvelle piece jointe</string>
     <string name="notification_new_message">Nouveau message</string>
@@ -634,4 +633,9 @@
     <string name="profile_password_update_unavailable">Modifiez votre mot de passe depuis « Mot de passe oublié » jusqu’à ce que la mise à jour authentifiée soit disponible.</string>
     <string name="profile_retry">Réessayer</string>
     <string name="profile_loading_error">Impossible de charger votre profil.</string>
+    <string name="profile_link_google">Associer un compte Google</string>
+    <string name="profile_linking_google">Association du compte Google…</string>
+    <string name="profile_cancel_google_link">Annuler l’association Google</string>
+    <string name="profile_google_linked">Compte Google associé.</string>
+    <string name="profile_google_link_failed">Impossible d’associer le compte Google.</string>
 </resources>

@@ -5,5 +5,8 @@ data class LoginUiState(
     val phone: String = "",
     val password: String = "",
     val isLoading: Boolean = false,
+    val isGoogleLoading: Boolean = false,
     val error: String? = null
-)
+) {
+    val isBusy: Boolean get() = isLoading || isGoogleLoading
+}

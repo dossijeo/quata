@@ -1,0 +1,86 @@
+{
+  "status": "passed",
+  "unit": "SCR-AUTH-GOOGLE",
+  "executedAtUtc": "2026-10-04T15:44:14Z",
+  "git": {
+    "head": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_google_oauth_pkce_contracts_passed",
+    "federated_profile_resolution_contracts_passed",
+    "android_pending_store_instrumented_8_of_8",
+    "android_compile_and_android_test_compile_passed",
+    "web_wasm_full_test_passed",
+    "ios_profile_compile_ios_x64_passed_exact_combined_product_sha",
+    "ios_auth_ios_x64_tests_passed_exact_combined_product_sha",
+    "ios_simulator_signed_build_for_testing_passed_exact_combined_product_sha",
+    "independent_review_no_blocking_findings",
+    "diff_check_passed",
+    "capability_matrix_contract_passed",
+    "android_lint_debug_passed_exact_product_sha",
+    "android_compile_and_android_test_compile_passed_exact_product_sha",
+    "android_oauth_callback_router_codeql_fix_validated_exact_product_sha"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "validatedSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+      "instrumentedTests": 8,
+      "failures": 0,
+      "device": "QuataLivePr336Api35(AVD)-API-35",
+      "compileDebugKotlin": "passed_on_exact_product_sha",
+      "compileDebugAndroidTestKotlin": "passed_on_exact_product_sha",
+      "instrumentedValidatedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "lintDebug": "passed_on_exact_product_sha",
+      "finalDelta": "Android callback recognition moved inside the application router; exact lifecycle contract, lint and production/test compilation passed without repeating the unchanged emulator matrix"
+    },
+    "web": {
+      "status": "passed",
+      "validatedSha": "903706b237b4f71caa70a4c6b3511f7114604489",
+      "wasmJsTest": "passed",
+      "finalDelta": "dc31361f delta contains no Web or common runtime change"
+    },
+    "ios": {
+      "status": "passed",
+      "validatedSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
+      "profileCompileIosX64": "passed",
+      "authTests": "passed_on_exact_combined_product_sha",
+      "simulatorSignedBuildForTesting": "passed",
+      "simulatorSignedLane": "Intel SimulatorSigned Keychain",
+      "host": "macos-hyperv-x86_64",
+      "xcode": "26.6 (17F113)",
+      "sdk": "iPhoneOS 26.5",
+      "finalDelta": "dc31361f delta contains no iOS or common runtime change",
+      "provenance": {
+        "productSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
+        "appSha256": "dbad133eebee2cdc40aba960b5910aedf8e3b0675cd88986a5ff64ab59efba1c",
+        "sharedFrameworkSha256": "c2ac10cd6bd2170e7525b3ef4dbbf57440d7a314be28069e660548b6c2aa9ac4",
+        "testBundleSha256": "67cb4a5eb80351e90f197a968b3a54c347a202cbaa7ed45094e8d7a84318fdbf",
+        "xctestrunSha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7"
+      }
+    }
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+    "blockingFindings": [],
+    "note": "Independent review returned GO with no P0-P3 for the callback-router security fix; pending state, exact attempt binding and PKCE remain mandatory. Remote CodeQL must reanalyze the pushed head before the alert is considered closed."
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true
+  },
+  "limitations": [
+    "Google provider activation and a real remote account round trip were not performed in this local certification.",
+    "Final GitHub jobs remain responsible for candidate-wide recertification."
+  ],
+  "notes": [
+    "The exact dc31361f product SHA passed Android lint, Android production/test compilation, the Google OAuth lifecycle contract and diff-check.",
+    "The Android callback router is now invoked for every incoming intent with a nullable candidate; QuataApp validates the exact OAuth route before starting sensitive work, while pending state, attempt binding and PKCE still authorize the exchange.",
+    "The prior 8/8 Android instrumented run remains applicable to the unchanged encrypted pending store and coordinator. The affected router delta was validated by exact static lifecycle contract, lint and compilation.",
+    "Web and iOS evidence was not repeated because dc31361f changes only Android source plus its contract; final GitHub jobs recertify the candidate.",
+    "Remote Google provider activation and a real account round trip were not performed in this local certification.",
+    "No credentials, backend rows, provider settings, CI configuration or remote product data were mutated."
+  ]
+}

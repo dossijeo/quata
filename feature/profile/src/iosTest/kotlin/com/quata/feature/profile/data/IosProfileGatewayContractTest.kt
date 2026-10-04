@@ -89,6 +89,7 @@ class IosProfileGatewayContractTest {
             onLogout = {},
             onDeactivateAccount = {},
             onDeleteAccountData = {},
+            googleIdentityLinker = null,
             filePicker = UnsupportedFilePicker,
             cameraCapture = UnsupportedCameraCapture,
             contacts = UnsupportedContactPickerService,

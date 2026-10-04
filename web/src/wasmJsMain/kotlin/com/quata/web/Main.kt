@@ -90,6 +90,7 @@ internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    if (completeWebGoogleOAuthPopupCallback()) return
     ensureWebClientInstanceId()
     registerWebPushWorker()
     val platformServices = WebPlatformServices()
@@ -98,6 +99,31 @@ fun main() {
         QuataWebApp(platformServices, runtimeConfiguration)
     }
 }
+
+/**
+ * Completes OAuth inside the returning popup before Compose starts. BroadcastChannel crosses
+ * COOP browsing-context groups, while the per-popup sessionStorage token binds the callback to
+ * the launcher that created it.
+ */
+private fun completeWebGoogleOAuthPopupCallback(): Boolean = js(
+    """
+    (() => {
+      const query = new URLSearchParams(globalThis.location.search);
+      const fragment = new URLSearchParams(globalThis.location.hash.replace(/^#/, ''));
+      if (!query.has('code') && !query.has('error') && !fragment.has('code') && !fragment.has('error')) return false;
+      let token = null;
+      try { token = globalThis.sessionStorage?.getItem('quata_google_oauth_channel'); } catch (_) {}
+      if (!token || typeof globalThis.BroadcastChannel !== 'function') return false;
+      const channel = new globalThis.BroadcastChannel(`quata-google-oauth-${'$'}{token}`);
+      channel.postMessage({ type: 'quata:google-oauth-callback', href: String(globalThis.location.href) });
+      globalThis.setTimeout(() => {
+        try { channel.close(); } catch (_) {}
+        try { globalThis.close(); } catch (_) {}
+      }, 0);
+      return true;
+    })()
+    """,
+)
 
 private fun registerWebPushWorker(): Unit = js(
     """
@@ -865,6 +891,10 @@ private fun QuataWebApp(
                             // Cuenta performs its first confirmation, then hands off there.
                             onDeactivateAccount = { navigation.navigate("settings") },
                             onDeleteAccountData = { navigation.navigate("settings") },
+                            onLinkGoogleIdentity = {
+                                val linkIdentity = authRepository.beginIdentityLink()
+                                suspend { linkIdentity().map { Unit } }
+                            },
                             onEmergencySettingsSaved = {
                                 scope.launch {
                                     when (val outcome = sosCoordinator.resumeAfterConfigurationSaved()) {

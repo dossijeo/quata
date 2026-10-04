@@ -2,6 +2,7 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="quata_session.xml" />
+        <exclude domain="sharedpref" path="quata_google_oauth_pending.xml" />
         <exclude domain="database" path="quata_chat_cache.db" />
         <exclude domain="file" path="supabase_chat_cache_v1" />
         <exclude domain="file" path="chat_outbox_attachments" />
@@ -9,6 +10,7 @@
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="quata_session.xml" />
+        <exclude domain="sharedpref" path="quata_google_oauth_pending.xml" />
         <exclude domain="database" path="quata_chat_cache.db" />
         <exclude domain="file" path="supabase_chat_cache_v1" />
         <exclude domain="file" path="chat_outbox_attachments" />

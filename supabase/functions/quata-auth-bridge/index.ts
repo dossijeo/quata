@@ -8,6 +8,7 @@ import {
   registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
 import { resolveProfileByCountry } from "./profile-resolution.mjs";
+import { resolveFederatedProfile } from "./federated-profile.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const corsHeaders = {
 };
 
 type BridgeRequest = {
-  action?: "login" | "web_login" | "recovery_question" | "reset_password" | "update_recovery_secret";
+  action?: "login" | "web_login" | "federated_profile" | "recovery_question" | "reset_password" | "update_recovery_secret";
   version?: number;
   profile_id?: string;
   country_code?: string;
@@ -27,6 +28,7 @@ type BridgeRequest = {
   new_password?: string;
   reactivate_deactivated?: boolean;
   client_instance_id?: string;
+  client_type?: "android" | "ios" | "web";
   secret_question?: string;
 };
 
@@ -48,6 +50,7 @@ type CommunityProfile = {
   avatar?: string | null;
   barrio?: string | null;
   neighborhood?: string | null;
+  is_official?: boolean | null;
   secret_question?: string | null;
   secret_answer?: string | null;
   secret_answer_hash?: string | null;
@@ -79,6 +82,7 @@ const profileSelect = [
   "avatar",
   "barrio",
   "neighborhood",
+  "is_official",
   "secret_question",
   "secret_answer",
   "secret_answer_hash",
@@ -150,6 +154,60 @@ async function handleRequest(req: Request): Promise<Response> {
   });
 
   const action = payload.action || "login";
+  if (action === "federated_profile") {
+    if (payload.version !== 1) return jsonResponse({ error: "unsupported_version" }, 400);
+    const clientType = payload.client_type;
+    if (clientType !== "android" && clientType !== "ios" && clientType !== "web") {
+      return jsonResponse({ error: "invalid_client_type" }, 400);
+    }
+    const webClientInstanceId = clientType === "web" ? payload.client_instance_id?.trim() || "" : null;
+    if (clientType === "web" && (webClientInstanceId!.length < 8 || webClientInstanceId!.length > 200)) {
+      return jsonResponse({ error: "invalid_client_instance_id" }, 400);
+    }
+    const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!bearer) return jsonResponse({ error: "authentication_required" }, 401);
+    const { data: identity, error: identityError } = await admin.auth.getUser(bearer);
+    if (identityError || !identity.user) return jsonResponse({ error: "authentication_required" }, 401);
+
+    const { data: linkedProfiles, error: linkedProfilesError } = await admin
+      .from("community_profiles")
+      .select(profileSelect)
+      .eq("auth_user_id", identity.user.id)
+      .limit(2);
+    if (linkedProfilesError) throw linkedProfilesError;
+    const resolution = resolveFederatedProfile(linkedProfiles);
+    if (resolution.error) return jsonResponse({ error: resolution.error }, resolution.status);
+    const linkedProfile = resolution.profile as CommunityProfile;
+    if (await isRegistrationQuarantined(admin, linkedProfile)) {
+      return jsonResponse({ error: "account_unavailable" }, 503);
+    }
+
+    const { data: touchedProfile, error: touchError } = await admin
+      .from("community_profiles")
+      .update({ last_login_at: new Date().toISOString() })
+      .eq("id", linkedProfile.id)
+      .eq("auth_user_id", identity.user.id)
+      .eq("account_status", "active")
+      .select("id")
+      .maybeSingle();
+    if (touchError) throw touchError;
+    if (!touchedProfile?.id) return jsonResponse({ error: "profile_state_changed" }, 409);
+
+    const response: Record<string, unknown> = {
+      version: 1,
+      profile: publicProfile(linkedProfile, identity.user.id),
+      user: identity.user,
+    };
+    if (clientType === "web") {
+      response.client_type = "web";
+      response.web_session = await createWebClientSession(admin, {
+        profileId: linkedProfile.id,
+        authUserId: identity.user.id,
+        clientInstanceId: webClientInstanceId!,
+      });
+    }
+    return jsonResponse(response);
+  }
   if (action === "update_recovery_secret") {
     if (payload.version !== 1) return jsonResponse({ error: "unsupported_version" }, 400);
     const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -629,6 +687,7 @@ function publicProfile(profile: CommunityProfile, authUserId: string) {
     country_code: profile.country_code || profile.code || null,
     avatar_url: profile.avatar_url || profile.avatar || null,
     neighborhood: profile.neighborhood || profile.barrio || null,
+    is_official: profile.is_official === true,
   };
 }
 

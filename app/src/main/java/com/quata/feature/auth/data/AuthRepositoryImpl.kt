@@ -2,8 +2,11 @@ package com.quata.feature.auth.data
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import com.quata.R
 import com.quata.core.auth.GoogleAuthHelper
+import com.quata.core.auth.AndroidGoogleOAuthCompletion
+import com.quata.core.auth.AndroidGoogleOAuthMode
 import com.quata.core.auth.AndroidRegistrationChallengeService
 import com.quata.core.auth.RegistrationClientIdentityStore
 import com.quata.core.common.mapFailureToUserFacing
@@ -29,6 +32,8 @@ import com.quata.feature.chat.data.SupabaseChatCacheStore
 import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.GoogleAuthProvider
+import com.quata.feature.auth.domain.GoogleIdentityLinker
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import androidx.core.app.NotificationManagerCompat
@@ -50,7 +55,7 @@ internal class AuthRepositoryImpl(
             report = { issue -> android.util.Log.w(AUTH_BOUNDARY_TAG, "Auth bridge contract mismatch: $issue") }
         )
     )
-) : AuthRepository {
+) : AuthRepository, GoogleAuthProvider, GoogleIdentityLinker {
 
     private val logoutMutex = Mutex()
     private val logoutCleanupPreferences = appContext.getSharedPreferences(LOGOUT_CLEANUP_PREFERENCES, Context.MODE_PRIVATE)
@@ -167,9 +172,46 @@ internal class AuthRepositoryImpl(
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    suspend fun loginWithGoogle(context: Context): Result<AuthSession> {
-        return googleAuthHelper.signIn(context).onSuccess { sessionManager.setSession(it) }
+    override fun beginSignIn(): suspend () -> Result<AuthSession> = { signInWithGoogle() }
+
+    private suspend fun signInWithGoogle(): Result<AuthSession> = runCatching {
+        recoverPendingLogoutCleanup()
+        googleAuthHelper.signIn(appContext).getOrThrow()
     }
+
+    override fun beginIdentityLink(): suspend () -> Result<AuthSession> = { linkGoogleIdentity() }
+
+    private suspend fun linkGoogleIdentity(): Result<AuthSession> {
+        val current = supabaseApi.ensureFreshSession()
+            ?: return Result.failure(IllegalStateException("google_identity_session_required"))
+        return googleAuthHelper.link(appContext, current).mapCatching { linked ->
+            sessionManager.publishSessionIfActorMatches(current, linked)
+                ?: error("google_identity_session_changed")
+        }
+    }
+
+    internal suspend fun exchangeGoogleOAuthCallback(callback: Uri): Result<com.quata.core.auth.AndroidGoogleOAuthExchange> {
+        recoverPendingLogoutCleanup()
+        val retained = sessionManager.currentSession()
+        return runCatching { googleAuthHelper.resumePending(appContext, callback, retained) }
+    }
+
+    internal fun publishGoogleOAuthRecovery(completion: AndroidGoogleOAuthCompletion): Result<AuthSession> =
+        runCatching {
+            check(googleAuthHelper.consumePending(appContext, completion)) {
+                "google_oauth_attempt_superseded"
+            }
+            when (completion.mode) {
+                AndroidGoogleOAuthMode.SIGN_IN -> {
+                    sessionManager.publishSessionIfAbsent(completion.session)
+                        ?: error("google_oauth_session_superseded")
+                }
+                AndroidGoogleOAuthMode.LINK_IDENTITY -> {
+                    sessionManager.publishLinkedGoogleOAuthRecovery(completion)
+                        ?: error("google_identity_session_changed")
+                }
+            }
+        }
 
     override suspend fun deactivateAccount(password: String): Result<Unit> = runCatching {
         require(password.isNotBlank()) { appContext.getString(R.string.account_password_required) }
@@ -345,4 +387,11 @@ internal class AuthRepositoryImpl(
         const val KEY_PENDING_LOGOUT_CLEANUP_PROFILE = "pending_profile_id"
     }
 
+}
+
+internal fun SessionManager.publishLinkedGoogleOAuthRecovery(
+    completion: AndroidGoogleOAuthCompletion,
+): AuthSession? {
+    val retained = completion.retainedSession ?: error("google_identity_session_required")
+    return publishSessionIfActorMatches(retained, completion.session)
 }

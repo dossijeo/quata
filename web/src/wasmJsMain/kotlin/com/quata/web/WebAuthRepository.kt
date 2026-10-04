@@ -7,11 +7,21 @@ import com.quata.core.model.currentEpochSeconds
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.BrowserFileCacheService
 import com.quata.feature.auth.domain.AuthRepository
+import com.quata.feature.auth.domain.GoogleAuthProvider
+import com.quata.feature.auth.domain.GoogleIdentityLinker
+import com.quata.feature.auth.domain.acceptFederatedProfile
+import com.quata.feature.auth.domain.buildGoogleIdentityLinkRequest
+import com.quata.feature.auth.domain.buildGoogleOAuthRequest
+import com.quata.feature.auth.domain.parseGoogleAuthUserId
+import com.quata.feature.auth.domain.parseGoogleIdentityAuthorizationUrl
+import com.quata.feature.auth.domain.parseGoogleOAuthCallback
+import com.quata.feature.auth.domain.parseGoogleOAuthTokenSet
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import com.quata.feature.chat.presentation.chat.ChatComposerDraftStore
 import com.quata.feature.chat.presentation.chat.BrowserChatComposerAttachmentExecutionLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -25,6 +35,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlin.coroutines.resume
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.suspendCoroutine
 
 /**
@@ -34,7 +45,7 @@ import kotlin.coroutines.suspendCoroutine
 class WebAuthRepository(
     private val configuration: WebRuntimeConfiguration,
     private val preferences: PreferenceStore,
-) : AuthRepository {
+) : AuthRepository, GoogleAuthProvider, GoogleIdentityLinker {
     private val refreshMutex = Mutex()
     private val sessionMutationMutex = Mutex()
     private var activeSession: WebLocalSession? = null
@@ -52,6 +63,143 @@ class WebAuthRepository(
         val payload = webPostJson(endpoint, apiKey, request.toString())
         acceptAuthenticationPayload(payload)
     }
+
+    override fun beginSignIn(): suspend () -> Result<AuthSession> {
+        val popupToken = reserveWebGoogleOAuthPopup()
+            ?: return suspend { Result.failure(IllegalStateException("google_oauth_popup_blocked")) }
+        return suspend {
+            try {
+                signInWithGoogle(popupToken)
+            } finally {
+                closeWebGoogleOAuthPopup(popupToken)
+            }
+        }
+    }
+
+    private suspend fun signInWithGoogle(popupToken: String): Result<AuthSession> = runCatching {
+        val retainedSession = sessionMutationMutex.withLock { storedSessionOrNull() }
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val baseUrl = configuration.supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/')
+        val request = buildGoogleOAuthRequest(
+            supabaseUrl = baseUrl,
+            redirectUri = webGoogleOAuthRedirectUri(),
+            randomBytes = ::webSecureRandomBytes,
+        )
+        val callback = awaitWebGoogleOAuthCallback(popupToken, request.authorizationUrl, request.redirectUri)
+        val code = parseGoogleOAuthCallback(callback, request)
+        val tokenPayload = webPostJson(
+            endpoint = "$baseUrl/auth/v1/token?grant_type=pkce",
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("auth_code", code)
+                put("code_verifier", request.codeVerifier)
+            }.toString(),
+        )
+        val tokens = parseGoogleOAuthTokenSet(tokenPayload)
+        val profilePayload = webPostJson(
+            endpoint = configuration.authBridgeEndpoint(),
+            apiKey = apiKey,
+            accessToken = tokens.accessToken,
+            body = buildJsonObject {
+                put("action", "federated_profile")
+                put("version", 1)
+                put("client_type", "web")
+                put("client_instance_id", ensureWebClientInstanceId())
+            }.toString(),
+        )
+        val federated = tokens.acceptFederatedProfile(profilePayload)
+        val webSessionToken = federated.webSessionToken ?: error("google_oauth_web_session_missing")
+        val acceptedSession = federated.session.copy(
+            isOfficial = federated.session.isOfficial || fetchAuthenticatedProfileIsOfficial(
+                federated.session.bearerToken,
+                federated.session.userId,
+            ),
+        )
+        val accepted = WebLocalSession(
+            accessToken = acceptedSession.bearerToken,
+            refreshToken = acceptedSession.refreshToken.orEmpty(),
+            webSessionToken = webSessionToken,
+            userId = acceptedSession.userId,
+            expiresAt = acceptedSession.expiresAt ?: error("google_oauth_expiry_missing"),
+            displayName = acceptedSession.displayName,
+            isOfficial = acceptedSession.isOfficial,
+        )
+        sessionMutationMutex.withLock {
+            check(webGoogleOAuthSessionStillCurrent(retainedSession, storedSessionOrNull())) {
+                "google_oauth_session_superseded"
+            }
+            acceptedSession.persist(preferences, webSessionToken, acceptedSession.displayName)
+            activeSession = accepted
+        }
+        acceptedSession
+    }.onFailure { if (it is CancellationException) throw it }
+
+    override fun beginIdentityLink(): suspend () -> Result<AuthSession> {
+        val popupToken = reserveWebGoogleOAuthPopup()
+            ?: return suspend { Result.failure(IllegalStateException("google_oauth_popup_blocked")) }
+        return suspend {
+            try {
+                linkGoogleIdentity(popupToken)
+            } finally {
+                closeWebGoogleOAuthPopup(popupToken)
+            }
+        }
+    }
+
+    private suspend fun linkGoogleIdentity(popupToken: String): Result<AuthSession> = runCatching {
+        val current = sessionForAuthenticatedRequest() ?: error("web_auth_session_required")
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val baseUrl = configuration.supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/')
+        val currentUserPayload = webGetJson("$baseUrl/auth/v1/user", apiKey, current.accessToken)
+        val expectedAuthUserId = parseGoogleAuthUserId(currentUserPayload)
+        val request = buildGoogleIdentityLinkRequest(
+            supabaseUrl = baseUrl,
+            redirectUri = webGoogleOAuthRedirectUri(),
+            randomBytes = ::webSecureRandomBytes,
+        )
+        val authorizationPayload = webGetJson(request.authorizationUrl, apiKey, current.accessToken)
+        val providerUrl = parseGoogleIdentityAuthorizationUrl(authorizationPayload)
+        val callback = awaitWebGoogleOAuthCallback(popupToken, providerUrl, request.redirectUri)
+        val code = parseGoogleOAuthCallback(callback, request)
+        val tokenPayload = webPostJson(
+            endpoint = "$baseUrl/auth/v1/token?grant_type=pkce",
+            apiKey = apiKey,
+            body = buildJsonObject {
+                put("auth_code", code)
+                put("code_verifier", request.codeVerifier)
+            }.toString(),
+        )
+        check(parseGoogleAuthUserId(tokenPayload) == expectedAuthUserId) { "google_identity_user_mismatch" }
+        val tokens = parseGoogleOAuthTokenSet(tokenPayload)
+        val updated = current.copy(
+            accessToken = tokens.accessToken,
+            refreshToken = tokens.refreshToken,
+            expiresAt = tokens.expiresAt,
+        )
+        val published = sessionMutationMutex.withLock {
+            val latest = storedSessionOrNull()
+                ?.takeIf { it.userId == current.userId }
+                ?: error("google_identity_session_changed")
+            if (!latest.sameCredentialsAs(current)) {
+                activeSession = latest
+                return@withLock latest
+            }
+            updated.persist(preferences)
+            activeSession = updated
+            updated
+        }
+        AuthSession(
+            token = published.accessToken,
+            userId = published.userId,
+            authUserId = expectedAuthUserId,
+            accessToken = published.accessToken,
+            refreshToken = published.refreshToken,
+            expiresAt = published.expiresAt,
+            email = "federated-${published.userId}@profile.quata.app",
+            displayName = published.displayName ?: "Usuario",
+            isOfficial = published.isOfficial,
+        )
+    }.onFailure { if (it is CancellationException) throw it }
 
     override suspend fun logout() {
         logoutWithBrowserUnsubscribe { Result.success(Unit) }
@@ -422,9 +570,14 @@ data class WebLocalSession(
 
 private class WebRefreshSessionRejected : IllegalStateException("web_auth_refresh_session_rejected")
 
-private fun WebLocalSession.sameCredentialsAs(other: WebLocalSession): Boolean =
+internal fun WebLocalSession.sameCredentialsAs(other: WebLocalSession): Boolean =
     accessToken == other.accessToken && refreshToken == other.refreshToken &&
         webSessionToken == other.webSessionToken && userId == other.userId
+
+internal fun webGoogleOAuthSessionStillCurrent(
+    retained: WebLocalSession?,
+    latest: WebLocalSession?,
+): Boolean = if (retained == null) latest == null else latest?.sameCredentialsAs(retained) == true
 
 internal object WebAuthStorage {
     const val AccessToken = "quata_web_access_token"
@@ -605,33 +758,186 @@ private suspend fun webPostJson(
     accessToken: String? = null,
     webSessionToken: String? = null,
     classifyRefreshFailure: Boolean = false,
-): String = suspendCoroutine { continuation ->
-    browserPostJson(
+): String = suspendCancellableCoroutine { continuation ->
+    val cancel = browserPostJson(
         endpoint = endpoint,
         apiKey = apiKey,
         body = body,
         accessToken = accessToken,
         webSessionToken = webSessionToken,
         classifyRefreshFailure = classifyRefreshFailure,
-        onSuccess = { value -> continuation.resume(value) },
-        onFailure = { continuation.resumeWith(Result.failure(IllegalStateException(it))) },
-        onTerminalRefreshFailure = { continuation.resumeWith(Result.failure(WebRefreshSessionRejected())) },
+        onSuccess = { value -> if (continuation.isActive) continuation.resume(value) },
+        onFailure = { if (continuation.isActive) continuation.resumeWith(Result.failure(IllegalStateException(it))) },
+        onTerminalRefreshFailure = { if (continuation.isActive) continuation.resumeWith(Result.failure(WebRefreshSessionRejected())) },
     )
+    continuation.invokeOnCancellation { cancel() }
 }
 
 private suspend fun webGetJson(
     endpoint: String,
     apiKey: String,
     accessToken: String,
-): String = suspendCoroutine { continuation ->
-    browserGetJson(
+): String = suspendCancellableCoroutine { continuation ->
+    val cancel = browserGetJson(
         endpoint = endpoint,
         apiKey = apiKey,
         accessToken = accessToken,
-        onSuccess = { value -> continuation.resume(value) },
-        onFailure = { continuation.resumeWith(Result.failure(IllegalStateException(it))) },
+        onSuccess = { value -> if (continuation.isActive) continuation.resume(value) },
+        onFailure = { if (continuation.isActive) continuation.resumeWith(Result.failure(IllegalStateException(it))) },
     )
+    continuation.invokeOnCancellation { cancel() }
 }
+
+private fun webSecureRandomBytes(size: Int): ByteArray {
+    val hex = webSecureRandomHex(size)
+    check(hex.length == size * 2) { "google_oauth_random_source_invalid" }
+    return ByteArray(size) { index -> hex.substring(index * 2, index * 2 + 2).toInt(16).toByte() }
+}
+
+private fun webGoogleOAuthRedirectUri(): String = webOAuthRedirectUri()
+
+private suspend fun awaitWebGoogleOAuthCallback(
+    popupToken: String,
+    authorizationUrl: String,
+    redirectUri: String,
+): String = suspendCancellableCoroutine { continuation ->
+        val cancel = browserGoogleOAuth(
+            popupToken = popupToken,
+            authorizationUrl = authorizationUrl,
+            redirectUri = redirectUri,
+            onSuccess = { if (continuation.isActive) continuation.resume(it) },
+            onFailure = { if (continuation.isActive) continuation.resumeWith(Result.failure(IllegalStateException(it))) },
+        )
+        continuation.invokeOnCancellation { cancel() }
+    }
+
+private fun webSecureRandomHex(size: Int): String = js(
+    """
+    (() => {
+      if (!globalThis.crypto?.getRandomValues) throw new Error('google_oauth_secure_random_unavailable');
+      const bytes = new Uint8Array(size);
+      globalThis.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+    })()
+    """,
+)
+
+private fun webOAuthRedirectUri(): String = js(
+    """
+    (() => globalThis.location.origin + globalThis.location.pathname)()
+    """,
+)
+
+private fun reserveWebGoogleOAuthPopup(): String? = js(
+    """
+    (() => {
+      const token = globalThis.crypto?.randomUUID?.() || `quata-${'$'}{Date.now()}-${'$'}{Math.random()}`;
+      let popup = null;
+      try { popup = globalThis.open('about:blank', `quata-google-oauth-${'$'}{token}`, 'popup,width=520,height=720'); }
+      catch (_) { return null; }
+      if (!popup) return null;
+      const popups = globalThis.__quataGoogleOAuthPopups || (globalThis.__quataGoogleOAuthPopups = new Map());
+      popups.set(token, popup);
+      try {
+        popup.sessionStorage.setItem('quata_google_oauth_channel', token);
+        popup.document.title = 'Qüata';
+        popup.document.body.textContent = 'Abriendo Google…';
+      } catch (_) {}
+      return token;
+    })()
+    """,
+)
+
+private fun closeWebGoogleOAuthPopup(popupToken: String): Unit = js(
+    """
+    (() => {
+      const popups = globalThis.__quataGoogleOAuthPopups;
+      const popup = popups?.get(popupToken);
+      popups?.delete(popupToken);
+      try { if (popup && !popup.closed) popup.close(); } catch (_) {}
+    })()
+    """,
+)
+
+private fun browserGoogleOAuth(
+    popupToken: String,
+    authorizationUrl: String,
+    redirectUri: String,
+    onSuccess: (String) -> Unit,
+    onFailure: (String) -> Unit,
+): () -> Unit = js(
+    """
+    (() => {
+      const popups = globalThis.__quataGoogleOAuthPopups;
+      const popup = popups?.get(popupToken);
+      if (!popup || popup.closed) {
+        popups?.delete(popupToken);
+        onFailure('google_oauth_popup_unavailable');
+        return () => {};
+      }
+      let settled = false;
+      let timer = null;
+      let detachedByCoop = false;
+      const channel = typeof globalThis.BroadcastChannel === 'function'
+        ? new globalThis.BroadcastChannel(`quata-google-oauth-${'$'}{popupToken}`)
+        : null;
+      const cleanup = (closePopup) => {
+        if (timer != null) globalThis.clearInterval(timer);
+        timer = null;
+        try { channel?.close(); } catch (_) {}
+        popups?.delete(popupToken);
+        if (closePopup) { try { if (!popup.closed) popup.close(); } catch (_) {} }
+      };
+      const finishFailure = (reason) => {
+        if (settled) return;
+        settled = true;
+        cleanup(true);
+        onFailure(reason);
+      };
+      try { popup.location.replace(authorizationUrl); }
+      catch (_) { finishFailure('google_oauth_navigation_failed'); return () => {}; }
+      const startedAt = Date.now();
+      if (channel) channel.onmessage = (event) => {
+        if (settled || event?.data?.type !== 'quata:google-oauth-callback') return;
+        const href = String(event.data.href || '');
+        if (!href.startsWith(redirectUri + '?') && !href.startsWith(redirectUri + '#')) return;
+        settled = true;
+        cleanup(true);
+        onSuccess(href);
+      };
+      timer = globalThis.setInterval(() => {
+        if (Date.now() - startedAt > 180000) {
+          finishFailure('google_oauth_timeout');
+          return;
+        }
+        let canInspectLocation = true;
+        try {
+          const href = String(popup.location.href);
+          if (href.startsWith(redirectUri + '?') || href.startsWith(redirectUri + '#')) {
+            if (settled) return;
+            settled = true;
+            cleanup(true);
+            onSuccess(href);
+          }
+        } catch (_) {
+          canInspectLocation = false;
+          // Cross-origin access is expected until Supabase returns to this origin.
+        }
+        let isClosed = null;
+        try { isClosed = popup.closed; } catch (_) {}
+        if (!canInspectLocation && isClosed === true) detachedByCoop = true;
+        if (isClosed === true && canInspectLocation && !detachedByCoop) {
+          finishFailure('google_oauth_popup_closed');
+        }
+      }, 150);
+      return () => {
+        if (settled) return;
+        settled = true;
+        cleanup(true);
+      };
+    })()
+    """,
+)
 
 private fun browserPostJson(
     endpoint: String,
@@ -643,19 +949,22 @@ private fun browserPostJson(
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
     onTerminalRefreshFailure: () -> Unit,
-): Unit = js(
+): () -> Unit = js(
     """
     (() => {
     const headers = { 'Content-Type': 'application/json', apikey: apiKey };
     if (accessToken != null && accessToken.length > 0) headers.Authorization = `Bearer ${'$'}{accessToken}`;
     if (webSessionToken != null && webSessionToken.length > 0) headers['x-quata-web-session'] = webSessionToken;
     const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+    let settled = false;
     const timeoutId = globalThis.setTimeout(() => {
       try { controller?.abort(); } catch (_) {}
     }, 15000);
     globalThis.fetch(endpoint, { method: 'POST', headers, body, signal: controller?.signal })
       .then(async (response) => {
         const text = await response.text();
+        if (settled) return;
+        settled = true;
         if (response.ok) onSuccess(text);
         else {
           let parsed = null;
@@ -669,8 +978,18 @@ private fun browserPostJson(
           }
         }
       })
-      .catch((error) => onFailure(error?.message || error?.name || 'web_auth_network_error'))
+      .catch((error) => {
+        if (settled) return;
+        settled = true;
+        onFailure(error?.message || error?.name || 'web_auth_network_error');
+      })
       .finally(() => globalThis.clearTimeout(timeoutId));
+    return () => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timeoutId);
+      try { controller?.abort(); } catch (_) {}
+    };
     })()
     """,
 )
@@ -681,13 +1000,20 @@ private fun browserGetJson(
     accessToken: String,
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
-): Unit = js(
+): () -> Unit = js(
     """
     (() => {
     const headers = { apikey: apiKey, Authorization: `Bearer ${'$'}{accessToken}` };
-    globalThis.fetch(endpoint, { method: 'GET', headers })
+    const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+    let settled = false;
+    const timeoutId = globalThis.setTimeout(() => {
+      try { controller?.abort(); } catch (_) {}
+    }, 15000);
+    globalThis.fetch(endpoint, { method: 'GET', headers, signal: controller?.signal })
       .then(async (response) => {
         const text = await response.text();
+        if (settled) return;
+        settled = true;
         if (response.ok) onSuccess(text);
         else {
           let errorCode = null;
@@ -695,7 +1021,18 @@ private fun browserGetJson(
           onFailure(errorCode ? `web_auth_profile_${'$'}{errorCode}` : `web_auth_profile_http_${'$'}{response.status}`);
         }
       })
-      .catch((error) => onFailure(error?.message || 'web_auth_profile_network_error'));
+      .catch((error) => {
+        if (settled) return;
+        settled = true;
+        onFailure(error?.message || 'web_auth_profile_network_error');
+      })
+      .finally(() => globalThis.clearTimeout(timeoutId));
+    return () => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timeoutId);
+      try { controller?.abort(); } catch (_) {}
+    };
     })()
     """,
 )

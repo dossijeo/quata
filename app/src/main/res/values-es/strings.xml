@@ -487,7 +487,6 @@
     <string name="neighborhoods_time_months">Hace %1$d meses</string>
     <string name="neighborhoods_time_one_year">Hace 1 año</string>
     <string name="neighborhoods_time_years">Hace %1$d años</string>
-    <string name="notification_permission_not_configured">Google Sign-In no configurado</string>
     <string name="notification_voice_note">Has recibido una nota de voz</string>
     <string name="notification_attachment">Nuevo adjunto</string>
     <string name="notification_new_message">Nuevo mensaje</string>
@@ -634,4 +633,9 @@
     <string name="profile_password_update_unavailable">Cambia tu contraseña desde «Olvidé mi contraseña» hasta que esté disponible la actualización autenticada.</string>
     <string name="profile_retry">Reintentar</string>
     <string name="profile_loading_error">No se pudo cargar el perfil.</string>
+    <string name="profile_link_google">Vincular cuenta de Google</string>
+    <string name="profile_linking_google">Vinculando cuenta de Google…</string>
+    <string name="profile_cancel_google_link">Cancelar vinculación con Google</string>
+    <string name="profile_google_linked">Cuenta de Google vinculada.</string>
+    <string name="profile_google_link_failed">No se pudo vincular la cuenta de Google.</string>
 </resources>

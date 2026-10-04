@@ -23,6 +23,10 @@ data class LoginFormStrings(
     val password: String,
     val signingIn: String,
     val signIn: String,
+    val continueWithGoogle: String,
+    val signingInWithGoogle: String,
+    val cancelGoogleSignIn: String,
+    val googleSignInFailed: String,
     val forgotPassword: String,
     val createAccount: String,
     val searchPrefix: String,
@@ -36,6 +40,7 @@ fun LoginForm(
     strings: LoginFormStrings,
     isLandscape: Boolean,
     showMockNotice: Boolean,
+    showGoogleSignIn: Boolean = false,
     showRegistration: Boolean = true,
     phoneInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
     passwordInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
@@ -52,14 +57,24 @@ fun LoginForm(
         ?: QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
     state.error?.let { Spacer(Modifier.height(compactSpace)); Text(it, color = MaterialTheme.colorScheme.error) }
     Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
-    submitButtonOverride?.invoke(if (state.isLoading) strings.signingIn else strings.signIn, !state.isLoading, { onEvent(LoginUiEvent.Submit) }, Modifier.semantics { testTag = "auth.submit" })
-        ?: QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, modifier = Modifier.semantics { testTag = "auth.submit" }, enabled = !state.isLoading) { onEvent(LoginUiEvent.Submit) }
+    submitButtonOverride?.invoke(if (state.isLoading) strings.signingIn else strings.signIn, !state.isBusy, { onEvent(LoginUiEvent.Submit) }, Modifier.semantics { testTag = "auth.submit" })
+        ?: QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, modifier = Modifier.semantics { testTag = "auth.submit" }, enabled = !state.isBusy) { onEvent(LoginUiEvent.Submit) }
+    if (showGoogleSignIn) {
+        Spacer(Modifier.height(compactSpace))
+        QuataSecondaryButton(
+            if (state.isGoogleLoading) strings.cancelGoogleSignIn else strings.continueWithGoogle,
+            modifier = Modifier.semantics { testTag = "auth.google" },
+            enabled = !state.isLoading,
+        ) {
+            onEvent(if (state.isGoogleLoading) LoginUiEvent.GoogleCancel else LoginUiEvent.GoogleSubmit)
+        }
+    }
     Spacer(Modifier.height(compactSpace))
-    QuataSecondaryButton(strings.forgotPassword, modifier = Modifier.semantics { testTag = "auth.forgot-password" }, enabled = !state.isLoading, onClick = onForgotPassword)
+    QuataSecondaryButton(strings.forgotPassword, modifier = Modifier.semantics { testTag = "auth.forgot-password" }, enabled = !state.isBusy, onClick = onForgotPassword)
     if (showRegistration) {
         Spacer(Modifier.height(compactSpace))
-        QuataSecondaryButton(strings.createAccount, modifier = Modifier.semantics { testTag = "auth.register" }, onClick = onGoToRegister)
+        QuataSecondaryButton(strings.createAccount, modifier = Modifier.semantics { testTag = "auth.register" }, enabled = !state.isBusy, onClick = onGoToRegister)
     }
-    if (state.isLoading) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); CircularProgressIndicator() }
+    if (state.isBusy) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); CircularProgressIndicator() }
     if (showMockNotice) { Spacer(Modifier.height(if (isLandscape) 8.dp else 12.dp)); Text(strings.mockNotice, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium) }
 }

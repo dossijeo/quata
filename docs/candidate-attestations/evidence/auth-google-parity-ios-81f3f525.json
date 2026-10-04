@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "unit": "SCR-AUTH-GOOGLE",
+  "platform": "ios",
+  "status": "passed",
+  "recordedAt": "2026-10-04T17:24:00Z",
+  "git": {
+    "head": "81f3f525544f875289bd81aa299278e789061641",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "prior_ios_google_oauth_runtime_evidence_unchanged",
+    "ios_profile_ios_x64_full_suite_52_of_52_passed_exact_product_sha",
+    "ios_profile_gateway_contract_17_of_17_passed_exact_product_sha",
+    "ios_profile_google_identity_linker_fixture_wiring_compiles",
+    "independent_review_no_blocking_findings"
+  ],
+  "execution": {
+    "task": ":feature:profile:iosX64Test",
+    "host": "macOS Intel",
+    "tests": 52,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": 10,
+    "gatewaySuite": "iosX64Test.com.quata.feature.profile.data.IosProfileGatewayContractTest",
+    "gatewayTests": 17,
+    "gatewayFailures": 0,
+    "gatewayErrors": 0,
+    "gatewayXmlSha256": "72442b7760a6244077d6caddcba0af844e0fb3b09157b917ccac1f295679687d"
+  },
+  "sourceEquivalence": {
+    "previousProductSha": "dc31361f3489d4ea878de1cf33de676aa2cac2de",
+    "currentProductSha": "81f3f525544f875289bd81aa299278e789061641",
+    "runtimeChanged": false,
+    "changedPath": "feature/profile/src/iosTest/kotlin/com/quata/feature/profile/data/IosProfileGatewayContractTest.kt",
+    "verification": "The only delta after the previously reviewed candidate passes null explicitly for the new optional GoogleIdentityLinker parameter in the iOS Profile contract fixture. The full Profile iosX64 suite compiled and passed from a clean exact-SHA worktree."
+  },
+  "independentReview": {
+    "status": "GO",
+    "findingsP0ToP3": [],
+    "reviewedSha": "81f3f525544f875289bd81aa299278e789061641"
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true
+  },
+  "limits": [
+    "This affected-gate renewal fixes and validates the iOS Profile test fixture. It does not claim a new remote Google account round trip or provider activation."
+  ]
+}

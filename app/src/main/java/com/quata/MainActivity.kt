@@ -239,6 +239,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(sourceIntent: Intent?) {
+        val callback = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
+        if ((application as QuataApp).resumeGoogleOAuthCallback(callback)) {
+            sourceIntent?.data = null
+            return
+        }
         incomingLink.value = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
         val shareIntent = sourceIntent?.takeIf {
             it.action in SHARE_ACTIONS

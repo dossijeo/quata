@@ -1,0 +1,79 @@
+{
+  "status": "passed",
+  "unit": "SCR-AUTH-GOOGLE",
+  "executedAtUtc": "2026-10-04T14:47:13Z",
+  "git": {
+    "head": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_google_oauth_pkce_contracts_passed",
+    "federated_profile_resolution_contracts_passed",
+    "android_pending_store_instrumented_8_of_8",
+    "android_compile_and_android_test_compile_passed",
+    "web_wasm_full_test_passed",
+    "ios_profile_compile_ios_x64_passed_exact_combined_product_sha",
+    "ios_auth_ios_x64_tests_passed_exact_combined_product_sha",
+    "ios_simulator_signed_build_for_testing_passed_exact_combined_product_sha",
+    "independent_review_no_blocking_findings",
+    "diff_check_passed",
+    "capability_matrix_contract_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "validatedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "instrumentedTests": 8,
+      "failures": 0,
+      "device": "QuataLivePr336Api35(AVD)-API-35",
+      "compileDebugKotlin": "passed",
+      "compileDebugAndroidTestKotlin": "passed"
+    },
+    "web": {
+      "status": "passed",
+      "validatedSha": "903706b237b4f71caa70a4c6b3511f7114604489",
+      "wasmJsTest": "passed",
+      "finalDelta": "combined_base_reviewed_no_web_runtime_change"
+    },
+    "ios": {
+      "status": "passed",
+      "validatedSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
+      "profileCompileIosX64": "passed",
+      "authTests": "passed_on_exact_combined_product_sha",
+      "simulatorSignedBuildForTesting": "passed",
+      "simulatorSignedLane": "Intel SimulatorSigned Keychain",
+      "host": "macos-hyperv-x86_64",
+      "xcode": "26.6 (17F113)",
+      "sdk": "iPhoneOS 26.5",
+      "finalDelta": "exact_combined_product_sha_revalidated",
+      "provenance": {
+        "productSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
+        "appSha256": "dbad133eebee2cdc40aba960b5910aedf8e3b0675cd88986a5ff64ab59efba1c",
+        "sharedFrameworkSha256": "c2ac10cd6bd2170e7525b3ef4dbbf57440d7a314be28069e660548b6c2aa9ac4",
+        "testBundleSha256": "67cb4a5eb80351e90f197a968b3a54c347a202cbaa7ed45094e8d7a84318fdbf",
+        "xctestrunSha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7"
+      }
+    }
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "ebd9ca82ae98dff548c1c2562ac15b740d644ac1",
+    "blockingFindings": [],
+    "note": "The independent review covered the combined product diff and the exact-SHA iOS revalidation evidence; the final documentary head was rechecked after evidence rebinding."
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true
+  },
+  "limitations": [
+    "Google provider activation and a real remote account round trip were not performed in this local certification.",
+    "Final GitHub jobs remain responsible for candidate-wide recertification."
+  ],
+  "notes": [
+    "OAuth uses Supabase Auth with PKCE S256 and resolves exactly one active Qüata profile; it does not create or guess profiles.",
+    "Android persists pending state encrypted, binds callbacks to an opaque attempt token, and separates recovered sign-in navigation from identity linking.",
+    "Web reserves the popup within the user gesture, survives COOP detachment through BroadcastChannel, exposes explicit cancellation, and prevents stale session publication.",
+    "No credentials were copied and no backend rows, provider settings, CI configuration or remote product data were mutated.",
+    "The combined product SHA was revalidated on the macOS x86_64 host with feature:auth iosX64 tests, feature:profile iosX64 compilation, and the complete SimulatorSigned build-for-testing lane; generated Xcode project output remained untracked and was not committed."
+  ]
+}

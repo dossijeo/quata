@@ -170,6 +170,7 @@ import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.core.translation.QuataTranslatorModeController
 import com.quata.core.translation.captureTranslatorBackground
 import com.quata.feature.auth.presentation.login.LoginScreen
+import com.quata.feature.auth.domain.GoogleIdentityLinker
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.domain.SosRateLimitException
@@ -589,6 +590,12 @@ fun AppNavGraph(
             navController.popBackStack(AppDestinations.CreatePost.route, inclusive = false)
         } else {
             navigateAuthenticatedDestination(pendingRoute)
+        }
+    }
+
+    LaunchedEffect(container.googleOAuthRecoveries) {
+        container.googleOAuthRecoveries.collect {
+            navigateAfterAuthentication()
         }
     }
 
@@ -1178,6 +1185,9 @@ fun AppNavGraph(
                             onDeleteAccountData = {
                                 accountOperationError = null
                                 pendingAccountAction = AccountLifecycleAction.DeleteData
+                            },
+                            onLinkGoogleIdentity = (container.authRepository as? GoogleIdentityLinker)?.let { linker ->
+                                { suspend { linker.beginIdentityLink().invoke().map { Unit } } }
                             },
                             documentOpenService = container.documentOpenService,
                             contactPickerService = container.platformServices.contacts,
