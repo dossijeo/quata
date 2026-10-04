@@ -1,0 +1,67 @@
+{
+  "check": "FLOW-SHELL-NAV-IOS-EXACT-POST-PROCESS-RELAUNCH-001",
+  "status": "passed",
+  "candidateProductSha": "9ee67bd9240a094211301f0e6684bbfbdfc32fdd",
+  "git": {
+    "head": "9ee67bd9240a094211301f0e6684bbfbdfc32fdd",
+    "workingTreeDirty": false
+  },
+  "restoredExactRoutes": [
+    "feed-post:<unicode/slash/query-id>",
+    "official-post:<unicode/slash/query-id>"
+  ],
+  "steps": [
+    "feed_exact_post_id_encoded_as_versioned_snapshot",
+    "official_exact_post_id_encoded_as_versioned_snapshot",
+    "unicode_slash_and_query_characters_round_trip",
+    "feed_exact_post_restored_after_application_termination",
+    "official_exact_post_restored_after_application_termination",
+    "restored_public_feed_not_overwritten_during_factory_install",
+    "exact_post_route_preserved_during_authentication_upgrade",
+    "focused_post_change_refreshes_persisted_route",
+    "focused_post_close_restores_root_route",
+    "malformed_snapshot_fails_closed_to_normal_root",
+    "cpu_raster_dependency_preflight_resolved_exact_component"
+  ],
+  "xctest": {
+    "simulator": "Quata-Raster-iOS-26-TouchFlow-79f4d579, iOS 26.5, x86_64",
+    "xcode": "26.6 (17F113)",
+    "selectedTests": 4,
+    "failures": 0,
+    "resultBundles": [
+      "/Volumes/QuataMigrationCapacity/ios-exact-post-route-evidence/ios-exact-route-unit.xcresult",
+      "/Volumes/QuataMigrationCapacity/ios-exact-post-route-evidence/ios-shell-layout-raster.xcresult"
+    ]
+  },
+  "renderer": {
+    "component": "org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT",
+    "resolutionPreflight": "passed",
+    "stockRendererAttempt": "rejected_after_lldb_attributed_sigsegv_to_ComposeHostingViewController_viewWillAppear_without_Metal"
+  },
+  "independentReview": {
+    "mode": "codex-review-commit",
+    "result": "no_actionable_regressions",
+    "runtimeVerificationNote": "Reviewer runtime was sandbox-limited; focal Node and XCTest gates were executed separately by the primary lane."
+  },
+  "cleanup": {
+    "state": "complete",
+    "remoteMutation": false,
+    "credentialsUsed": false,
+    "fixtureStorageContainsOnlyRouteIdentifiers": true,
+    "generatedXcodeProjectRemoved": true
+  },
+  "limits": [
+    "This focal evidence covers exact Feed and Official post-route restoration on iOS only.",
+    "It does not claim scroll position, drafts, editor state, media playback position or arbitrary secondary backstacks.",
+    "The initial stock-Skiko crash is preserved as rejected environment evidence; the accepted run used the documented CPU-raster component."
+  ],
+  "integration": {
+    "mode": "patch-equivalent-rebase-after-official-scroll-merge",
+    "sourceEvidenceProductSha": "9ee67bd9240a094211301f0e6684bbfbdfc32fdd",
+    "rebasedProductSha": "a607c58208e4f16ae7d4992382ba286d2ec1f88a",
+    "upstreamMergeSha": "75c04619c75e79c85a7231feacfd11a59dbc643d",
+    "stablePatchId": "6d60cb5712beb6bd376cc8fa5ce0ca5f820a72a9",
+    "runtimeFilesDifferFromExecutedProduct": false,
+    "rerunPolicy": "No XCTest repetition: all iosApp and scripts blobs are identical; only upstream attestation documents differ."
+  }
+}
