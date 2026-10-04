@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.Post
 import com.quata.core.model.User
@@ -22,6 +23,45 @@ import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 class FeedRootStatesTest {
+    @Test
+    fun liveRankingShowsLoadingUntilTheCompleteSnapshotArrives() = runComposeUiTest {
+        setContent {
+            QuataTheme {
+                FeedRankingLoadStateContent(
+                    isLoading = true,
+                    error = null,
+                    errorMessage = "No se pudo cargar el ranking",
+                    retryLabel = "Reintentar",
+                    onRetry = {},
+                    modifier = Modifier,
+                ) { Text("ranking-ready") }
+            }
+        }
+
+        onNodeWithTag(FeedRankingLoadingTestTag).assertIsDisplayed()
+    }
+
+    @Test
+    fun liveRankingFailureExposesAnExplicitRetry() = runComposeUiTest {
+        var retries = 0
+        setContent {
+            QuataTheme {
+                FeedRankingLoadStateContent(
+                    isLoading = false,
+                    error = "forced-ranking-error",
+                    errorMessage = "No se pudo cargar el ranking",
+                    retryLabel = "Reintentar",
+                    onRetry = { retries += 1 },
+                    modifier = Modifier,
+                ) { Text("ranking-ready") }
+            }
+        }
+
+        onNodeWithTag(FeedRankingErrorTestTag).assertIsDisplayed()
+        onNodeWithTag(FeedRankingRetryTestTag).assertIsDisplayed().performClick()
+        runOnIdle { assertEquals(1, retries) }
+    }
+
     @Test
     fun rootExposesLoadingEmptyAndErrorWithoutLeavingTheSharedHost() = runComposeUiTest {
         val holder = RootStateHolder(FeedUiState(isLoading = true))
@@ -96,7 +136,7 @@ private fun rootRepository(posts: List<Post> = emptyList()) = ReadOnlyFeedReposi
     override fun observeFeed() = flowOf(Result.success(posts))
     override suspend fun getFeed() = Result.success(posts)
     override suspend fun refreshFeed() = Result.success(posts)
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int) = Result.success(emptyList<Post>())
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int) = Result.success(emptyList<Post>())
     override suspend fun refreshCurrentUser() = Result.success<User?>(null)
     override suspend fun refreshAuthor(userId: String) = Result.success<User?>(null)
     override suspend fun refreshPost(postId: String) = Result.success(posts.find { it.id == postId })

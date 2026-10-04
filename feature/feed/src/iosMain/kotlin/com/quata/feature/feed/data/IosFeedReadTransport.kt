@@ -43,15 +43,20 @@ class IosFeedReadTransport(
     private val profileId: String? = null,
 ) : FeedReadTransport {
     override suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>> = runCatching {
-        val query = buildMap {
+        val isGlobalFeedPage = request.postId == null && profileId == null
+        val query = if (isGlobalFeedPage) buildMap {
+            put("p_limit", request.limit.coerceIn(1, 100).toString())
+            request.beforeCreatedAt?.takeIf(String::isNotBlank)?.let { put("p_before_created_at", it) }
+            request.beforeId?.takeIf(String::isNotBlank)?.let { put("p_before_id", it.requireIosPostgrestIdentifier()) }
+        } else buildMap {
             put("select", PostSelect)
-            put("order", "created_at.desc")
+            put("order", "created_at.desc,id.desc")
             put("limit", request.limit.coerceAtLeast(1).toString())
-            request.beforeCreatedAt?.takeIf(String::isNotBlank)?.let { put("created_at", "lt.$it") }
             request.postId?.takeIf(String::isNotBlank)?.let { put("id", "eq.${it.requireIosPostgrestIdentifier()}") }
             profileId?.takeIf(String::isNotBlank)?.let { put("profile_id", "eq.${it.requireIosPostgrestIdentifier()}") }
         }
-        getRows("community_posts", query).map { it.toFeedRemotePost() }
+        getRows(if (isGlobalFeedPage) "rpc/quata_community_feed_page" else "community_posts", query)
+            .map { it.toFeedRemotePost() }
     }
 
     override suspend fun fetchCommentsPage(request: FeedRemoteCommentPageRequest): Result<List<FeedRemoteComment>> = runCatching {
@@ -67,10 +72,16 @@ class IosFeedReadTransport(
         ).map { it.toFeedRemoteComment() }
     }
 
-    override suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>> = runCatching {
-        if (postIds.isEmpty()) emptyList() else getRows(
+    override suspend fun fetchLikesPage(request: FeedRemoteLikePageRequest): Result<List<FeedRemoteLike>> = runCatching {
+        if (request.postIds.isEmpty()) emptyList() else getRows(
             table = "community_post_likes",
-            query = mapOf("select" to LikeSelect, "post_id" to postIds.toIosPostgrestInFilter()),
+            query = buildMap {
+                put("select", LikeSelect)
+                put("post_id", request.postIds.toIosPostgrestInFilter())
+                request.afterIdExclusive?.let { put("id", "gt.${it.requireIosPostgrestIdentifier()}") }
+                put("order", "id.asc")
+                put("limit", request.limit.coerceAtLeast(1).toString())
+            },
         ).map { it.toFeedRemoteLike() }
     }
 
@@ -163,7 +174,7 @@ class IosFeedReadTransport(
     }
 
     private suspend fun getRows(table: String, query: Map<String, String>): List<Map<*, *>> {
-        require(table.matches(IosPostgrestTableName)) { "ios_feed_postgrest_table_invalid" }
+        require(table.matches(IosPostgrestReadPath)) { "ios_feed_postgrest_table_invalid" }
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/')
             .takeIf(String::isNotEmpty)
             ?: error("ios_feed_supabase_url_missing")
@@ -229,7 +240,7 @@ internal fun iosPublicFeedRequest(
     table: String,
     query: Map<String, String>,
 ): IosPublicFeedRequest {
-    require(table.matches(IosPostgrestTableName)) { "ios_feed_postgrest_table_invalid" }
+    require(table.matches(IosPostgrestReadPath)) { "ios_feed_postgrest_table_invalid" }
     return IosPublicFeedRequest(
         method = "GET",
         url = "${baseUrl.trim().trimEnd('/')}/rest/v1/$table${query.toIosQueryString()}",
@@ -323,7 +334,10 @@ private fun Map<*, *>.toFeedRemoteComment(): FeedRemoteComment = feedRemoteComme
     missingIdError = { IllegalStateException("ios_feed_response_missing_id") },
 )
 
-private fun Map<*, *>.toFeedRemoteLike(): FeedRemoteLike = feedRemoteLikeFromFields { name -> iosString(name) }
+private fun Map<*, *>.toFeedRemoteLike(): FeedRemoteLike = feedRemoteLikeFromFields(
+    field = { name -> iosString(name) },
+    missingIdError = { IllegalStateException("ios_feed_response_missing_id") },
+)
 private fun Map<*, *>.toFeedRemoteProfile(): FeedRemoteProfile = feedRemoteProfileFromFields(
     field = { name -> iosString(name) },
     booleanField = { name -> iosBoolean(name) },
@@ -360,7 +374,8 @@ private fun String.iosQueryComponent(): String = encodeToByteArray().joinToStrin
 
 private const val PostSelect = "id,wall_id,profile_id,body,image_url,video_url,created_at,community_id,author_id,content"
 private const val CommentSelect = "id,post_id,profile_id,body,created_at"
-private const val LikeSelect = "post_id,profile_id,created_at"
+private const val LikeSelect = "id,post_id,profile_id,created_at"
 private const val ProfileSelect = "id,display_name,barrio,neighborhood,nombre,avatar_url,avatar,is_admin,is_official"
 private val IosPostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
+private val IosPostgrestReadPath = Regex("(?:rpc/)?[A-Za-z_][A-Za-z0-9_]*")
 private val IosPostgrestIdentifier = Regex("[A-Za-z0-9_-]+")

@@ -264,6 +264,7 @@ fun FeedScreenHost(
     var deletionPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingDeletedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var liveOpen by rememberSaveable { mutableStateOf(false) }
+    var rankingTargetPostId by rememberSaveable { mutableStateOf<String?>(null) }
     // Audio is a Feed-wide product preference. Platform decoders consume this state; they do not
     // own one independent mute flag per renderer or per route host.
     var isFeedMuted by rememberSaveable { mutableStateOf(false) }
@@ -288,9 +289,8 @@ fun FeedScreenHost(
             ?: remember { kotlinx.coroutines.flow.MutableStateFlow<PendingAuthenticationContinuation?>(null) }
         ).collectAsState()
     val ranks = remember(state.posts) { calculateFeedRanking(state.posts) }
-    LaunchedEffect(state.posts, presence) {
-        // Ranking rows are derived from these posts, so this also covers their author avatars.
-        presence?.observeProfiles(state.posts.map { it.author.id })
+    LaunchedEffect(state.posts, state.rankingPosts, presence) {
+        presence?.observeProfiles((state.rankingPosts ?: state.posts).map { it.author.id })
     }
     DisposableEffect(presence) {
         presence?.setForeground(true)
@@ -465,6 +465,28 @@ fun FeedScreenHost(
     LaunchedEffect(pagerState.currentPage, visiblePosts) {
         if (hasAppliedRetainedPost) visiblePosts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id }
     }
+    LaunchedEffect(rankingTargetPostId, visiblePosts, state.focusedPostLoads) {
+        val target = rankingTargetPostId ?: return@LaunchedEffect
+        when (
+            val action = resolveFeedRankingTarget(
+                targetPostId = target,
+                visiblePostIds = visiblePosts.map(Post::id),
+                loadState = state.focusedPostLoads[target],
+            )
+        ) {
+            is FeedRankingTargetAction.Scroll -> {
+                pagerState.scrollToPage(action.index)
+                retainedPostId = target
+                rankingTargetPostId = null
+            }
+            FeedRankingTargetAction.RequestLoad -> viewModel.onEvent(FeedUiEvent.FocusPost(target))
+            FeedRankingTargetAction.WaitForLoad -> Unit
+            FeedRankingTargetAction.ClearFailedTarget -> {
+                rankingTargetPostId = null
+                showMessage(strings.loadingError)
+            }
+        }
+    }
 
     val showsDetailChrome = activeFocusedPostId != null && onBackFromFocusedPost != null
     val viewportPadding = if (showsDetailChrome) {
@@ -623,7 +645,10 @@ fun FeedScreenHost(
                     },
                     avatar = { slots.avatarWithPresence(post, presence?.let { post.author.id in onlineProfileIds }) },
                     onOpenComments = { commentsPostId = post.id },
-                    onOpenLive = { liveOpen = true },
+                    onOpenLive = {
+                        liveOpen = true
+                        viewModel.onEvent(FeedUiEvent.LoadCompleteRanking)
+                    },
                     onLike = {
                         if (canParticipate) viewModel.onEvent(FeedUiEvent.ToggleLike(post.id))
                         else onAuthenticationContinuationRequired(
@@ -739,23 +764,34 @@ fun FeedScreenHost(
     }
     if (liveOpen) slots.standardFloatingPanel({ liveOpen = false }) { panelModifier, panelLandscape ->
         Surface(panelModifier) {
-            FeedLiveRankingDialogContent(
-                posts = state.posts,
-                rankForPost = { ranks[it.id] ?: 1 },
-                postTypeLabel = { if (it.videoUrl != null) strings.videoType else if (it.imageUrl != null) strings.imageType else strings.textType },
-                panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.liveTitle, strings.liveSubtitle, strings.liveMonitored(items.size), strings.liveUpdated, strings.live, strings.close, strings.liveOpenPost), { item -> slots.rankingAvatarWithPresence(item, presence?.let { item.profileId in onlineProfileIds }) }, dismiss, open) },
-                onDismiss = { liveOpen = false },
-                onOpenPost = { post ->
-                    if (activeFocusedPostId != null) {
-                        localFocusedPostId = post.id
-                        onFocusedPostChanged(post.id)
-                    } else {
-                        val index = visiblePosts.indexOfFirst { it.id == post.id }
-                        if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
-                    }
-                    liveOpen = false
-                },
-            )
+            FeedRankingLoadStateContent(
+                isLoading = state.isLoadingRanking,
+                error = state.rankingError,
+                errorMessage = strings.loadingError,
+                retryLabel = strings.retry,
+                onRetry = { viewModel.onEvent(FeedUiEvent.LoadCompleteRanking) },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val rankingPosts = state.rankingPosts ?: state.posts
+                val rankingRanks = remember(rankingPosts) { calculateFeedRanking(rankingPosts) }
+                FeedLiveRankingDialogContent(
+                    posts = rankingPosts,
+                    rankForPost = { rankingRanks[it.id] ?: 1 },
+                    postTypeLabel = { if (it.videoUrl != null) strings.videoType else if (it.imageUrl != null) strings.imageType else strings.textType },
+                    panel = { items, dismiss, open -> QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.liveTitle, strings.liveSubtitle, strings.liveMonitored(items.size), strings.liveUpdated, strings.live, strings.close, strings.liveOpenPost), { item -> slots.rankingAvatarWithPresence(item, presence?.let { item.profileId in onlineProfileIds }) }, dismiss, open) },
+                    onDismiss = { liveOpen = false },
+                    onOpenPost = { post ->
+                        if (activeFocusedPostId != null) {
+                            localFocusedPostId = post.id
+                            onFocusedPostChanged(post.id)
+                        } else {
+                            viewModel.onEvent(FeedUiEvent.FocusPost(post.id))
+                            rankingTargetPostId = post.id
+                        }
+                        liveOpen = false
+                    },
+                )
+            }
         }
     }
 }
@@ -778,6 +814,30 @@ internal fun feedAuthenticationContinuation(
     text = text,
     desiredState = desiredState,
 )
+
+internal sealed interface FeedRankingTargetAction {
+    data class Scroll(val index: Int) : FeedRankingTargetAction
+    data object RequestLoad : FeedRankingTargetAction
+    data object WaitForLoad : FeedRankingTargetAction
+    data object ClearFailedTarget : FeedRankingTargetAction
+}
+
+internal fun resolveFeedRankingTarget(
+    targetPostId: String,
+    visiblePostIds: List<String>,
+    loadState: FeedFocusedPostLoad?,
+): FeedRankingTargetAction {
+    val index = visiblePostIds.indexOf(targetPostId)
+    if (index >= 0) return FeedRankingTargetAction.Scroll(index)
+    return when (loadState) {
+        null -> FeedRankingTargetAction.RequestLoad
+        FeedFocusedPostLoad.Loading -> FeedRankingTargetAction.WaitForLoad
+        FeedFocusedPostLoad.Loaded,
+        FeedFocusedPostLoad.Failed,
+        FeedFocusedPostLoad.NotFound,
+        -> FeedRankingTargetAction.ClearFailedTarget
+    }
+}
 
 /** A cancelled native share sheet is not an error; unavailable/failing adapters must be visible. */
 internal fun feedShareResultMessage(

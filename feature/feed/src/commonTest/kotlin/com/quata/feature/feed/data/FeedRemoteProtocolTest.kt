@@ -12,7 +12,7 @@ class FeedRemoteProtocolTest {
         val posts = buildFeedDomainPosts(
             posts = listOf(FeedRemotePost(id = "post-1", profileId = "author", body = "Hola &amp; adi\u00f3s")),
             comments = emptyList(),
-            likes = listOf(FeedRemoteLike(postId = "post-1", profileId = "viewer")),
+            likes = listOf(FeedRemoteLike(id = "like-1", postId = "post-1", profileId = "viewer")),
             profiles = listOf(FeedRemoteProfile(id = "author", fallbackName = "Nombre alternativo", phoneLocal = "123")),
             currentUserId = "viewer",
         )
@@ -48,13 +48,12 @@ class FeedRemoteProtocolTest {
     }
 
     @Test
-    fun gathersDistinctParticipantIdsFromEveryFeedEntity() {
+    fun gathersOnlyProfilesThatTheFeedActuallyRenders() {
         assertEquals(
-            listOf("author", "commenter", "liker"),
+            listOf("author", "commenter"),
             feedRemoteProfileIds(
                 posts = listOf(FeedRemotePost(id = "post", profileId = "author")),
                 comments = listOf(FeedRemoteComment(id = "comment", profileId = "commenter")),
-                likes = listOf(FeedRemoteLike(profileId = "liker")),
             ),
         )
     }
@@ -72,7 +71,7 @@ class FeedRemoteProtocolTest {
         val comment = feedRemoteCommentFromFields(
             mapOf("id" to "comment-1", "post_id" to "post-1", "body" to "Respuesta")::get,
         )
-        val like = feedRemoteLikeFromFields(mapOf("post_id" to "post-1", "profile_id" to "viewer")::get)
+        val like = feedRemoteLikeFromFields(mapOf("id" to "like-1", "post_id" to "post-1", "profile_id" to "viewer")::get)
         val profile = feedRemoteProfileFromFields(
             field = mapOf("id" to "author-1", "display_name" to "Autora", "avatar" to "fallback.png")::get,
             booleanField = { name -> name == "is_official" },

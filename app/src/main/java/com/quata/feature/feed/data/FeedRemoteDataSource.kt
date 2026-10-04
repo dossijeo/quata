@@ -13,18 +13,18 @@ class FeedRemoteDataSource(
 ) {
     suspend fun getPosts(
         limit: Int = 50,
-        offset: Int = 0,
         createdBefore: String? = null,
+        idBefore: String? = null,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST
     ): List<CommunityPost> =
-        supabaseApi.getFeedPosts(
+        supabaseApi.getCommunityFeedPage(
             limit = limit,
-            offset = offset,
-            createdBefore = createdBefore,
+            beforeCreatedAt = createdBefore,
+            beforeId = idBefore,
             cacheMode = cacheMode
         )
 
-    fun observePosts(limit: Int = 50): Flow<List<CommunityPost>> = supabaseApi.observeFeedPosts(limit = limit)
+    fun observePosts(limit: Int = 50): Flow<List<CommunityPost>> = supabaseApi.observeCommunityFeedPage(limit = limit)
 
     suspend fun getPost(
         postId: String,

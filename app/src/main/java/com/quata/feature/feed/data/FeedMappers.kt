@@ -114,7 +114,7 @@ fun CommunityComment.toFeedRemote(): FeedRemoteComment = FeedRemoteComment(
 )
 
 fun com.quata.data.supabase.CommunityPostLike.toFeedRemote(): FeedRemoteLike =
-    FeedRemoteLike(postId = post_id, profileId = profile_id)
+    FeedRemoteLike(id = id, postId = post_id, profileId = profile_id)
 
 fun CommunityProfile.toFeedRemote(): FeedRemoteProfile = FeedRemoteProfile(
     id = id,

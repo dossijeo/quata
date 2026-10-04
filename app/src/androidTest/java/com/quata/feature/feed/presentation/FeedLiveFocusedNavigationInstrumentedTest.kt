@@ -111,7 +111,7 @@ private fun androidLiveRepository() = ReadOnlyFeedRepository(object : FeedReadRe
     override fun observeFeed() = flowOf(Result.success(androidLivePosts))
     override suspend fun getFeed() = Result.success(androidLivePosts)
     override suspend fun refreshFeed() = Result.success(androidLivePosts)
-    override suspend fun loadOlderFeedPage(beforeCreatedAt: String?, limit: Int) = Result.success(emptyList<Post>())
+    override suspend fun loadOlderFeedPage(cursor: com.quata.feature.feed.domain.FeedCursor, limit: Int) = Result.success(emptyList<Post>())
     override suspend fun refreshCurrentUser() = Result.success<User?>(null)
     override suspend fun refreshAuthor(userId: String) = Result.success<User?>(null)
     override suspend fun refreshPost(postId: String) = Result.success(androidLivePosts.find { it.id == postId })

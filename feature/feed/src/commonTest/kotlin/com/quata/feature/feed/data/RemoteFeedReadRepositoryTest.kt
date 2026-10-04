@@ -1,5 +1,6 @@
 package com.quata.feature.feed.data
 
+import com.quata.feature.feed.domain.FeedCursor
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,7 +14,7 @@ class RemoteFeedReadRepositoryTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(FeedRemotePost(id = "post-1", profileId = "author", body = "Hola &amp; Quata")),
             comments = listOf(FeedRemoteComment(id = "comment-1", postId = "post-1", profileId = "commenter", body = "Buen d\u00eda")),
-            likes = listOf(FeedRemoteLike(postId = "post-1", profileId = "viewer")),
+            likes = listOf(FeedRemoteLike(id = "like-1", postId = "post-1", profileId = "viewer")),
             profiles = listOf(
                 FeedRemoteProfile(id = "author", displayName = "Autora", neighborhood = "Centro", isOfficial = true),
                 FeedRemoteProfile(id = "commenter", fallbackName = "Vecino"),
@@ -32,8 +33,8 @@ class RemoteFeedReadRepositoryTest {
         assertTrue(post.isLikedByCurrentUser)
         assertEquals("Vecino", post.comments.single().authorName)
         assertEquals(listOf("post-1"), transport.commentRequests.single().postIds)
-        assertEquals(listOf("post-1"), transport.likeRequests.single())
-        assertEquals(setOf("author", "commenter", "viewer"), transport.profileRequests.single().toSet())
+        assertEquals(listOf("post-1"), transport.likeRequests.single().postIds)
+        assertEquals(setOf("author", "commenter"), transport.profileRequests.single().toSet())
     }
 
     @Test
@@ -69,6 +70,32 @@ class RemoteFeedReadRepositoryTest {
     }
 
     @Test
+    fun drainsEveryLikePageBeforeComputingRankingCounts() = runTest {
+        val likes = (1..1_205).map { index ->
+            FeedRemoteLike(
+                id = "like-${index.toString().padStart(4, '0')}",
+                postId = "post-1",
+                profileId = "profile-$index",
+            )
+        }
+        val transport = FakeFeedReadTransport(
+            posts = listOf(FeedRemotePost(id = "post-1", profileId = "author")),
+            likes = likes,
+            profiles = listOf(FeedRemoteProfile(id = "author")),
+        )
+
+        val post = RemoteFeedReadRepository(transport).getFeed().getOrThrow().single()
+
+        assertEquals(1_205, post.likesCount)
+        assertEquals(listOf("author"), transport.profileRequests.single())
+        assertEquals(
+            listOf(null, "like-0500", "like-1000"),
+            transport.likeRequests.map(FeedRemoteLikePageRequest::afterIdExclusive),
+        )
+        assertTrue(transport.likeRequests.all { it.limit == 500 })
+    }
+
+    @Test
     fun refreshPostUsesIdRequestAndReturnsOnlyRequestedDetail() = runTest {
         val transport = FakeFeedReadTransport(
             posts = listOf(
@@ -94,11 +121,9 @@ class RemoteFeedReadRepositoryTest {
         )
         val repository = RemoteFeedReadRepository(transport)
 
-        repository.loadOlderFeedPage("2026-07-01T12:00:00Z", 0).getOrThrow()
-        repository.loadOlderFeedPage("   ", 12).getOrThrow()
+        repository.loadOlderFeedPage(FeedCursor("2026-07-01T12:00:00Z", "post-1"), 0).getOrThrow()
 
-        assertEquals(FeedRemotePostRequest(limit = 1, beforeCreatedAt = "2026-07-01T12:00:00Z"), transport.postRequests[0])
-        assertEquals(FeedRemotePostRequest(limit = 12), transport.postRequests[1])
+        assertEquals(FeedRemotePostRequest(limit = 1, beforeCreatedAt = "2026-07-01T12:00:00Z", beforeId = "post-1"), transport.postRequests[0])
     }
 
     @Test
@@ -155,7 +180,7 @@ private class FakeFeedReadTransport(
 ) : FeedReadTransport {
     val postRequests = mutableListOf<FeedRemotePostRequest>()
     val commentRequests = mutableListOf<FeedRemoteCommentPageRequest>()
-    val likeRequests = mutableListOf<List<String>>()
+    val likeRequests = mutableListOf<FeedRemoteLikePageRequest>()
     val profileRequests = mutableListOf<List<String>>()
     var postsFailure: Throwable? = null
     var commentsFailure: Throwable? = null
@@ -182,9 +207,16 @@ private class FakeFeedReadTransport(
         }
     }
 
-    override suspend fun fetchLikes(postIds: List<String>): Result<List<FeedRemoteLike>> {
-        likeRequests += postIds
-        return likesFailure.asFailureOr { likes.filter { it.postId in postIds } }
+    override suspend fun fetchLikesPage(request: FeedRemoteLikePageRequest): Result<List<FeedRemoteLike>> {
+        likeRequests += request
+        return likesFailure.asFailureOr {
+            likes.asSequence()
+                .filter { it.postId in request.postIds }
+                .filter { request.afterIdExclusive == null || it.id > request.afterIdExclusive }
+                .sortedBy(FeedRemoteLike::id)
+                .take(request.limit)
+                .toList()
+        }
     }
 
     override suspend fun fetchProfiles(profileIds: List<String>): Result<List<FeedRemoteProfile>> {
