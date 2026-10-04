@@ -101,6 +101,8 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(webRunner, /clickProfileAnchorOrText/);
   assert.match(webRunner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_LOCAL_FACADE_AUTHORIZATION/);
   assert.match(webRunner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_LOCAL_FACADE/);
+  assert.match(webRunner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_WEB_PORT/);
+  assert.match(webRunner, /server\.listen\(port, "127\.0\.0\.1", ok\)/);
   assert.match(webRunner, /isNonBlockingAuthorizedLocalFacadeRealtimeFault/);
   assert.match(webRunner, /Unexpected response code: 404/);
   assert.match(webRunner, /pollProfileFollowEdge\(peerProfile\.actorProfileId, peerProfile\.profileId, true\)/);
@@ -108,6 +110,12 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(localFacade, /on conflict \(profile_id, client_instance_id\) do nothing/);
   assert.match(localFacade, /delete from public\.web_client_sessions where id = \$1 returning id/);
   assert.match(localFacade, /receipt\.cleanupVerified = removed === createdWebSessionIds\.size/);
+  assert.doesNotMatch(localFacade, /"access-control-allow-origin": "\*"/);
+  assert.match(localFacade, /config\.allowedOrigins\.length !== 1/);
+  assert.match(localFacade, /local_facade_origin_must_be_exact_loopback_origin/);
+  assert.match(localFacade, /allowedOrigins\.has\(requestOrigin\)/);
+  assert.match(localFacade, /x-quata-facade-control/);
+  assert.match(localFacade, /timingSafeEqual\(expectedHash, suppliedHash\)/);
 });
 
 test("the focused contract runs in both fast contract suites", () => {

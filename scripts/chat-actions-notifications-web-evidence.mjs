@@ -1559,6 +1559,11 @@ function escapeHtml(value) {
 }
 
 async function startServer(root) {
+  const configuredPort = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_WEB_PORT?.trim();
+  const port = configuredPort === undefined || configuredPort === "" ? 0 : Number(configuredPort);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error("invalid_evidence_web_port");
+  }
   const server = createServer(async (request, response) => {
     try {
       const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
@@ -1575,7 +1580,7 @@ async function startServer(root) {
       response.end(await readFile(file));
     } catch { response.writeHead(500).end(); }
   });
-  await new Promise((ok, fail) => { server.once("error", fail); server.listen(0, "127.0.0.1", ok); });
+  await new Promise((ok, fail) => { server.once("error", fail); server.listen(port, "127.0.0.1", ok); });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("static_server_start_failed");
   return { origin: `http://127.0.0.1:${address.port}`, close: () => new Promise((ok, fail) => server.close((error) => error ? fail(error) : ok())) };
