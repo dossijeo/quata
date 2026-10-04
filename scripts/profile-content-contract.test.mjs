@@ -59,8 +59,13 @@ test("public profile content exposes common post preview and action anchors", ()
   }
   assert.match(preview, /PublicProfilePostMediaTestTagPrefix = "public-profile\.post\.media\."/);
   assert.doesNotMatch(preview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
+  assert.match(preview, /PublicProfilePostOpenDetailTestTagPrefix = "public-profile\.post\.detail\.open\."/);
   assert.match(preview, /PublicProfilePostOpenMediaTestTagPrefix = "public-profile\.post\.media\.open\."/);
-  assert.match(preview, /val tag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id[\s\S]*testTag = tag[\s\S]*contentDescription = tag/);
+  assert.match(
+    preview,
+    /val tag = if \(opensDetail\) \{[\s\S]*PublicProfilePostOpenDetailTestTagPrefix \+ post\.id[\s\S]*\} else \{[\s\S]*PublicProfilePostOpenMediaTestTagPrefix \+ post\.id[\s\S]*\}[\s\S]*testTag = tag[\s\S]*contentDescription = tag/,
+  );
+  assert.match(preview, /val tag = PublicProfilePostVideoStartTestTagPrefix \+ post\.id[\s\S]*testTag = tag[\s\S]*contentDescription = tag/);
   assert.match(preview, /semantics \{ testTag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id \}/);
   assert.match(preview, /contentDescription = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
   for (const constant of [
