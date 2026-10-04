@@ -9,6 +9,7 @@ const complete = read("feature/feed/src/commonMain/kotlin/com/quata/feature/feed
 const android = read("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt");
 const web = read("web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt");
 const ios = read("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosFeedReadTransport.kt");
+const iosNeighborhoods = read("feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt");
 const state = read("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedUiState.kt");
 const executor = read("scripts/selective-db-release-executor.mjs");
 const restoreDrill = read("scripts/restore-db-logical-backup-drill.ps1");
@@ -34,6 +35,8 @@ for (const source of [android, web, ios]) {
   assert.match(source, /p_before_created_at/);
   assert.match(source, /p_before_id/);
 }
+assert.match(iosNeighborhoods, /RemoteFeedReadRepository\([\s\S]*?\)\.loadFeedPage\(ProfilePostLimit\)\.getOrThrow\(\)/);
+assert.doesNotMatch(iosNeighborhoods, /loadOlderFeedPage\(beforeCreatedAt\s*=/);
 assert.match(android, /observeCommunityFeedPage[\s\S]*rpc\/quata_community_feed_page/);
 assert.match(android, /loadCompleteKeyset[\s\S]*cursorOf = CommunityPostLike::id/);
 assert.match(remoteRepository, /fetchLikesPage/);
