@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-LIVE-RANKING"
+  ],
+  "status": "passed",
+  "productSha": "256ffbf54c87bdc5bb33686409a57150873f7473",
+  "certification": "official-focused-live-navigation-affected-platform-validation-and-capability-rebind-complete-final-ci-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "256ffbf54c87bdc5bb33686409a57150873f7473",
+      "report": "docs/candidate-attestations/evidence/official-live-ranking-navigation-1ef98f0b.json",
+      "reportSha256": "703ba9dbd59fdc5fdd8e043fe8a586c40f58576ba947b1b38f6025bd932e6b95",
+      "reportStatus": "passed",
+      "reportGitHead": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "focused_official_live_a_to_b_to_a_android_runtime",
+        "ordinary_official_live_selection_keeps_pager_android_runtime",
+        "independent_review_go",
+        "capability_matrix_rebound_and_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic_read_only_instrumented_fixture"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "256ffbf54c87bdc5bb33686409a57150873f7473",
+      "report": "docs/candidate-attestations/evidence/official-live-ranking-navigation-1ef98f0b.json",
+      "reportSha256": "703ba9dbd59fdc5fdd8e043fe8a586c40f58576ba947b1b38f6025bd932e6b95",
+      "reportStatus": "passed",
+      "reportGitHead": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "official_live_selection_routes_focused_detail_and_pager_wasm",
+        "web_official_fragment_and_compose_route_stay_in_sync",
+        "independent_review_go",
+        "capability_matrix_rebound_and_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_browser_tests_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "256ffbf54c87bdc5bb33686409a57150873f7473",
+      "report": "docs/candidate-attestations/evidence/official-live-ranking-navigation-1ef98f0b.json",
+      "reportSha256": "703ba9dbd59fdc5fdd8e043fe8a586c40f58576ba947b1b38f6025bd932e6b95",
+      "reportStatus": "passed",
+      "reportGitHead": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "ios_x64_selection_contract_passed_on_exact_product_sha",
+        "ios_simulator_signed_host_build_passed_on_identical_product_tree_before_freeze",
+        "independent_review_go",
+        "capability_matrix_rebound_and_contract_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_ios_x64_test_and_simulator_signed_host_build"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialLiveFocusedNavigationTest :web:wasmJsBrowserTest --tests com.quata.web.WebOfficialLiveRouteTest :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.official.presentation.OfficialLiveFocusedNavigationInstrumentedTest --no-daemon",
+    "JAVA_HOME=<installed-quata-jbr21> GRADLE_USER_HOME=<isolated-cache> bash ./gradlew :feature:official:iosX64Test --tests com.quata.feature.official.presentation.OfficialLiveFocusedNavigationTest --configure-on-demand --no-daemon",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-live-ranking-navigation.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+    "blockingFindings": [],
+    "scopeLimit": "Focused Official Live identity changes, ordinary pager selection and platform route propagation are proven. Remote ranking completeness, media and a global Live/Ranking E2E remain separate scopes.",
+    "runtimeReviewedSha": "1ef98f0b66dcee9c961c79b57dc548acd3d41e33",
+    "matrixBindingSha": "256ffbf54c87bdc5bb33686409a57150873f7473",
+    "matrixContract": "passed_22_of_22"
+  },
+  "notes": [
+    "The product fix separates focused-detail identity changes from ordinary pager movement, preventing a focused Official post A from discarding a Live selection of post B.",
+    "Android exercises the real common host and Live controls. Web verifies its canonical browser fragment and Compose route. iOS verifies the shared selection contract and its host wiring compiled in the affected SimulatorSigned build.",
+    "The final GitHub platform jobs remain responsible for candidate-wide recertification; no complete local E2E matrix was repeated solely because the product commit was frozen.",
+    "No credentials, backend state or remote product data were used.",
+    "The first candidate-final run exposed three stale decisive-source hashes in the platform capability matrix. Product SHA 256ffbf54 rebinds only those declarations; the complete fail-closed capability contract passes 22/22 and runtime sources remain byte-identical to the reviewed and platform-validated 1ef98f0b tree."
+  ]
+}

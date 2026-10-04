@@ -915,6 +915,7 @@ fun AppNavGraph(
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         focusedPostId = officialFocusedPostId,
                         onFocusedPostHandled = {},
+                        onFocusedPostChanged = { officialFocusedPostId = it },
                         onBackFromFocusedPost = { officialFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() },
                         onAuthenticationContinuationRequired = { continuation ->
