@@ -12,6 +12,9 @@ async function source(path) {
 const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPostDetailChromeContent.kt");
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
+const feedTextReader = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/TextOnlyReelContent.kt");
+const feedTextReaderAnchorTest = await source("feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/TextOnlyReelScrollAnchorTest.kt");
+const androidFeedTextReaderTest = await source("app/src/androidTest/java/com/quata/feature/feed/presentation/TextOnlyReelScrollRestorationInstrumentedTest.kt");
 const feedAuthor = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/ReelAuthorContent.kt");
 const androidFeedScreen = await source("app/src/main/java/com/quata/feature/feed/presentation/FeedScreen.kt");
 const androidAttachmentViewer = await source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt");
@@ -78,6 +81,22 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(iosFeedRuntime, /onBackFromFocusedPost = onBackFromFocusedPost/);
   assert.match(iosApp, /func markFeedDetailClosed\(\)/);
   assert.match(iosApp, /onBackFromFocusedPost: postId == nil \? nil : \{ \[weak self\] in self\?\.authenticatedHost\.markFeedDetailClosed\(\) \}/);
+});
+
+test("Feed text reader restores deep scroll by exact post identity", () => {
+  assert.match(feedTextReader, /data class TextOnlyReelReaderScrollAnchor\(/);
+  assert.match(feedTextReader, /val stableId: String,[\s\S]*?val scrollOffsetPx: Int/);
+  assert.match(feedTextReader, /rememberSaveable\(stableId, stateSaver = TextOnlyReelReaderScrollAnchor\.Saver\)/);
+  assert.match(feedTextReader, /takeIf \{ it\.stableId == stableId \}/);
+  assert.match(feedTextReader, /readerScrollAnchor = TextOnlyReelReaderScrollAnchor\(stableId, readerScrollState\.value\)/);
+  assert.match(feedTextReader, /snapshotFlow \{ readerScrollState\.value \}/);
+  assert.match(feedTextReader, /const val TextOnlyReelReaderScrollTestTag = "feed\.text-reader\.scroll"/);
+  assert.match(feedTextReaderAnchorTest, /matchingPostRestoresTheExactDeepOffset/);
+  assert.match(feedTextReaderAnchorTest, /anotherPostCannotInheritThePreviousReaderOffset/);
+  assert.match(feedTextReaderAnchorTest, /saverRoundTripKeepsPostAndExactPixelOffset/);
+  assert.match(androidFeedTextReaderTest, /savedInstanceStateRestoresTheExactOpenReaderOffset/);
+  assert.match(androidFeedTextReaderTest, /emulateSavedInstanceStateRestore\(\)/);
+  assert.match(androidFeedTextReaderTest, /assertEquals\(beforeRestore, afterRestore\)/);
 });
 
 test("Feed author profile entry is owned by the common reel row", () => {
