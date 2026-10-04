@@ -1275,6 +1275,7 @@ private final class IosAppCompositionRoot {
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
+                        onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markOfficialDetailChanged(postId: postId) },
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                         preferredLanguageTag: Locale.preferredLanguages.first,
                         profileOpeningState: self.memberProfileOpeningState,
@@ -1300,6 +1301,7 @@ private final class IosAppCompositionRoot {
                     authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                     onCreateOfficialPost: onCreateOfficialPost,
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
+                    onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markOfficialDetailChanged(postId: postId) },
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                     profileOpeningState: self.memberProfileOpeningState,
                 ),
@@ -3441,6 +3443,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if case .official = visibleRoute {
             routeSelectionRevision &+= 1
             visibleRoute = .official(postId: nil)
+        }
+    }
+
+    func markOfficialDetailChanged(postId: String) {
+        if case .official = visibleRoute {
+            routeSelectionRevision &+= 1
+            visibleRoute = .official(postId: postId)
         }
     }
 

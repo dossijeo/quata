@@ -21,6 +21,7 @@ import com.quata.core.capability.QuataFeature
 import com.quata.core.navigation.quataChatDeepLinkOrNull
 import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
+import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.navigation.quataWebRouteAccess
@@ -954,6 +955,7 @@ private fun QuataWebApp(
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onCreateOfficialPost = { navigation.navigate("official-editor") },
                                 onBackFromFocusedPost = navigation.officialPostId?.let { { navigation.replace("official") } },
+                                onFocusedPostChanged = { postId -> navigation.replace(quataOfficialPostUrl(postId).substringAfter('#')) },
                             )
                             if (memberProfileId != null) {
                             WebNeighborhoodsHost(

@@ -187,6 +187,15 @@ class OfficialFeedScreenPlatformSlots(
     val exposeE2eStateSemantics: Boolean = false,
 )
 
+internal fun dispatchOfficialLiveSelection(
+    focusedPostId: String?,
+    selectedPostId: String,
+    onFocusedDetail: (String) -> Unit,
+    onFeedPager: (String) -> Unit,
+) {
+    if (focusedPostId != null) onFocusedDetail(selectedPostId) else onFeedPager(selectedPostId)
+}
+
 /**
  * Sole Official screen root shared by Android, Wasm and iOS.
  *
@@ -204,6 +213,7 @@ fun OfficialFeedScreenHost(
     focusedPostId: String?,
     strings: OfficialFeedScreenStrings,
     onFocusedPostHandled: () -> Unit,
+    onFocusedPostChanged: (String) -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit,
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
@@ -638,7 +648,26 @@ fun OfficialFeedScreenHost(
     state.posts.firstOrNull { it.id == deletePost }?.let { post -> OfficialDeleteConfirmationDialogContent(strings.deleteTitle, strings.deleteMessage, strings.confirm, strings.cancel, { deletePost = null }, { viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id)); deletePost = null }) }
     if (liveOpen) QuataStandardFloatingPanelContent(onDismiss = { liveOpen = false }) { panelModifier, panelLandscape ->
         val items = state.posts.sortedWith(compareByDescending<OfficialPostItem> { it.likesCount }.thenByDescending { it.createdAt }).mapIndexed { index, post -> QuataLiveRankingItem(post.id, post.author.id, ranks[post.id]?.position ?: index + 1, post.title, post.author.displayName, post.author.displayName, post.author.avatarUrl, true, post.likesCount) }
-        QuataLiveRankingPanelContent(items, panelLandscape, QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore), slots.rankingAvatar, { liveOpen = false }, { id -> rankingTargetPostId = id; liveOpen = false }, panelModifier)
+        QuataLiveRankingPanelContent(
+            items,
+            panelLandscape,
+            QuataLiveRankingStrings(strings.rank, strings.live, "${items.size}", strings.refresh, strings.live, strings.close, strings.readMore),
+            slots.rankingAvatar,
+            { liveOpen = false },
+            { id ->
+                dispatchOfficialLiveSelection(
+                    focusedPostId = activeFocusedPostId,
+                    selectedPostId = id,
+                    onFocusedDetail = { postId ->
+                        localFocusedPostId = postId
+                        onFocusedPostChanged(postId)
+                    },
+                    onFeedPager = { postId -> rankingTargetPostId = postId },
+                )
+                liveOpen = false
+            },
+            panelModifier,
+        )
     }
     // Native media viewers are deliberately injected at the platform seam; this host only owns selection.
     mediaPost?.let { id ->

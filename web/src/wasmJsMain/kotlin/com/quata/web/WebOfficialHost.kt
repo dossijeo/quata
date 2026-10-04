@@ -91,6 +91,7 @@ fun WebOfficialHost(
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
     onBackFromFocusedPost: (() -> Unit)? = null,
+    onFocusedPostChanged: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val languageTag = webOfficialLanguageTag()
@@ -124,6 +125,7 @@ fun WebOfficialHost(
         onOpenUserProfile = onOpenUserProfile,
         onCreateOfficialPost = onCreateOfficialPost,
         onFocusedPostHandled = {},
+        onFocusedPostChanged = onFocusedPostChanged,
         onBackFromFocusedPost = onBackFromFocusedPost,
         strings = defaultOfficialFeedScreenStrings(languageTag),
         modifier = modifier,
