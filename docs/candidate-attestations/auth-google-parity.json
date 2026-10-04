@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-GOOGLE"
+  ],
+  "status": "passed",
+  "productSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+  "certification": "google-oauth-platform-parity-affected-gates-complete-final-ci-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-db6288f6.json",
+      "reportSha256": "69ce09300b93c8c86de3fa1b191e9bdf531b871f7e09f440a4cb939ea19ec913",
+      "reportStatus": "passed",
+      "reportGitHead": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "common_google_oauth_pkce_contracts_passed",
+        "android_pending_store_instrumented_8_of_8",
+        "android_compile_and_android_test_compile_passed",
+        "independent_review_no_blocking_findings"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_android_emulator_no_backend_mutation"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-db6288f6.json",
+      "reportSha256": "69ce09300b93c8c86de3fa1b191e9bdf531b871f7e09f440a4cb939ea19ec913",
+      "reportStatus": "passed",
+      "reportGitHead": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "common_google_oauth_pkce_contracts_passed",
+        "federated_profile_resolution_contracts_passed",
+        "web_wasm_full_test_passed",
+        "independent_review_no_blocking_findings"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_wasm_browser_tests_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "report": "docs/candidate-attestations/evidence/auth-google-parity-db6288f6.json",
+      "reportSha256": "69ce09300b93c8c86de3fa1b191e9bdf531b871f7e09f440a4cb939ea19ec913",
+      "reportStatus": "passed",
+      "reportGitHead": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "common_google_oauth_pkce_contracts_passed",
+        "ios_profile_compile_ios_x64_passed_patch_equivalent",
+        "ios_auth_ios_x64_tests_passed_unchanged_sources",
+        "independent_review_no_blocking_findings"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_ios_x64_compile_and_tests_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/google-oauth-lifecycle-contract.test.mjs supabase/functions/quata-auth-bridge/federated-profile.test.mjs",
+    ".\\gradlew.bat :web:wasmJsTest :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.auth.AndroidGoogleOAuthPendingStoreInstrumentedTest --no-daemon",
+    "bash ./gradlew :feature:profile:compileKotlinIosX64 --no-daemon",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-google-parity.json --head HEAD --json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+    "blockingFindings": [],
+    "scopeLimit": "Local validation proves the OAuth lifecycle, exact profile resolution, session race guards and platform wiring. Remote Google provider activation and a real account round trip remain outside this candidate evidence.",
+    "runtimeReviewedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e"
+  },
+  "notes": [
+    "Android was renewed on the final product SHA with 8/8 focal instrumented tests after the final Android-only navigation fix.",
+    "Web and iOS were validated on 903706b237b4f71caa70a4c6b3511f7114604489. The only later product delta is Android QuataApp navigation selection, its Android instrumented test and the matching documentary contract.",
+    "The final GitHub platform jobs remain responsible for candidate-wide recertification; no complete local E2E matrix was repeated solely because the SHA changed.",
+    "No credentials, backend rows, provider settings, CI configuration or remote product data were used or mutated."
+  ]
+}

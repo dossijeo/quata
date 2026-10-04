@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "unit": "SCR-AUTH-GOOGLE",
+  "executedAtUtc": "2026-10-04T12:06:00Z",
+  "git": {
+    "head": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_google_oauth_pkce_contracts_passed",
+    "federated_profile_resolution_contracts_passed",
+    "android_pending_store_instrumented_8_of_8",
+    "android_compile_and_android_test_compile_passed",
+    "web_wasm_full_test_passed",
+    "ios_profile_compile_ios_x64_passed_patch_equivalent",
+    "ios_auth_ios_x64_tests_passed_unchanged_sources",
+    "independent_review_no_blocking_findings",
+    "diff_check_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "validatedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+      "instrumentedTests": 8,
+      "failures": 0,
+      "device": "QuataLivePr336Api35(AVD)-API-35",
+      "compileDebugKotlin": "passed",
+      "compileDebugAndroidTestKotlin": "passed"
+    },
+    "web": {
+      "status": "passed",
+      "validatedSha": "903706b237b4f71caa70a4c6b3511f7114604489",
+      "wasmJsTest": "passed",
+      "finalDelta": "android_only"
+    },
+    "ios": {
+      "status": "passed",
+      "validatedSha": "903706b237b4f71caa70a4c6b3511f7114604489",
+      "profileCompileIosX64": "passed",
+      "host": "macos-hyperv-x86_64",
+      "xcode": "26.6 (17F113)",
+      "sdk": "iPhoneOS 26.5",
+      "authTests": "passed_on_unchanged_auth_sources_before_final_ui_and_android_only_fixes",
+      "finalDelta": "android_only"
+    }
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "db6288f6d848bb182540962f81d7d54b01b9e38e",
+    "blockingFindings": [],
+    "note": "The independent reviewer could inspect the exact diff but its sandbox could not execute Node due Windows filesystem permissions; the listed tests were executed successfully by the controlling process."
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true
+  },
+  "limitations": [
+    "Google provider activation and a real remote account round trip were not performed in this local certification.",
+    "Final GitHub jobs remain responsible for candidate-wide recertification."
+  ],
+  "notes": [
+    "OAuth uses Supabase Auth with PKCE S256 and resolves exactly one active Qüata profile; it does not create or guess profiles.",
+    "Android persists pending state encrypted, binds callbacks to an opaque attempt token, and separates recovered sign-in navigation from identity linking.",
+    "Web reserves the popup within the user gesture, survives COOP detachment through BroadcastChannel, exposes explicit cancellation, and prevents stale session publication.",
+    "No credentials were copied and no backend rows, provider settings, CI configuration or remote product data were mutated."
+  ]
+}
