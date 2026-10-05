@@ -1,0 +1,63 @@
+{
+  "check": "PROFILE-SAFETY-RETRY-ANDROID-NATIVE-001",
+  "status": "passed",
+  "startedAt": "2026-10-05T21:25:50.430Z",
+  "finishedAt": "2026-10-05T21:41:13.430Z",
+  "git": {
+    "head": "9ba9e626c9742b712833178ebd1528b129a69377",
+    "workingTreeDirty": false
+  },
+  "scope": "Android Compose product UI against the production database and its real RLS/RPC behavior through an explicitly authorized loopback Auth/PostgREST facade",
+  "steps": [
+    "native_loopback_auth_rest_facade_accepted_for_profile_safety_retry",
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "android_debug_package_precompiled_before_profile_safety_retry_instrumentation",
+    "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+    "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified",
+    "profile_safety_retry_block_persisted_verified_by_db"
+  ],
+  "observations": {
+    "instrumentationTests": 1,
+    "instrumentationPassed": 1,
+    "retry": "The first block was forced to fail before transport; the UI exposed its optimistic unblock state, restored the original block action with an error, and the same visible Retry control converged to a production block edge.",
+    "navigation": "The peer avatar opened the shared public profile and the test returned to the same Chat after retry convergence."
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "conversation_unmuted",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "profile_roles_safety_fixture_restored",
+      "cleanup_verified_profile_roles_safety_restored"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "limits": [
+    "Hosted Supabase Auth returned HTTP 402, so authentication and REST transport were supplied by the opt-in emulator-loopback facade while retaining the production database, RLS and RPC behavior.",
+    "The facade did not implement hosted Realtime and this focal report does not certify the hosted Auth/API gateway."
+  ],
+  "provenance": {
+    "sourceReportSha256": "06ac2c49963c993b273c373e87967c3cbf376a589efd5c3e5866b82739dfb872",
+    "sourceReportStoredOutsideGit": true,
+    "dependencyOnlyAttempt": "The first invocation stopped before fixture creation because the new worktree did not yet link the repository's installed Node dependencies."
+  }
+}

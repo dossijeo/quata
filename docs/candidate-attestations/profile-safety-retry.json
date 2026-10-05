@@ -4,12 +4,12 @@
     "PROF-SAFETY-RETRY"
   ],
   "status": "passed",
-  "productSha": "17f039df77685656bd6a1e88a748282d8804be31",
-  "certification": "candidate-awaiting-renewed-independent-review-and-final-pr-gates",
+  "productSha": "d9776a491417333c42b74a143de953cf1470ef07",
+  "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "17f039df77685656bd6a1e88a748282d8804be31",
+      "sha": "d9776a491417333c42b74a143de953cf1470ef07",
       "report": "docs/candidate-attestations/evidence/profile-safety-retry-web-dac05b6e.json",
       "reportSha256": "91cb9ebd7ac6d5bc09550d8be8708b527670c5cc8ac6bf49e7d59c47c92abd0e",
       "reportStatus": "passed",
@@ -30,45 +30,51 @@
     },
     "android": {
       "status": "passed",
-      "sha": "17f039df77685656bd6a1e88a748282d8804be31",
-      "report": "docs/candidate-attestations/evidence/profile-safety-retry-android-2c3d563f.json",
-      "reportSha256": "1e728ce7270b5affae0e44941a60b039d73acd226c10057085491efe83dd3842",
+      "sha": "d9776a491417333c42b74a143de953cf1470ef07",
+      "report": "docs/candidate-attestations/evidence/profile-safety-retry-android-9ba9e626.json",
+      "reportSha256": "2f79414dcbd2ef863652729acc5291c226f9f9a46f40bf4f7664c670ff390e80",
       "reportStatus": "passed",
-      "reportGitHead": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "reportGitHead": "9ba9e626c9742b712833178ebd1528b129a69377",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requiredSteps": [
-        "profile_follow_and_safety_retry_contracts_passed_11_of_11",
-        "profile_safety_late_failure_scoped_and_retry_resumed_wasm_focal_passed",
-        "profile_safety_late_success_preserved_newer_profile_error_wasm_focal_passed",
-        "profile_safety_android_main_compiled"
+        "native_loopback_auth_rest_facade_accepted_for_profile_safety_retry",
+        "two_authorized_profiles_logged_in",
+        "android_debug_package_precompiled_before_profile_safety_retry_instrumentation",
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified",
+        "profile_safety_retry_block_persisted_verified_by_db"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "compile-and-contract-only-no-runtime-fixture"
+        "mode": "real-production-database-with-native-android-ui-and-ephemeral-loopback-auth-rest-facade"
       }
     },
     "ios": {
       "status": "passed",
-      "sha": "17f039df77685656bd6a1e88a748282d8804be31",
-      "report": "docs/candidate-attestations/evidence/profile-safety-retry-ios-2c3d563f.json",
-      "reportSha256": "081e1298c31b4ec7d1c1c72d4e6cad0d4c58f22cfef71d57d1a220844ce914ab",
+      "sha": "d9776a491417333c42b74a143de953cf1470ef07",
+      "report": "docs/candidate-attestations/evidence/profile-safety-retry-ios-fcd23947.json",
+      "reportSha256": "a0f9e32a5f9e5e355fbbd689483d49025fc65b0130021e4f422c56bd7652f776",
       "reportStatus": "passed",
-      "reportGitHead": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "reportGitHead": "fcd239475ad14f9facd68d562f0076107e0aab10",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requiredSteps": [
-        "mac_checkout_sha_matched_product_sha",
-        "profile_safety_ios_x64_main_compiled",
-        "profile_safety_late_failure_scoped_and_retry_resumed_ios_x64_focal_passed",
-        "profile_safety_late_success_preserved_newer_profile_error_ios_x64_focal_passed",
-        "isolated_mac_checkout_removed"
+        "native_loopback_auth_rest_facade_accepted_for_ios_profile_safety_retry",
+        "two_authorized_profiles_logged_in",
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_mac_loopback_reverse_tunnel_verified",
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "ios_xctest_profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified",
+        "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified",
+        "ios_mac_loopback_reverse_tunnel_stopped"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "isolated-macos-compile-only-worktree-removed"
+        "mode": "real-production-database-with-signed-ios-simulator-ui-and-ephemeral-mac-loopback-auth-rest-facade"
       }
     }
   },
@@ -81,15 +87,20 @@
     ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon",
     "bash gradlew :feature:neighborhoods:compileKotlinIosX64 :feature:neighborhoods:compileTestKotlinIosX64 --no-daemon --console=plain",
     "node scripts/chat-actions-notifications-web-evidence.mjs --profile-safety-negative-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-safety-negative-only",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-safety-negative-only",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-safety-retry.json"
   ],
   "notes": [
     "The product retains the exact failed profile-safety action and target after a block mutation fails. A late failure for profile A does not contaminate profile B; returning to A restores the bounded error and same retry control. A late success for A also preserves an error that belongs to the newer visible profile B.",
-    "Web/Wasm accepted the real Compose UI and production database behavior on clean Product SHA dac05b6e. Product SHA 17f039df retains the complete safety runtime byte-identical to the reviewed 2c3d563f product after rebasing onto integrated follow retry main; both corrected interleavings passed Wasm and iOS x64 focal tests on that reviewed runtime, so the full backend trial was not repeated solely for the rebase and capability declaration update.",
-    "Hosted Supabase Auth returned HTTP 402. The accepted Web run therefore used the hardened loopback facade with exactly one origin, an external ephemeral shutdown secret and local PostgREST against the production database. It created and removed two temporary sessions, removed its container and configuration, and did not implement Realtime.",
-    "Android and iOS evidence executes both corrected common navigation interleavings and compiles their affected product paths on reviewed Product SHA 2c3d563f. Every safety path changed by that unit is byte-identical in Product SHA 17f039df; the latter additionally binds all ten capability declarations for the three decisive Communities sources. Live native UI retry convergence remains pending while hosted authentication is unavailable.",
+    "Web/Wasm accepted the real Compose UI and production database behavior on clean Product SHA dac05b6e. Product SHA fcd23947 retains that common safety runtime and adds native evidence transport and iOS launch wiring; the Web product path did not change, so its full matrix was not repeated solely for this native closure.",
+    "Hosted Supabase Auth returned HTTP 402. The accepted Web, Android and iOS runs therefore used the hardened loopback facade and local PostgREST against the production database. The native runs retained real RLS/RPC behavior, restored every safety and Chat fixture, and did not implement Realtime.",
+    "Android ran one instrumented test on clean head 9ba9e626 and iOS ran the signed Simulator XCTest on clean Product SHA fcd23947. Both opened the profile from Chat, observed the forced pre-transport block failure, exact UI rollback and same-control Retry, verified the resulting production block edge, returned to Chat, restored the original block state and finished with zero physical residue.",
     "The first attempt on the original safety branch failed before fixture creation because hosted Auth returned HTTP 402. The first local-facade launch attempt then failed before authentication because a placeholder publishable key was rejected; cleanup was empty. The accepted run used the repository public key without printing it.",
-    "The local Realtime endpoint is intentionally absent. Ten exact loopback WebSocket 404 diagnostics were retained and classified as non-blocking only under the explicit local-facade authorization.",
-    "This unit does not recertify the integrated report/block positive path, authorization denial, report failure, concurrent safety mutations, Android/iOS live UI or unrelated profile behavior."
+    "The local Realtime endpoint is intentionally absent. Exact loopback WebSocket 404 diagnostics remain non-blocking only under the explicit local-facade authorization.",
+    "The first native iOS run completed cleanup but did not mount Chat because its safety XCTest failed to forward the authorized loopback runtime into the app process. Product SHA fcd23947 reuses the three bounded launch values already proven by follow retry and waits for authenticated chrome before opening the deep link; the next clean run passed.",
+    "The accepted Android report remains on 9ba9e626 because fcd23947 changes only the iOS UI-test launch environment and its contract. Android product runtime and evidence runner are unchanged, so the native Android matrix was not repeated solely for that iOS-only transition.",
+    "Product SHA d9776a49 recomposes the unchanged PROF-SAFETY-RETRY delta over integrated PROF-FOLLOW-RETRY main 0abcc80dd and aligns the existing PROF-ROLES readiness contract with the authenticated chrome already required by the iOS evidence flow. Native runtime, runner and evidence blobs remain byte-equivalent to the accepted pre-recomposition candidate, so no platform matrix was repeated solely for this base and contract advance.",
+    "This unit does not recertify the integrated report/block positive path, authorization denial, report failure, concurrent safety mutations or unrelated profile behavior."
   ]
 }
