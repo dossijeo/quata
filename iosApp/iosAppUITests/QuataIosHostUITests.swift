@@ -1202,7 +1202,7 @@ final class QuataIosHostUITests: XCTestCase {
     }
 
     func testProfileSosSaveFailureKeepsSharedErrorInDialog() {
-        let app = fixtureApp("profile-legal", spanishLocale: true, profileSosSaveError: true)
+        let app = fixtureApp("profile-sos-retry", spanishLocale: true)
         app.launch()
 
         let openSos = app.descendants(matching: .any)
@@ -1236,6 +1236,144 @@ final class QuataIosHostUITests: XCTestCase {
             "A failed SOS save must keep the shared editor open for retry.",
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-save-error")
+    }
+
+    func testProfileSosRejectsSixthContactAndRetriesExactEditedSettings() {
+        let device = XCUIDevice.shared
+        device.orientation = .portrait
+        addTeardownBlock { device.orientation = .portrait }
+        let app = fixtureApp("profile-sos-retry", spanishLocale: true)
+        app.launch()
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 10))
+        device.orientation = .landscapeLeft
+        waitForWindow(window, toBeLandscape: true, context: "Profile SOS retry landscape")
+
+        let openSos = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.open")
+            .firstMatch
+        XCTAssertTrue(openSos.waitForExistence(timeout: 15))
+        openSos.tap()
+
+        let contactsList = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.contacts.list")
+            .firstMatch
+        XCTAssertTrue(contactsList.waitForExistence(timeout: 10))
+        func visibleContactToggle(index: Int) -> XCUIElement {
+            let query = app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
+            for attempt in 0..<4 {
+                let toggle = query.firstMatch
+                if toggle.exists { return toggle }
+                if attempt < 3 { contactsList.swipeUp() }
+            }
+            XCTFail("SOS contact \(index) must enter the shared lazy-list semantics after bounded scrolling.")
+            return query.firstMatch
+        }
+
+        for index in 1...5 {
+            let toggle = visibleContactToggle(index: index)
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            let selected = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label CONTAINS %@", "Remove"),
+                object: toggle,
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [selected], timeout: 10),
+                .completed,
+                "SOS contact \(index) must be selected before the next interaction.",
+            )
+        }
+        let sixth = visibleContactToggle(index: 6)
+        sixth.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(
+            sixth.label.contains("Add"),
+            "The sixth SOS contact must remain unselected when the five-contact limit is reached.",
+        )
+
+        device.orientation = .portrait
+        waitForWindow(window, toBeLandscape: false, context: "Profile SOS retry message portrait")
+        contactsList.swipeDown()
+        contactsList.swipeDown()
+        if app.keyboards.firstMatch.exists {
+            let done = app.keyboards.buttons["Return"]
+            XCTAssertTrue(done.exists, "The focused SOS search field must expose its Done action.")
+            done.tap()
+            XCTAssertFalse(
+                app.keyboards.firstMatch.waitForExistence(timeout: 2),
+                "The SOS search Done action must release focus and restore the portrait header.",
+            )
+        }
+        let messageTab = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.tab.message")
+            .firstMatch
+        XCTAssertTrue(messageTab.waitForExistence(timeout: 10))
+        messageTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let message = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.message.input")
+            .firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 10))
+        let suffix = " [iOS retry exacto]"
+        message.tap()
+        message.typeText(suffix)
+        let editedMessageVisible = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS %@", suffix),
+            object: message,
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [editedMessageVisible], timeout: 10),
+            .completed,
+            "The edited SOS message must be visible before saving.",
+        )
+
+        let save = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.save")
+            .firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        let messageKeyboard = app.keyboards.firstMatch
+        XCTAssertTrue(messageKeyboard.exists, "Editing the exact SOS message must own the software keyboard before save.")
+        XCTAssertTrue(save.isHittable, "The shared SOS save action must remain hittable above the message keyboard.")
+        XCTAssertLessThanOrEqual(
+            save.frame.maxY,
+            messageKeyboard.frame.minY,
+            "The shared portrait save action must be laid out above the software keyboard.",
+        )
+        save.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.error")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The first save must fail visibly without closing the shared editor.",
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)
+                .matching(identifier: "profile-sos-save-success")
+                .firstMatch
+                .exists,
+            "A failed first attempt must not manufacture a successful save marker.",
+        )
+
+        save.tap()
+        let success = app.descendants(matching: .any)
+            .matching(identifier: "profile-sos-save-success")
+            .firstMatch
+        XCTAssertTrue(success.waitForExistence(timeout: 10), "Retry must reach the same repository through the shared save action.")
+        let expectedPayload = [
+            "sos-fixture-1,sos-fixture-2,sos-fixture-3,sos-fixture-4,sos-fixture-5",
+            "Avisar a mis contactos de emergencia.\(suffix)",
+            "false",
+        ].joined(separator: "\u{001F}")
+        XCTAssertEqual(success.label, expectedPayload, "Retry must preserve the five selected contacts and exact edited message.")
+        XCTAssertFalse(
+            app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.root")
+                .firstMatch
+                .exists,
+            "A successful retry must close the shared SOS editor.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-save-retry-success")
     }
 
     func testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat() {
@@ -1400,7 +1538,10 @@ final class QuataIosHostUITests: XCTestCase {
         if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
         if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }
         if resetWhatsNew { app.launchArguments += ["-quata-ui-test-reset-whats-new"] }
-        if profileSosSaveError { app.launchArguments += ["-quata-ui-test-profile-sos-save-error"] }
+        if profileSosSaveError {
+            app.launchArguments += ["-quata-ui-test-profile-sos-save-error"]
+            app.launchEnvironment["QUATA_UI_TEST_PROFILE_SOS_SAVE_ERROR"] = "1"
+        }
         if shellOffline { app.launchArguments += ["-quata-ui-test-shell-offline"] }
         if let shellRoute { app.launchArguments += ["-quata-ui-test-shell-route", shellRoute] }
         if exposeKeyboardBackdrop { app.launchArguments += ["-quata-ui-test-expose-keyboard-backdrop"] }

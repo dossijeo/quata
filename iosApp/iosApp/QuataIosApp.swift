@@ -695,6 +695,7 @@ private final class IosAppCompositionRoot {
     /// Compose/Metal controller can be created on a fixture launch.
     private func uiTestFixtureRootViewControllerIfRequested() -> UIViewController? {
         let arguments = ProcessInfo.processInfo.arguments
+        let environment = ProcessInfo.processInfo.environment
         guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture") else { return nil }
         if arguments.contains("-quata-ui-test-reset-primary-route") {
             IosAuthenticatedHostRouter.clearPersistedPrimaryRouteForTesting()
@@ -988,6 +989,7 @@ private final class IosAppCompositionRoot {
                     embeddedController: IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
                         languageCode: Locale.preferredLanguages.first,
                         onOpened: { _ in },
+                        onSosSaved: { _ in },
                         forceSosSaveError: false,
                     ),
                 )
@@ -1049,25 +1051,50 @@ private final class IosAppCompositionRoot {
                 )
             }
             return container
-        case "profile-legal":
+        case "profile-legal", "profile-sos-retry":
+            let forceSosSaveError = arguments[fixtureIndex + 1] == "profile-sos-retry" ||
+                arguments.contains("-quata-ui-test-profile-sos-save-error") ||
+                environment["QUATA_UI_TEST_PROFILE_SOS_SAVE_ERROR"] == "1"
             var container: IosAuthLaunchFixtureContainerViewController!
             container = IosAuthLaunchFixtureContainerViewController {
-                IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
+                let onOpened: (String) -> Void = { name in
+                    DispatchQueue.main.async {
+                        guard let view = container?.view else { return }
+                        let marker = UILabel()
+                        marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                        marker.accessibilityLabel = name
+                        marker.isAccessibilityElement = true
+                        marker.text = name
+                        marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                        marker.alpha = 0.01
+                        view.addSubview(marker)
+                    }
+                }
+                let onSosSaved: (String) -> Void = { payload in
+                    DispatchQueue.main.async {
+                        guard let view = container?.view else { return }
+                        let marker = UILabel()
+                        marker.accessibilityIdentifier = "profile-sos-save-success"
+                        marker.accessibilityLabel = payload
+                        marker.isAccessibilityElement = true
+                        marker.text = payload
+                        marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                        marker.alpha = 0.01
+                        view.addSubview(marker)
+                    }
+                }
+                if forceSosSaveError {
+                    return IosProfileLegalEvidenceFixtureKt.QuataIosProfileSosRetryEvidenceViewController(
+                        languageCode: Locale.preferredLanguages.first,
+                        onOpened: onOpened,
+                        onSosSaved: onSosSaved,
+                    )
+                }
+                return IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
                     languageCode: Locale.preferredLanguages.first,
-                    onOpened: { name in
-                        DispatchQueue.main.async {
-                            guard let view = container?.view else { return }
-                            let marker = UILabel()
-                            marker.accessibilityIdentifier = "legal-document-opened-\(name)"
-                            marker.accessibilityLabel = name
-                            marker.isAccessibilityElement = true
-                            marker.text = name
-                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-                            marker.alpha = 0.01
-                            view.addSubview(marker)
-                        }
-                    },
-                    forceSosSaveError: arguments.contains("-quata-ui-test-profile-sos-save-error"),
+                    onOpened: onOpened,
+                    onSosSaved: onSosSaved,
+                    forceSosSaveError: false,
                 )
             }
             return container

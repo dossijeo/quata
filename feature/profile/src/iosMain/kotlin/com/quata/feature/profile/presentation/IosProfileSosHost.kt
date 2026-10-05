@@ -48,11 +48,12 @@ class IosProfileSosHostDependencies(
 fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): UIViewController = QuataComposeUIViewController {
     val state by dependencies.viewModel.uiState.collectAsState()
     val profile = state.profile
+    val observedImeVisible = rememberIosKeyboardVisible()
     QuataTheme {
         EmergencyContactsDialogContent(
             layoutPadding = PaddingValues(),
             isLandscapeLayout = dependencies.isLandscape,
-            isImeVisible = dependencies.isImeVisible,
+            isImeVisible = dependencies.isImeVisible || observedImeVisible,
             candidates = state.emergencyCandidates,
             selectedIds = profile?.emergencyContactIds.orEmpty(),
             message = profile?.emergencyMessage.orEmpty(),

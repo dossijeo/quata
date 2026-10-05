@@ -85,6 +85,7 @@ class IosProfileHostDependencies(
 fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = QuataComposeUIViewController {
     var touchFlowEnabled by remember { mutableStateOf(dependencies.touchFlowEnabled) }
     var themeMode by remember { mutableStateOf(dependencies.themeMode) }
+    val isImeVisible = rememberIosKeyboardVisible()
     QuataTheme(mode = themeMode) {
         val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
         val scope = rememberCoroutineScope()
@@ -112,6 +113,7 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
             onEmergencySettingsSaved = dependencies.onEmergencySettingsSaved,
             slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
+                isImeVisible = { isImeVisible },
                 avatar = { name, avatarUrl -> IosRemoteAvatar(name, name, avatarUrl, Modifier.size(56.dp)) },
                 avatarActions = { onAvatarChanged -> IosProfileAvatarActions(dependencies, onAvatarChanged) },
                 emergencyContactRow = { contact: EmergencyContactCandidate, selected, toggle ->

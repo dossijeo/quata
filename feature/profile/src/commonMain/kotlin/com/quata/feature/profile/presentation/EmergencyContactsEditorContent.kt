@@ -15,6 +15,8 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,9 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 
@@ -97,6 +101,7 @@ fun EmergencyContactsEditorContent(
     val messageBringIntoViewRequester = remember { BringIntoViewRequester() }
     val messageFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
     var isMessageFocused by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
     var keyboardOwner by remember { mutableStateOf<EmergencyContactsKeyboardOwner?>(null) }
@@ -167,6 +172,8 @@ fun EmergencyContactsEditorContent(
                                 onValueChange = { query = it },
                                 placeholder = { Text(strings.searchPlaceholder) },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .focusRequester(searchFocusRequester)
@@ -287,6 +294,17 @@ fun EmergencyContactsEditorContent(
                                     8,
                                     null,
                                 )
+                            },
+                            imeAction = if (isImeVisible) {
+                                {
+                                    EmergencyContactsPortraitSaveButtonContent(
+                                        label = strings.savePortrait,
+                                        isSaving = isSaving,
+                                        onSave = onSave,
+                                    )
+                                }
+                            } else {
+                                null
                             },
                             modifier = modifier,
                         )

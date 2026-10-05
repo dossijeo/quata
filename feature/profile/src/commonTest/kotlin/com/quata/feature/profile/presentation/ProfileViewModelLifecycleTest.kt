@@ -93,6 +93,25 @@ class ProfileViewModelLifecycleTest {
     }
 
     @Test
+    fun repeated_sos_save_event_while_saving_reaches_repository_once() = runTest {
+        val repository = RecordingRepository(stream = { flowOf(Result.success(profileModel())) })
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val viewModel = ProfileViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        runCurrent()
+
+        viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled("contact-1"))
+        viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
+        viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings)
+        assertTrue(viewModel.uiState.value.isSaving)
+        runCurrent()
+
+        assertEquals(1, repository.savedEmergencyContactIds.size)
+        assertFalse(viewModel.uiState.value.isSaving)
+        assertTrue(viewModel.uiState.value.emergencySettingsSaved)
+        viewModel.close()
+    }
+
+    @Test
     fun account_details_save_failure_keeps_local_edits_without_success() = runTest {
         val repository = RecordingRepository(
             stream = { flowOf(Result.success(profileModel())) },

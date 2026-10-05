@@ -146,9 +146,10 @@ class ProfileViewModel(
     }
 
     private fun saveEmergencySettings() {
+        if (_uiState.value.isSaving) return
         val profile = _uiState.value.profile ?: return
+        _uiState.update { it.copy(isSaving = true, errorMessage = null, successMessage = null) }
         scope.launch {
-            _uiState.update { it.copy(isSaving = true, errorMessage = null, successMessage = null) }
             repository.saveEmergencySettings(
                 contactIds = profile.emergencyContactIds.distinct().take(5),
                 message = profile.emergencyMessage,
