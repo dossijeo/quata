@@ -45,6 +45,8 @@ import com.quata.core.navigation.AuthenticationContinuationKind
 import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.MediaFileExportDescriptor
+import com.quata.core.platform.mediaFileExportDescriptorOrNull
 import com.quata.core.platform.SharePayload
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.CommunityEmojiLabels
@@ -117,6 +119,9 @@ class OfficialFeedScreenStrings(
     val detailTitle: String = "Detalle de comunicado",
     val detailBack: String = "Volver a comunicados",
     val mediaPlaybackFailed: String = "No se pudo reproducir el vídeo.",
+    val downloadMedia: String = "Descargar",
+    val shareMediaFile: String = "Compartir archivo",
+    val mediaExportFailed: String = "No se pudo exportar",
 ) {
     constructor() : this(
         empty = "No hay comunicados oficiales disponibles.", create = "Crear comunicado",
@@ -142,9 +147,21 @@ const val OfficialFeedStateTestTagPrefix = "official-feed-common-state"
 const val OfficialFeedErrorMessageTestTag = "official-feed-error-message"
 const val OfficialFeedRetryTestTag = "official-feed-retry"
 
+fun officialMediaFileExportDescriptor(post: OfficialPostItem): MediaFileExportDescriptor? {
+    val mediaType = post.mediaType ?: return null
+    return mediaFileExportDescriptorOrNull(
+        reference = post.mediaUrl,
+        title = post.title,
+        mimeType = when (mediaType) {
+            OfficialMediaType.Video -> "video/mp4"
+            OfficialMediaType.Image -> "image/jpeg"
+        },
+    )
+}
+
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
-    "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",mediaPlaybackFailed="Could not play the video.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags",empty="No emojis available."))
-    "fr" -> OfficialFeedScreenStrings(loadingError="Impossible de charger les communiqués officiels.",mediaPlaybackFailed="Impossible de lire la vidéo.",live="DIRECT",readMoreMoreInformation="Plus d'informations",readMoreContinueReading="Continuer la lecture",readMoreDetails="Détails",typeAnnouncement="Communiqué",typeNews="Actualités",typeEvent="Événement",typeUrgent="Urgent",officialAccountFallback="Compte officiel",deleteTitle="Supprimer le communiqué",deleteMessage="Cette action est irréversible.",confirm="Confirmer",cancel="Annuler",deleted="Communiqué supprimé",shareUnavailable="Ce communiqué ne peut pas être partagé sur cet appareil.",shareFailed="Impossible de partager le communiqué",empty="Aucun communiqué officiel disponible.",create="Créer un communiqué",retry="Réessayer",like="J'aime",comments="Commentaires",share="Partager",rank="Classement",delete="Supprimer",close="Fermer",profile="Profil",readMore="Lire plus",refresh="Actualiser",reportSent="Signalement envoyé pour examen",reportFailed="Impossible d'envoyer le signalement",commentPlaceholder="Écris un commentaire…",commentSend="Envoyer le commentaire",commentReport="Signaler",commentReply="Répondre",commentReplyingTo={ "Réponse à $it" },commentCancelReply="Annuler la réponse",commentsYou="Toi",commentReplyTo={ "↳ Réponse à $it" },showEmojis="Afficher les emojis",translatorContentDescription="Traducteur Fang",emojiLabels=CommunityEmojiLabels(recent="Récents",frequent="Fréquents",gestures="Gestes",people="Personnes",animalsNature="Animaux et nature",foodDrink="Cuisine et boissons",objectsSymbols="Objets et symboles",flags="Drapeaux",empty="Aucun emoji disponible."))
+    "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",mediaPlaybackFailed="Could not play the video.",downloadMedia="Download",shareMediaFile="Share file",mediaExportFailed="Could not export",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags",empty="No emojis available."))
+    "fr" -> OfficialFeedScreenStrings(loadingError="Impossible de charger les communiqués officiels.",mediaPlaybackFailed="Impossible de lire la vidéo.",downloadMedia="Télécharger",shareMediaFile="Partager le fichier",mediaExportFailed="Impossible d'exporter",live="DIRECT",readMoreMoreInformation="Plus d'informations",readMoreContinueReading="Continuer la lecture",readMoreDetails="Détails",typeAnnouncement="Communiqué",typeNews="Actualités",typeEvent="Événement",typeUrgent="Urgent",officialAccountFallback="Compte officiel",deleteTitle="Supprimer le communiqué",deleteMessage="Cette action est irréversible.",confirm="Confirmer",cancel="Annuler",deleted="Communiqué supprimé",shareUnavailable="Ce communiqué ne peut pas être partagé sur cet appareil.",shareFailed="Impossible de partager le communiqué",empty="Aucun communiqué officiel disponible.",create="Créer un communiqué",retry="Réessayer",like="J'aime",comments="Commentaires",share="Partager",rank="Classement",delete="Supprimer",close="Fermer",profile="Profil",readMore="Lire plus",refresh="Actualiser",reportSent="Signalement envoyé pour examen",reportFailed="Impossible d'envoyer le signalement",commentPlaceholder="Écris un commentaire…",commentSend="Envoyer le commentaire",commentReport="Signaler",commentReply="Répondre",commentReplyingTo={ "Réponse à $it" },commentCancelReply="Annuler la réponse",commentsYou="Toi",commentReplyTo={ "↳ Réponse à $it" },showEmojis="Afficher les emojis",translatorContentDescription="Traducteur Fang",emojiLabels=CommunityEmojiLabels(recent="Récents",frequent="Fréquents",gestures="Gestes",people="Personnes",animalsNature="Animaux et nature",foodDrink="Cuisine et boissons",objectsSymbols="Objets et symboles",flags="Drapeaux",empty="Aucun emoji disponible."))
     else -> OfficialFeedScreenStrings()
 }
 

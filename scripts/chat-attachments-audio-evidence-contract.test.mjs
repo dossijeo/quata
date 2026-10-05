@@ -51,6 +51,7 @@ const [
   androidRunner,
   webRunner,
   iosRunner,
+  browserMediaExport,
   browserAudioPlayer,
   browserChatMedia,
   androidMediaViewer,
@@ -116,6 +117,7 @@ const [
   source("scripts/chat-actions-notifications-android-evidence.mjs"),
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+  source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserMediaFileExportService.wasm.kt"),
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserChatMediaContent.kt"),
   source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
@@ -202,8 +204,8 @@ test("recoverable document viewer failures retry the exact file and preserve ter
   assert.match(webMain, /!hasAuthenticatedSession && !hasLocalDocumentRetryFixtureAccess && navigationState\.requiresAuthentication/);
   assert.match(webMain, /\(!privateRouteAccess\.isAllowed && !hasLocalDocumentRetryFixtureAccess\)/);
   assert.match(webHost, /safeWebDocumentRetryEvidenceUrl\(reference\)/);
-  assert.match(webHost, /downloadWebAttachment\(\): PlatformResult<Unit>[\s\S]{0,240}safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
-  assert.match(webHost, /shareWebAttachment\(shareService: ShareService\): PlatformResult<Unit>[\s\S]{0,520}safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webHost, /private suspend fun PlatformFile\.exportWebAttachment\([\s\S]{0,520}reference\.safeBrowserChatMediaUrl\(\) \?: safeWebDocumentRetryEvidenceUrl\(reference\)/);
+  assert.match(webHost, /MediaFileExportDescriptor\([\s\S]{0,260}allowResponseMimeOverride = true/);
   assert.match(webRunner, /--document-retry-local-only/);
   assert.match(webRunner, /openLocalDocumentRetryPage\(browser, server\.origin, faults\)/);
   assert.match(iosRuntimeBootstrap, /I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE/);
@@ -584,25 +586,20 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.match(androidChatAttachmentAudioPlayerService, /delegate\.open\(resolvedFile\)/);
   assert.match(appContainer, /documentOpenService: DocumentOpenService = AndroidChatAttachmentDocumentOpenService/);
   assert.match(appContainer, /resolver = chatAttachmentFileResolver/);
-  assert.match(webHost, /materializeCancelableWebAttachment\(source, file\.displayName, file\.mimeType\)/);
-  assert.match(webHost, /suspendCancellableCoroutine/);
-  assert.match(webHost, /cancelWebAttachmentMaterialization\(requestId\)/);
-  assert.match(webHost, /result\.releaseMaterializedWebAttachmentIfOwned\(\)/);
-  assert.match(webHost, /cancelledResult\.releaseMaterializedWebAttachmentIfOwned\(\)/);
-  assert.match(webHost, /private fun PlatformResult<PlatformFile>\.releaseMaterializedWebAttachmentIfOwned\(\)/);
-  assert.match(webHost, /AbortController/);
-  assert.match(webHost, /signal: controller\.signal/);
-  assert.match(webHost, /error\?\.name === 'AbortError' \? 'cancelled'/);
-  assert.match(webHost, /ownedObjectUrl = it\.reference/);
-  assert.match(webHost, /releaseOwnedObjectUrl\(\)/);
-  assert.match(webHost, /redirect: 'error'/);
-  assert.match(webHost, /response\.headers\?\.get\?\.\('content-length'\)/);
-  assert.match(webHost, /response\.body\?\.getReader/);
-  assert.match(webHost, /web_chat_attachment_download_stream_unavailable/);
-  assert.match(webHost, /web_chat_attachment_share_stream_unavailable/);
-  assert.doesNotMatch(webHost, /if \(!response\.body\?\.getReader\) return response\.blob\(\)/);
-  assert.match(webHost, /reader\.cancel\(\)/);
-  assert.match(webHost, /50 \* 1024 \* 1024/);
+  assert.match(webHost, /MediaFileMaterializer = BrowserMediaFileMaterializer\(\)/);
+  assert.match(webHost, /private var ownedLease: MaterializedMediaFileLease\? = null/);
+  assert.match(webHost, /materializer\.materialize\(descriptor\)/);
+  assert.match(webHost, /result\.value\.also \{ ownedLease = it \}\.file/);
+  assert.match(webHost, /ownedLease\?\.release\(\)/);
+  assert.match(browserMediaExport, /suspendCancellableCoroutine/);
+  assert.match(browserMediaExport, /AbortController/);
+  assert.match(browserMediaExport, /signal: controller\.signal/);
+  assert.match(browserMediaExport, /if \(error\?\.name === 'AbortError'\) finish\('cancelled'\)/);
+  assert.match(browserMediaExport, /redirect: 'error'/);
+  assert.match(browserMediaExport, /response\.headers\.get\('content-length'\)/);
+  assert.match(browserMediaExport, /response\.body\?\.getReader/);
+  assert.match(browserMediaExport, /reader\.cancel\(\)/);
+  assert.match(browserMediaExport, /50 \* 1024 \* 1024/);
 
   assert.doesNotMatch(androidDocumentReaderActivity, /HttpURLConnection/);
   assert.doesNotMatch(androidDocumentReaderActivity, /downloadUri\(/);
@@ -1009,11 +1006,11 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(androidUiTest, /Fullscreen media viewer remained visible after close attempts/);
   assert.match(androidUiTest, /fullscreen-media\.title/);
   assert.match(webHost, /openWebAttachment\(documentOpener\)/);
-  assert.match(webHost, /downloadWebAttachment/);
-  assert.match(webHost, /shareWebAttachment\(shareService\)/);
-  assert.match(webHost, /materializeWebAttachment/);
-  assert.match(webHost, /SharePayload\(title = .*files = listOf\(local\)\)/);
-  assert.match(webHost, /revokeWebAttachmentObjectUrl/);
+  assert.match(webHost, /file\.exportWebAttachment\(mediaFileExport, MediaFileExportAction\.Download\)/);
+  assert.match(webHost, /file\.exportWebAttachment\(mediaFileExport, MediaFileExportAction\.Share, shareService\)/);
+  assert.match(webHost, /service\.export\(\s*MediaFileExportDescriptor\(/);
+  assert.match(webHost, /allowResponseMimeOverride = true/);
+  assert.match(browserMediaExport, /MaterializedMediaFileLease\(file\)/);
   assert.match(androidRunner, /stat\(localFile\)\)\.size === 0/);
   assert.match(androidRunner, /--document-actions-only/);
   assert.match(androidRunner, /single_real_chat_document_attachment_seeded/);
@@ -1027,8 +1024,8 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(androidUiTest, /waitForPackageToReturnToApp\(10_000\)/);
   assert.match(iosHost, /onOpenAttachment: suspend \(PlatformFile\) -> PlatformResult<Unit>/);
   assert.match(iosHost, /shareDownloadedAttachment/);
-  assert.match(iosHost, /attachmentDownloader\.download/);
-  assert.match(iosHost, /finally \{\s*attachmentDownloader\.discard\(localFile\)\s*\}/);
+  assert.match(iosHost, /attachmentDownloader\.materialize\(descriptor\)/);
+  assert.match(iosHost, /finally \{\s*lease\.release\(\)\s*\}/);
 });
 
 test("iOS attachment share keeps the temporary file until the native sheet completes", () => {
@@ -1041,7 +1038,7 @@ test("iOS attachment share keeps the temporary file until the native sheet compl
   assert.match(iosShareService, /completed -> PlatformResult\.Success\(Unit\)/);
   assert.match(iosShareService, /else -> PlatformResult\.Cancelled/);
   assert.match(iosHost, /try \{\s*shareService\.share\(/);
-  assert.match(iosHost, /finally \{\s*attachmentDownloader\.discard\(localFile\)\s*\}/);
+  assert.match(iosHost, /finally \{\s*lease\.release\(\)\s*\}/);
 });
 
 test("Android document reader owns and cleans only its bounded temporary cache", async () => {

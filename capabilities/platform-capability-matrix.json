@@ -67,7 +67,7 @@
           "evidence": [
             {
               "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt",
-              "sha256": "770910c7d459c85192deffb4088f634a8dcfbf8fa6a491eeb79b8e6858082499",
+              "sha256": "d1b25174987acfb30180672816dd76b8b0b112799e9da22bc421c76d444d76f0",
               "role": "composition"
             },
             {
@@ -129,7 +129,7 @@
           "evidence": [
             {
               "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt",
-              "sha256": "770910c7d459c85192deffb4088f634a8dcfbf8fa6a491eeb79b8e6858082499",
+              "sha256": "d1b25174987acfb30180672816dd76b8b0b112799e9da22bc421c76d444d76f0",
               "role": "composition"
             },
             {
@@ -192,7 +192,7 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
+              "sha256": "1dca499ccb1321ab775b23db8264c219145c6c4438bb874014936c1b3ce4b874",
               "role": "composition"
             },
             {
@@ -253,7 +253,7 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
+              "sha256": "1dca499ccb1321ab775b23db8264c219145c6c4438bb874014936c1b3ce4b874",
               "role": "composition"
             },
             {
@@ -322,7 +322,7 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
+              "sha256": "1dca499ccb1321ab775b23db8264c219145c6c4438bb874014936c1b3ce4b874",
               "role": "composition"
             },
             {

@@ -4,6 +4,9 @@ import com.quata.core.platform.AudioPlaybackEvent
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.MaterializedMediaFileLease
+import com.quata.core.platform.MediaFileExportDescriptor
+import com.quata.core.platform.MediaFileMaterializer
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.SessionManager
@@ -57,20 +60,52 @@ class AndroidChatAttachmentDocumentOpenService(
     }
 }
 
-fun interface AndroidChatAttachmentFileResolver {
+fun interface AndroidChatAttachmentFileResolver : MediaFileMaterializer {
     suspend fun resolve(file: PlatformFile): PlatformResult<PlatformFile>
+
+    override suspend fun materialize(
+        descriptor: MediaFileExportDescriptor,
+    ): PlatformResult<MaterializedMediaFileLease> = when (
+        val resolved = resolve(
+            PlatformFile(
+                reference = descriptor.reference,
+                displayName = descriptor.displayName,
+                mimeType = descriptor.mimeType,
+            ),
+        )
+    ) {
+        is PlatformResult.Success -> PlatformResult.Success(
+            // The profile-isolated Chat cache owns its independently bounded storage lifecycle;
+            // releasing this action lease only relinquishes the caller's claim.
+            MaterializedMediaFileLease(resolved.value) {},
+        )
+        is PlatformResult.Failure -> resolved
+        PlatformResult.Cancelled -> PlatformResult.Cancelled
+        PlatformResult.Unsupported -> PlatformResult.Unsupported
+    }
 }
 
 suspend fun AndroidChatAttachmentFileResolver.resolveForAction(
     file: PlatformFile,
     action: suspend (PlatformFile) -> PlatformResult<Unit>,
-): PlatformResult<Unit> = when (val resolved = resolve(file)) {
-    is PlatformResult.Success -> action(resolved.value)
-    is PlatformResult.Failure -> PlatformResult.Failure(
-        resolved.reason ?: "android_chat_attachment_resolve_failed",
+): PlatformResult<Unit> {
+    val descriptor = MediaFileExportDescriptor(
+        reference = file.reference,
+        displayName = file.displayName?.takeIf(String::isNotBlank) ?: "attachment",
+        mimeType = file.mimeType?.takeIf(String::isNotBlank) ?: "application/octet-stream",
     )
-    PlatformResult.Cancelled -> PlatformResult.Cancelled
-    PlatformResult.Unsupported -> PlatformResult.Unsupported
+    return when (val materialized = materialize(descriptor)) {
+        is PlatformResult.Success -> try {
+            action(materialized.value.file)
+        } finally {
+            materialized.value.release()
+        }
+        is PlatformResult.Failure -> PlatformResult.Failure(
+            materialized.reason ?: "android_chat_attachment_resolve_failed",
+        )
+        PlatformResult.Cancelled -> PlatformResult.Cancelled
+        PlatformResult.Unsupported -> PlatformResult.Unsupported
+    }
 }
 
 internal class AndroidChatAttachmentFileCacheResolver(

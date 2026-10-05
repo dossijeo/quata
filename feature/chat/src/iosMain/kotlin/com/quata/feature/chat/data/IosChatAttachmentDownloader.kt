@@ -2,11 +2,15 @@ package com.quata.feature.chat.data
 
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.MaterializedMediaFileLease
+import com.quata.core.platform.MediaFileExportDescriptor
+import com.quata.core.platform.MediaFileMaterializer
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -44,7 +48,20 @@ import kotlin.coroutines.resumeWithException
 class IosChatAttachmentDownloader(
     private val configuration: IosChatRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
-) {
+) : MediaFileMaterializer {
+    override suspend fun materialize(
+        descriptor: MediaFileExportDescriptor,
+    ): PlatformResult<MaterializedMediaFileLease> = when (
+        val downloaded = download(descriptor.reference, descriptor.displayName)
+    ) {
+        is PlatformResult.Success -> PlatformResult.Success(
+            MaterializedMediaFileLease(downloaded.value) { discard(downloaded.value) },
+        )
+        is PlatformResult.Failure -> downloaded
+        PlatformResult.Cancelled -> PlatformResult.Cancelled
+        PlatformResult.Unsupported -> PlatformResult.Unsupported
+    }
+
     suspend fun download(
         publicUrl: String,
         displayName: String? = null,
@@ -77,6 +94,7 @@ class IosChatAttachmentDownloader(
                 sizeBytes = response.data.length.toLong(),
             )
         }.getOrElse { failure ->
+            if (failure is CancellationException) throw failure
             return PlatformResult.Failure(failure.message ?: "ios_chat_attachment_download_failed")
         }
         return PlatformResult.Success(localFile)

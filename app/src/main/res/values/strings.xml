@@ -293,6 +293,9 @@
     <string name="feed_like">Like</string>
     <string name="feed_comments">Comments</string>
     <string name="feed_share">Share</string>
+    <string name="media_download">Download</string>
+    <string name="media_share_file">Share file</string>
+    <string name="media_export_failed">Could not export</string>
     <string name="feed_report">Report</string>
     <string name="feed_delete_post">Delete post</string>
     <string name="feed_delete_post_confirm_title">Delete post?</string>

@@ -18,13 +18,21 @@ import androidx.compose.ui.platform.testTag
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.Post
 import com.quata.core.model.User
+import com.quata.core.platform.MediaFileExportAction
+import com.quata.core.platform.MediaFileExportDescriptor
+import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayCloseTestTag
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayRootTestTag
+import com.quata.core.ui.components.QuataMediaExportDownloadTestTag
+import com.quata.core.ui.components.QuataMediaExportFailureTestTag
+import com.quata.core.ui.components.QuataMediaExportRetryTestTag
+import com.quata.core.ui.components.QuataMediaExportShareTestTag
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
@@ -39,6 +47,7 @@ class FeedDetailMediaViewerTest {
             createdAt = "2026-09-20T00:00:00Z",
         )
         val holder = MediaStateHolder(post)
+        val exports = mutableListOf<Pair<MediaFileExportDescriptor, MediaFileExportAction>>()
         setContent {
             QuataTheme {
                 FeedScreenHost(
@@ -48,6 +57,14 @@ class FeedDetailMediaViewerTest {
                     slots = FeedScreenPlatformSlots(
                         media = { mediaPost, active, _, _, _, _ ->
                             Text("media-${mediaPost.id}-${if (active) "active" else "paused"}")
+                        },
+                        exportMediaFile = { descriptor, action ->
+                            exports += descriptor to action
+                            when (exports.size) {
+                                1 -> PlatformResult.Failure("fixture_transport_failed")
+                                3 -> PlatformResult.Cancelled
+                                else -> PlatformResult.Success(Unit)
+                            }
                         },
                     ),
                     focusedPostId = post.id,
@@ -63,6 +80,21 @@ class FeedDetailMediaViewerTest {
             .performClick()
 
         onNodeWithTag(QuataFullscreenMediaOverlayRootTestTag).assertIsDisplayed()
+        onNodeWithTag(QuataMediaExportDownloadTestTag).performClick()
+        waitUntil(timeoutMillis = 5_000) { exports.size == 1 }
+        onNodeWithTag(QuataMediaExportFailureTestTag).assertIsDisplayed()
+        onNodeWithTag(QuataMediaExportRetryTestTag).performClick()
+        waitUntil(timeoutMillis = 5_000) { exports.size == 2 }
+        onNodeWithTag(QuataMediaExportShareTestTag).performClick()
+        waitUntil(timeoutMillis = 5_000) { exports.size == 3 }
+        runOnIdle {
+            assertEquals(listOf(MediaFileExportAction.Download, MediaFileExportAction.Download, MediaFileExportAction.Share), exports.map { it.second })
+            assertEquals(1, exports.map { it.first }.distinct().size)
+            assertEquals("fixture://feed-media.png", exports.first().first.reference)
+            assertEquals("image/png", exports.first().first.mimeType)
+            assertEquals("Imagen focal.png", exports.first().first.displayName)
+        }
+        onNodeWithTag(QuataFullscreenMediaOverlayRootTestTag).assertIsDisplayed()
         onNodeWithTag(QuataFullscreenMediaOverlayCloseTestTag).performClick()
         waitUntil(timeoutMillis = 5_000) {
             onAllNodesWithTag(QuataFullscreenMediaOverlayRootTestTag)
@@ -73,6 +105,30 @@ class FeedDetailMediaViewerTest {
         onNodeWithTag(FeedPostDetailChromeTestTag).assertIsDisplayed()
         onNodeWithContentDescription("$FeedPostMediaOpenTestTagPrefix.${post.id}")
             .assertHasClickAction()
+    }
+
+    @Test
+    fun feedMediaFileExportDescriptorKeepsTheConcreteImageAndVideoTypes() {
+        val author = User("feed-export-author", "feed-export@example.invalid", "Feed Export")
+        val image = Post(
+            id = "feed-export-image",
+            author = author,
+            text = "[MEDIA_TITULO:Imagen focal] imagen",
+            imageUrl = "fixture://feed-media.png",
+            createdAt = "2026-09-20T00:00:00Z",
+        )
+        val video = Post(
+            id = "feed-export-video",
+            author = author,
+            text = "[MEDIA_TITULO:Vídeo focal] vídeo",
+            videoUrl = "fixture://feed-video.mp4",
+            createdAt = "2026-09-20T00:00:00Z",
+        )
+
+        assertEquals("image/png", feedMediaFileExportDescriptor(image, "Image", "Video")?.mimeType)
+        assertEquals("Imagen focal.png", feedMediaFileExportDescriptor(image, "Image", "Video")?.displayName)
+        assertEquals("video/mp4", feedMediaFileExportDescriptor(video, "Image", "Video")?.mimeType)
+        assertEquals("Vídeo focal.mp4", feedMediaFileExportDescriptor(video, "Image", "Video")?.displayName)
     }
 
     @Test

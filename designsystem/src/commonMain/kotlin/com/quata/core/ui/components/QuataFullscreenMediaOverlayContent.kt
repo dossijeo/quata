@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +57,7 @@ fun QuataFullscreenMediaOverlayContent(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     showCommonMediaClose: Boolean = true,
+    actions: @Composable RowScope.() -> Unit = {},
     nativeClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
     mediaContent: @Composable (Modifier) -> Unit,
 ) {
@@ -100,6 +102,7 @@ fun QuataFullscreenMediaOverlayContent(
                 QuataFullscreenMediaOverlayTopBar(
                     title = title,
                     onBack = requestDismiss,
+                    actions = actions,
                 )
                 Box(
                     modifier = with(this@Column) {
@@ -137,6 +140,7 @@ fun QuataFullscreenMediaOverlayContent(
 private fun QuataFullscreenMediaOverlayTopBar(
     title: String,
     onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
 ) {
     val template = quataTheme()
     androidx.compose.foundation.layout.Row(
@@ -174,6 +178,7 @@ private fun QuataFullscreenMediaOverlayTopBar(
             overflow = TextOverflow.Ellipsis,
         )
         androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
+        actions()
         CompactIconButton(
             onClick = onBack,
             modifier = Modifier

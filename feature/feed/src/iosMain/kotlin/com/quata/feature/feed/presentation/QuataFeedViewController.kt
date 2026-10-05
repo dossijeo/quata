@@ -10,6 +10,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.IosMediaFileExportService
+import com.quata.core.platform.MediaFileExportService
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
@@ -45,6 +47,7 @@ class IosFeedHostDependencies(
     val repository: FeedRepository,
     val mediaFactory: IosFeedMediaFactory,
     val shareService: ShareService,
+    val mediaFileExportService: MediaFileExportService = IosMediaFileExportService(shareService),
     val onOpenUserProfile: (String) -> Unit = {},
     val initialPostId: String? = null,
     val presence: FeedUserPresence? = null,
@@ -215,6 +218,7 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                 },
                 rankingAvatarWithPresence = { item, isOnline -> IosFeedRankingAvatar(item, isOnline) },
                 share = dependencies.shareService::share,
+                exportMediaFile = dependencies.mediaFileExportService::export,
                 showComposeMessage = true,
                 commentsTranslationGateway = commentsTranslationGateway,
                 commentsTranslatorStrings = quataTranslatorStringsForLanguage(dependencies.preferredLanguageTag),

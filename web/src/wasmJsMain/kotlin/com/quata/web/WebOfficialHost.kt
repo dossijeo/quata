@@ -41,6 +41,8 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.BrowserMediaFileExportService
+import com.quata.core.ui.components.QuataMediaExportActionsContent
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
@@ -55,10 +57,12 @@ import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.official.presentation.OfficialFeedScreenHost
+import com.quata.feature.official.presentation.OfficialFeedScreenStrings
 import com.quata.feature.official.presentation.OfficialFeedScreenPlatformSlots
 import com.quata.feature.official.presentation.OfficialAuthorHeaderContent
 import com.quata.feature.official.presentation.OfficialEditorMedia
 import com.quata.feature.official.presentation.OfficialEditorMediaPreviewContent
+import com.quata.feature.official.presentation.officialMediaFileExportDescriptor
 import com.quata.feature.official.presentation.OfficialEditorPostPreviewContent
 import com.quata.feature.official.presentation.OfficialPostEditorFangTranslator
 import com.quata.feature.official.presentation.OfficialPostEditorE2eActions
@@ -97,6 +101,8 @@ fun WebOfficialHost(
     modifier: Modifier = Modifier,
 ) {
     val languageTag = webOfficialLanguageTag()
+    val strings = defaultOfficialFeedScreenStrings(languageTag)
+    val mediaFileExportService = remember { BrowserMediaFileExportService() }
     val commentsTranslationGateway = remember {
         FangTextTranslatorGateway(
             identifier = BrowserFastTextLanguageIdentifier,
@@ -129,7 +135,7 @@ fun WebOfficialHost(
         onFocusedPostHandled = {},
         onFocusedPostChanged = onFocusedPostChanged,
         onBackFromFocusedPost = onBackFromFocusedPost,
-        strings = defaultOfficialFeedScreenStrings(languageTag),
+        strings = strings,
         modifier = modifier,
         slots = OfficialFeedScreenPlatformSlots(
         avatar = { post, avatarModifier ->
@@ -144,7 +150,7 @@ fun WebOfficialHost(
             )
         },
         article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
-        mediaViewer = { post, dismiss -> BrowserOfficialMediaViewer(post, dismiss) },
+        mediaViewer = { post, dismiss -> BrowserOfficialMediaViewer(post, strings, mediaFileExportService, dismiss) },
         share = { payload -> shareService.share(payload) },
         message = {},
         showComposeMessage = true,
@@ -435,11 +441,32 @@ private fun BrowserOfficialMediaThumbnail(post: OfficialPostItem, modifier: Modi
 }
 
 @Composable
-private fun BrowserOfficialMediaViewer(post: OfficialPostItem, dismiss: () -> Unit) {
+private fun BrowserOfficialMediaViewer(
+    post: OfficialPostItem,
+    strings: OfficialFeedScreenStrings,
+    mediaFileExportService: BrowserMediaFileExportService,
+    dismiss: () -> Unit,
+) {
     val url = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
     var isMuted by remember(url) { mutableStateOf(true) }
     var positionMs by remember(url) { mutableLongStateOf(0L) }
-    QuataFullscreenMediaOverlayContent(title = post.title, onDismiss = dismiss) { mediaModifier ->
+    val descriptor = remember(post.id, url, post.mediaType, post.title) { officialMediaFileExportDescriptor(post) }
+    QuataFullscreenMediaOverlayContent(
+        title = post.title,
+        onDismiss = dismiss,
+        actions = {
+            descriptor?.let {
+                QuataMediaExportActionsContent(
+                    descriptor = it,
+                    downloadLabel = strings.downloadMedia,
+                    shareLabel = strings.shareMediaFile,
+                    failureLabel = strings.mediaExportFailed,
+                    retryLabel = strings.retry,
+                    onExport = mediaFileExportService::export,
+                )
+            }
+        },
+    ) { mediaModifier ->
         if (post.mediaType == OfficialMediaType.Video) {
             BrowserFeedMediaContent(
                 post = post.asFeedPost(),

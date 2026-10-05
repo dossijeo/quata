@@ -151,6 +151,8 @@ import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.AndroidMediaFileExportService
+import com.quata.core.platform.rememberAndroidMediaFileShareService
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
@@ -210,6 +212,10 @@ fun FeedScreen(
     viewModel: FeedAndroidViewModel = viewModel(factory = FeedAndroidViewModel.factory(feedRepository)),
 ) {
     val context = LocalContext.current
+    val mediaFileShareService = rememberAndroidMediaFileShareService()
+    val mediaFileExportService = remember(context, mediaFileShareService) {
+        AndroidMediaFileExportService(context, mediaFileShareService)
+    }
     val translatorModeController = LocalQuataTranslatorModeController.current
     val landscape = rememberQuataWindowLayoutInfo().isLandscape
     DisposableEffect(Unit) { onDispose { onLandscapeCommentsOverlayActiveChange(false) } }
@@ -239,6 +245,9 @@ fun FeedScreen(
             like = stringResource(R.string.feed_like), comments = stringResource(R.string.feed_comments),
             share = stringResource(R.string.feed_share), rank = stringResource(R.string.feed_rank),
             sharePostTitle = stringResource(R.string.feed_share_post),
+            downloadMedia = stringResource(R.string.media_download),
+            shareMediaFile = stringResource(R.string.media_share_file),
+            mediaExportFailed = stringResource(R.string.media_export_failed),
             live = stringResource(R.string.common_live), publish = stringResource(R.string.nav_publish),
             report = stringResource(R.string.feed_report), delete = stringResource(R.string.feed_delete_post),
             deleteTitle = stringResource(R.string.feed_delete_post_confirm_title),
@@ -281,6 +290,7 @@ fun FeedScreen(
                 )
             },
             share = shareService::share,
+            exportMediaFile = mediaFileExportService::export,
             message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
             commentsTranslatorTrigger = { _, modifier, _, _ ->
                 FangTranslatorIconButton(

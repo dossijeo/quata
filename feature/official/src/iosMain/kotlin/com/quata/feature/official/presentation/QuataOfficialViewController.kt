@@ -45,6 +45,8 @@ import com.quata.feature.postcomposer.data.IosPostComposerRuntimeConfiguration
 import com.quata.feature.postcomposer.data.IosPostComposerTransport
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
+import com.quata.core.platform.IosMediaFileExportService
+import com.quata.core.platform.MediaFileExportService
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import kotlinx.coroutines.launch
@@ -87,6 +89,7 @@ class IosOfficialHostDependencies(
     val initialCurrentUser: User? = null,
     val preferredLanguageTag: String? = null,
     val shareService: ShareService = IosShareService(),
+    val mediaFileExportService: MediaFileExportService = IosMediaFileExportService(shareService),
     val mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     val canCreateOfficialPost: Boolean = false,
     val onAuthRequired: () -> Unit = {},
@@ -231,6 +234,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 onFocusedPostChanged = dependencies.onFocusedPostChanged,
                 slots = iosOfficialPlatformSlots(
                     dependencies.shareService,
+                    dependencies.mediaFileExportService,
                     dependencies.mediaViewerFactory,
                     dependencies.canCreateOfficialPost,
                     openingProfileUserId,
