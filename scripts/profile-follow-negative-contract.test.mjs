@@ -107,6 +107,7 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(iosRunner, /ios_mac_loopback_reverse_tunnel_stopped/);
   assert.match(iosRunner, /action: config\.nativeFacadeIosUrl \? "login" : "web_login"/);
   assert.match(iosWrapper, /QUATA_IOS_NATIVE_FACADE_AUTHORIZATION/);
+  assert.match(iosWrapper, /if \/usr\/bin\/python3 "\$watchdog"[\s\S]*status=\$\?[\s\S]*bootstatus_status=\$\?/);
   assert.match(iosUi, /app\.launchEnvironment\[key\] = value/);
   assert.match(iosApp, /MANAGER_APPROVED_QADATA_IOS_NATIVE_FACADE/);
   assert.match(iosApp, /url\.host == "127\.0\.0\.1"/);

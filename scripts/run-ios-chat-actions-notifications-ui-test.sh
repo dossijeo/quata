@@ -213,10 +213,12 @@ run_bounded() {
   local label="$1" seconds="$2" log="$3"
   shift 3
   echo "[$label] starting (watchdog ${seconds}s)" >&2
-  set +e
-  /usr/bin/python3 "$watchdog" --timeout-seconds "$seconds" --log "$log" -- "$@"
-  local status=$?
-  set -e
+  local status
+  if /usr/bin/python3 "$watchdog" --timeout-seconds "$seconds" --log "$log" -- "$@"; then
+    status=0
+  else
+    status=$?
+  fi
   cat "$log"
   if [[ "$status" -eq 124 ]]; then
     timeout_diagnostics "$label"
