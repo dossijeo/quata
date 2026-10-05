@@ -1,0 +1,73 @@
+{
+  "check": "PROFILE-FOLLOW-RETRY-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-10-04T23:29:44.459Z",
+  "git": {
+    "head": "28a83006ed3ef5fb1a6a60c8130b1bb73c120948",
+    "workingTreeDirty": false
+  },
+  "scope": "Compose/Wasm product UI against the production database and its real RLS/RPC behavior through a temporary loopback Auth/PostgREST facade",
+  "steps": [
+    "two_authorized_profiles_logged_in_through_ephemeral_loopback_facade",
+    "profile_follow_initial_state_snapshot_and_absent_prepared",
+    "profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created",
+    "profile_follow_edge_restored_to_initial_state",
+    "temporary_auth_sessions_removed_and_cleanup_verified"
+  ],
+  "observations": {
+    "failureTransitions": [
+      { "following": false, "loading": false, "failed": false },
+      { "following": true, "loading": true, "failed": false },
+      { "following": false, "loading": false, "failed": true }
+    ],
+    "retryTransitions": [
+      { "following": false, "loading": false, "failed": true },
+      { "following": false, "loading": true, "failed": false },
+      { "following": true, "loading": true, "failed": false },
+      { "following": true, "loading": false, "failed": false }
+    ],
+    "facade": {
+      "authLogins": 2,
+      "proxiedRestRequests": 49,
+      "createdWebSessions": 2,
+      "removedWebSessions": 2,
+      "cleanupVerified": true
+    },
+    "nonBlockingLocalRealtime404Faults": 10
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "profile_follow_edge_restored_to_initial_state",
+      "temporary_auth_sessions_removed",
+      "temporary_thread_hard_deleted",
+      "local_facade_and_postgrest_container_removed"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0,
+        "temporary_web_sessions": 0
+      }
+    }
+  },
+  "limits": [
+    "Hosted Supabase Auth returned HTTP 402 before the focal run, so authentication and REST transport were supplied by an ephemeral loopback facade while retaining the real production database, RLS and RPC behavior.",
+    "The facade did not implement Realtime; only its exact loopback WebSocket 404 was classified as non-blocking for this focal mutation.",
+    "This report does not certify hosted Auth, the hosted API gateway, Realtime delivery, Android UI or iOS UI."
+  ],
+  "provenance": {
+    "sourceReportSha256": "3cc84c18e8415b8cfc1d9dd0e691f5614838c389a47d7c5ba47399821f997f70",
+    "facadeReceiptSha256": "d24cb9f48cd5feffe0b69097c4044a2313b0fe96ff6d3fa3e9de9fa2d2023f9f",
+    "profileFollowRuntimeAndRunnerPathsUnchangedAtProductSha": "c756c47aa6ae59e6938121ccf21f3b3b5d5f2f9a",
+    "postRunFacadeHardening": "The product SHA adds an exact loopback-origin allowlist, an unlogged ephemeral control secret for shutdown and an optional fixed loopback port for the evidence server; it does not loosen or alter the accepted product UI, database mutation or cleanup observations."
+  },
+  "finishedAt": "2026-10-04T23:31:10.466Z"
+}

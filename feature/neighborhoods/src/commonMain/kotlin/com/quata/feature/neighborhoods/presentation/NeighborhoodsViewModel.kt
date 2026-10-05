@@ -104,7 +104,21 @@ class NeighborhoodsViewModel(
 
     override fun toggleFollowUser(userId: String) {
         if (_uiState.value.followingUserId != null) return
+        val target = _uiState.value.findKnownUser(userId)
+        setFollowUserState(userId, desiredState = !(target?.isFollowing ?: false))
+    }
+
+    private fun setFollowUserState(userId: String, desiredState: Boolean) {
+        if (_uiState.value.followingUserId != null) return
         val before = _uiState.value
+        val targetSnapshot = before.findKnownUser(userId)
+        if (targetSnapshot?.isFollowing == desiredState) {
+            _uiState.value = before.copy(
+                failedProfileFollowAction = null,
+                error = null,
+            )
+            return
+        }
         val optimisticProfile = before.selectedProfile?.optimisticallyToggleFollow(userId)
         val optimisticCommunities = before.communities.map { community ->
             community.copy(users = community.users.map { user -> user.optimisticallyToggleFollow(userId) })
@@ -113,6 +127,7 @@ class NeighborhoodsViewModel(
             followingUserId = userId,
             selectedProfile = optimisticProfile,
             communities = optimisticCommunities,
+            failedProfileFollowAction = null,
             error = null,
         )
         scope.launch {
@@ -125,7 +140,12 @@ class NeighborhoodsViewModel(
                         followingUserId = null,
                         selectedProfile = selectedProfile ?: currentState.selectedProfile,
                         communities = currentState.communities.withFollowResult(enrichedResult),
-                        error = null
+                        failedProfileFollowAction = if (result.isFollowing == desiredState) {
+                            null
+                        } else {
+                            FailedProfileFollowAction(userId, desiredState)
+                        },
+                        error = null,
                     )
                     if (selectedProfile != null) {
                         repository.cacheUserProfile(selectedProfile)
@@ -133,18 +153,25 @@ class NeighborhoodsViewModel(
                 }
                 .onFailure { error ->
                     val currentState = _uiState.value
-                    val targetSnapshot = before.findKnownUser(userId)
                     _uiState.value = currentState.copy(
                         followingUserId = null,
                         selectedProfile = currentState.selectedProfile?.withFollowRollback(userId, targetSnapshot),
                         communities = currentState.communities.withFollowRollback(userId, targetSnapshot),
+                        failedProfileFollowAction = FailedProfileFollowAction(userId, desiredState),
                         error = error.message ?: "No se pudo actualizar el seguimiento"
                     )
                 }
         }
     }
 
-    override fun ensureFollowUserState(userId: String, desiredState: Boolean) {
+    override fun ensureFollowUserState(userId: String, desiredState: Boolean) =
+        reconcileFollowUserState(userId, desiredState, requireSelectedProfile = false)
+
+    private fun reconcileFollowUserState(
+        userId: String,
+        desiredState: Boolean,
+        requireSelectedProfile: Boolean,
+    ) {
         if (_uiState.value.followingUserId != null) return
         _uiState.value = _uiState.value.copy(followingUserId = userId, error = null)
         scope.launch {
@@ -152,25 +179,47 @@ class NeighborhoodsViewModel(
                 .onSuccess { profile ->
                     val actualUser = profile.user
                     val currentState = _uiState.value
+                    if (requireSelectedProfile && currentState.selectedProfile?.user?.id != userId) {
+                        _uiState.value = currentState.copy(followingUserId = null)
+                        return@onSuccess
+                    }
                     _uiState.value = currentState.copy(
                         followingUserId = null,
                         selectedProfile = currentState.selectedProfile
                             ?.withFollowRollback(userId, actualUser),
                         communities = currentState.communities
                             .withFollowRollback(userId, actualUser),
+                        failedProfileFollowAction = if (actualUser.isFollowing == desiredState) {
+                            null
+                        } else {
+                            currentState.failedProfileFollowAction
+                        },
                         error = null,
                     )
                     if (actualUser.isFollowing != desiredState) {
-                        toggleFollowUser(userId)
+                        setFollowUserState(userId, desiredState)
                     }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                    val currentState = _uiState.value
+                    if (requireSelectedProfile && currentState.selectedProfile?.user?.id != userId) {
+                        _uiState.value = currentState.copy(followingUserId = null)
+                        return@onFailure
+                    }
+                    _uiState.value = currentState.copy(
                         followingUserId = null,
+                        failedProfileFollowAction = FailedProfileFollowAction(userId, desiredState),
                         error = error.message ?: "No se pudo comprobar el seguimiento",
                     )
                 }
         }
+    }
+
+    override fun retryFollowUser(userId: String) {
+        val current = _uiState.value
+        val failed = current.failedProfileFollowAction ?: return
+        if (failed.userId != userId || current.selectedProfile?.user?.id != userId) return
+        reconcileFollowUserState(userId, failed.desiredState, requireSelectedProfile = true)
     }
 
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {

@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-FOLLOW-RETRY"
+  ],
+  "status": "passed",
+  "productSha": "a054cb941655af1f2845c6ce79078bcbf3cc74da",
+  "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "a054cb941655af1f2845c6ce79078bcbf3cc74da",
+      "report": "docs/candidate-attestations/evidence/profile-follow-retry-web-28a83006.json",
+      "reportSha256": "7fe7f27f80e4989a9ac6bfe9403e9954b1bedf4176359c605a7875c4b9a49a9f",
+      "reportStatus": "passed",
+      "reportGitHead": "28a83006ed3ef5fb1a6a60c8130b1bb73c120948",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "profile_follow_initial_state_snapshot_and_absent_prepared",
+        "profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created",
+        "profile_follow_edge_restored_to_initial_state",
+        "temporary_auth_sessions_removed_and_cleanup_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-production-database-with-ephemeral-loopback-auth-rest-facade"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "a054cb941655af1f2845c6ce79078bcbf3cc74da",
+      "report": "docs/candidate-attestations/evidence/profile-follow-retry-android-27aef9db.json",
+      "reportSha256": "12030642e9e4f64ba0b5734325a51f06edf18773fa01e7b254efce87eb9072dd",
+      "reportStatus": "passed",
+      "reportGitHead": "27aef9dba181c748801e6cd4fcd62fd7e52d502b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "profile_follow_retry_contracts_passed_5_of_5",
+        "profile_follow_android_main_compiled",
+        "profile_follow_android_instrumented_test_compiled"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-contract-only-no-runtime-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "a054cb941655af1f2845c6ce79078bcbf3cc74da",
+      "report": "docs/candidate-attestations/evidence/profile-follow-retry-ios-27aef9db.json",
+      "reportSha256": "2b839dedfd3bd98310766c518a3555beddab65dc87b3c852483abb2c59419b28",
+      "reportStatus": "passed",
+      "reportGitHead": "27aef9dba181c748801e6cd4fcd62fd7e52d502b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "mac_checkout_sha_matched_product_sha",
+        "profile_follow_ios_x64_main_compiled",
+        "profile_follow_ios_x64_test_sources_compiled",
+        "isolated_mac_worktree_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "isolated-macos-compile-only-worktree-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-actions-notifications-web-evidence.mjs scripts/profile-follow-local-evidence-facade.mjs",
+    "node --test scripts/profile-follow-negative-contract.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:neighborhoods:compileKotlinWasmJs :feature:neighborhoods:compileAndroidMain :app:compileDebugAndroidTestKotlin --no-daemon",
+    "bash gradlew :feature:neighborhoods:compileKotlinIosX64 :feature:neighborhoods:compileTestKotlinIosX64 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-follow-retry.json"
+  ],
+  "notes": [
+    "The product adds one exact, profile-bound retry after a failed follow or unfollow mutation. It retains the requested target state and ignores stale completions for another profile.",
+    "Web/Wasm accepted the real Compose product UI and production database behavior. Hosted Supabase Auth returned HTTP 402, so an opt-in loopback-only facade supplied temporary authentication and PostgREST transport; it created two disposable sessions, removed both, and was destroyed after cleanup. The facade did not implement Realtime.",
+    "The accepted Web report was produced on clean head 28a83006. A path-scoped Git comparison confirms that the focal common/neighborhoods Web runtime is unchanged at Product SHA a054cb94. The local facade was tightened after the run to require an exact loopback-origin allowlist and an unlogged ephemeral control secret for shutdown, and the runner now accepts an optional fixed loopback port so that allowlist is reproducible; these changes do not loosen or alter the accepted UI, mutation or cleanup observations. Unrelated Web Feed and iOS repository changes arrived through the earlier rebase, so no result for those paths is inherited across that transition.",
+    "Android and iOS evidence in this manifest is limited to exact-head compilation and static contracts. Live native retry convergence remains pending while hosted authentication is unavailable; this candidate does not claim it.",
+    "One earlier clean Web rerun failed because the own message was not visible before the profile area was reached. Cleanup completed. Subsequent selector, distribution and local Realtime diagnostic failures are preserved in the working record; only the final clean run is reduced here.",
+    "The first macOS attempts failed before the documented Intel JDK path override was applied. The exact clean checkout then compiled iOS main and test sources successfully and its isolated worktree was removed.",
+    "Independent review rejected the first frozen head because the loopback facade exposed unauthenticated shutdown with wildcard CORS. Product SHA a054cb94 contains that repaired runtime unchanged and rebinds the reviewed capability declarations for the two iOS Communities sources changed by this unit; the complete 22-test capability matrix contract passes.",
+    "This unit does not recertify existing follow/unfollow, rollback, authorization, pagination, navigation or unrelated profile behavior."
+  ]
+}

@@ -73,6 +73,7 @@ class IosNeighborhoodsReadRepository(
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, IosCachedCommunityProfile>()
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
+    private var profileFollowEvidenceFailureConsumed = false
     private var profileRolesEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceRemoteOpenCompleted = false
@@ -113,7 +114,8 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
-        if (iosProfileFollowEvidenceFailureRequested()) {
+        if (iosProfileFollowEvidenceFailureRequested() && !profileFollowEvidenceFailureConsumed) {
+            profileFollowEvidenceFailureConsumed = true
             delay(2_000)
             error("profile_follow_e2e_forced_failure")
         }

@@ -1,0 +1,31 @@
+{
+  "check": "PROFILE-FOLLOW-RETRY-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "27aef9dba181c748801e6cd4fcd62fd7e52d502b",
+    "workingTreeDirty": false
+  },
+  "scope": "Exact-head Kotlin/Native implementation and test-source compilation in an isolated macOS worktree; no Simulator UI or backend mutation",
+  "steps": [
+    "mac_checkout_sha_matched_product_sha",
+    "profile_follow_ios_x64_main_compiled",
+    "profile_follow_ios_x64_test_sources_compiled",
+    "isolated_mac_worktree_removed"
+  ],
+  "commands": [
+    "bash gradlew :feature:neighborhoods:compileKotlinIosX64 :feature:neighborhoods:compileTestKotlinIosX64 --no-daemon --console=plain"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "isolated_mac_worktree_verified_clean",
+      "isolated_mac_worktree_removed",
+      "no_backend_fixture_created"
+    ]
+  },
+  "limits": [
+    "This report proves compilation and static contracts only.",
+    "iOS Simulator live UI retry convergence remains pending because hosted authentication returned HTTP 402.",
+    "Initial macOS compile attempts failed before the documented Intel JDK path override was applied; the exact documented environment then completed successfully."
+  ]
+}

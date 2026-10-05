@@ -36,6 +36,7 @@ interface NeighborhoodsScreenModel {
     fun openChat(neighborhood: String, onOpened: (String) -> Unit)
     fun toggleFollowUser(userId: String)
     fun ensureFollowUserState(userId: String, desiredState: Boolean)
+    fun retryFollowUser(userId: String)
     fun openPrivateChat(userId: String, onOpened: (String) -> Unit)
     fun cancelPrivateChatOpen()
     fun openUserProfile(userId: String)

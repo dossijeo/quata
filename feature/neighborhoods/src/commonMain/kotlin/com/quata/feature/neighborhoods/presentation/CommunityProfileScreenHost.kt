@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -72,6 +73,7 @@ const val PublicProfileModerationBlockTestTagPrefix = "public-profile.safety.blo
 const val PublicProfileModerationUnblockTestTagPrefix = "public-profile.safety.unblock."
 const val PublicProfileModerationLoadingTestTagPrefix = "public-profile.safety.loading."
 const val PublicProfileErrorTestTagPrefix = "public-profile.error."
+const val PublicProfileFollowRetryTestTagPrefix = "public-profile.follow.retry."
 const val PublicProfileRolesRootTestTagPrefix = "public-profile.roles."
 const val PublicProfileRolesAdminTestTagPrefix = "public-profile.roles.admin."
 const val PublicProfileRolesOfficialTestTagPrefix = "public-profile.roles.official."
@@ -148,6 +150,7 @@ fun CommunityProfileScreenHost(
     currentUserIsAdmin: Boolean = false,
     openingProfileUserId: String? = null,
     errorMessage: String? = null,
+    failedProfileFollowAction: FailedProfileFollowAction? = null,
     onAuthRequired: () -> Unit,
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
@@ -155,6 +158,7 @@ fun CommunityProfileScreenHost(
     onBack: () -> Unit,
     onFollowUser: (String) -> Unit,
     onEnsureFollowUserState: (String, Boolean) -> Unit,
+    onRetryFollowUser: (String) -> Unit = {},
     onOpenPrivateChat: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onSetUserRoles: ((String, Boolean, Boolean) -> Unit)?,
@@ -404,6 +408,19 @@ fun CommunityProfileScreenHost(
                                     )
                                 },
                             )
+                            if (failedProfileFollowAction?.userId == profile.user.id) {
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = { onRetryFollowUser(profile.user.id) },
+                                    enabled = followingUserId == null,
+                                    modifier = Modifier.fillMaxWidth().semantics {
+                                        testTag = PublicProfileFollowRetryTestTagPrefix + profile.user.id
+                                        contentDescription = PublicProfileFollowRetryTestTagPrefix + profile.user.id
+                                    },
+                                ) {
+                                    Text(strings.retry)
+                                }
+                            }
                         },
                         moderationActions = {
                             ProfileModerationActions(

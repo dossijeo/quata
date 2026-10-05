@@ -145,6 +145,7 @@ fun WebNeighborhoodsHost(
             currentUserIsAdmin = state.currentUserIsAdmin,
             openingProfileUserId = state.openingProfileUserId,
             errorMessage = state.error,
+            failedProfileFollowAction = state.failedProfileFollowAction,
             onAuthRequired = onAuthRequired,
             onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
             authenticationContinuationCoordinator = authenticationContinuationCoordinator,
@@ -155,6 +156,7 @@ fun WebNeighborhoodsHost(
             },
             onFollowUser = viewModel::toggleFollowUser,
             onEnsureFollowUserState = viewModel::ensureFollowUserState,
+            onRetryFollowUser = viewModel::retryFollowUser,
             onOpenPrivateChat = { userId ->
                 viewModel.openPrivateChat(userId) { conversationId ->
                     viewModel.clearUserProfile()

@@ -49,6 +49,8 @@ const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_HA
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP";
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
+const localFacadeAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_LOCAL_FACADE_AUTHORIZATION";
+const localFacadeAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_LOCAL_FACADE";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 let lastThreadSnapshot = null;
 
@@ -501,6 +503,12 @@ function isPublicKey(value) {
   const parts = value.split(".");
   if (parts.length !== 3) return false;
   try { return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))?.role === "anon"; } catch { return false; }
+}
+
+function isAllowedPublicBackendUrl(value) {
+  if (/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(value)) return true;
+  return /^http:\/\/127\.0\.0\.1:\d+$/.test(value) &&
+    process.env[localFacadeAuthorizationEnvironment]?.trim() === localFacadeAuthorizationValue;
 }
 
 function headers(config, token) {
@@ -1551,6 +1559,11 @@ function escapeHtml(value) {
 }
 
 async function startServer(root) {
+  const configuredPort = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_WEB_PORT?.trim();
+  const port = configuredPort === undefined || configuredPort === "" ? 0 : Number(configuredPort);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error("invalid_evidence_web_port");
+  }
   const server = createServer(async (request, response) => {
     try {
       const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
@@ -1567,7 +1580,7 @@ async function startServer(root) {
       response.end(await readFile(file));
     } catch { response.writeHead(500).end(); }
   });
-  await new Promise((ok, fail) => { server.once("error", fail); server.listen(0, "127.0.0.1", ok); });
+  await new Promise((ok, fail) => { server.once("error", fail); server.listen(port, "127.0.0.1", ok); });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("static_server_start_failed");
   return { origin: `http://127.0.0.1:${address.port}`, close: () => new Promise((ok, fail) => server.close((error) => error ? fail(error) : ok())) };
@@ -2506,12 +2519,12 @@ async function waitProfileListVisible(page, listKind, profile) {
 
 async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, report) {
   report.evidence.profileFollowBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-before");
-  try {
-    await clickLabel(page, [/Seguir|Follow/i], "profile_follow_action_not_clickable");
-  } catch (error) {
-    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
-    await page.mouse.click(Math.round(viewport.width * 0.27), Math.round(viewport.height * 0.50));
-  }
+  await clickProfileAnchorOrText(
+    page,
+    `public-profile.follow.${peerProfile.profileId}`,
+    [/\+\s*(Seguir|Follow)\s*$/i],
+    "profile_follow_action_not_clickable",
+  );
   await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
   report.evidence.profileFollowAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-after");
 }
@@ -2529,6 +2542,47 @@ async function profileFollowEvidenceState(page) {
   });
 }
 
+async function startProfileFollowTransitionObserver(page) {
+  await page.evaluate(() => {
+    globalThis.__quataProfileFollowTransitionObserver?.disconnect?.();
+    const root = globalThis.document?.documentElement;
+    globalThis.__quataProfileFollowTransitions = [];
+    if (!root) return;
+    const capture = () => {
+      const transitions = globalThis.__quataProfileFollowTransitions;
+      transitions.push({
+        following: root.getAttribute("data-quata-profile-following") ?? "",
+        loading: root.getAttribute("data-quata-profile-follow-loading") ?? "",
+        failed: root.getAttribute("data-quata-profile-follow-failed") ?? "",
+      });
+      if (transitions.length > 20) transitions.shift();
+    };
+    capture();
+    const observer = new MutationObserver(capture);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: [
+        "data-quata-profile-following",
+        "data-quata-profile-follow-loading",
+        "data-quata-profile-follow-failed",
+      ],
+    });
+    globalThis.__quataProfileFollowTransitionObserver = observer;
+  });
+}
+
+async function finishProfileFollowTransitionObserver(page) {
+  return await page.evaluate(() => {
+    globalThis.__quataProfileFollowTransitionObserver?.disconnect?.();
+    const transitions = Array.isArray(globalThis.__quataProfileFollowTransitions)
+      ? globalThis.__quataProfileFollowTransitions.slice()
+      : [];
+    delete globalThis.__quataProfileFollowTransitionObserver;
+    delete globalThis.__quataProfileFollowTransitions;
+    return transitions;
+  });
+}
+
 async function toggleFollowFailureFromOpenProfile(page, peerProfile, evidenceDir, report) {
   const before = await profileFollowEvidenceState(page);
   if (before.profileId !== peerProfile.profileId || before.following !== "false" || before.loading !== "false") {
@@ -2536,14 +2590,24 @@ async function toggleFollowFailureFromOpenProfile(page, peerProfile, evidenceDir
   }
   report.evidence.profileFollowNegativeBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-before");
   await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = true; });
+  await startProfileFollowTransitionObserver(page);
   try {
-    await clickLabel(page, [/Seguir|Follow/i], "profile_follow_negative_action_not_clickable");
-    await page.waitForFunction(() => globalThis.document?.documentElement?.getAttribute("data-quata-profile-follow-loading") === "true", null, { timeout: 5_000 });
-    report.evidence.profileFollowNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-optimistic");
+    await clickProfileAnchorOrText(
+      page,
+      `public-profile.follow.${peerProfile.profileId}`,
+      [/\+\s*(Seguir|Follow)\s*$/i],
+      "profile_follow_negative_action_not_clickable",
+    );
     await page.waitForFunction(() => {
       const root = globalThis.document?.documentElement;
       return root?.getAttribute("data-quata-profile-follow-loading") === "false" && root?.getAttribute("data-quata-profile-follow-failed") === "true";
     }, null, { timeout: 20_000 });
+    const failureTransitions = await finishProfileFollowTransitionObserver(page);
+    if (!failureTransitions.some((entry) => entry.loading === "true" && entry.following === "true")) {
+      throw new Error("profile_follow_negative_optimistic_transition_missing");
+    }
+    report.evidence.profileFollowNegativeTransitions = failureTransitions;
+    report.evidence.profileFollowNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-optimistic");
     const after = await profileFollowEvidenceState(page);
     if (after.profileId !== before.profileId || after.following !== before.following || after.followersCount !== before.followersCount) {
       throw new Error("profile_follow_negative_ui_rollback_mismatch");
@@ -2551,8 +2615,31 @@ async function toggleFollowFailureFromOpenProfile(page, peerProfile, evidenceDir
     await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, false);
     report.evidence.profileFollowNegativeAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-after");
   } finally {
+    await finishProfileFollowTransitionObserver(page).catch(() => []);
     await page.evaluate(() => { globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ = false; }).catch(() => {});
   }
+
+  await startProfileFollowTransitionObserver(page);
+  await clickProfileAnchorOrText(
+    page,
+    `public-profile.follow.retry.${peerProfile.profileId}`,
+    [/Reintentar|Retry|R[eé]essayer/i],
+    "profile_follow_retry_action_not_clickable",
+  );
+  await page.waitForFunction(() => {
+    const root = globalThis.document?.documentElement;
+    return root?.getAttribute("data-quata-profile-follow-loading") === "false" &&
+      root?.getAttribute("data-quata-profile-follow-failed") === "false" &&
+      root?.getAttribute("data-quata-profile-following") === "true";
+  }, null, { timeout: 20_000 });
+  const retryTransitions = await finishProfileFollowTransitionObserver(page);
+  if (!retryTransitions.some((entry) => entry.loading === "true")) {
+    throw new Error("profile_follow_retry_loading_transition_missing");
+  }
+  report.evidence.profileFollowNegativeRetryTransitions = retryTransitions;
+  report.evidence.profileFollowNegativeRetrying = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-retrying");
+  await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
+  report.evidence.profileFollowNegativeRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-negative-retry-succeeded");
 }
 
 async function prepareProfileContentFixture(fixture) {
@@ -2650,7 +2737,7 @@ async function profileActionTarget(page, tag, patterns) {
     };
     const byAria = [...scope.querySelectorAll("[aria-label]")]
       .map((element) => ({ element, label: element.getAttribute("aria-label") ?? "", rect: visibleRect(element) }))
-      .filter((item) => item.rect && item.label === tag)
+      .filter((item) => item.rect && item.label.split(",").map((token) => token.trim()).includes(tag))
       .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
     if (byAria[0]) return byAria[0].rect;
     const byText = [...scope.querySelectorAll("button,[role='button'],div,span")]
@@ -4953,7 +5040,22 @@ function assertNoBrowserFaults(report, faults, label) {
 
 function isNonBlockingBrowserRuntimeFault(fault, context = {}) {
   return isNonBlockingProfileEntryWasmFault(fault) ||
-    isNonBlockingFeedOfficialSupabaseConflictFault(fault, context);
+    isNonBlockingFeedOfficialSupabaseConflictFault(fault, context) ||
+    isNonBlockingAuthorizedLocalFacadeRealtimeFault(fault);
+}
+
+function isNonBlockingAuthorizedLocalFacadeRealtimeFault(fault) {
+  if (process.env[localFacadeAuthorizationEnvironment] !== localFacadeAuthorizationValue) return false;
+  let endpoint;
+  try {
+    endpoint = new URL(config?.baseUrl ?? "");
+  } catch {
+    return false;
+  }
+  if (!(endpoint.hostname === "127.0.0.1" || endpoint.hostname === "localhost")) return false;
+  const socketProtocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
+  const expected = `WebSocket connection to '${socketProtocol}//${endpoint.host}/realtime/v1/websocket?apikey=[redacted]&vsn=2.0.0' failed: Error during WebSocket handshake: Unexpected response code: 404`;
+  return fault?.type === "console_error" && fault?.messagePrefix === expected;
 }
 
 function isNonBlockingProfileEntryWasmFault(fault) {
@@ -7300,7 +7402,7 @@ try {
     throw new EvidenceCompleted();
   }
   config = await publicBackendConfig();
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
+  if (!isAllowedPublicBackendUrl(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
   const users = await authorizedUsers();
   const usersForTemporaryHash = users.filter((user) => user?.countryCode && user?.phone && user?.password);
@@ -8013,7 +8115,7 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       if (options.profileFollowNegativeOnly) {
         await toggleFollowFailureFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
-        report.steps.push("profile_follow_failure_rolled_back_and_backend_edge_remained_absent");
+        report.steps.push("profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created");
       } else {
         await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
         report.steps.push("profile_follow_toggled_and_verified_by_db");

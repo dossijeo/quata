@@ -1270,6 +1270,7 @@ fun AppNavGraph(
                 profileSafetyUpdatingUserId = globalProfileState.profileSafetyUpdatingUserId,
                 currentUserIsAdmin = globalProfileState.currentUserIsAdmin,
                 chatError = globalProfileState.error,
+                failedProfileFollowAction = globalProfileState.failedProfileFollowAction,
                 onAuthRequired = { requestAuthentication() },
                 onAuthenticationContinuationRequired = { continuation ->
                     requestAuthentication(
@@ -1304,6 +1305,7 @@ fun AppNavGraph(
                     if (isAuthenticated) globalProfileViewModel.toggleFollowUser(userId) else requestAuthentication()
                 },
                 onEnsureFollowUserState = globalProfileViewModel::ensureFollowUserState,
+                onRetryFollowUser = globalProfileViewModel::retryFollowUser,
                 onSetUserRoles = { userId, isAdmin, isOfficial ->
                     if (isAuthenticated) globalProfileViewModel.setUserRoles(userId, isAdmin, isOfficial) else requestAuthentication()
                 },

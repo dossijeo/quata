@@ -356,14 +356,118 @@ class NeighborhoodsViewModelTest {
         advanceUntilIdle()
         assertFalse(model.uiState.value.selectedProfile?.user?.isFollowing == true)
         assertEquals("denied", model.uiState.value.error)
+        assertEquals(FailedProfileFollowAction("a", true), model.uiState.value.failedProfileFollowAction)
 
         repository.followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
-        model.toggleFollowUser("a")
+        model.retryFollowUser("a")
         advanceUntilIdle()
 
         assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
         assertEquals(null, model.uiState.value.error)
+        assertEquals(null, model.uiState.value.failedProfileFollowAction)
         assertEquals(listOf("a", "a"), repository.followCalls)
+        model.close()
+    }
+
+    @Test
+    fun `unfollow retry preserves the exact desired state`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            profileOverride = profile("a", user("a").copy(isFollowing = true, followersCount = 3))
+            followResult = CompletableDeferred()
+        }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        runCurrent()
+        repository.followResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+
+        assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+        assertEquals(FailedProfileFollowAction("a", false), model.uiState.value.failedProfileFollowAction)
+
+        repository.followResult = CompletableDeferred(Result.success(FollowUserResult("a", false, user("me"))))
+        model.retryFollowUser("a")
+        advanceUntilIdle()
+
+        assertFalse(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+        assertEquals(listOf("a", "a"), repository.followCalls)
+        assertEquals(null, model.uiState.value.failedProfileFollowAction)
+        model.close()
+    }
+
+    @Test
+    fun `follow retry does not mutate a newer visible profile`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply { followResult = CompletableDeferred() }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        runCurrent()
+        repository.followResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+        model.openUserProfile("b")
+        advanceUntilIdle()
+        val profileReadsBeforeRetry = repository.getUserProfileCalls.toList()
+
+        model.retryFollowUser("a")
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(profileReadsBeforeRetry, repository.getUserProfileCalls)
+        assertEquals(listOf("a"), repository.followCalls)
+        model.close()
+    }
+
+    @Test
+    fun `follow retry reconciliation cannot continue after profile navigation`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply { followResult = CompletableDeferred() }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        runCurrent()
+        repository.followResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+        val reconciliation = CompletableDeferred<Result<CommunityUserProfile>>()
+        repository.profileResults["a"] = reconciliation
+
+        model.retryFollowUser("a")
+        runCurrent()
+        model.openUserProfile("b")
+        runCurrent()
+        reconciliation.complete(Result.success(profile("a")))
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf("a"), repository.followCalls)
+        assertEquals(null, model.uiState.value.followingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `follow retry clears when backend already reached the desired state`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply { followResult = CompletableDeferred() }
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        runCurrent()
+        repository.followResult.complete(Result.failure(IllegalStateException("timeout")))
+        advanceUntilIdle()
+        repository.profileOverride = profile("a", user("a").copy(isFollowing = true, followersCount = 1))
+
+        model.retryFollowUser("a")
+        advanceUntilIdle()
+
+        assertTrue(model.uiState.value.selectedProfile?.user?.isFollowing == true)
+        assertEquals(listOf("a"), repository.followCalls)
+        assertEquals(null, model.uiState.value.failedProfileFollowAction)
+        assertEquals(null, model.uiState.value.error)
         model.close()
     }
 

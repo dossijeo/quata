@@ -1,0 +1,29 @@
+{
+  "check": "PROFILE-FOLLOW-RETRY-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "27aef9dba181c748801e6cd4fcd62fd7e52d502b",
+    "workingTreeDirty": false
+  },
+  "scope": "Exact-head Android implementation and instrumented-test compilation; no device UI or backend mutation",
+  "steps": [
+    "profile_follow_retry_contracts_passed_5_of_5",
+    "profile_follow_android_main_compiled",
+    "profile_follow_android_instrumented_test_compiled"
+  ],
+  "commands": [
+    "node --test scripts/profile-follow-negative-contract.test.mjs",
+    ".\\gradlew.bat :feature:neighborhoods:compileKotlinWasmJs :feature:neighborhoods:compileAndroidMain :app:compileDebugAndroidTestKotlin --no-daemon"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "no_backend_fixture_created",
+      "no_device_state_created"
+    ]
+  },
+  "limits": [
+    "This report proves compilation and static contracts only.",
+    "Android live UI retry convergence remains pending because hosted authentication returned HTTP 402."
+  ]
+}
