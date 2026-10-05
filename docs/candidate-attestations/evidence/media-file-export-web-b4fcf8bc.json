@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA-FILE-EXPORT",
+  "platform": "web",
+  "status": "passed",
+  "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "executionSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "git": {
+    "head": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "workingTreeDirty": false
+  },
+  "custody": {
+    "executionSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "runtimeAndTestBlobMismatches": 0,
+    "productOnlyPaths": []
+  },
+  "runtime": {
+    "browser": "ChromeHeadless 154",
+    "coreTests": 12,
+    "feedTests": 2,
+    "officialTests": 3,
+    "failures": 0,
+    "browserServiceJunitSha256": "09bac1eca978dff6df96becb95705b4ce04bd12960260cbc016f0e75cd0e2135",
+    "commonContractJunitSha256": "4a27ea27f39fc72afd293f822a90d1702f91a908474e398d94c817a0ed296d75",
+    "feedJunitSha256": "af74b775dc968fe9b318332b1ac9b35f1fff9ec504803b2ec130a6ca4c82f527",
+    "officialJunitSha256": "2a6a027d55c5e424c71bbded1afbc9b574d30b0ad72a010935be2b50b9e6a502",
+    "browserServiceNodeJunitSha256": "0fa58ca443a2f81df6caecf931c8773bb147b1f6780c14c1783b23aef208ccad"
+  },
+  "assertions": [
+    "png_download_anchor_received_exact_name_mime_and_nonempty_blob",
+    "mp4_web_share_received_exactly_one_file_and_user_abort_returned_cancelled",
+    "failure_created_no_download_or_share_and_same_descriptor_retry_succeeded",
+    "oversize_and_mime_mismatch_failed_before_any_effect",
+    "every_terminal_path_removed_the_blob_lease_and_revoked_its_object_url",
+    "feed_error_retry_cancel_and_same_detail_contract_passed",
+    "feed_and_official_png_mp4_descriptors_preserved_concrete_mime_and_name",
+    "chat_historical_mime_compatibility_and_url_share_fallback_were_preserved",
+    "responses_without_content_length_use_the_same_bounded_reader_and_export_exact_bytes",
+    "download_blob_urls_remain_valid_for_a_bounded_post_click_window_before_revocation"
+  ],
+  "integration": [
+    "web_host_compiled_with_feed_official_and_chat_consumers",
+    "browser_fetch_omitted_credentials_rejected_redirects_and_enforced_50_mib",
+    "common_action_state_kept_retry_bound_to_the_same_descriptor"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "hermetic_fetch_fixture_blob_map_empty_object_url_revoked_no_backend_mutation"
+  },
+  "limits": [
+    "Web Share availability and the final destination chosen by the user remain browser and receiver behavior.",
+    "The focal transport is hermetic; unrelated production network failures remain outside this unit."
+  ],
+  "steps": [
+    "web_png_and_mp4_exact_file_contract_passed",
+    "web_download_share_cancel_retry_and_cleanup_passed",
+    "web_feed_official_ui_contracts_passed",
+    "web_exact_product_head_validation_passed"
+  ]
+}

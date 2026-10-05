@@ -25,6 +25,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.MediaFileExportDescriptor
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
@@ -248,22 +249,26 @@ private fun iosChatAudioPlaybackProgressRefreshIntervalMillis(): Long =
     1_000L
 
 private suspend fun IosChatHostDependencies.shareDownloadedAttachment(file: PlatformFile): PlatformResult<Unit> {
-    val downloaded = attachmentDownloader.download(file.reference, file.displayName)
-    val localFile = when (downloaded) {
-        is PlatformResult.Success -> downloaded.value
-        is PlatformResult.Failure -> return PlatformResult.Failure(downloaded.reason)
+    val descriptor = MediaFileExportDescriptor(
+        reference = file.reference,
+        displayName = file.displayName?.takeIf(String::isNotBlank) ?: "attachment",
+        mimeType = file.mimeType?.takeIf(String::isNotBlank) ?: "application/octet-stream",
+    )
+    val lease = when (val materialized = attachmentDownloader.materialize(descriptor)) {
+        is PlatformResult.Success -> materialized.value
+        is PlatformResult.Failure -> return PlatformResult.Failure(materialized.reason)
         PlatformResult.Cancelled -> return PlatformResult.Cancelled
         PlatformResult.Unsupported -> return PlatformResult.Unsupported
     }
     return try {
         shareService.share(
             SharePayload(
-                title = localFile.displayName ?: file.displayName ?: "QÜATA",
-                files = listOf(localFile),
+                title = lease.file.displayName ?: file.displayName ?: "QÜATA",
+                files = listOf(lease.file),
             ),
         )
     } finally {
-        attachmentDownloader.discard(localFile)
+        lease.release()
     }
 }
 

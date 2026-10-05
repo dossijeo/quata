@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -19,8 +20,15 @@ import com.quata.core.model.PostComment
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.AndroidMediaFileExportService
+import com.quata.core.platform.rememberAndroidMediaFileShareService
+import com.quata.core.platform.MediaFileExportAction
+import com.quata.core.platform.MediaFileExportDescriptor
+import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.AttachmentPreview
-import com.quata.core.ui.components.AttachmentViewerDialog
+import com.quata.core.ui.components.AttachmentFullscreenMediaContent
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
+import com.quata.core.ui.components.QuataMediaExportActionsContent
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.communityEmojiCatalogState
@@ -52,6 +60,10 @@ fun OfficialFeedScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val mediaFileShareService = rememberAndroidMediaFileShareService()
+    val mediaFileExportService = remember(context, mediaFileShareService) {
+        AndroidMediaFileExportService(context, mediaFileShareService)
+    }
     val translatorModeController = LocalQuataTranslatorModeController.current
     val commentNamePlaceholder = "\u0000"
     BackHandler(enabled = focusedPostId != null && onBackFromFocusedPost != null) {
@@ -135,7 +147,17 @@ fun OfficialFeedScreen(
             },
             media = { post, mediaModifier, open -> OfficialPostMedia(post, open, mediaModifier) },
             article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
-            mediaViewer = { post, dismiss -> OfficialMediaViewerDialog(post, dismiss) },
+            mediaViewer = { post, dismiss ->
+                OfficialMediaViewerDialog(
+                    post = post,
+                    mediaFileExportService = mediaFileExportService::export,
+                    downloadLabel = stringResource(R.string.media_download),
+                    shareLabel = stringResource(R.string.media_share_file),
+                    failureLabel = stringResource(R.string.media_export_failed),
+                    retryLabel = "Reintentar",
+                    onDismiss = dismiss,
+                )
+            },
             openUrl = { url -> context.openOfficialPostLink(url) },
             share = { payload -> shareService.share(payload) },
             message = { value -> Toast.makeText(context, value, Toast.LENGTH_SHORT).show() },
@@ -193,9 +215,37 @@ internal fun OfficialPostMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, 
 }
 
 @Composable
-private fun OfficialMediaViewerDialog(post: OfficialPostItem, onDismiss: () -> Unit) {
+private fun OfficialMediaViewerDialog(
+    post: OfficialPostItem,
+    mediaFileExportService: suspend (MediaFileExportDescriptor, MediaFileExportAction) -> PlatformResult<Unit>,
+    downloadLabel: String,
+    shareLabel: String,
+    failureLabel: String,
+    retryLabel: String,
+    onDismiss: () -> Unit,
+) {
     val url = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
-    AttachmentViewerDialog(AttachmentPreview(post.title, url, if (post.mediaType == OfficialMediaType.Video) "video/*" else "image/*"), onDismiss)
+    val descriptor = remember(post.id, url, post.mediaType, post.title) { officialMediaFileExportDescriptor(post) }
+    val attachment = remember(post.id, url, descriptor?.mimeType, post.title) {
+        AttachmentPreview(post.title, url, descriptor?.mimeType ?: "application/octet-stream")
+    }
+    BackHandler(onBack = onDismiss)
+    QuataFullscreenMediaOverlayContent(
+        title = post.title,
+        onDismiss = onDismiss,
+        actions = {
+            descriptor?.let {
+                QuataMediaExportActionsContent(
+                    descriptor = it,
+                    downloadLabel = downloadLabel,
+                    shareLabel = shareLabel,
+                    failureLabel = failureLabel,
+                    retryLabel = retryLabel,
+                    onExport = mediaFileExportService,
+                )
+            }
+        },
+    ) { mediaModifier -> AttachmentFullscreenMediaContent(attachment, mediaModifier) }
 }
 
 private fun android.content.Context.openOfficialPostLink(url: String) {

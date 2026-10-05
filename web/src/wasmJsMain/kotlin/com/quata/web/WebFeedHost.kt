@@ -12,6 +12,7 @@ import com.quata.core.language.FangTranslationService
 import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.BrowserMediaFileExportService
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -50,6 +51,7 @@ fun WebFeedHost(
             preferredLanguage = quataTranslatorPreferredLanguage(languageTag),
         )
     }
+    val mediaFileExportService = remember { BrowserMediaFileExportService() }
     FeedScreenHost(
         padding = PaddingValues(),
         repository = repository,
@@ -71,6 +73,7 @@ fun WebFeedHost(
             avatarWithPresence = { post, isOnline -> BrowserFeedAuthorAvatar(post, onOpenUserProfile, isOnline, openingProfileUserId == post.author.id) },
             rankingAvatarWithPresence = { item, isOnline -> BrowserFeedRankingAvatar(item, isOnline) },
             share = shareService::share,
+            exportMediaFile = mediaFileExportService::export,
             showComposeMessage = true,
             commentsTranslationGateway = commentsTranslationGateway,
             commentsTranslatorStrings = quataTranslatorStringsForLanguage(languageTag),

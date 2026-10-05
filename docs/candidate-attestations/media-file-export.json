@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "78412797c09eeaed497020172b44be7c69ec2fc2",
+  "certification": "media-file-export-affected-platform-validation-and-independent-review-complete",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "78412797c09eeaed497020172b44be7c69ec2fc2",
+      "report": "docs/candidate-attestations/evidence/media-file-export-android-b4fcf8bc.json",
+      "reportSha256": "3f1ee64bc947bb7035e9904060ca49b3d520df0818a427b3ba52704379a32eb7",
+      "reportStatus": "passed",
+      "reportGitHead": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_png_and_mp4_exact_file_contract_passed",
+        "android_download_retry_and_cleanup_passed",
+        "android_real_chooser_cancellation_passed",
+        "android_exact_product_head_validation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_https_fixture_media_store_row_removed_private_cache_empty_no_backend_mutation"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "78412797c09eeaed497020172b44be7c69ec2fc2",
+      "report": "docs/candidate-attestations/evidence/media-file-export-web-b4fcf8bc.json",
+      "reportSha256": "450979a8376248bcaff9a2533c8c42e803a0a4fd576789e7f15d98f927440df6",
+      "reportStatus": "passed",
+      "reportGitHead": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_png_and_mp4_exact_file_contract_passed",
+        "web_download_share_cancel_retry_and_cleanup_passed",
+        "web_feed_official_ui_contracts_passed",
+        "web_exact_product_head_validation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fetch_fixture_blob_map_empty_object_url_revoked_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "78412797c09eeaed497020172b44be7c69ec2fc2",
+      "report": "docs/candidate-attestations/evidence/media-file-export-ios-b4fcf8bc.json",
+      "reportSha256": "0d641fdcf86d55f404082582c100d15d2cef1925a25c208784a2ac7cdb92249c",
+      "reportStatus": "passed",
+      "reportGitHead": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_png_and_mp4_exact_file_contract_passed",
+        "ios_native_activity_cancellation_passed",
+        "ios_failure_cancellation_and_cleanup_passed",
+        "ios_exact_product_head_validation_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "protected_temporary_fixture_removed_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "Android API 35 seven-case exact-product instrumentation across export and real chooser cancellation",
+    "core Wasm browser and Node media export contracts including absent Content-Length and delayed Blob revocation",
+    "Feed and Official Wasm browser focal contracts",
+    "Web/Wasm and Android affected compiles",
+    "iOS x64 six-case test including traversal rejection plus previously green Chat, Feed and Official affected compiles on product-identical iOS sources",
+    "capability matrix contract 22/22 and Chat attachments/audio contract 43/43",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/media-file-export.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "78412797c09eeaed497020172b44be7c69ec2fc2",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "capability_matrix_hashes_reconciled_and_contract_passes_22_of_22",
+      "chat_materialization_contract_updated_and_passes_43_of_43",
+      "web_accepts_missing_content_length_under_the_bounded_reader",
+      "web_blob_url_revocation_is_bounded_and_deferred_after_download_click",
+      "ios_preserves_a_safe_physical_filename_and_prunes_abandoned_leases",
+      "android_chooser_selection_uses_the_documented_callback_without_a_fixed_millisecond_race",
+      "ios_rejects_path_traversal_names_before_transport_or_filesystem_effects"
+    ],
+    "scopeLimit": "Feed and Official file download/share for PNG and MP4. Exhaustive codec/transport matrices, prolonged background playback, other media producers and receiver-specific behavior remain separate."
+  },
+  "notes": [
+    "Feed and Official add distinct Download and Share file actions to the common fullscreen chrome without changing the existing post-link share action.",
+    "The common UI keeps busy, failure and Retry state bound to the exact same descriptor and preserves the selected detail after success, cancellation and failure.",
+    "Android materializes privately, writes Download through MediaStore and waits for the real chooser selection callback; dismissal is cancellation.",
+    "Web fetches at most 50 MiB without credentials or redirects, performs an anchor download or one-file Web Share and revokes every Blob URL.",
+    "iOS keeps a protected temporary file alive until UIActivityViewController completes or cancels, then deletes it.",
+    "Chat consumes the extracted materialization contract while retaining its prior profile-isolated cache, historical MIME compatibility and Web URL-share fallback.",
+    "The evidence uses hermetic media transports and creates no backend mutation. External receiver behavior and unrelated production network failures are not attributed.",
+    "Product SHA b4fcf8bc is the exact runtime evidence commit for Android, Web and iOS; Product SHA 78412797 applies only the semantics-preserving Android KTX URI parse form required by final lint.",
+    "The exact affected Android lint gate passed on 78412797. Independent exact-head review confirmed Uri.parse(String) and String.toUri() have the same parse semantics and returned GO without P0-P3, so platform E2E evidence was not repeated for this lint-only repair."
+  ]
+}

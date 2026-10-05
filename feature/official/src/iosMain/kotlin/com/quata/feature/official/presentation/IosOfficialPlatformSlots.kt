@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.MediaFileExportService
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
@@ -25,6 +26,7 @@ import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.components.QuataMediaPlaybackRecoveryContent
+import com.quata.core.ui.components.QuataMediaExportActionsContent
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
@@ -61,6 +63,7 @@ import platform.CoreMedia.CMTimeMakeWithSeconds
 /** iOS-only native render seams; they do not own any Official state or navigation. */
 internal fun iosOfficialPlatformSlots(
     shareService: ShareService,
+    mediaFileExportService: MediaFileExportService,
     viewerFactory: IosOfficialMediaViewerFactory?,
     canCreateOfficialPost: Boolean,
     openingProfileUserId: String?,
@@ -84,6 +87,10 @@ internal fun iosOfficialPlatformSlots(
             factory = viewerFactory,
             playbackFailed = strings.mediaPlaybackFailed,
             retryLabel = strings.retry,
+            exportService = mediaFileExportService,
+            downloadLabel = strings.downloadMedia,
+            shareFileLabel = strings.shareMediaFile,
+            exportFailed = strings.mediaExportFailed,
             dismiss = dismiss,
         )
     },
@@ -123,9 +130,16 @@ private fun IosOfficialNativeViewer(
     factory: IosOfficialMediaViewerFactory?,
     playbackFailed: String,
     retryLabel: String,
+    exportService: MediaFileExportService,
+    downloadLabel: String,
+    shareFileLabel: String,
+    exportFailed: String,
     dismiss: () -> Unit,
 ) {
     val url = post.mediaUrl ?: return
+    val exportDescriptor = remember(post.id, url, post.title, post.mediaType) {
+        officialMediaFileExportDescriptor(post)
+    }
     val surface = remember(url) { factory?.create(url, post.mediaType == OfficialMediaType.Video) }
     var snapshot by remember(surface) { mutableStateOf(IosOfficialMediaViewerSnapshot()) }
     androidx.compose.runtime.DisposableEffect(surface) { onDispose { surface?.dispose() } }
@@ -141,6 +155,18 @@ private fun IosOfficialNativeViewer(
         QuataFullscreenMediaOverlayContent(
             title = post.title,
             onDismiss = dismiss,
+            actions = {
+                exportDescriptor?.let { descriptor ->
+                    QuataMediaExportActionsContent(
+                        descriptor = descriptor,
+                        downloadLabel = downloadLabel,
+                        shareLabel = shareFileLabel,
+                        failureLabel = exportFailed,
+                        retryLabel = retryLabel,
+                        onExport = exportService::export,
+                    )
+                }
+            },
         ) { mediaModifier ->
             Box(modifier = mediaModifier) {
                 UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())

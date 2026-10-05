@@ -262,6 +262,9 @@
     <string name="feed_like">Me gusta</string>
     <string name="feed_comments">Comentarios</string>
     <string name="feed_share">Compartir</string>
+    <string name="media_download">Descargar</string>
+    <string name="media_share_file">Compartir archivo</string>
+    <string name="media_export_failed">No se pudo exportar</string>
     <string name="feed_report">Reportar</string>
     <string name="feed_delete_post">Eliminar publicación</string>
     <string name="feed_delete_post_confirm_title">¿Eliminar publicación?</string>

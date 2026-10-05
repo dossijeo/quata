@@ -67,6 +67,9 @@ import com.quata.core.navigation.AuthenticationContinuationKind
 import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.MediaFileExportAction
+import com.quata.core.platform.MediaFileExportDescriptor
+import com.quata.core.platform.mediaFileExportDescriptorOrNull
 import com.quata.core.platform.SharePayload
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.extractPostMeta
@@ -87,6 +90,7 @@ import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataPostDetailChromeContent
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
+import com.quata.core.ui.components.QuataMediaExportActionsContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.CommunityEmojiCatalogState
@@ -152,9 +156,25 @@ data class FeedScreenStrings(
     val detailBack: String = "Volver al feed",
     val detailNotFound: String = "Esta publicación ya no está disponible.",
     val openFullscreen: String = "Abrir a pantalla completa",
+    val downloadMedia: String = "Descargar",
+    val shareMediaFile: String = "Compartir archivo",
+    val mediaExportFailed: String = "No se pudo exportar",
 )
 
 const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
+
+fun feedMediaFileExportDescriptor(
+    post: Post,
+    imageFallbackTitle: String,
+    videoFallbackTitle: String,
+): MediaFileExportDescriptor? {
+    val meta = post.text.extractPostMeta()
+    return mediaFileExportDescriptorOrNull(
+        reference = post.videoUrl ?: post.imageUrl,
+        title = meta.mediaTitle.ifBlank { if (post.videoUrl != null) videoFallbackTitle else imageFallbackTitle },
+        mimeType = if (post.videoUrl != null) "video/mp4" else "image/jpeg",
+    )
+}
 const val FeedPostDetailBackTestTag = "feed.detail.back"
 const val FeedPostMediaTestTagPrefix = "feed.post.media"
 const val FeedPostMediaOpenTestTagPrefix = "feed.post.media.open"
@@ -184,6 +204,7 @@ data class FeedScreenPlatformSlots(
     val rankingAvatarWithPresence: @Composable (QuataLiveRankingItem, Boolean?) -> Unit = { item, _ -> rankingAvatar(item) },
     /** Receives the canonical public post URL and the platform's activity-sheet title. */
     val share: suspend (SharePayload) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
+    val exportMediaFile: suspend (MediaFileExportDescriptor, MediaFileExportAction) -> PlatformResult<Unit> = { _, _ -> PlatformResult.Unsupported },
     val message: (String) -> Unit = {},
     /** Keeps the shared Fang affordance while allowing Android to activate its overlay. */
     val commentsTranslatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit = { contentDescription, modifier, onClick, enabled ->
@@ -706,11 +727,26 @@ fun FeedScreenHost(
                 properties = DialogProperties(usePlatformDefaultWidth = false),
             ) {
                 val meta = post.text.extractPostMeta()
+                val exportDescriptor = remember(post.id, post.imageUrl, post.videoUrl, meta.mediaTitle) {
+                    feedMediaFileExportDescriptor(post, strings.imageType, strings.videoType)
+                }
                 QuataFullscreenMediaOverlayContent(
                     title = meta.mediaTitle.ifBlank {
                         if (post.videoUrl != null) strings.videoType else strings.imageType
                     },
                     onDismiss = { mediaPostId = null },
+                    actions = {
+                        exportDescriptor?.let { descriptor ->
+                            QuataMediaExportActionsContent(
+                                descriptor = descriptor,
+                                downloadLabel = strings.downloadMedia,
+                                shareLabel = strings.shareMediaFile,
+                                failureLabel = strings.mediaExportFailed,
+                                retryLabel = strings.retry,
+                                onExport = slots.exportMediaFile,
+                            )
+                        }
+                    },
                 ) { mediaModifier ->
                     androidx.compose.foundation.layout.Box(mediaModifier) {
                         slots.media(
