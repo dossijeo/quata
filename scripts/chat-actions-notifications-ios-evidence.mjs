@@ -178,7 +178,11 @@ try {
     throw new Error("invalid_public_supabase_url");
   }
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
-  if (config.nativeFacadeIosUrl) report.steps.push("native_loopback_auth_rest_facade_accepted_for_ios_profile_follow_retry");
+  if (config.nativeFacadeIosUrl) {
+    report.steps.push(profileSafetyNegativeOnly
+      ? "native_loopback_auth_rest_facade_accepted_for_ios_profile_safety_retry"
+      : "native_loopback_auth_rest_facade_accepted_for_ios_profile_follow_retry");
+  }
 
   const users = await authorizedUsers();
   if (temporaryProfileHashRequired) {
@@ -2076,7 +2080,7 @@ async function publicBackendConfig() {
     if (process.env[nativeFacadeAuthorizationEnvironment] !== nativeFacadeAuthorizationValue) {
       throw new Error("native_facade_authorization_missing");
     }
-    if (!profileFollowNegativeOnly) throw new Error("native_facade_scope_not_allowed");
+    if (!profileFollowNegativeOnly && !profileSafetyNegativeOnly) throw new Error("native_facade_scope_not_allowed");
     const host = new URL(nativeFacadeHostUrl ?? "");
     const ios = new URL(nativeFacadeIosUrl ?? "");
     for (const [name, url] of [["host", host], ["ios", ios]]) {
