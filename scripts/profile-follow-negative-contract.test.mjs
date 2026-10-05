@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { EventEmitter } from "node:events";
+import { startManagedReverseTunnel } from "./e2e-fixtures/managed-reverse-tunnel.mjs";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -146,6 +148,32 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(localFacade, /allowedOrigins\.has\(requestOrigin\)/);
   assert.match(localFacade, /x-quata-facade-control/);
   assert.match(localFacade, /timingSafeEqual\(expectedHash, suppliedHash\)/);
+});
+
+test("iOS reverse tunnel closes its child when the remote health probe fails", async () => {
+  const child = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.exitCode = null;
+  const signals = [];
+  child.kill = (signal) => {
+    signals.push(signal);
+    child.exitCode = 0;
+    queueMicrotask(() => child.emit("close", 0));
+    return true;
+  };
+
+  await assert.rejects(
+    startManagedReverseTunnel({
+      args: [],
+      spawnOptions: {},
+      spawnProcess: () => child,
+      wait: async () => {},
+      verify: async () => { throw new Error("remote_health_probe_failed"); },
+    }),
+    /remote_health_probe_failed/,
+  );
+  assert.deepEqual(signals, ["SIGTERM"]);
+  assert.equal(child.exitCode, 0);
 });
 
 test("the focused contract runs in both fast contract suites", () => {

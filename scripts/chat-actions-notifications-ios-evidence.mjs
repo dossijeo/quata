@@ -35,6 +35,7 @@ import {
 import { observeChatReadLifecycle } from "./e2e-fixtures/chat-message-read-lifecycle.mjs";
 import { verifyChatInboxCursorPagination } from "./e2e-fixtures/chat-inbox-pagination.mjs";
 import { prepareReversibleProfileFollow } from "./e2e-fixtures/reversible-profile-follow.mjs";
+import { startManagedReverseTunnel } from "./e2e-fixtures/managed-reverse-tunnel.mjs";
 import {
   createBackendHttpError,
   expectMessageOwnershipRejection,
@@ -3505,35 +3506,25 @@ async function runSshScript(host, script, timeoutMs = 15 * 60 * 1000) {
 async function startNativeFacadeTunnel(host, localBaseUrl, iosBaseUrl) {
   const local = new URL(localBaseUrl);
   const ios = new URL(iosBaseUrl);
-  const child = spawn("ssh", [
-    "-N",
-    "-T",
-    "-o", "ExitOnForwardFailure=yes",
-    "-o", "ServerAliveInterval=15",
-    "-o", "ServerAliveCountMax=3",
-    "-R", `127.0.0.1:${ios.port}:127.0.0.1:${local.port}`,
-    host,
-  ], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: ["ignore", "ignore", "pipe"],
-    windowsHide: true,
-  });
-  let stderr = "";
-  child.stderr.on("data", (chunk) => { stderr += chunk; });
-  const closed = new Promise((resolvePromise) => child.once("close", resolvePromise));
-  await delay(1_000);
-  if (child.exitCode !== null) throw new Error(`native_facade_tunnel_start_failed:${redactedTail(stderr)}`);
-  await runSilent("ssh", [host, `curl -fsS ${shellQuote(`${ios.origin}/__health`)} >/dev/null`], { timeoutMs: 30_000 });
-  return {
-    stop: async () => {
-      if (child.exitCode === null) child.kill("SIGTERM");
-      await Promise.race([
-        closed,
-        delay(5_000).then(() => { throw new Error("native_facade_tunnel_stop_timeout"); }),
-      ]);
+  return startManagedReverseTunnel({
+    args: [
+      "-N",
+      "-T",
+      "-o", "ExitOnForwardFailure=yes",
+      "-o", "ServerAliveInterval=15",
+      "-o", "ServerAliveCountMax=3",
+      "-R", `127.0.0.1:${ios.port}:127.0.0.1:${local.port}`,
+      host,
+    ],
+    spawnOptions: {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true,
     },
-  };
+    verify: () => runSilent("ssh", [host, `curl -fsS ${shellQuote(`${ios.origin}/__health`)} >/dev/null`], { timeoutMs: 30_000 }),
+    startError: (stderr) => new Error(`native_facade_tunnel_start_failed:${redactedTail(stderr)}`),
+  });
 }
 
 async function run(command, args, options = {}) {
