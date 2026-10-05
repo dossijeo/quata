@@ -4,12 +4,12 @@
     "PROF-SAFETY-RETRY"
   ],
   "status": "passed",
-  "productSha": "dac05b6e6888c5d34679bcb6dc0c5b90bae09a83",
+  "productSha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
   "certification": "candidate-awaiting-renewed-independent-review-and-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "dac05b6e6888c5d34679bcb6dc0c5b90bae09a83",
+      "sha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
       "report": "docs/candidate-attestations/evidence/profile-safety-retry-web-dac05b6e.json",
       "reportSha256": "91cb9ebd7ac6d5bc09550d8be8708b527670c5cc8ac6bf49e7d59c47c92abd0e",
       "reportStatus": "passed",
@@ -30,19 +30,19 @@
     },
     "android": {
       "status": "passed",
-      "sha": "dac05b6e6888c5d34679bcb6dc0c5b90bae09a83",
-      "report": "docs/candidate-attestations/evidence/profile-safety-retry-android-dac05b6e.json",
-      "reportSha256": "53b86a6f194d2efc64c31abaa33462456a7a9abd4d9d10785a9449ddc898a7ba",
+      "sha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "report": "docs/candidate-attestations/evidence/profile-safety-retry-android-2c3d563f.json",
+      "reportSha256": "1e728ce7270b5affae0e44941a60b039d73acd226c10057085491efe83dd3842",
       "reportStatus": "passed",
-      "reportGitHead": "4e45b445d9158f603d79e3438b8a87ddae159e21",
+      "reportGitHead": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requiredSteps": [
         "profile_follow_and_safety_retry_contracts_passed_11_of_11",
-        "profile_safety_navigation_scope_wasm_focal_passed",
-        "profile_safety_android_main_compiled",
-        "native_runtime_paths_verified_equivalent_at_product_sha"
+        "profile_safety_late_failure_scoped_and_retry_resumed_wasm_focal_passed",
+        "profile_safety_late_success_preserved_newer_profile_error_wasm_focal_passed",
+        "profile_safety_android_main_compiled"
       ],
       "cleanup": {
         "verified": true,
@@ -51,19 +51,19 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "dac05b6e6888c5d34679bcb6dc0c5b90bae09a83",
-      "report": "docs/candidate-attestations/evidence/profile-safety-retry-ios-dac05b6e.json",
-      "reportSha256": "3c880ff113276cd5d19dd3b61c2abfc990160fb847ddd14961e4b7e66d038132",
+      "sha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "report": "docs/candidate-attestations/evidence/profile-safety-retry-ios-2c3d563f.json",
+      "reportSha256": "081e1298c31b4ec7d1c1c72d4e6cad0d4c58f22cfef71d57d1a220844ce914ab",
       "reportStatus": "passed",
-      "reportGitHead": "4e45b445d9158f603d79e3438b8a87ddae159e21",
+      "reportGitHead": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
       "requiredSteps": [
-        "mac_checkout_sha_matched_runtime_head",
+        "mac_checkout_sha_matched_product_sha",
         "profile_safety_ios_x64_main_compiled",
-        "profile_safety_navigation_scope_ios_x64_focal_passed",
-        "native_runtime_paths_verified_equivalent_at_product_sha",
+        "profile_safety_late_failure_scoped_and_retry_resumed_ios_x64_focal_passed",
+        "profile_safety_late_success_preserved_newer_profile_error_ios_x64_focal_passed",
         "isolated_mac_checkout_removed"
       ],
       "cleanup": {
@@ -83,10 +83,10 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-safety-retry.json"
   ],
   "notes": [
-    "The product retains the exact failed profile-safety action and target after a block mutation fails. A late completion for profile A does not contaminate profile B; returning to A restores the bounded error and same retry control, and stale completions cannot mutate the newer profile.",
-    "Web/Wasm accepted the real Compose UI and production database behavior: the forced pre-mutation failure exposed the optimistic Unblock state, bounded error and exact Block rollback; the same retry control then persisted the block edge. Cleanup restored the original absent edge and all owned fixture state.",
+    "The product retains the exact failed profile-safety action and target after a block mutation fails. A late failure for profile A does not contaminate profile B; returning to A restores the bounded error and same retry control. A late success for A also preserves an error that belongs to the newer visible profile B.",
+    "Web/Wasm accepted the real Compose UI and production database behavior on clean Product SHA dac05b6e. The later Product SHA 2c3d563f changes only cross-profile completion isolation outside that accepted live path; both affected interleavings pass exact-head Wasm and iOS x64 focal tests, so the full backend trial was not repeated solely for the SHA change.",
     "Hosted Supabase Auth returned HTTP 402. The accepted Web run therefore used the hardened loopback facade with exactly one origin, an external ephemeral shutdown secret and local PostgREST against the production database. It created and removed two temporary sessions, removed its container and configuration, and did not implement Realtime.",
-    "Android and iOS evidence executes the corrected common navigation focal and compiles their affected product paths. Runtime paths are byte-identical between execution head 4e45b445 and Product SHA dac05b6e; the intervening change only strengthens the static contract. Live native UI retry convergence remains pending while hosted authentication is unavailable.",
+    "Android and iOS evidence executes both corrected common navigation interleavings and compiles their affected product paths on Product SHA 2c3d563f. Live native UI retry convergence remains pending while hosted authentication is unavailable.",
     "The first attempt on the original safety branch failed before fixture creation because hosted Auth returned HTTP 402. The first local-facade launch attempt then failed before authentication because a placeholder publishable key was rejected; cleanup was empty. The accepted run used the repository public key without printing it.",
     "The local Realtime endpoint is intentionally absent. Ten exact loopback WebSocket 404 diagnostics were retained and classified as non-blocking only under the explicit local-facade authorization.",
     "This unit does not recertify the integrated report/block positive path, authorization denial, report failure, concurrent safety mutations, Android/iOS live UI or unrelated profile behavior."

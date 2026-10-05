@@ -1,0 +1,30 @@
+{
+  "check": "PROFILE-SAFETY-RETRY-ANDROID-003",
+  "status": "passed",
+  "git": {
+    "head": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+    "workingTreeDirty": false
+  },
+  "scope": "Common retry implementation and two focal navigation interleavings plus Android compilation on the exact product head; no device UI or backend mutation",
+  "steps": [
+    "profile_follow_and_safety_retry_contracts_passed_11_of_11",
+    "profile_safety_late_failure_scoped_and_retry_resumed_wasm_focal_passed",
+    "profile_safety_late_success_preserved_newer_profile_error_wasm_focal_passed",
+    "profile_safety_android_main_compiled"
+  ],
+  "commands": [
+    "node --test scripts/profile-follow-negative-contract.test.mjs scripts/profile-safety-negative-contract.test.mjs",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests <two-profile-safety-navigation-focals> :feature:neighborhoods:compileAndroidMain --no-daemon --console=plain"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "no_backend_fixture_created",
+      "no_device_state_created"
+    ]
+  },
+  "limits": [
+    "This report proves both corrected common interleavings, Android compilation and static contracts only.",
+    "Android live UI retry convergence remains pending while hosted authentication returns HTTP 402."
+  ]
+}
