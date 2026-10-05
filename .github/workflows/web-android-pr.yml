@@ -145,6 +145,7 @@ jobs:
           node --test scripts/startup-splash-parity-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
           node --test scripts/external-share-parity-contract.test.mjs
+          node --test scripts/live-ranking-native-e2e-contract.test.mjs scripts/verify-live-ranking-android-results.test.mjs
           node --test scripts/web-authenticated-browser-e2e.test.mjs scripts/web-login-product-flow-contract.test.mjs scripts/web-wasm-navigation-stress-contract.test.mjs
 
       - name: Install Android SDK 36.1 for KMP configuration
@@ -591,7 +592,7 @@ jobs:
     needs: [classify-impact]
     if: ${{ needs.classify-impact.outputs.android == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 80
 
     steps:
       - name: Check out source
@@ -606,6 +607,11 @@ jobs:
       - name: Install pinned JetBrains Runtime 21 for Gradle daemon
         shell: bash
         run: bash scripts/install-ci-jbr-21.sh
+
+      - name: Set up Node.js for Android result verification
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -665,6 +671,19 @@ jobs:
           bash ./gradlew :app:verifyDebugComposeResources --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/android-ci/assemble-debug.log
 
+      - name: Run native live Ranking focal instrumentation
+        timeout-minutes: 45
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/run-live-ranking-android-e2e.sh
+
       - name: Summarize Android lint debt
         if: always()
         shell: bash
@@ -690,6 +709,8 @@ jobs:
             app/build/outputs/apk/debug/*.apk
             app/build/reports/lint-results-debug.*
             app/build/reports/lint-results-debug/
+            app/build/outputs/androidTest-results/connected/debug/
+            app/build/reports/androidTests/connected/debug/
             document-reader/build/reports/lint-results-debug.*
             document-reader/build/reports/lint-results-debug/
           if-no-files-found: warn
