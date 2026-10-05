@@ -4,12 +4,12 @@
     "PROF-FOLLOW-RETRY"
   ],
   "status": "passed",
-  "productSha": "cd6118655ec2a672190c63427e66369deaebe784",
+  "productSha": "db6cc7e316b9f3f79ee56aaddff5305e90d10f80",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "cd6118655ec2a672190c63427e66369deaebe784",
+      "sha": "db6cc7e316b9f3f79ee56aaddff5305e90d10f80",
       "report": "docs/candidate-attestations/evidence/profile-follow-retry-web-28a83006.json",
       "reportSha256": "7fe7f27f80e4989a9ac6bfe9403e9954b1bedf4176359c605a7875c4b9a49a9f",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "cd6118655ec2a672190c63427e66369deaebe784",
+      "sha": "db6cc7e316b9f3f79ee56aaddff5305e90d10f80",
       "report": "docs/candidate-attestations/evidence/profile-follow-retry-android-62c8993a.json",
       "reportSha256": "fce88000a325680ea234777662e7aae7b955fc2a5e1ad8198cb8d64b17481be3",
       "reportStatus": "passed",
@@ -53,7 +53,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "cd6118655ec2a672190c63427e66369deaebe784",
+      "sha": "db6cc7e316b9f3f79ee56aaddff5305e90d10f80",
       "report": "docs/candidate-attestations/evidence/profile-follow-retry-ios-5d00e787.json",
       "reportSha256": "6f13162a98772cd0c46b17f854785b5858d57d57eda9fe5bec22f6d1f0999c92",
       "reportStatus": "passed",
@@ -94,7 +94,8 @@
     "The accepted iOS report was produced on clean head 5d00e787. Commit 62c8993a changes only the Android instrumented entry helper: after a timed wait, its diagnostic screenshot had already proved that a slow profile load could settle during capture, so the helper now re-observes the tagged profile surface once before classifying navigation as failed. Final Product SHA cd611865 then refreshes only the four reviewed capability-matrix references for the already changed QuataIosApp.swift composition. No iOS or common product path changed after the accepted iOS run, so it was not repeated solely for either SHA transition.",
     "The accepted Web report remains the clean prior run on 28a83006. This native closure changes no Web/Wasm product runtime or retry semantics; the facade additions provide the native login route and connection pooling without widening the existing Web origin/control contract, so the full Web matrix was not repeated solely for the candidate SHA.",
     "The first iOS attempt preserved a complete cleanup but stopped after simctl bootstatus timed out even though the selected simulator was already Booted. The wrapper now preserves the caller errexit scope so its existing exact-UDID fallback can inspect that state; the signed binary was reused because only the wrapper changed.",
-    "The first clean Android repetition preserved a complete cleanup and showed the public profile in its failure diagnostic. The bounded re-observation described above removed that evidence-classification race; the next clean run on 62c8993a passed one instrumented test and all backend and cleanup postconditions. Final Product SHA cd611865 changes only the reviewed capability-matrix hashes, so Android was not repeated solely for that metadata transition.",
+    "The first clean Android repetition preserved a complete cleanup and showed the public profile in its failure diagnostic. The bounded re-observation described above removed that evidence-classification race; the next clean run on 62c8993a passed one instrumented test and all backend and cleanup postconditions. Product SHA cd611865 changes only the reviewed capability-matrix hashes, so Android was not repeated solely for that metadata transition.",
+    "Final Product SHA db6cc7e closes the SSH reverse-tunnel child when its remote health probe fails and adds a focal executable regression test for that cleanup path. The successful tunnel and product paths are unchanged, so neither native E2E was repeated solely for this evidence-infrastructure repair.",
     "This unit closes the previously documented native Android/iOS acceptance gap for PROF-FOLLOW-RETRY. It does not recertify unrelated profile behavior or claim availability of the externally quota-blocked hosted Auth service."
   ]
 }
