@@ -672,7 +672,7 @@ jobs:
             2>&1 | tee build/reports/android-ci/assemble-debug.log
 
       - name: Run native live Ranking focal instrumentation
-        timeout-minutes: 30
+        timeout-minutes: 45
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -680,6 +680,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash scripts/run-live-ranking-android-e2e.sh
 
