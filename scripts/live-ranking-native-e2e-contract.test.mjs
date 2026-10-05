@@ -81,6 +81,8 @@ test('iOS CI runs the focal class once and requires both named XCTest passes', (
 test('Android CI runs both focal classes and verifies their exact JUnit passes', () => {
   assert.match(webAndroidWorkflow, /name: Run native live Ranking focal instrumentation[\s\S]*?uses: reactivecircus\/android-emulator-runner@v2/);
   assert.match(webAndroidWorkflow, /api-level: 35[\s\S]*?disable-animations: true/);
+  assert.match(webAndroidWorkflow, /script: \|\n\s+bash -euo pipefail <<'BASH'[\s\S]*?\n\s+BASH/);
+  assert.doesNotMatch(webAndroidWorkflow, /script: \|\n\s+set -euo pipefail\n\s+mkdir -p build\/reports\/android-ci/);
   assert.match(webAndroidWorkflow, /:app:connectedDebugAndroidTest[\s\S]*?FeedRemoteRankingInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialRemoteRankingInstrumentedTest/);
   assert.match(webAndroidWorkflow, /node scripts\/verify-live-ranking-android-results\.mjs[\s\S]*?app\/build\/outputs\/androidTest-results\/connected\/debug/);
   assert.match(webAndroidWorkflow, /node --test scripts\/live-ranking-native-e2e-contract\.test\.mjs scripts\/verify-live-ranking-android-results\.test\.mjs/);
