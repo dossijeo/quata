@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-const [androidFeed, androidOfficial, iosFeed, iosOfficial, swiftHost, swiftTest, iosWorkflow, webAndroidWorkflow, androidVerifier] = await Promise.all([
+const [androidFeed, androidOfficial, iosFeed, iosOfficial, swiftHost, swiftTest, iosWorkflow, webAndroidWorkflow, androidVerifier, androidRunner] = await Promise.all([
   read('app/src/androidTest/java/com/quata/feature/feed/presentation/FeedRemoteRankingInstrumentedTest.kt'),
   read('app/src/androidTest/java/com/quata/feature/official/presentation/OfficialRemoteRankingInstrumentedTest.kt'),
   read('feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedLiveRankingFixtureHost.kt'),
@@ -14,6 +14,7 @@ const [androidFeed, androidOfficial, iosFeed, iosOfficial, swiftHost, swiftTest,
   read('.github/workflows/ios-build.yml'),
   read('.github/workflows/web-android-pr.yml'),
   read('scripts/verify-live-ranking-android-results.mjs'),
+  read('scripts/run-live-ranking-android-e2e.sh'),
 ]);
 
 test('Android native hosts execute complete remote Ranking through real ViewModels', () => {
@@ -81,10 +82,11 @@ test('iOS CI runs the focal class once and requires both named XCTest passes', (
 test('Android CI runs both focal classes and verifies their exact JUnit passes', () => {
   assert.match(webAndroidWorkflow, /name: Run native live Ranking focal instrumentation[\s\S]*?uses: reactivecircus\/android-emulator-runner@v2/);
   assert.match(webAndroidWorkflow, /api-level: 35[\s\S]*?disable-animations: true/);
-  assert.match(webAndroidWorkflow, /script: \|\n\s+bash -euo pipefail <<'BASH'[\s\S]*?\n\s+BASH/);
-  assert.doesNotMatch(webAndroidWorkflow, /script: \|\n\s+set -euo pipefail\n\s+mkdir -p build\/reports\/android-ci/);
-  assert.match(webAndroidWorkflow, /:app:connectedDebugAndroidTest[\s\S]*?FeedRemoteRankingInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialRemoteRankingInstrumentedTest/);
-  assert.match(webAndroidWorkflow, /node scripts\/verify-live-ranking-android-results\.mjs[\s\S]*?app\/build\/outputs\/androidTest-results\/connected\/debug/);
+  assert.match(webAndroidWorkflow, /script: bash scripts\/run-live-ranking-android-e2e\.sh/);
+  assert.doesNotMatch(webAndroidWorkflow, /script: \|/);
+  assert.match(androidRunner, /^#!\/usr\/bin\/env bash\nset -euo pipefail/m);
+  assert.match(androidRunner, /:app:connectedDebugAndroidTest[\s\S]*?FeedRemoteRankingInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialRemoteRankingInstrumentedTest/);
+  assert.match(androidRunner, /node scripts\/verify-live-ranking-android-results\.mjs[\s\S]*?app\/build\/outputs\/androidTest-results\/connected\/debug/);
   assert.match(webAndroidWorkflow, /node --test scripts\/live-ranking-native-e2e-contract\.test\.mjs scripts\/verify-live-ranking-android-results\.test\.mjs/);
   assert.match(androidVerifier, /live_ranking_android_junit_missing/);
   assert.match(androidVerifier, /live_ranking_android_not_passed/);
