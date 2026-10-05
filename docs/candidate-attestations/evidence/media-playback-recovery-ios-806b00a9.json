@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA-PLAYBACK-RECOVERY",
+  "platform": "ios",
+  "status": "passed",
+  "productSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+  "executionSha": "39e31e7f38981c8b21003430a06b1d1be3ca68e6",
+  "git": {
+    "head": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+    "workingTreeDirty": false,
+    "trackedChanges": ""
+  },
+  "environment": {
+    "xcode": "26.6",
+    "sdk": "iPhoneOS 26.5",
+    "simulatorName": "Quata-Raster-iOS-26",
+    "simulatorModel": "iPhone 16 Pro",
+    "simulatorUdid": "CA174410-C1E4-4758-9EEA-301F8710EEE3",
+    "simulatorOs": "26.5",
+    "architecture": "x86_64",
+    "configuration": "SimulatorSigned",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "expectedFailures": 0
+  },
+  "tests": [
+    "QuataFeedFrameworkTests.testIosFeedVideoSurfaceRecoversAfterTheSameSourceBecomesAvailable",
+    "QuataFeedFrameworkTests.testIosFeedVideoRetryPreservesAnInvalidSourceFailure",
+    "QuataFeedFrameworkTests.testIosOfficialVideoViewerRecoversAfterTheSameSourceBecomesAvailable"
+  ],
+  "xcresult": "build/reports/ios/QuataIos-media-playback-39e31-three-v2.xcresult",
+  "xcresultInfoSha256": "0111ba5857b15416e3c104c6643273024d221a5601009f5db6756040f94de964",
+  "summarySha256": "d281236da958aa13e6bbb4fb602f231d4d3515abcdd5538a64946336d78057d9",
+  "decisiveSourceSha256": {
+    "designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataMediaPlaybackRecoveryContent.kt": "c1cbf5fb69913fde922e404279a5d3495abf85339aa9f0722cc8996e668a1b91",
+    "feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelVideoPlaybackHostContent.kt": "481551b1ca63943ed7e5434099ffa15754c69250d88687cb687962ca4c349f01",
+    "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedMediaSlot.kt": "372ca000bd60f735bfe72e8f7fbc89eb98e11e5872052124661ce54a5838639e",
+    "feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt": "a774a28514edd00a6aa0a28778dc0baa07c0a15768511d05c62a0829caaf38a2",
+    "feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostMediaFrameContent.kt": "9d2e38156fbd180313141e7dcd825fbd035a0fae8302a059a8777eeebb5bcd50",
+    "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/IosOfficialPlatformSlots.kt": "684c272a279d7e5756cdb8814fd17b2d24feeff184bda9915e8daa9496744012",
+    "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
+    "iosApp/iosApp/IosFeedMediaBridge.swift": "1393703290ed0fabc2566ab8c11a1b92a17d38b46bc28626207d22e06d928e66",
+    "iosApp/iosApp/IosOfficialMediaBridge.swift": "88cef416ac5284381d0ac8cf90c30240bd605ebdb596e180d6069ae36ce0a940",
+    "iosApp/iosAppTests/QuataFeedFrameworkTests.swift": "682abc40a242324d535e414a290db0cc3990827f4714d42cafffa6961599abff"
+  },
+  "exactHeadValidation": [
+    "ios_x64_framework_rebuilt_from_exact_runtime_head_39e31e7f",
+    "three_xctest_cases_passed_together_on_exact_runtime_head_39e31e7f",
+    "final_product_changes_after_runtime_head_are_limited_to_capability_hash_and_inventory_binding",
+    "feature_official_compileKotlinIosX64_passed_on_runtime_identical_sources"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "local_missing_and_invalid_media_fixtures_no_backend_mutation"
+  },
+  "failedAttempts": [
+    {
+      "result": "destination_not_found",
+      "resolution": "Used the explicit available simulator UDID instead of assuming its display name."
+    },
+    {
+      "result": "build_failed_stale_xcframework",
+      "resolution": "Rebuilt and repackaged the x86_64 Kotlin framework from the exact product head, then reran the three cases successfully."
+    },
+    {
+      "result": "gradle_wrapper_permission_denied_and_vm_architecture_probe_failed",
+      "resolution": "Invoked the wrapper through bash with the documented GRADLE_OPTS and explicit Java installation paths."
+    }
+  ],
+  "notes": [
+    "The retained xcresult and summary were produced on runtime head 39e31e7f. Product SHA 806b00a9 changes only the fail-closed capability hash and inventory binding; all runtime and test sources are byte-identical.",
+    "All three focal tests ran together and prove Feed recovery, preserved invalid-source failure, and Official recovery using the real AVFoundation bridges."
+  ],
+  "steps": [
+    "ios_feed_same_source_retry_reaches_playback",
+    "ios_invalid_source_failure_is_preserved",
+    "ios_official_same_source_retry_reaches_playback"
+  ],
+  "custody": {
+    "executionSha": "39e31e7f38981c8b21003430a06b1d1be3ca68e6",
+    "publishedProductSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+    "recompositionBaseSha": "4f078a9371da6702a71354beb5706c053a5703da",
+    "productFilesCompared": 25,
+    "blobMismatches": 0,
+    "baseOverlapWithProductFiles": 0,
+    "conclusion": "The exact iOS runtime and test sources are byte-identical; the final product follow-up changes only the fail-closed capability hash and inventory binding.",
+    "finalBindingOnlyPaths": [
+      "capabilities/platform-capability-matrix.json",
+      "docs/MULTIPLATFORM_INVENTORY.md"
+    ]
+  }
+}

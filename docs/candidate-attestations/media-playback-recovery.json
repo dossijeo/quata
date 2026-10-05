@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+  "certification": "recoverable-media-playback-affected-platform-validation-and-independent-review-complete-final-ci-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+      "report": "docs/candidate-attestations/evidence/media-playback-recovery-android-806b00a9.json",
+      "reportSha256": "1615ba7e922b5347755eee27f9cab563dc59c906d5c28ab98d9260c707f0b044",
+      "reportStatus": "passed",
+      "reportGitHead": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_missing_source_failure_visible",
+        "android_same_source_retry_reaches_media3_ready",
+        "android_exact_head_affected_compiles_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_content_uri_fixture_no_backend_mutation"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+      "report": "docs/candidate-attestations/evidence/media-playback-recovery-web-806b00a9.json",
+      "reportSha256": "6f7d6f35c015013d5d72c932dad663771c9bf94d0c73d257be826aebfd546ed9",
+      "reportStatus": "passed",
+      "reportGitHead": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_real_decoder_failure_visible",
+        "web_same_source_retry_reaches_real_playback",
+        "web_exact_head_contracts_and_focal_test_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_http_media_fixture_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+      "report": "docs/candidate-attestations/evidence/media-playback-recovery-ios-806b00a9.json",
+      "reportSha256": "a573af17be165001328b972a1a43ed97477b12ff182248c10908d77fdf162cfa",
+      "reportStatus": "passed",
+      "reportGitHead": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_feed_same_source_retry_reaches_playback",
+        "ios_invalid_source_failure_is_preserved",
+        "ios_official_same_source_retry_reaches_playback"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_missing_and_invalid_media_fixtures_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/official-editor-web-evidence-contract.test.mjs",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests com.quata.feature.feed.presentation.FeedPlaybackRecoveryContentTest :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:official:compileKotlinIosX64 --no-daemon --stacktrace --console=plain",
+    "Android API 35 MediaPlaybackRecoveryInstrumentedTest.failedVideoRetriesTheSameSourceIntoAPlayableState with byte-custody to the final product head",
+    "iOS SimulatorSigned three-case XCTest on exact product head",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/media-playback-recovery.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "e79db604a1760c26396c27b1fecca275687138a0",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Updated all three fail-closed capability hashes for QuataOfficialViewController.",
+      "Reconciled OVR-MEDIA inventory before the Product SHA and distinguished focal recovery from exhaustive codec and transport coverage."
+    ],
+    "scopeLimit": "Recoverable playback and same-source retry for Feed and Official only; exhaustive codecs/transport, prolonged background playback, download/share, comments and other media producers remain separate."
+  },
+  "notes": [
+    "Feed and Official expose a visible common playback failure with one explicit retry of the same source on Android, Web/Wasm and iOS.",
+    "Web Official uses the in-app real HTML video decoder. Cross-origin isolation adds crossorigin only when required; remote media still requires HTTPS and HTTP is limited to loopback fixtures.",
+    "Android requires Media3 STATE_READY and does not infer active playback when the API 35 emulator leaves the ready decoder paused.",
+    "The Android and Web runtime executions were made on prepared commit 27740dd4. All 25 runtime product blobs are identical in Product SHA 806b00a9; the final binding-only changes update the fail-closed capability hash and inventory.",
+    "The iOS three-case XCTest was renewed on runtime head 39e31e7f. Product SHA 806b00a9 keeps every runtime/test source byte-identical and adds only the capability hash plus inventory reconciliation.",
+    "This unit closes recoverable playback/decoder failure for Feed and Official. It does not claim an exhaustive codec or transport matrix, prolonged background playback, download/share, comments, or other media producers.",
+    "A public read-only compatibility probe found the current production page is not cross-origin isolated. If hosting later enables COEP require-corp, historical media without CORS/CORP must be migrated or served under a compatible policy."
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA-PLAYBACK-RECOVERY",
+  "platform": "web",
+  "status": "passed",
+  "productSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+  "executionSha": "27740dd4ea220eebc39056289d201fcf19a775b5",
+  "git": {
+    "head": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+    "workingTreeDirty": false,
+    "trackedChanges": ""
+  },
+  "rawReportSha256": "c30aee20a7460e566b02ff16460700cdf12e452c4f9f8196d6aea9657c45508c",
+  "mediaResponses": [
+    "invalid",
+    "invalid",
+    "valid"
+  ],
+  "assertions": [
+    "official_video_real_decoder_failure_exposed",
+    "official_video_same_source_retry_reached_real_playback",
+    "same_source_url_preserved_across_retry",
+    "one_retry_dispatched",
+    "ready_state_at_least_two",
+    "video_not_paused",
+    "current_time_greater_than_0_15_seconds",
+    "no_console_or_page_errors_ignored"
+  ],
+  "screenshots": {
+    "failureSha256": "4c1fd1734fac96962a1fe75a92c4aeeb3addb9b7bd8732e2e891fa911e504c4e",
+    "recoveredSha256": "48dc0e42f22aef4d632a749ca2a2153146b4d359b35fb74c3e84cf0c4cf742b7"
+  },
+  "sourceSha256": {
+    "scripts/official-editor-web-evidence.mjs": "1dc3c3e3e089437e7aa55423f710503ddc051af033812208d37da159bfddc238"
+  },
+  "exactHeadValidation": {
+    "evidenceContractTests": "passed_5_of_5",
+    "feedWasmFocalTest": "passed_1_of_1",
+    "feedWasmJunitSha256": "eb6310c51a438a83264c7b455e9859d827f468540d420b90e4b478c0d55912f8",
+    "webCompileKotlinWasmJs": "passed"
+  },
+  "custody": {
+    "executionSha": "27740dd4ea220eebc39056289d201fcf19a775b5",
+    "publishedProductSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+    "recompositionBaseSha": "4f078a9371da6702a71354beb5706c053a5703da",
+    "productFilesCompared": 25,
+    "blobMismatches": 0,
+    "baseOverlapWithProductFiles": 0,
+    "conclusion": "The runtime-tested sources and fixtures are byte-identical after recomposition; the final product follow-up changes only the fail-closed capability hash and inventory binding.",
+    "finalBindingOnlyPaths": [
+      "capabilities/platform-capability-matrix.json",
+      "docs/MULTIPLATFORM_INVENTORY.md"
+    ]
+  },
+  "cleanup": {
+    "verified": true,
+    "mode": "hermetic_http_media_fixture_no_backend_mutation"
+  },
+  "notes": [
+    "The raw local report remains outside Git because it contains host paths. This portable projection contains only assertions and hashes.",
+    "The decoder failed on HTTP 200 invalid MP4 bytes and recovered when the same URL began returning the valid MP4 fixture."
+  ],
+  "steps": [
+    "web_real_decoder_failure_visible",
+    "web_same_source_retry_reaches_real_playback",
+    "web_exact_head_contracts_and_focal_test_passed"
+  ]
+}
