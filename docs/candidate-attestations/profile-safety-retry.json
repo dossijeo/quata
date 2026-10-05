@@ -4,12 +4,12 @@
     "PROF-SAFETY-RETRY"
   ],
   "status": "passed",
-  "productSha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+  "productSha": "17f039df77685656bd6a1e88a748282d8804be31",
   "certification": "candidate-awaiting-renewed-independent-review-and-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "sha": "17f039df77685656bd6a1e88a748282d8804be31",
       "report": "docs/candidate-attestations/evidence/profile-safety-retry-web-dac05b6e.json",
       "reportSha256": "91cb9ebd7ac6d5bc09550d8be8708b527670c5cc8ac6bf49e7d59c47c92abd0e",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "sha": "17f039df77685656bd6a1e88a748282d8804be31",
       "report": "docs/candidate-attestations/evidence/profile-safety-retry-android-2c3d563f.json",
       "reportSha256": "1e728ce7270b5affae0e44941a60b039d73acd226c10057085491efe83dd3842",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+      "sha": "17f039df77685656bd6a1e88a748282d8804be31",
       "report": "docs/candidate-attestations/evidence/profile-safety-retry-ios-2c3d563f.json",
       "reportSha256": "081e1298c31b4ec7d1c1c72d4e6cad0d4c58f22cfef71d57d1a220844ce914ab",
       "reportStatus": "passed",
@@ -76,6 +76,7 @@
     "git diff --check",
     "node --check scripts/chat-actions-notifications-web-evidence.mjs scripts/chat-actions-notifications-android-evidence.mjs scripts/chat-actions-notifications-ios-evidence.mjs scripts/profile-follow-local-evidence-facade.mjs",
     "node --test scripts/profile-follow-negative-contract.test.mjs scripts/profile-safety-negative-contract.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs",
     ".\\gradlew.bat :feature:neighborhoods:compileKotlinWasmJs :feature:neighborhoods:compileAndroidMain :app:compileDebugAndroidTestKotlin --no-daemon",
     ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon",
     "bash gradlew :feature:neighborhoods:compileKotlinIosX64 :feature:neighborhoods:compileTestKotlinIosX64 --no-daemon --console=plain",
@@ -84,9 +85,9 @@
   ],
   "notes": [
     "The product retains the exact failed profile-safety action and target after a block mutation fails. A late failure for profile A does not contaminate profile B; returning to A restores the bounded error and same retry control. A late success for A also preserves an error that belongs to the newer visible profile B.",
-    "Web/Wasm accepted the real Compose UI and production database behavior on clean Product SHA dac05b6e. The later Product SHA 2c3d563f changes only cross-profile completion isolation outside that accepted live path; both affected interleavings pass exact-head Wasm and iOS x64 focal tests, so the full backend trial was not repeated solely for the SHA change.",
+    "Web/Wasm accepted the real Compose UI and production database behavior on clean Product SHA dac05b6e. Product SHA 17f039df retains the complete safety runtime byte-identical to the reviewed 2c3d563f product after rebasing onto integrated follow retry main; both corrected interleavings passed Wasm and iOS x64 focal tests on that reviewed runtime, so the full backend trial was not repeated solely for the rebase and capability declaration update.",
     "Hosted Supabase Auth returned HTTP 402. The accepted Web run therefore used the hardened loopback facade with exactly one origin, an external ephemeral shutdown secret and local PostgREST against the production database. It created and removed two temporary sessions, removed its container and configuration, and did not implement Realtime.",
-    "Android and iOS evidence executes both corrected common navigation interleavings and compiles their affected product paths on Product SHA 2c3d563f. Live native UI retry convergence remains pending while hosted authentication is unavailable.",
+    "Android and iOS evidence executes both corrected common navigation interleavings and compiles their affected product paths on reviewed Product SHA 2c3d563f. Every safety path changed by that unit is byte-identical in Product SHA 17f039df; the latter additionally binds all ten capability declarations for the three decisive Communities sources. Live native UI retry convergence remains pending while hosted authentication is unavailable.",
     "The first attempt on the original safety branch failed before fixture creation because hosted Auth returned HTTP 402. The first local-facade launch attempt then failed before authentication because a placeholder publishable key was rejected; cleanup was empty. The accepted run used the repository public key without printing it.",
     "The local Realtime endpoint is intentionally absent. Ten exact loopback WebSocket 404 diagnostics were retained and classified as non-blocking only under the explicit local-facade authorization.",
     "This unit does not recertify the integrated report/block positive path, authorization denial, report failure, concurrent safety mutations, Android/iOS live UI or unrelated profile behavior."
