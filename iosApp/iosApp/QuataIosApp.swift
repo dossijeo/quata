@@ -813,6 +813,15 @@ private final class IosAppCompositionRoot {
             return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
                 mediaFactory: IosFeedNativeMediaFactory.shared
             )
+        case "live-ranking-feed":
+            return IosFeedLiveRankingFixtureHostKt.QuataIosFeedLiveRankingFixtureViewController(
+                mediaFactory: IosFeedNativeMediaFactory.shared,
+                failFirstOlderPage: arguments.contains("-quata-live-ranking-fail-first-page")
+            )
+        case "live-ranking-official":
+            return IosOfficialLiveRankingFixtureHostKt.QuataIosOfficialLiveRankingFixtureViewController(
+                failFirstOlderPage: arguments.contains("-quata-live-ranking-fail-first-page")
+            )
         case "whats-new-real":
             if arguments.contains("-quata-ui-test-reset-whats-new") {
                 let defaults = UserDefaults.standard

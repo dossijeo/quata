@@ -72,6 +72,7 @@ jobs:
             git diff --check HEAD^ HEAD
           fi
           node --test scripts/ios-build-workflow-contract.test.mjs
+          node --test scripts/live-ranking-native-e2e-contract.test.mjs
           node --test scripts/codeql-workflow-contract.test.mjs
           node --test scripts/classify-ci-impact.test.mjs
           node --test scripts/candidate-attestation-contract.test.mjs
@@ -100,6 +101,9 @@ jobs:
 
       - name: Validate iOS workflow contract
         run: node --test scripts/ios-build-workflow-contract.test.mjs
+
+      - name: Validate native live Ranking E2E contract
+        run: node --test scripts/live-ranking-native-e2e-contract.test.mjs
 
       - name: Validate iOS watchdog cleanup contract
         run: python3 -m unittest scripts/test_run_ios_command_watchdog.py scripts/test_check_ios_simulator_booted.py
@@ -552,6 +556,63 @@ jobs:
             exit 1
           fi
 
+      - name: Run iOS live Ranking native UI tests
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          destination="platform=iOS Simulator,id=$simulator_udid"
+          run_watchdog() {
+            local timeout_seconds="$1"
+            local log_file="$2"
+            shift 2
+            local status
+            if python3 scripts/run-ios-command-watchdog.py \
+              --timeout-seconds "$timeout_seconds" \
+              --log "$log_file" \
+              -- "$@"; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            return "$status"
+          }
+          run_watchdog 420 build/reports/ios/xcodebuild-live-ranking-tests.log xcodebuild \
+            -project iosApp/QuataIos.xcodeproj \
+            -scheme QuataIos \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "$destination" \
+            -derivedDataPath build/ios-derived-data \
+            -resultBundlePath build/reports/ios/QuataIos-live-ranking-tests.xcresult \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 90 \
+            -maximum-test-execution-time-allowance 180 \
+            -only-testing:QuataIosUITests/QuataIosLiveRankingUITests \
+            -parallel-testing-enabled NO \
+            -maximum-parallel-testing-workers 1 \
+            test
+          for test_name in \
+            testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget \
+            testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget; do
+            if ! grep -F "QuataIosLiveRankingUITests $test_name" build/reports/ios/xcodebuild-live-ranking-tests.log \
+              | grep -F "passed" >/dev/null; then
+              echo "::error::Live Ranking focal XCTest $test_name did not report a passed semantic execution"
+              exit 1
+            fi
+            if grep -F "QuataIosLiveRankingUITests $test_name" build/reports/ios/xcodebuild-live-ranking-tests.log \
+              | grep -Ei "skipped|disabled" >/dev/null; then
+              echo "::error::Live Ranking focal XCTest $test_name was skipped or disabled"
+              exit 1
+            fi
+          done
+
       - name: Test Swift/Kotlin iOS host boundary
         # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.
         timeout-minutes: 22
@@ -602,6 +663,7 @@ jobs:
             -default-test-execution-time-allowance 90 \
             -maximum-test-execution-time-allowance 180 \
             -skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests \
+            -skip-testing:QuataIosUITests/QuataIosLiveRankingUITests \
             -skip-testing:QuataIosTests/IosMediaPermissionRuntimeTests \
             QUATA_SUPABASE_URL= \
             QUATA_SUPABASE_PUBLISHABLE_KEY= \

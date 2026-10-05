@@ -212,8 +212,9 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   const officialPublicReadTest = yaml.indexOf('      - name: Run iOS Official public read contract');
   const profileRuntimeTest = yaml.indexOf('      - name: Run iOS Profile runtime contract');
   const feedPlaybackTest = yaml.indexOf('      - name: Run iOS Feed playback public-runtime UI test');
+  const liveRankingTest = yaml.indexOf('      - name: Run iOS live Ranking native UI tests');
   const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
-  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && profileRuntimeTest > officialPublicReadTest && feedPlaybackTest > profileRuntimeTest && testStep > feedPlaybackTest,
+  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && profileRuntimeTest > officialPublicReadTest && feedPlaybackTest > profileRuntimeTest && liveRankingTest > feedPlaybackTest && testStep > liveRankingTest,
     'the valid xcconfig fixture probe must remain before the isolated UI test');
 
   const fixtureBlock = yaml.slice(fixtureProbe, testStep);
@@ -256,7 +257,7 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   assert.doesNotMatch(profileTestBlock, /compileTestKotlin|continue-on-error|timeout-minutes/,
     'the focal Profile lane must execute without skipping or weakening the test gate');
 
-  const feedPlaybackBlock = yaml.slice(feedPlaybackTest, testStep);
+  const feedPlaybackBlock = yaml.slice(feedPlaybackTest, liveRankingTest);
   assert.match(
     feedPlaybackBlock,
     /run_watchdog 420 build\/reports\/ios\/xcodebuild-feed-playback-tests\.log xcodebuild[\s\S]*?-only-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?-parallel-testing-enabled NO[\s\S]*?test/,
@@ -275,6 +276,28 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   assert.doesNotMatch(feedPlaybackBlock, /QUATA_SUPABASE_URL=|QUATA_SUPABASE_PUBLISHABLE_KEY=/,
     'the Feed playback UI test must not blank the public runtime fixture');
 
+  const liveRankingBlock = yaml.slice(liveRankingTest, testStep);
+  assert.match(
+    liveRankingBlock,
+    /run_watchdog 420 build\/reports\/ios\/xcodebuild-live-ranking-tests\.log xcodebuild[\s\S]*?-only-testing:QuataIosUITests\/QuataIosLiveRankingUITests[\s\S]*?-parallel-testing-enabled NO[\s\S]*?test/,
+    'the native live Ranking UI tests must run as a bounded focal class',
+  );
+  for (const testName of [
+    'testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget',
+    'testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget',
+  ]) {
+    assert.ok(liveRankingBlock.includes(testName), `the focal lane must name ${testName}`);
+  }
+  assert.match(
+    liveRankingBlock,
+    /QuataIosLiveRankingUITests \$test_name[\s\S]*?grep -F "passed"[\s\S]*?Live Ranking focal XCTest \$test_name did not report a passed semantic execution/,
+    'the live Ranking focal step must fail closed unless every named XCTest reports a passed execution',
+  );
+  assert.match(liveRankingBlock, /grep -Ei "skipped\|disabled"[\s\S]*?Live Ranking focal XCTest \$test_name was skipped or disabled/,
+    'the live Ranking focal step must reject skipped or disabled executions');
+  assert.doesNotMatch(liveRankingBlock, /QUATA_SUPABASE_URL=|QUATA_SUPABASE_PUBLISHABLE_KEY=/,
+    'the deterministic live Ranking fixtures must not depend on runtime credentials');
+
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
   const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
   assert.match(invocation, /-configuration SimulatorSigned /,
@@ -287,6 +310,10 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the real journal persistence and backend isolation tests must execute');
   assert.match(invocation, /-skip-testing:QuataIosTests\/IosMediaPermissionRuntimeTests/,
     'the global host suite must not rerun the externally orchestrated media permission state matrix');
+  assert.match(invocation, /-skip-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests/,
+    'the global host suite must not rerun the focal Feed playback class');
+  assert.match(invocation, /-skip-testing:QuataIosUITests\/QuataIosLiveRankingUITests/,
+    'the global host suite must not rerun the focal native live Ranking class');
   assert.match(
     invocation,
     /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
@@ -568,6 +595,8 @@ test('Keychain host rejects unsigned configuration and omitted journal tests', a
     ['external identity', 'CODE_SIGN_IDENTITY=-', 'CODE_SIGN_IDENTITY=Apple Development'],
     ['journal tests excluded', '-skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests',
       '-skip-testing:QuataIosTests/IosApnsJournalKeychainTests'],
+    ['live Ranking focal class repeated', '-skip-testing:QuataIosUITests/QuataIosLiveRankingUITests',
+      '-skip-testing:QuataIosTests/UnrelatedLiveRankingTests'],
     ['media permission state matrix repeated', '-skip-testing:QuataIosTests/IosMediaPermissionRuntimeTests',
       '-skip-testing:QuataIosTests/UnrelatedTests'],
   ]) await t.test(name, () => {
