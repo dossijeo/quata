@@ -15,8 +15,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.feature.official.domain.OfficialMediaType
+
+const val OfficialPostMediaOpenTestTag = "official.media.open"
 
 /**
  * The media affordance is deliberately shared; hosts only supply a decoder surface.
@@ -51,6 +54,7 @@ fun OfficialPostMediaFrameContent(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .testTag(OfficialPostMediaOpenTestTag)
             .clickable(onClick = onOpenMedia),
         contentAlignment = Alignment.Center,
     ) {

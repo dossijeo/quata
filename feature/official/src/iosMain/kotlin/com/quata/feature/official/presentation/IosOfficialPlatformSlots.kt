@@ -1,5 +1,6 @@
 package com.quata.feature.official.presentation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
+import com.quata.core.ui.components.QuataMediaPlaybackRecoveryContent
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
@@ -35,6 +37,7 @@ import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -74,7 +77,16 @@ internal fun iosOfficialPlatformSlots(
     },
     media = { post, modifier, open -> IosOfficialMedia(post, open, modifier) },
     article = { post, modifier -> QuataRichTextRenderer(post.contentHtml, modifier, post.contentPlain) },
-    mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, dismiss) },
+    mediaViewer = { post, dismiss ->
+        val strings = defaultOfficialFeedScreenStrings(preferredLanguageTag)
+        IosOfficialNativeViewer(
+            post = post,
+            factory = viewerFactory,
+            playbackFailed = strings.mediaPlaybackFailed,
+            retryLabel = strings.retry,
+            dismiss = dismiss,
+        )
+    },
     openUrl = ::openIosOfficialUrl,
     share = { payload -> shareService.share(payload) },
     message = {},
@@ -106,17 +118,40 @@ private fun iosOfficialCommunityEmojiSelectorEvidenceCatalogState(
 )
 
 @Composable
-private fun IosOfficialNativeViewer(post: OfficialPostItem, factory: IosOfficialMediaViewerFactory?, dismiss: () -> Unit) {
+private fun IosOfficialNativeViewer(
+    post: OfficialPostItem,
+    factory: IosOfficialMediaViewerFactory?,
+    playbackFailed: String,
+    retryLabel: String,
+    dismiss: () -> Unit,
+) {
     val url = post.mediaUrl ?: return
     val surface = remember(url) { factory?.create(url, post.mediaType == OfficialMediaType.Video) }
+    var snapshot by remember(surface) { mutableStateOf(IosOfficialMediaViewerSnapshot()) }
     androidx.compose.runtime.DisposableEffect(surface) { onDispose { surface?.dispose() } }
     LaunchedEffect(surface) { if (surface == null) dismiss() }
+    LaunchedEffect(surface) {
+        val activeSurface = surface ?: return@LaunchedEffect
+        while (true) {
+            snapshot = activeSurface.snapshot()
+            delay(250)
+        }
+    }
     if (surface != null) {
         QuataFullscreenMediaOverlayContent(
             title = post.title,
             onDismiss = dismiss,
         ) { mediaModifier ->
-            UIKitView(factory = surface::nativeView, modifier = mediaModifier)
+            Box(modifier = mediaModifier) {
+                UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
+                if (snapshot.error != null) {
+                    QuataMediaPlaybackRecoveryContent(
+                        message = playbackFailed,
+                        retryLabel = retryLabel,
+                        onRetry = surface::retry,
+                    )
+                }
+            }
         }
     }
 }

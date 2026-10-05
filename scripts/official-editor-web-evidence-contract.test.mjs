@@ -7,6 +7,9 @@ import {
 } from "./official-editor-web-evidence-policy.mjs";
 
 const runner = await readFile(new URL("./official-editor-web-evidence.mjs", import.meta.url), "utf8");
+const browserFeedMedia = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedMediaContent.kt", import.meta.url), "utf8");
+const mediaRecovery = await readFile(new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataMediaPlaybackRecoveryContent.kt", import.meta.url), "utf8");
+const officialMediaFrame = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostMediaFrameContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("Official editor Web evidence keeps the permission fixture hermetic and mutation-free", () => {
@@ -72,6 +75,30 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.doesNotMatch(runner, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
 });
 
+test("Official Web media evidence proves real decoder failure and same-source recovery", () => {
+  assert.match(officialMediaFrame, /OfficialPostMediaOpenTestTag = "official\.media\.open"/);
+  assert.match(officialMediaFrame, /\.testTag\(OfficialPostMediaOpenTestTag\)/);
+  assert.match(mediaRecovery, /QuataMediaPlaybackFailureTestTag = "media-playback\.failure"/);
+  assert.match(mediaRecovery, /QuataMediaPlaybackRetryTestTag = "media-playback\.retry"/);
+  assert.match(browserFeedMedia, /configureBrowserFeedVideoCrossOrigin\(this, videoUrl\)/);
+  assert.match(browserFeedMedia, /globalThis\.crossOriginIsolated && source\.origin !== globalThis\.location\.origin/);
+  assert.match(browserFeedMedia, /video\.crossOrigin = 'anonymous'/);
+  assert.match(browserFeedMedia, /candidate\.hostname === '127\.0\.0\.1'/);
+  assert.match(browserFeedMedia, /candidate\.protocol === 'https:'[\s\S]*?secureRemote \|\| localDevelopment/);
+  assert.doesNotMatch(browserFeedMedia, /decoderAllowed/);
+  assert.doesNotMatch(browserFeedMedia, /if \(!decoderAllowed\)[\s\S]*?isPlaying = true/);
+  assert.match(runner, /clickProductTag\(page, "official\.media\.open"\)/);
+  assert.match(runner, /waitForProductTag\(page, "media-playback\.failure"\)/);
+  assert.match(runner, /server\.enableMedia\(\)/);
+  assert.match(runner, /clickProductTag\(page, "media-playback\.retry"\)/);
+  assert.match(runner, /video\.readyState >= 2 && !video\.paused && video\.currentTime > 0\.15/);
+  assert.match(runner, /server\.mediaResponses\[0\] !== "invalid"/);
+  assert.match(runner, /server\.mediaResponses\.slice\(1\)\.includes\("valid"\)/);
+  assert.match(runner, /Buffer\.from\("not-a-valid-mp4", "utf8"\)/);
+  assert.match(runner, /media_url: `\$\{origin\}\/storage\/v1\/object\/public\/official-media\/fixture-media\.mp4`/);
+  assert.match(runner, /official_video_same_source_retry_reached_real_playback/);
+});
+
 test("Official editor Web evidence rejects every bearer on the public feed fixture", () => {
   for (const authorization of [
     "Bearer fixture.official.access.token",
@@ -86,6 +113,11 @@ test("Official editor Web evidence rejects every bearer on the public feed fixtu
   assert.deepEqual(
     officialFeedPageFixtureResponse({ method: "GET", query: { p_limit: "50" } }),
     { status: 200, body: [] },
+  );
+  const rows = [{ id: "fixture-video" }];
+  assert.deepEqual(
+    officialFeedPageFixtureResponse({ method: "GET", query: { p_limit: "50" }, rows }),
+    { status: 200, body: rows },
   );
   assert.deepEqual(
     officialFeedPageFixtureResponse({ method: "GET", query: { p_limit: "50", p_before_id: "unexpected" } }),

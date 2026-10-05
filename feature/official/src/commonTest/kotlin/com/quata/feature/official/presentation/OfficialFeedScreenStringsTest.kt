@@ -20,6 +20,7 @@ class OfficialFeedScreenStringsTest {
                 confirm = "Confirm", cancel = "Cancel", deleted = "Notice deleted",
                 reportSent = "Report sent for review", reportFailed = "Could not send report",
                 shareUnavailable = "This notice cannot be shared on this device.", shareFailed = "Could not share notice",
+                mediaPlaybackFailed = "Could not play the video.",
             ),
             defaultOfficialFeedScreenStrings("en-US"),
         )
@@ -36,6 +37,7 @@ class OfficialFeedScreenStringsTest {
                 confirm = "Confirmer", cancel = "Annuler", deleted = "Communiqu\u00e9 supprim\u00e9",
                 reportSent = "Signalement envoy\u00e9 pour examen", reportFailed = "Impossible d'envoyer le signalement",
                 shareUnavailable = "Ce communiqu\u00e9 ne peut pas \u00eatre partag\u00e9 sur cet appareil.", shareFailed = "Impossible de partager le communiqu\u00e9",
+                mediaPlaybackFailed = "Impossible de lire la vid\u00e9o.",
             ),
             defaultOfficialFeedScreenStrings("fr-FR"),
         )
@@ -85,7 +87,7 @@ class OfficialFeedScreenStringsTest {
                 expected.typeAnnouncement, expected.typeNews, expected.typeEvent, expected.typeUrgent,
                 expected.officialAccountFallback, expected.deleteTitle, expected.deleteMessage,
                 expected.confirm, expected.cancel, expected.deleted, expected.reportSent, expected.reportFailed,
-                expected.shareUnavailable, expected.shareFailed,
+                expected.shareUnavailable, expected.shareFailed, expected.mediaPlaybackFailed,
             ),
             listOf(
                 actual.empty, actual.create, actual.retry, actual.loadingError, actual.like,
@@ -95,7 +97,7 @@ class OfficialFeedScreenStringsTest {
                 actual.typeAnnouncement, actual.typeNews, actual.typeEvent, actual.typeUrgent,
                 actual.officialAccountFallback, actual.deleteTitle, actual.deleteMessage,
                 actual.confirm, actual.cancel, actual.deleted, actual.reportSent, actual.reportFailed,
-                actual.shareUnavailable, actual.shareFailed,
+                actual.shareUnavailable, actual.shareFailed, actual.mediaPlaybackFailed,
             ),
         )
     }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,6 +44,7 @@ import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
@@ -142,7 +144,7 @@ fun WebOfficialHost(
             )
         },
         article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
-        mediaViewer = { post, dismiss -> post.mediaUrl?.let { url -> openBrowserUrl(url) }; dismiss() },
+        mediaViewer = { post, dismiss -> BrowserOfficialMediaViewer(post, dismiss) },
         share = { payload -> shareService.share(payload) },
         message = {},
         showComposeMessage = true,
@@ -429,6 +431,32 @@ private fun BrowserOfficialMediaThumbnail(post: OfficialPostItem, modifier: Modi
         BrowserOfficialVideoThumbnail(url, post.title, modifier)
     } else {
         BrowserCanvasImage(url, post.title, ContentScale.Crop, modifier)
+    }
+}
+
+@Composable
+private fun BrowserOfficialMediaViewer(post: OfficialPostItem, dismiss: () -> Unit) {
+    val url = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
+    var isMuted by remember(url) { mutableStateOf(true) }
+    var positionMs by remember(url) { mutableLongStateOf(0L) }
+    QuataFullscreenMediaOverlayContent(title = post.title, onDismiss = dismiss) { mediaModifier ->
+        if (post.mediaType == OfficialMediaType.Video) {
+            BrowserFeedMediaContent(
+                post = post.asFeedPost(),
+                isCurrent = true,
+                isMuted = isMuted,
+                initialPositionMs = positionMs,
+                onPositionChanged = { positionMs = it },
+                onMuteChange = { isMuted = it },
+            )
+        } else {
+            BrowserCanvasImage(
+                url = url,
+                contentDescription = post.title,
+                contentScale = ContentScale.Fit,
+                modifier = mediaModifier,
+            )
+        }
     }
 }
 

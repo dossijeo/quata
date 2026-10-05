@@ -63,8 +63,16 @@ interface IosOfficialMediaViewerFactory {
 
 interface IosOfficialMediaViewerSurface {
     fun nativeView(): platform.UIKit.UIView
+    fun snapshot(): IosOfficialMediaViewerSnapshot
+    fun retry()
     fun dispose()
 }
+
+data class IosOfficialMediaViewerSnapshot(
+    val isPlaying: Boolean = false,
+    val isLoading: Boolean = true,
+    val error: String? = null,
+)
 
 /**
  * iOS composition input for the shared Official list and detail flow.

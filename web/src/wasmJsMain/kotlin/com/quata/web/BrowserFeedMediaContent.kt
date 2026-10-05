@@ -117,8 +117,6 @@ private fun BrowserFeedVideoContent(
     var appliedInitialPosition by remember(videoUrl) { mutableStateOf(false) }
     var underlayAttached by remember(videoUrl) { mutableStateOf(false) }
     var wasCurrent by remember(videoUrl) { mutableStateOf(false) }
-    val decoderAllowed = remember(videoUrl) { isBrowserFeedVideoDecoderAllowed(videoUrl) }
-
     fun persistPosition(milliseconds: Long) {
         positionMs = milliseconds.coerceAtLeast(0L)
         latestPositionChanged(positionMs)
@@ -133,15 +131,7 @@ private fun BrowserFeedVideoContent(
         playbackError = null
         isEnded = false
         val video = element
-        if (video == null) {
-            if (!decoderAllowed) {
-                hasStartedPlayback = true
-                isPlaying = true
-                isBuffering = false
-                if (showFeedback) showFeedback(VideoPlaybackFeedback.Play)
-            }
-            return
-        }
+        if (video == null) return
         video.muted = isMuted
         requestBrowserVideoPlay(video, isReleased = { released.value }) { rejection ->
             if (released.value) return@requestBrowserVideoPlay
@@ -194,68 +184,67 @@ private fun BrowserFeedVideoContent(
         }
     }
 
-    if (decoderAllowed) {
-        DisposableEffect(videoUrl) {
-            val video = (document.createElement("video") as HTMLVideoElement).apply {
-                // This is a native video underlay, inserted before the Compose canvas. It contains no
-                // controls and never receives pointer events; Compose owns all product UI above it.
-                controls = false
-                preload = "metadata"
-                loop = true
-                muted = isMuted
-                setAttribute("playsinline", "")
-                released.value = false
-                installBrowserFeedVideoListeners(
-                    video = this,
-                    isReleased = { released.value },
-                    onMetadata = { duration ->
-                        durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
-                        hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
-                        if (!appliedInitialPosition && initialPositionMs > 0L) {
-                            currentTime = initialPositionMs / 1_000.0
-                            persistPosition(initialPositionMs)
-                        }
-                        appliedInitialPosition = true
-                    },
-                    onProgress = { position, duration ->
-                        durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
-                        hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
-                        persistPosition((position * 1_000.0).toLong())
-                        if (position > 0.0) hasStartedPlayback = true
-                    },
-                    onPlay = {
-                        hasStartedPlayback = true
-                        isPlaying = true
-                        isBuffering = false
-                        playbackError = null
-                    },
-                    onPause = { isPlaying = false },
-                    onWaiting = { if (latestIsCurrent.value) isBuffering = true },
-                    onFrameReady = {
-                        hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
-                        isBuffering = false
-                    },
-                    onEnded = { isEnded = true; isPlaying = false },
-                    onError = {
-                        isPlaying = false
-                        isBuffering = false
-                        hasRenderableFrame = false
-                        playbackError = "feed_video_playback_failed"
-                    },
-                )
-                src = videoUrl
-            }
-            underlayAttached = attachBrowserFeedVideoUnderlay(video)
-            element = video
-            onDispose {
-                released.value = true
-                persistPosition((video.currentTime * 1_000.0).toLong())
-                video.pause()
-                clearBrowserFeedVideoListeners(video)
-                detachBrowserFeedVideoUnderlay(video)
-                underlayAttached = false
-                if (element === video) element = null
-            }
+    DisposableEffect(videoUrl) {
+        val video = (document.createElement("video") as HTMLVideoElement).apply {
+            // This is a native video underlay, inserted before the Compose canvas. It contains no
+            // controls and never receives pointer events; Compose owns all product UI above it.
+            controls = false
+            preload = "metadata"
+            loop = true
+            muted = isMuted
+            setAttribute("playsinline", "")
+            configureBrowserFeedVideoCrossOrigin(this, videoUrl)
+            released.value = false
+            installBrowserFeedVideoListeners(
+                video = this,
+                isReleased = { released.value },
+                onMetadata = { duration ->
+                    durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
+                    hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
+                    if (!appliedInitialPosition && initialPositionMs > 0L) {
+                        currentTime = initialPositionMs / 1_000.0
+                        persistPosition(initialPositionMs)
+                    }
+                    appliedInitialPosition = true
+                },
+                onProgress = { position, duration ->
+                    durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
+                    hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
+                    persistPosition((position * 1_000.0).toLong())
+                    if (position > 0.0) hasStartedPlayback = true
+                },
+                onPlay = {
+                    hasStartedPlayback = true
+                    isPlaying = true
+                    isBuffering = false
+                    playbackError = null
+                },
+                onPause = { isPlaying = false },
+                onWaiting = { if (latestIsCurrent.value) isBuffering = true },
+                onFrameReady = {
+                    hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
+                    isBuffering = false
+                },
+                onEnded = { isEnded = true; isPlaying = false },
+                onError = {
+                    isPlaying = false
+                    isBuffering = false
+                    hasRenderableFrame = false
+                    playbackError = "feed_video_playback_failed"
+                },
+            )
+            src = videoUrl
+        }
+        underlayAttached = attachBrowserFeedVideoUnderlay(video)
+        element = video
+        onDispose {
+            released.value = true
+            persistPosition((video.currentTime * 1_000.0).toLong())
+            video.pause()
+            clearBrowserFeedVideoListeners(video)
+            detachBrowserFeedVideoUnderlay(video)
+            underlayAttached = false
+            if (element === video) element = null
         }
     }
 
@@ -277,6 +266,8 @@ private fun BrowserFeedVideoContent(
             pause = "Pausar",
             mute = "Silenciar",
             unmute = "Activar sonido",
+            playbackFailed = "No se pudo reproducir el vídeo.",
+            retry = "Reintentar",
         ),
         media = {
             BrowserFeedVideoUnderlayHole(
@@ -555,7 +546,7 @@ internal fun isBrowserFeedVideoUrl(url: String): Boolean =
             url = url,
             supabaseUrl = QuataPublicBackendConfig.SUPABASE_URL,
         ) ||
-        isSafeBrowserFeedHttpsVideoUrl(url)
+        isSafeBrowserFeedVideoUrl(url)
 
 private fun isConfiguredSupabasePublicFeedMediaUrl(url: String, supabaseUrl: String): Boolean = js(
     """(() => {
@@ -572,11 +563,14 @@ private fun isConfiguredSupabasePublicFeedMediaUrl(url: String, supabaseUrl: Str
     })()""",
 )
 
-private fun isSafeBrowserFeedHttpsVideoUrl(url: String): Boolean = js(
+private fun isSafeBrowserFeedVideoUrl(url: String): Boolean = js(
     """(() => {
     try {
       const candidate = new URL(url);
-      return candidate.protocol === 'https:' &&
+      const secureRemote = candidate.protocol === 'https:';
+      const localDevelopment = candidate.protocol === 'http:' &&
+        (candidate.hostname === '127.0.0.1' || candidate.hostname === 'localhost' || candidate.hostname === '[::1]');
+      return (secureRemote || localDevelopment) &&
         !candidate.search &&
         !candidate.hash &&
         /\.(mp4|m4v|mov|webm)$/i.test(candidate.pathname);
@@ -586,13 +580,17 @@ private fun isSafeBrowserFeedHttpsVideoUrl(url: String): Boolean = js(
     })()""",
 )
 
-private fun isBrowserFeedVideoDecoderAllowed(url: String): Boolean = js(
+private fun configureBrowserFeedVideoCrossOrigin(video: HTMLVideoElement, url: String): Unit = js(
     """(() => {
     try {
-      if (!globalThis.crossOriginIsolated) return true;
-      return new URL(url, globalThis.location.href).origin === globalThis.location.origin;
+      const source = new URL(url, globalThis.location.href);
+      if (globalThis.crossOriginIsolated && source.origin !== globalThis.location.origin) {
+        video.crossOrigin = 'anonymous';
+      } else {
+        video.removeAttribute('crossorigin');
+      }
     } catch (_) {
-      return false;
+      video.removeAttribute('crossorigin');
     }
     })()""",
 )
