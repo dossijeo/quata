@@ -309,7 +309,9 @@ class NeighborhoodsViewModel(
                     failedProfileUserId = null,
                     refreshingProfileUserId = if (freshCachedProfile == null) userId else null,
                     currentUserIsAdmin = currentUserIsAdmin,
-                    error = null
+                    error = _uiState.value.failedProfileSafetyAction
+                        ?.takeIf { it.userId == userId }
+                        ?.errorMessage
                 )
             } else {
                 _uiState.value = _uiState.value.copy(
@@ -317,7 +319,9 @@ class NeighborhoodsViewModel(
                     failedProfileUserId = null,
                     refreshingProfileUserId = null,
                     currentUserIsAdmin = currentUserIsAdmin,
-                    error = null
+                    error = _uiState.value.failedProfileSafetyAction
+                        ?.takeIf { it.userId == userId }
+                        ?.errorMessage
                 )
             }
             profileJob = scope.launch {
@@ -339,7 +343,9 @@ class NeighborhoodsViewModel(
                                     failedProfileUserId = null,
                                     refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
                                     selectedProfile = if (shouldUpdateVisibleProfile) profile else currentState.selectedProfile,
-                                    error = null
+                                    error = currentState.failedProfileSafetyAction
+                                        ?.takeIf { it.userId == userId }
+                                        ?.errorMessage
                                 )
                             }
                             .onFailure { error ->
@@ -608,14 +614,40 @@ class NeighborhoodsViewModel(
 
     fun reportProfile(userId: String) {
         if (_uiState.value.profileSafetyUpdatingUserId != null) return
-        _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)
+        _uiState.value = _uiState.value.copy(
+            profileSafetyUpdatingUserId = userId,
+            failedProfileSafetyAction = null,
+            error = null,
+        )
         scope.launch {
             repository.reportProfile(userId)
-                .onSuccess { _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = null) }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                .onSuccess {
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
                         profileSafetyUpdatingUserId = null,
-                        error = error.message ?: "No se pudo reportar el perfil",
+                        failedProfileSafetyAction = null,
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            null
+                        } else {
+                            currentState.error
+                        },
+                    )
+                }
+                .onFailure { error ->
+                    val message = error.message ?: "No se pudo reportar el perfil"
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
+                        profileSafetyUpdatingUserId = null,
+                        failedProfileSafetyAction = FailedProfileSafetyAction(
+                            userId = userId,
+                            action = ProfileModerationAction.Report,
+                            errorMessage = message,
+                        ),
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            message
+                        } else {
+                            currentState.error
+                        },
                     )
                 }
         }
@@ -627,6 +659,7 @@ class NeighborhoodsViewModel(
         _uiState.value = _uiState.value.copy(
             selectedProfile = before.copy(isBlockedByCurrentUser = blocked),
             profileSafetyUpdatingUserId = userId,
+            failedProfileSafetyAction = null,
             error = null,
         )
         scope.launch {
@@ -644,11 +677,18 @@ class NeighborhoodsViewModel(
                             if (current.user.id == userId) resolvedTarget else current
                         },
                         profileSafetyUpdatingUserId = null,
+                        failedProfileSafetyAction = null,
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            null
+                        } else {
+                            currentState.error
+                        },
                     )
                     repository.cacheUserProfile(resolvedTarget)
                 }
                 .onFailure { error ->
                     val currentState = _uiState.value
+                    val message = error.message ?: "No se pudo actualizar el bloqueo"
                     _uiState.value = currentState.copy(
                         selectedProfile = currentState.selectedProfile?.let { current ->
                             if (current.user.id == userId) {
@@ -658,9 +698,28 @@ class NeighborhoodsViewModel(
                             }
                         },
                         profileSafetyUpdatingUserId = null,
-                        error = error.message ?: "No se pudo actualizar el bloqueo",
+                        failedProfileSafetyAction = FailedProfileSafetyAction(
+                            userId = userId,
+                            action = if (blocked) ProfileModerationAction.Block else ProfileModerationAction.Unblock,
+                            errorMessage = message,
+                        ),
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            message
+                        } else {
+                            currentState.error
+                        },
                     )
                 }
+        }
+    }
+
+    fun retryProfileSafety() {
+        val failed = _uiState.value.failedProfileSafetyAction ?: return
+        if (_uiState.value.selectedProfile?.user?.id != failed.userId) return
+        when (failed.action) {
+            ProfileModerationAction.Report -> reportProfile(failed.userId)
+            ProfileModerationAction.Block -> setProfileBlocked(failed.userId, true)
+            ProfileModerationAction.Unblock -> setProfileBlocked(failed.userId, false)
         }
     }
 

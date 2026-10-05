@@ -75,6 +75,7 @@ class IosNeighborhoodsReadRepository(
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
     private var profileFollowEvidenceFailureConsumed = false
     private var profileRolesEvidenceFailureConsumed = false
+    private var profileSafetyBlockEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceRemoteOpenCompleted = false
     private var communityChatEvidenceFailureConsumed = false
@@ -176,7 +177,8 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
-        if (iosProfileSafetyBlockEvidenceFailureRequested()) {
+        if (iosProfileSafetyBlockEvidenceFailureRequested() && !profileSafetyBlockEvidenceFailureConsumed) {
+            profileSafetyBlockEvidenceFailureConsumed = true
             delay(4_000)
             error("profile_safety_block_e2e_forced_failure")
         }

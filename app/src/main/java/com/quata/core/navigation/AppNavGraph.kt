@@ -1268,6 +1268,7 @@ fun AppNavGraph(
                 commentingPostId = globalProfileState.commentingPostId,
                 likingPostId = globalProfileState.likingPostId,
                 profileSafetyUpdatingUserId = globalProfileState.profileSafetyUpdatingUserId,
+                failedProfileSafetyAction = globalProfileState.failedProfileSafetyAction,
                 currentUserIsAdmin = globalProfileState.currentUserIsAdmin,
                 chatError = globalProfileState.error,
                 failedProfileFollowAction = globalProfileState.failedProfileFollowAction,
@@ -1294,6 +1295,7 @@ fun AppNavGraph(
                 onSetProfileBlocked = { profileId, blocked ->
                     if (isAuthenticated) globalProfileViewModel.setProfileBlocked(profileId, blocked) else requestAuthentication()
                 },
+                onRetryProfileSafety = globalProfileViewModel::retryProfileSafety,
                 onAddComment = { postId, comment ->
                     if (isAuthenticated) globalProfileViewModel.addProfileComment(postId, comment) else requestAuthentication()
                 },

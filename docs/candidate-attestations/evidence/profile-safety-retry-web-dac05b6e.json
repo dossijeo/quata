@@ -1,0 +1,70 @@
+{
+  "check": "PROFILE-SAFETY-RETRY-WEB-001",
+  "status": "passed",
+  "startedAt": "2026-10-05T00:42:33.193Z",
+  "git": {
+    "head": "dac05b6e6888c5d34679bcb6dc0c5b90bae09a83",
+    "workingTreeDirty": false
+  },
+  "scope": "Compose/Wasm profile block failure and retry against the production database and real RLS/RPC behavior through the hardened loopback Auth/PostgREST facade",
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "profile_safety_initial_state_snapshot_and_absent_block_prepared",
+    "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified"
+  ],
+  "observations": {
+    "initialBlockEdge": false,
+    "failedAttempt": {
+      "optimisticUnblockActionVisible": true,
+      "boundedErrorVisible": true,
+      "blockActionRestored": true
+    },
+    "retry": {
+      "sameBlockControlUsed": true,
+      "blockEdgePersisted": true
+    },
+    "facade": {
+      "authLogins": 2,
+      "proxiedRestRequests": 34,
+      "createdWebSessions": 2,
+      "removedWebSessions": 2,
+      "cleanupVerified": true
+    },
+    "nonBlockingLocalRealtime404Faults": 10
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "profile_roles_safety_fixture_restored",
+      "temporary_auth_sessions_removed",
+      "temporary_thread_hard_deleted",
+      "local_facade_and_postgrest_container_removed"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0,
+        "temporary_web_sessions": 0
+      }
+    }
+  },
+  "limits": [
+    "Hosted Supabase Auth returned HTTP 402, so an exact-origin loopback facade supplied temporary authentication and REST transport while preserving the real production database, RLS and RPC behavior.",
+    "The facade did not implement Realtime; only its exact authorized loopback WebSocket 404 was classified as non-blocking.",
+    "This report does not certify hosted Auth, the hosted API gateway, Realtime delivery, Android UI or iOS UI."
+  ],
+  "provenance": {
+    "sourceReportSha256": "8379ced72137bc41e86330b4de493f0be4396eda6d75e9cb3900baee461ec10f",
+    "facadeReceiptSha256": "0d2fe280e3994d8671bcb146de45eb163a8b651501913921000fae7427954c15",
+    "distributionRuntimeSha": "4e45b445d9158f603d79e3438b8a87ddae159e21",
+    "distributionRuntimeEquivalentAtProductSha": true
+  },
+  "finishedAt": "2026-10-05T00:43:44.625Z"
+}

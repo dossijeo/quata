@@ -947,10 +947,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
         fixture: state.profileRolesSafety,
         withDatabase,
-        expectedBlocked: false,
+        expectedBlocked: true,
         delay,
       });
-      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified");
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
     }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({

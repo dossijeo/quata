@@ -3051,11 +3051,20 @@ async function verifyProfileSafetyNegativeFromOpenProfile(page, profile, fixture
     report.evidence.profileSafetyNegativeOptimistic = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-optimistic");
     await assertVisibleAriaTag(page, `public-profile.error.${profileId}`, "profile_block_error_missing");
     await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_rollback_missing");
+    await assertVisibleTagOrText(page, `public-profile.safety.retry.block.${profileId}`, [/Reintentar|Retry/i], "profile_block_retry_missing");
     report.evidence.profileSafetyNegativeRestored = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-restored");
+    await clickProfileAnchorOrText(
+      page,
+      `public-profile.safety.retry.block.${profileId}`,
+      [/Reintentar|Retry/i],
+      "profile_block_retry_not_clickable",
+    );
+    await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_block_retry_did_not_succeed");
+    report.evidence.profileSafetyNegativeRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-negative-retry-succeeded");
     report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
       fixture,
       withDatabase: withPoolerClient,
-      expectedBlocked: false,
+      expectedBlocked: true,
       delay,
     });
   } finally {
@@ -8227,7 +8236,7 @@ try {
       report.steps.push("profile_safety_initial_state_snapshot_and_absent_block_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-safety-negative");
       await verifyProfileSafetyNegativeFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report);
-      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_backend_absence_verified");
+      report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
     } else {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");

@@ -32,6 +32,7 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     fun addProfileComment(postId: String, comment: PostComment) = delegate.addProfileComment(postId, comment)
     fun reportProfile(userId: String) = delegate.reportProfile(userId)
     fun setProfileBlocked(userId: String, blocked: Boolean) = delegate.setProfileBlocked(userId, blocked)
+    fun retryProfileSafety() = delegate.retryProfileSafety()
     fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) = delegate.setUserRoles(userId, isAdmin, isOfficial)
 
     override fun close() = delegate.close()

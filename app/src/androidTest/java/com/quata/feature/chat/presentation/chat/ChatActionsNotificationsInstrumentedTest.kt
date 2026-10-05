@@ -3227,9 +3227,20 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
                 compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
                     .fetchSemanticsNode()
+                compose.onNodeWithTag("public-profile.safety.retry.block.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
             }.isSuccess
         }
         saveScreenshot("android-chat-profile-safety-negative-restored")
+        compose.onNodeWithTag("public-profile.safety.retry.block.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.safety.unblock.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-safety-negative-retry-succeeded")
         closePublicProfile(peerProbe)
         saveScreenshot("android-chat-profile-safety-negative-return")
     }

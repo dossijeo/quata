@@ -3,6 +3,7 @@ package com.quata.feature.neighborhoods.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +74,7 @@ const val PublicProfileModerationReportTestTagPrefix = "public-profile.safety.re
 const val PublicProfileModerationBlockTestTagPrefix = "public-profile.safety.block."
 const val PublicProfileModerationUnblockTestTagPrefix = "public-profile.safety.unblock."
 const val PublicProfileModerationLoadingTestTagPrefix = "public-profile.safety.loading."
+const val PublicProfileModerationRetryTestTagPrefix = "public-profile.safety.retry."
 const val PublicProfileErrorTestTagPrefix = "public-profile.error."
 const val PublicProfileFollowRetryTestTagPrefix = "public-profile.follow.retry."
 const val PublicProfileRolesRootTestTagPrefix = "public-profile.roles."
@@ -147,6 +150,7 @@ fun CommunityProfileScreenHost(
     commentingPostId: String? = null,
     likingPostId: String? = null,
     profileSafetyUpdatingUserId: String? = null,
+    failedProfileSafetyAction: FailedProfileSafetyAction? = null,
     currentUserIsAdmin: Boolean = false,
     openingProfileUserId: String? = null,
     errorMessage: String? = null,
@@ -168,6 +172,7 @@ fun CommunityProfileScreenHost(
     onEnsurePostLikeState: (String, String, Boolean) -> Unit,
     onReportProfile: ((String) -> Unit)?,
     onSetProfileBlocked: ((String, Boolean) -> Unit)?,
+    onRetryProfileSafety: (() -> Unit)? = null,
     onAddComment: (String, PostComment) -> Unit,
     createComment: (Post, String) -> PostComment,
     /** Web has no system back affordance and its Compose sheet cannot rely on swipe dismissal. */
@@ -474,15 +479,34 @@ fun CommunityProfileScreenHost(
                         errorMessage = errorMessage?.let { message ->
                             {
                                 Spacer(Modifier.height(10.dp))
-                                Text(
-                                    message,
-                                    modifier = Modifier.semantics {
-                                        testTag = PublicProfileErrorTestTagPrefix + profile.user.id
-                                        contentDescription = PublicProfileErrorTestTagPrefix + profile.user.id
-                                    },
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.Bold,
-                                )
+                                Column {
+                                    Text(
+                                        message,
+                                        modifier = Modifier.semantics {
+                                            testTag = PublicProfileErrorTestTagPrefix + profile.user.id
+                                            contentDescription = PublicProfileErrorTestTagPrefix + profile.user.id
+                                        },
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    val failedSafety = failedProfileSafetyAction?.takeIf {
+                                        it.userId == profile.user.id && it.errorMessage == message
+                                    }
+                                    if (failedSafety != null && onRetryProfileSafety != null) {
+                                        TextButton(
+                                            onClick = onRetryProfileSafety,
+                                            enabled = profileSafetyUpdatingUserId == null,
+                                            modifier = Modifier.semantics {
+                                                val tag = PublicProfileModerationRetryTestTagPrefix +
+                                                    failedSafety.action.testTagSuffix() + "." + profile.user.id
+                                                testTag = tag
+                                                contentDescription = tag
+                                            },
+                                        ) {
+                                            Text(strings.retry)
+                                        }
+                                    }
+                                }
                             }
                         },
                     )

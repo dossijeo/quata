@@ -1,0 +1,32 @@
+{
+  "check": "PROFILE-SAFETY-RETRY-IOS-003",
+  "status": "passed",
+  "git": {
+    "head": "2c3d563fc0404daf991a91c9616dc9cafa4f2876",
+    "workingTreeDirty": false
+  },
+  "scope": "Kotlin/Native implementation and both corrected common navigation interleavings on the exact product head in an isolated macOS checkout; no Simulator UI or backend mutation",
+  "steps": [
+    "mac_checkout_sha_matched_product_sha",
+    "profile_safety_ios_x64_main_compiled",
+    "profile_safety_late_failure_scoped_and_retry_resumed_ios_x64_focal_passed",
+    "profile_safety_late_success_preserved_newer_profile_error_ios_x64_focal_passed",
+    "isolated_mac_checkout_removed"
+  ],
+  "commands": [
+    "bash gradlew :feature:neighborhoods:iosX64Test --tests <two-profile-safety-navigation-focals> :feature:neighborhoods:compileKotlinIosX64 --no-daemon --console=plain"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "isolated_mac_checkout_verified_clean",
+      "isolated_mac_checkout_removed",
+      "transport_bundle_removed",
+      "no_backend_fixture_created"
+    ]
+  },
+  "limits": [
+    "This report proves both corrected common interleavings, Kotlin/Native compilation and static contracts only.",
+    "iOS Simulator live UI retry convergence remains pending while hosted authentication returns HTTP 402."
+  ]
+}

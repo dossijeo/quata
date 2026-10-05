@@ -446,7 +446,11 @@ class WebNeighborhoodsRepository(
     }
 }
 
-@JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ === true""")
+@JsFun("""() => {
+  if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ !== true) return false;
+  globalThis.__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ = false;
+  return true;
+}""")
 private external fun webProfileSafetyBlockEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ === true""")
