@@ -28,6 +28,8 @@ test("PROF-SAFETY failure preserves the optimistic rollback state machine and ex
   assert.match(viewModelTest, /profile block is optimistic and restores the exact profile on backend failure/);
   assert.match(viewModelTest, /profile block failure stays scoped and resumes retry on its target profile/);
   assert.match(viewModelTest, /assertEquals\(null, model\.uiState\.value\.error\)[\s\S]*model\.closeUserProfile\(\)[\s\S]*assertEquals\("denied", model\.uiState\.value\.error\)[\s\S]*model\.retryProfileSafety\(\)/);
+  assert.match(viewModelTest, /profile block success preserves a newer profile error after navigation/);
+  assert.match(viewModelTest, /assertEquals\("b offline", model\.uiState\.value\.error\)[\s\S]*blockResult\.complete\(Result\.success\(true\)\)[\s\S]*assertEquals\("b offline", model\.uiState\.value\.error\)/);
   assert.match(commonHost, /PublicProfileModerationLoadingTestTagPrefix = "public-profile\.safety\.loading\."/);
   assert.match(commonHost, /PublicProfileErrorTestTagPrefix = "public-profile\.error\."/);
   assert.match(moderationActions, /PublicProfileModerationLoadingTestTagPrefix \+ userId/);
@@ -39,6 +41,7 @@ test("PROF-SAFETY retry preserves the exact failed action across all three hosts
   assert.match(viewModel, /fun retryProfileSafety\(\)[\s\S]*selectedProfile\?\.user\?\.id != failed\.userId[\s\S]*ProfileModerationAction\.Report -> reportProfile\(failed\.userId\)[\s\S]*ProfileModerationAction\.Block -> setProfileBlocked\(failed\.userId, true\)[\s\S]*ProfileModerationAction\.Unblock -> setProfileBlocked\(failed\.userId, false\)/);
   assert.match(viewModel, /failedProfileSafetyAction[\s\S]*takeIf \{ it\.userId == userId \}[\s\S]*errorMessage/);
   assert.match(viewModel, /error = if \(currentState\.selectedProfile\?\.user\?\.id == userId\) \{[\s\S]*message[\s\S]*\} else \{[\s\S]*currentState\.error/);
+  assert.equal((viewModel.match(/error = if \(currentState\.selectedProfile\?\.user\?\.id == userId\)/g) ?? []).length, 4);
   assert.match(commonHost, /PublicProfileModerationRetryTestTagPrefix = "public-profile\.safety\.retry\."/);
   assert.match(commonHost, /failedProfileSafetyAction\?\.takeIf[\s\S]*it\.userId == profile\.user\.id && it\.errorMessage == message[\s\S]*TextButton\([\s\S]*onClick = onRetryProfileSafety/);
   for (const host of [androidHost, webHost, iosHost]) {

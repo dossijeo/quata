@@ -1340,7 +1340,7 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
-    fun `profile block success stays bound to its target after navigation`() = runTest {
+    fun `profile block success preserves a newer profile error after navigation`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             blockResult = CompletableDeferred()
         }
@@ -1349,9 +1349,14 @@ class NeighborhoodsViewModelTest {
         advanceUntilIdle()
 
         model.setProfileBlocked("a", true)
+        repository.cachedProfileOverrides["b"] = profile("b")
+        repository.profileResults["b"] = CompletableDeferred(
+            Result.failure(IllegalStateException("b offline")),
+        )
         model.openUserProfile("b")
-        runCurrent()
+        advanceUntilIdle()
         assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals("b offline", model.uiState.value.error)
 
         repository.blockResult.complete(Result.success(true))
         advanceUntilIdle()
@@ -1360,6 +1365,7 @@ class NeighborhoodsViewModelTest {
         assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
         assertTrue(repository.cachedProfiles.last().isBlockedByCurrentUser)
         assertEquals("a", repository.cachedProfiles.last().user.id)
+        assertEquals("b offline", model.uiState.value.error)
         model.close()
     }
 

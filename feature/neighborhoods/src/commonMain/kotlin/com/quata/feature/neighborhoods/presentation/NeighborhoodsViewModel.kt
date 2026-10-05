@@ -622,10 +622,15 @@ class NeighborhoodsViewModel(
         scope.launch {
             repository.reportProfile(userId)
                 .onSuccess {
-                    _uiState.value = _uiState.value.copy(
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
                         profileSafetyUpdatingUserId = null,
                         failedProfileSafetyAction = null,
-                        error = null,
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            null
+                        } else {
+                            currentState.error
+                        },
                     )
                 }
                 .onFailure { error ->
@@ -673,7 +678,11 @@ class NeighborhoodsViewModel(
                         },
                         profileSafetyUpdatingUserId = null,
                         failedProfileSafetyAction = null,
-                        error = null,
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            null
+                        } else {
+                            currentState.error
+                        },
                     )
                     repository.cacheUserProfile(resolvedTarget)
                 }
