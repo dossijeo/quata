@@ -1,18 +1,16 @@
 {
   "check": "PROFILE-SAFETY-RETRY-WEB-001",
   "status": "passed",
-  "startedAt": "2026-10-05T00:16:36.725Z",
+  "startedAt": "2026-10-05T00:42:33.193Z",
   "git": {
-    "head": "5781bc01d3ddf1ab9617bfc7e704a3aa8958cbd2",
+    "head": "dac05b6e6888c5d34679bcb6dc0c5b90bae09a83",
     "workingTreeDirty": false
   },
   "scope": "Compose/Wasm profile block failure and retry against the production database and real RLS/RPC behavior through the hardened loopback Auth/PostgREST facade",
   "steps": [
-    "two_authorized_profiles_logged_in_through_ephemeral_loopback_facade",
+    "two_authorized_profiles_logged_in",
     "profile_safety_initial_state_snapshot_and_absent_block_prepared",
-    "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified",
-    "profile_roles_safety_fixture_restored",
-    "temporary_auth_sessions_removed_and_cleanup_verified"
+    "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified"
   ],
   "observations": {
     "initialBlockEdge": false,
@@ -63,9 +61,10 @@
     "This report does not certify hosted Auth, the hosted API gateway, Realtime delivery, Android UI or iOS UI."
   ],
   "provenance": {
-    "sourceReportSha256": "0e2789f398916d16b058098da033d9e0a374bb982df61676ba28b899fa74de65",
-    "facadeReceiptSha256": "b7dea585226232d52bd5ee90a6f363e9954011bd142e7d551c80b804f2458c64",
-    "distributionProductPathsEquivalentFrom": "ab1c21d58db2c9e205e86e2836485779e295f108"
+    "sourceReportSha256": "8379ced72137bc41e86330b4de493f0be4396eda6d75e9cb3900baee461ec10f",
+    "facadeReceiptSha256": "0d2fe280e3994d8671bcb146de45eb163a8b651501913921000fae7427954c15",
+    "distributionRuntimeSha": "4e45b445d9158f603d79e3438b8a87ddae159e21",
+    "distributionRuntimeEquivalentAtProductSha": true
   },
-  "finishedAt": "2026-10-05T00:18:10.183Z"
+  "finishedAt": "2026-10-05T00:43:44.625Z"
 }
