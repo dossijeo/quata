@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA-FILE-EXPORT",
+  "platform": "ios",
+  "status": "passed",
+  "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "executionSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "git": {
+    "head": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "workingTreeDirty": false
+  },
+  "custody": {
+    "executionSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "runtimeAndTestBlobMismatches": 0,
+    "productOnlyPaths": []
+  },
+  "runtime": {
+    "host": "macOS VM iosX64",
+    "tests": 6,
+    "failures": 0,
+    "binaryResultsSha256": "d1e961af34e842191f5f30d279d8d42c8290c9f74103a425e654a3e543dd833b"
+  },
+  "assertions": [
+    "png_materializer_wrote_exact_bytes_name_mime_and_nonempty_protected_file",
+    "mp4_share_received_exactly_one_materialized_file",
+    "native_ui_activity_controller_completed_false_returned_cancelled_not_success",
+    "mime_mismatch_failed_before_file_or_share_effect",
+    "inflight_cancellation_cancelled_transport_without_creating_a_lease",
+    "release_was_idempotent_and_removed_the_private_temporary_file",
+    "the_physical_shared_filename_preserved_the_safe_descriptor_name_inside_a_unique_lease_directory",
+    "abandoned_private_export_directories_are_pruned_after_a_bounded_24_hour_lifetime",
+    "traversal_separator_empty_and_control_names_are_rejected_before_transport_or_filesystem_effects"
+  ],
+  "integration": [
+    "chat_feed_and_official_ios_x64_consumers_compiled_on_the_exact_product_head",
+    "download_and_share_keep_the_file_alive_until_uikit_completion_or_cancellation",
+    "the_url_session_adapter_rejects_redirects_and_enforces_timeout_size_and_exact_mime"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "protected_temporary_fixture_removed_no_backend_mutation"
+  },
+  "limits": [
+    "The Files/share destination chosen after UIActivityViewController remains external receiver behavior.",
+    "The exact-byte transport test is injectable and hermetic; URLSession is compiled and its policy is reviewed separately."
+  ],
+  "steps": [
+    "ios_png_and_mp4_exact_file_contract_passed",
+    "ios_native_activity_cancellation_passed",
+    "ios_failure_cancellation_and_cleanup_passed",
+    "ios_exact_product_head_validation_passed"
+  ]
+}

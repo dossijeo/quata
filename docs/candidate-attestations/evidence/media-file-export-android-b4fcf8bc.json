@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA-FILE-EXPORT",
+  "platform": "android",
+  "status": "passed",
+  "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "executionSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "git": {
+    "head": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "workingTreeDirty": false
+  },
+  "custody": {
+    "executionSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "runtimeAndTestBlobMismatches": 0,
+    "productOnlyPaths": []
+  },
+  "runtime": {
+    "device": "QuataLivePr336Api35(AVD)",
+    "api": 35,
+    "tests": 7,
+    "failures": 0,
+    "skipped": 0,
+    "exportServiceJunitSha256": "0ab3c8ac6f343dd24421e15da63a7a50304857ebd40e88182194963846978b8e",
+    "chooserJunitSha256": "41402570e8fb2b85979ba4b40bbd8702b09e2d093de2019a244c3ad16ab5d8e"
+  },
+  "assertions": [
+    "png_share_received_exact_bytes_name_and_mime",
+    "mp4_download_created_one_nonempty_media_store_object",
+    "failed_materialization_created_no_effect_and_same_descriptor_retry_succeeded",
+    "mime_mismatch_failed_before_share_and_removed_private_file",
+    "inflight_cancellation_cancelled_transport_and_left_no_private_residual",
+    "successful_share_lease_was_released_after_its_bounded_lifetime",
+    "real_android_chooser_dismissal_returned_cancelled_not_success",
+    "chooser_result_waits_for_the_documented_selection_broadcast_until_the_main_queue_drains_without_a_fixed_time_race"
+  ],
+  "integration": [
+    "feed_and_official_use_the_common_fullscreen_actions",
+    "chat_uses_the_common_materializer_with_its_existing_profile_isolated_cache_lifecycle",
+    "android_debug_and_android_test_sources_compile"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "hermetic_https_fixture_media_store_row_removed_private_cache_empty_no_backend_mutation"
+  },
+  "limits": [
+    "Receiver-specific behavior after a file is selected remains external to Qüata.",
+    "The focal transport uses a hermetic HTTPS server; unrelated production network failures are outside this unit."
+  ],
+  "steps": [
+    "android_png_and_mp4_exact_file_contract_passed",
+    "android_download_retry_and_cleanup_passed",
+    "android_real_chooser_cancellation_passed",
+    "android_exact_product_head_validation_passed"
+  ]
+}
