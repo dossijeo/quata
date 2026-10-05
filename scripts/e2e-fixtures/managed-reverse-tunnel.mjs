@@ -14,11 +14,16 @@ export async function startManagedReverseTunnel({
 }) {
   const child = spawnProcess(command, args, spawnOptions);
   let stderr = "";
+  let spawnFailure = null;
   child.stderr.on("data", (chunk) => { stderr += chunk; });
+  const failed = new Promise((resolvePromise, rejectPromise) => child.once("error", (error) => {
+    spawnFailure = error;
+    rejectPromise(error);
+  }));
   const closed = new Promise((resolvePromise) => child.once("close", resolvePromise));
 
   const stop = async () => {
-    if (child.exitCode === null) child.kill("SIGTERM");
+    if (child.exitCode === null && spawnFailure === null) child.kill("SIGTERM");
     await Promise.race([
       closed,
       wait(stopTimeoutMs).then(() => { throw new Error("reverse_tunnel_stop_timeout"); }),
@@ -26,9 +31,9 @@ export async function startManagedReverseTunnel({
   };
 
   try {
-    await wait(startupDelayMs);
+    await Promise.race([wait(startupDelayMs), failed]);
     if (child.exitCode !== null) throw startError(stderr);
-    await verify();
+    await Promise.race([verify(), failed]);
     return { stop };
   } catch (error) {
     try {

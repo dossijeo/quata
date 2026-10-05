@@ -176,6 +176,34 @@ test("iOS reverse tunnel closes its child when the remote health probe fails", a
   assert.equal(child.exitCode, 0);
 });
 
+test("iOS reverse tunnel converts an SSH spawn error into a controlled rejection", async () => {
+  const child = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.exitCode = null;
+  child.kill = () => { throw new Error("failed spawn must not be killed"); };
+  let verifyCalled = false;
+  const spawnError = Object.assign(new Error("spawn ssh ENOENT"), { code: "ENOENT" });
+
+  await assert.rejects(
+    startManagedReverseTunnel({
+      args: [],
+      spawnOptions: {},
+      spawnProcess: () => {
+        queueMicrotask(() => {
+          child.emit("error", spawnError);
+          child.exitCode = -2;
+          child.emit("close", -2);
+        });
+        return child;
+      },
+      wait: () => new Promise(() => {}),
+      verify: async () => { verifyCalled = true; },
+    }),
+    (error) => error === spawnError,
+  );
+  assert.equal(verifyCalled, false);
+});
+
 test("the focused contract runs in both fast contract suites", () => {
   const scripts = JSON.parse(packageJson).scripts;
   assert.match(scripts["test:ci-fast-contracts"], /scripts\/profile-follow-negative-contract\.test\.mjs/);
