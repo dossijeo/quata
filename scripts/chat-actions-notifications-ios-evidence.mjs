@@ -47,6 +47,8 @@ const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_IO
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_HARD_CLEANUP";
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
+const nativeFacadeAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_AUTHORIZATION";
+const nativeFacadeAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -112,6 +114,7 @@ let remoteCredentials;
 let localAttachmentPickerFixture;
 let remoteAttachmentPickerFixture;
 let config;
+let nativeFacadeTunnel;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const state = {
   a: null,
@@ -170,8 +173,11 @@ const state = {
 
 try {
   config = await publicBackendConfig();
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
+  if (!config.nativeFacadeIosUrl && !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) {
+    throw new Error("invalid_public_supabase_url");
+  }
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
+  if (config.nativeFacadeIosUrl) report.steps.push("native_loopback_auth_rest_facade_accepted_for_ios_profile_follow_retry");
 
   const users = await authorizedUsers();
   if (temporaryProfileHashRequired) {
@@ -379,6 +385,11 @@ scripts/build-ios-intel-simulator-signed.sh
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");
   }
 
+  if (config.nativeFacadeIosUrl) {
+    nativeFacadeTunnel = await startNativeFacadeTunnel(options.host, config.baseUrl, config.nativeFacadeIosUrl);
+    report.steps.push("ios_mac_loopback_reverse_tunnel_verified");
+  }
+
   const markerProbe = state.seedMarker.slice(0, 28);
   if (translationOnly) {
     await runSshScript(options.host, `
@@ -546,6 +557,9 @@ export QUATA_IOS_CHAT_E2E_MARKER_PROBE=${shellQuote(markerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE=${shellQuote(peerMarkerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID=${shellQuote(state.b.profileId)}
 export QUATA_IOS_CHAT_ACTOR_PROFILE_ID=${shellQuote(state.a.profileId)}
+${config.nativeFacadeIosUrl ? `export QUATA_IOS_NATIVE_FACADE_AUTHORIZATION=MANAGER_APPROVED_QADATA_IOS_NATIVE_FACADE
+export QUATA_IOS_NATIVE_FACADE_URL=${shellQuote(config.nativeFacadeIosUrl)}
+export QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY=${shellQuote(config.key)}` : ""}
 export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowNegativeOnly ? "negative" : profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
@@ -1506,6 +1520,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
   if (remoteAttachmentPickerFixture) await run("ssh", [options.host, "rm", "-f", remoteAttachmentPickerFixture]).catch(() => {});
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
   if (localAttachmentPickerFixture) await rm(dirname(localAttachmentPickerFixture), { recursive: true, force: true }).catch(() => {});
+  if (nativeFacadeTunnel) {
+    await nativeFacadeTunnel.stop().then(() => {
+      report.steps.push("ios_mac_loopback_reverse_tunnel_stopped");
+    }).catch((error) => {
+      if (report.status === "passed") {
+        report.status = "failed";
+        report.error = safeFailure(error);
+      }
+    });
+  }
   if (state.feedOfficialComments) {
     report.evidence.feedOfficialComments = feedOfficialCommentsEvidenceSummary(state.feedOfficialComments);
   }
@@ -2044,6 +2068,28 @@ function e164Phone(countryCode, phone) {
 }
 
 async function publicBackendConfig() {
+  const nativeFacadeHostUrl = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_HOST_URL?.trim();
+  const nativeFacadeIosUrl = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_IOS_URL?.trim();
+  const nativeFacadeKey = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_PUBLISHABLE_KEY?.trim();
+  if (nativeFacadeHostUrl || nativeFacadeIosUrl || nativeFacadeKey) {
+    if (process.env[nativeFacadeAuthorizationEnvironment] !== nativeFacadeAuthorizationValue) {
+      throw new Error("native_facade_authorization_missing");
+    }
+    if (!profileFollowNegativeOnly) throw new Error("native_facade_scope_not_allowed");
+    const host = new URL(nativeFacadeHostUrl ?? "");
+    const ios = new URL(nativeFacadeIosUrl ?? "");
+    for (const [name, url] of [["host", host], ["ios", ios]]) {
+      if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.pathname !== "/" || url.search || url.hash || !url.port) {
+        throw new Error(`native_facade_${name}_must_be_exact_loopback`);
+      }
+    }
+    if (!nativeFacadeKey?.startsWith("sb_publishable_")) throw new Error("native_facade_configuration_invalid");
+    return {
+      baseUrl: host.origin,
+      key: nativeFacadeKey,
+      nativeFacadeIosUrl: ios.origin,
+    };
+  }
   const configuredUrl = process.env.QUATA_SUPABASE_URL?.trim();
   const configuredKey = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (configuredUrl && configuredKey) return { baseUrl: configuredUrl.replace(/\/+$/, ""), key: configuredKey };
@@ -2085,7 +2131,7 @@ async function login(config, user) {
     method: "POST",
     headers: headers(config),
     body: JSON.stringify({
-      action: "web_login",
+      action: config.nativeFacadeIosUrl ? "login" : "web_login",
       country_code: user.countryCode,
       phone_local: user.phone,
       password: user.password,
@@ -3454,6 +3500,40 @@ async function runSshScript(host, script, timeoutMs = 15 * 60 * 1000) {
     ? `export JAVA_HOME=${shellQuote(options.remoteJavaHome)}\nexport PATH="$JAVA_HOME/bin:$PATH"\n`
     : "";
   return run("ssh", [host, "bash", "-s"], { input: `${javaPrefix}${script}`, timeoutMs });
+}
+
+async function startNativeFacadeTunnel(host, localBaseUrl, iosBaseUrl) {
+  const local = new URL(localBaseUrl);
+  const ios = new URL(iosBaseUrl);
+  const child = spawn("ssh", [
+    "-N",
+    "-T",
+    "-o", "ExitOnForwardFailure=yes",
+    "-o", "ServerAliveInterval=15",
+    "-o", "ServerAliveCountMax=3",
+    "-R", `127.0.0.1:${ios.port}:127.0.0.1:${local.port}`,
+    host,
+  ], {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: ["ignore", "ignore", "pipe"],
+    windowsHide: true,
+  });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  const closed = new Promise((resolvePromise) => child.once("close", resolvePromise));
+  await delay(1_000);
+  if (child.exitCode !== null) throw new Error(`native_facade_tunnel_start_failed:${redactedTail(stderr)}`);
+  await runSilent("ssh", [host, `curl -fsS ${shellQuote(`${ios.origin}/__health`)} >/dev/null`], { timeoutMs: 30_000 });
+  return {
+    stop: async () => {
+      if (child.exitCode === null) child.kill("SIGTERM");
+      await Promise.race([
+        closed,
+        delay(5_000).then(() => { throw new Error("native_facade_tunnel_stop_timeout"); }),
+      ]);
+    },
+  };
 }
 
 async function run(command, args, options = {}) {

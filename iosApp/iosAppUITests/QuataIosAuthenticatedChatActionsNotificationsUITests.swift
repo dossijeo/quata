@@ -1868,6 +1868,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        for key in [
+            "QUATA_IOS_NATIVE_FACADE_AUTHORIZATION",
+            "QUATA_IOS_NATIVE_FACADE_URL",
+            "QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY",
+        ] {
+            if let value = environment[key] {
+                app.launchEnvironment[key] = value
+            }
+        }
         if expectsRollback {
             app.launchEnvironment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] = "1"
         }

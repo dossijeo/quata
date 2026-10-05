@@ -14,6 +14,9 @@ const [
   androidUi,
   androidRunner,
   iosRepository,
+  iosApp,
+  iosFrameworkTests,
+  iosProject,
   iosUi,
   iosRunner,
   iosWrapper,
@@ -32,6 +35,9 @@ const [
   read("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   read("scripts/chat-actions-notifications-android-evidence.mjs"),
   read("feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt"),
+  read("iosApp/iosApp/QuataIosApp.swift"),
+  read("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
+  read("iosApp/project.yml"),
   read("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   read("scripts/chat-actions-notifications-ios-evidence.mjs"),
   read("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
@@ -78,6 +84,12 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(androidUi, /public-profile\.follow\.retry\./);
   assert.match(androidUi, /android-chat-profile-follow-negative-retry-succeeded/);
   assert.match(androidRunner, /pollProfileFollowEdge\(state\.a\.profileId, state\.b\.profileId, true\)/);
+  assert.match(androidRunner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE/);
+  assert.match(androidRunner, /native_facade_scope_not_allowed/);
+  assert.match(androidRunner, /hostname !== "10\.0\.2\.2"/);
+  assert.match(androidRunner, /quata\.evidenceBackendOverride=true/);
+  assert.match(androidRunner, /android_debug_package_precompiled_before_profile_follow_retry_instrumentation/);
+  assert.match(androidUi, /sequenceOf\(false, true\)/);
 
   assert.match(iosUi, /followMode == "negative"/);
   assert.match(iosUi, /Failed follow must restore the original follower count/);
@@ -87,6 +99,20 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(iosUi, /ios-chat-profile-follow-negative-retry-succeeded/);
   assert.match(iosRunner, /profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E.*negative/);
+  assert.match(iosRunner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE/);
+  assert.match(iosRunner, /native_facade_scope_not_allowed/);
+  assert.match(iosRunner, /native_facade_\$\{name\}_must_be_exact_loopback/);
+  assert.match(iosRunner, /startNativeFacadeTunnel/);
+  assert.match(iosRunner, /ExitOnForwardFailure=yes/);
+  assert.match(iosRunner, /ios_mac_loopback_reverse_tunnel_stopped/);
+  assert.match(iosRunner, /action: config\.nativeFacadeIosUrl \? "login" : "web_login"/);
+  assert.match(iosWrapper, /QUATA_IOS_NATIVE_FACADE_AUTHORIZATION/);
+  assert.match(iosUi, /app\.launchEnvironment\[key\] = value/);
+  assert.match(iosApp, /MANAGER_APPROVED_QADATA_IOS_NATIVE_FACADE/);
+  assert.match(iosApp, /url\.host == "127\.0\.0\.1"/);
+  assert.match(iosApp, /publishableKey\.hasPrefix\("sb_publishable_"\)/);
+  assert.match(iosFrameworkTests, /testPublicRuntimeConfigurationAcceptsOnlyExplicitAuthorizedLoopbackFacade/);
+  assert.match(iosProject, /SimulatorSigned:[\s\S]*INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: "YES"/);
 
   assert.match(webHost, /data-quata-profile-follow-failed/);
   assert.match(webRunner, /toggleFollowFailureFromOpenProfile/);
@@ -107,6 +133,9 @@ test("Android, iOS and Web gates assert rollback then visible retry convergence"
   assert.match(webRunner, /Unexpected response code: 404/);
   assert.match(webRunner, /pollProfileFollowEdge\(peerProfile\.actorProfileId, peerProfile\.profileId, true\)/);
   assert.match(localFacade, /profile\.pass_hash === sha256\(password\)/);
+  assert.match(localFacade, /action !== "web_login" && action !== "login"/);
+  assert.match(localFacade, /receipt\.nativeAuthLogins \+= 1/);
+  assert.match(localFacade, /new pg\.Pool/);
   assert.match(localFacade, /on conflict \(profile_id, client_instance_id\) do nothing/);
   assert.match(localFacade, /delete from public\.web_client_sessions where id = \$1 returning id/);
   assert.match(localFacade, /receipt\.cleanupVerified = removed === createdWebSessionIds\.size/);

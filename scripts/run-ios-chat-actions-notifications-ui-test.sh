@@ -42,6 +42,9 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE:=1}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UNMUTE_ONLY:=0}"
 : "${QUATA_IOS_CHAT_NOTIFICATION_INBOX_STAGE:=}"
+: "${QUATA_IOS_NATIVE_FACADE_AUTHORIZATION:=}"
+: "${QUATA_IOS_NATIVE_FACADE_URL:=}"
+: "${QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY:=}"
 if [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN:?Set QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE:?Set QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE.}"
@@ -250,6 +253,14 @@ matched = set()
 def patch_target(target, hint=''):
     name = f"{hint} {target.get('TestTargetName', '')} {target.get('BlueprintName', '')}"
     env = target.setdefault('EnvironmentVariables', {})
+    for key in [
+        'QUATA_IOS_NATIVE_FACADE_AUTHORIZATION',
+        'QUATA_IOS_NATIVE_FACADE_URL',
+        'QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY',
+    ]:
+        value = os.environ.get(key)
+        if value:
+            env[key] = value
     if 'QuataIosTests' in name:
         env['QUATA_IOS_AUTH_E2E_FILE'] = credentials
         matched.add('seed')

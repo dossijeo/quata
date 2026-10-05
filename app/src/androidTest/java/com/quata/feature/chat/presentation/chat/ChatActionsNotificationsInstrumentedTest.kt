@@ -3089,12 +3089,20 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun semanticsText(tag: String): String =
-        compose.onNodeWithTag(tag, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .config
-            .getOrNull(SemanticsProperties.Text)
+        sequenceOf(false, true)
+            .mapNotNull { useUnmergedTree ->
+                runCatching {
+                    compose.onNodeWithTag(tag, useUnmergedTree = useUnmergedTree)
+                        .fetchSemanticsNode()
+                        .config
+                        .getOrNull(SemanticsProperties.Text)
+                        .orEmpty()
+                        .joinToString("|") { it.text }
+                        .takeIf(String::isNotBlank)
+                }.getOrNull()
+            }
+            .firstOrNull()
             .orEmpty()
-            .joinToString("|") { it.text }
 
     private fun runProfileRolesSafetyStage(peerProbe: String, profileId: String) {
         openPeerProfile(peerProbe, profileId)
