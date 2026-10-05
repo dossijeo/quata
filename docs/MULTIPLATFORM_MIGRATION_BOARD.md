@@ -97,7 +97,9 @@ comentarios integrados y productores de media distintos de Feed y Official.
 
 ## OVR-MEDIA / descargar y compartir fichero de Feed y Official — candidata
 
-Product SHA `b4fcf8bc532e3e14d19ebae7281153cd3b671b0a`. El visor fullscreen común
+Product SHA `78412797c09eeaed497020172b44be7c69ec2fc2`; evidencia runtime exacta en
+`b4fcf8bc532e3e14d19ebae7281153cd3b671b0a` y reparación Android posterior limitada al parseo KTX
+equivalente exigido por lint. El visor fullscreen común
 expone acciones distintas de Descargar y Compartir archivo sin alterar el share del enlace público
 del post. Android materializa en caché privada, copia la descarga a MediaStore y sólo considera
 compartido cuando el chooser comunica una selección; Web/Wasm usa un Blob acotado y revocado para

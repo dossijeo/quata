@@ -4,12 +4,12 @@
     "OVR-MEDIA"
   ],
   "status": "passed",
-  "productSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+  "productSha": "78412797c09eeaed497020172b44be7c69ec2fc2",
   "certification": "media-file-export-affected-platform-validation-and-independent-review-complete",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+      "sha": "78412797c09eeaed497020172b44be7c69ec2fc2",
       "report": "docs/candidate-attestations/evidence/media-file-export-android-b4fcf8bc.json",
       "reportSha256": "3f1ee64bc947bb7035e9904060ca49b3d520df0818a427b3ba52704379a32eb7",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+      "sha": "78412797c09eeaed497020172b44be7c69ec2fc2",
       "report": "docs/candidate-attestations/evidence/media-file-export-web-b4fcf8bc.json",
       "reportSha256": "450979a8376248bcaff9a2533c8c42e803a0a4fd576789e7f15d98f927440df6",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+      "sha": "78412797c09eeaed497020172b44be7c69ec2fc2",
       "report": "docs/candidate-attestations/evidence/media-file-export-ios-b4fcf8bc.json",
       "reportSha256": "0d641fdcf86d55f404082582c100d15d2cef1925a25c208784a2ac7cdb92249c",
       "reportStatus": "passed",
@@ -80,7 +80,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "b4fcf8bc532e3e14d19ebae7281153cd3b671b0a",
+    "reviewedSha": "78412797c09eeaed497020172b44be7c69ec2fc2",
     "blockingFindings": [],
     "resolvedFindings": [
       "capability_matrix_hashes_reconciled_and_contract_passes_22_of_22",
@@ -101,6 +101,7 @@
     "iOS keeps a protected temporary file alive until UIActivityViewController completes or cancels, then deletes it.",
     "Chat consumes the extracted materialization contract while retaining its prior profile-isolated cache, historical MIME compatibility and Web URL-share fallback.",
     "The evidence uses hermetic media transports and creates no backend mutation. External receiver behavior and unrelated production network failures are not attributed.",
-    "Product SHA b4fcf8bc is the single frozen implementation commit; affected validations ran against its exact tree or byte-identical platform sources before attestation-only files were added."
+    "Product SHA b4fcf8bc is the exact runtime evidence commit for Android, Web and iOS; Product SHA 78412797 applies only the semantics-preserving Android KTX URI parse form required by final lint.",
+    "The exact affected Android lint gate passed on 78412797. Independent exact-head review confirmed Uri.parse(String) and String.toUri() have the same parse semantics and returned GO without P0-P3, so platform E2E evidence was not repeated for this lint-only repair."
   ]
 }
