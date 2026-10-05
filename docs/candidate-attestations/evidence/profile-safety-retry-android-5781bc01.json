@@ -1,0 +1,30 @@
+{
+  "check": "PROFILE-SAFETY-RETRY-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "ab1c21d58db2c9e205e86e2836485779e295f108",
+    "workingTreeDirty": false
+  },
+  "scope": "Android implementation and instrumented-test compilation on product-equivalent native paths; no device UI or backend mutation",
+  "steps": [
+    "profile_follow_and_safety_retry_contracts_passed_11_of_11",
+    "profile_safety_android_main_compiled",
+    "profile_safety_android_instrumented_test_compiled",
+    "native_product_paths_verified_equivalent_at_product_sha"
+  ],
+  "commands": [
+    "node --test scripts/profile-follow-negative-contract.test.mjs scripts/profile-safety-negative-contract.test.mjs",
+    ".\\gradlew.bat :feature:neighborhoods:compileKotlinWasmJs :feature:neighborhoods:compileAndroidMain :app:compileDebugAndroidTestKotlin --no-daemon"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "no_backend_fixture_created",
+      "no_device_state_created"
+    ]
+  },
+  "limits": [
+    "This report proves compilation and static contracts only.",
+    "Android live UI retry convergence remains pending while hosted authentication returns HTTP 402."
+  ]
+}
