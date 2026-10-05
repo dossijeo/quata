@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "unit": "OVR-POST-DETAIL-FEED-TEXT-READER-SCROLL",
+  "platform": "ios",
+  "status": "passed",
+  "recordedAt": "2026-10-04T16:37:00Z",
+  "git": {
+    "head": "0246331a2d36dd4d2b131be980e4e2047fd5a568",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "feed_text_reader_saver_round_trip_passed",
+    "ios_x64_focal_suite_passed"
+  ],
+  "execution": {
+    "task": ":feature:feed:iosX64Test",
+    "suite": "com.quata.feature.feed.presentation.TextOnlyReelScrollAnchorTest",
+    "host": "macOS Intel",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "xmlSha256": "f258cbe31cab4f37abb9ed8e5d2aea1a34e105f870f1cc8e7467bc7eae668573"
+  },
+  "sourceEquivalence": {
+    "productSha": "71ac235436fbdc9e6c688ea5669417d49609549b",
+    "commonRuntimePath": "feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/TextOnlyReelContent.kt",
+    "commonRuntimeBlob": "cec2690d585619076d0e3f22e982a70ad6351d1a",
+    "commonTestPath": "feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/TextOnlyReelScrollAnchorTest.kt",
+    "commonTestBlob": "7ba51616c387176d40cdc5fac6cdaef20658746c",
+    "verification": "The clean iOS execution commit and Product SHA contain these identical decisive common runtime and common-test blobs. Product adds the Node contract and Android-only instrumented coverage; neither affects the iOS target."
+  },
+  "independentReview": {
+    "status": "GO",
+    "findingsP0ToP3": [],
+    "reviewedSha": "852c0d92f065ecc28336739baf06906fde655493"
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "temporaryMacWorktreeRemoved": true
+  },
+  "limits": [
+    "This is a deterministic common identity, clamp and Saver contract executed by the iOS x64 target; it is not an iOS UI-dialog execution."
+  ]
+}

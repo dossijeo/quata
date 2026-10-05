@@ -17,14 +17,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +39,33 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.textCanvasTypography
+import kotlinx.coroutines.flow.collectLatest
+
+const val TextOnlyReelReadMoreTestTag = "feed.text-reader.open"
+const val TextOnlyReelReaderTestTag = "feed.text-reader"
+const val TextOnlyReelReaderScrollTestTag = "feed.text-reader.scroll"
+
+data class TextOnlyReelReaderScrollAnchor(
+    val stableId: String,
+    val scrollOffsetPx: Int,
+) {
+    companion object {
+        val Empty = TextOnlyReelReaderScrollAnchor("", 0)
+        val Saver: Saver<TextOnlyReelReaderScrollAnchor, Any> = listSaver(
+            save = { listOf(it.stableId, it.scrollOffsetPx) },
+            restore = { TextOnlyReelReaderScrollAnchor(it[0] as String, it[1] as Int) },
+        )
+    }
+}
+
+internal fun textOnlyReelReaderInitialOffset(
+    stableId: String,
+    anchor: TextOnlyReelReaderScrollAnchor?,
+): Int = anchor
+    ?.takeIf { it.stableId == stableId }
+    ?.scrollOffsetPx
+    ?.coerceAtLeast(0)
+    ?: 0
 
 /** Portable visual body and reader for a text-only reel. The host owns localized text and close UI. */
 @Composable
@@ -49,6 +81,9 @@ fun TextOnlyReelContent(
     val typography = remember(displayText) { textCanvasTypography(displayText) }
     var hasOverflow by remember(stableId, displayText) { mutableStateOf(false) }
     var isReaderOpen by rememberSaveable(stableId) { mutableStateOf(false) }
+    var readerScrollAnchor by rememberSaveable(stableId, stateSaver = TextOnlyReelReaderScrollAnchor.Saver) {
+        mutableStateOf(TextOnlyReelReaderScrollAnchor.Empty)
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -74,7 +109,9 @@ fun TextOnlyReelContent(
                     color = Color.Black.copy(alpha = 0.36f),
                     contentColor = Color.White,
                     shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.clickable { isReaderOpen = true }
+                    modifier = Modifier
+                        .testTag(TextOnlyReelReadMoreTestTag)
+                        .clickable { isReaderOpen = true }
                 ) {
                     Text(readMoreText, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp))
                 }
@@ -82,8 +119,18 @@ fun TextOnlyReelContent(
         }
     }
     if (isReaderOpen) {
+        val readerScrollState = rememberScrollState(textOnlyReelReaderInitialOffset(stableId, readerScrollAnchor))
+        val closeReader = {
+            readerScrollAnchor = TextOnlyReelReaderScrollAnchor(stableId, readerScrollState.value)
+            isReaderOpen = false
+        }
+        LaunchedEffect(stableId, readerScrollState) {
+            snapshotFlow { readerScrollState.value }.collectLatest {
+                readerScrollAnchor = TextOnlyReelReaderScrollAnchor(stableId, it)
+            }
+        }
         Dialog(
-            onDismissRequest = { isReaderOpen = false },
+            onDismissRequest = closeReader,
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Box(
@@ -93,13 +140,15 @@ fun TextOnlyReelContent(
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .padding(24.dp)
+                    .testTag(TextOnlyReelReaderTestTag)
             ) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(top = 56.dp, bottom = 24.dp),
+                        .verticalScroll(readerScrollState)
+                        .padding(top = 56.dp, bottom = 24.dp)
+                        .testTag(TextOnlyReelReaderScrollTestTag),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -111,7 +160,7 @@ fun TextOnlyReelContent(
                         textAlign = TextAlign.Center
                     )
                 }
-                readerDismissButton(Modifier.align(Alignment.TopEnd)) { isReaderOpen = false }
+                readerDismissButton(Modifier.align(Alignment.TopEnd), closeReader)
             }
         }
     }
