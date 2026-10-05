@@ -1364,7 +1364,7 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
-    fun `profile block failure does not restore its target over a newer profile`() = runTest {
+    fun `profile block failure stays scoped and resumes retry on its target profile`() = runTest {
         val repository = FakeNeighborhoodRepository().apply {
             blockResult = CompletableDeferred()
         }
@@ -1382,7 +1382,25 @@ class NeighborhoodsViewModelTest {
 
         assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
         assertFalse(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.error)
+        assertEquals(
+            FailedProfileSafetyAction("a", ProfileModerationAction.Block, "denied"),
+            model.uiState.value.failedProfileSafetyAction,
+        )
+
+        assertFalse(model.closeUserProfile())
+        advanceUntilIdle()
+        assertEquals("a", model.uiState.value.selectedProfile?.user?.id)
         assertEquals("denied", model.uiState.value.error)
+
+        repository.blockResult = CompletableDeferred(Result.success(true))
+        model.retryProfileSafety()
+        advanceUntilIdle()
+
+        assertEquals(listOf("a" to true, "a" to true), repository.blockCalls)
+        assertTrue(model.uiState.value.selectedProfile?.isBlockedByCurrentUser == true)
+        assertEquals(null, model.uiState.value.failedProfileSafetyAction)
+        assertEquals(null, model.uiState.value.error)
         model.close()
     }
 

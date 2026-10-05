@@ -309,7 +309,9 @@ class NeighborhoodsViewModel(
                     failedProfileUserId = null,
                     refreshingProfileUserId = if (freshCachedProfile == null) userId else null,
                     currentUserIsAdmin = currentUserIsAdmin,
-                    error = null
+                    error = _uiState.value.failedProfileSafetyAction
+                        ?.takeIf { it.userId == userId }
+                        ?.errorMessage
                 )
             } else {
                 _uiState.value = _uiState.value.copy(
@@ -317,7 +319,9 @@ class NeighborhoodsViewModel(
                     failedProfileUserId = null,
                     refreshingProfileUserId = null,
                     currentUserIsAdmin = currentUserIsAdmin,
-                    error = null
+                    error = _uiState.value.failedProfileSafetyAction
+                        ?.takeIf { it.userId == userId }
+                        ?.errorMessage
                 )
             }
             profileJob = scope.launch {
@@ -339,7 +343,9 @@ class NeighborhoodsViewModel(
                                     failedProfileUserId = null,
                                     refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
                                     selectedProfile = if (shouldUpdateVisibleProfile) profile else currentState.selectedProfile,
-                                    error = null
+                                    error = currentState.failedProfileSafetyAction
+                                        ?.takeIf { it.userId == userId }
+                                        ?.errorMessage
                                 )
                             }
                             .onFailure { error ->
@@ -624,14 +630,19 @@ class NeighborhoodsViewModel(
                 }
                 .onFailure { error ->
                     val message = error.message ?: "No se pudo reportar el perfil"
-                    _uiState.value = _uiState.value.copy(
+                    val currentState = _uiState.value
+                    _uiState.value = currentState.copy(
                         profileSafetyUpdatingUserId = null,
                         failedProfileSafetyAction = FailedProfileSafetyAction(
                             userId = userId,
                             action = ProfileModerationAction.Report,
                             errorMessage = message,
                         ),
-                        error = message,
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            message
+                        } else {
+                            currentState.error
+                        },
                     )
                 }
         }
@@ -683,7 +694,11 @@ class NeighborhoodsViewModel(
                             action = if (blocked) ProfileModerationAction.Block else ProfileModerationAction.Unblock,
                             errorMessage = message,
                         ),
-                        error = message,
+                        error = if (currentState.selectedProfile?.user?.id == userId) {
+                            message
+                        } else {
+                            currentState.error
+                        },
                     )
                 }
         }
