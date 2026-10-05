@@ -302,6 +302,7 @@
     <string name="feed_play">Play</string>
     <string name="feed_unmute">Unmute</string>
     <string name="feed_mute">Mute</string>
+    <string name="media_playback_failed">The video could not be played.</string>
     <string name="comments_title">COMMENTS</string>
     <string name="comments_placeholder">Write a comment…</string>
     <string name="comments_show_emojis">Show emojis</string>

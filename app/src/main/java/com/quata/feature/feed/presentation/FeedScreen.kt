@@ -546,6 +546,8 @@ private fun ReelVideo(
             pause = stringResource(R.string.feed_pause),
             mute = stringResource(R.string.feed_mute),
             unmute = stringResource(R.string.feed_unmute),
+            playbackFailed = stringResource(R.string.media_playback_failed),
+            retry = stringResource(R.string.common_retry),
         ),
         media = {
             val videoResizeMode = if (isLandscapeLayout) {

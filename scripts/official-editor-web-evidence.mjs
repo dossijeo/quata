@@ -93,6 +93,27 @@ try {
   report.steps.push("shared_create_cta_visible_for_official_profile");
   report.evidence.official = await screenshot(page, options.evidenceDir, "web-official-create-cta-visible");
 
+  await clickProductTag(page, "official.media.open");
+  await waitForProductTag(page, "media-playback.failure");
+  if (await browserVideoState(page) !== "failed") throw new Error("official_media_failure_state_missing");
+  report.steps.push("official_video_real_decoder_failure_exposed");
+  report.evidence.mediaFailure = await screenshot(page, options.evidenceDir, "web-official-media-playback-failed");
+  server.enableMedia();
+  await clickProductTag(page, "media-playback.retry");
+  await page.waitForFunction(() => {
+    const video = document.getElementById("quata-root")?.shadowRoot?.querySelector("video");
+    return Boolean(video && video.readyState >= 2 && !video.paused && video.currentTime > 0.15);
+  }, null, { timeout: 20_000 }).catch(() => {
+    throw new Error("official_media_retry_playback_not_observed");
+  });
+  if (await productTagExists(page, "media-playback.failure")) throw new Error("official_media_failure_not_cleared");
+  if (server.mediaResponses[0] !== "invalid" || !server.mediaResponses.slice(1).includes("valid")) {
+    throw new Error("official_media_retry_same_source_not_observed");
+  }
+  report.steps.push("official_video_same_source_retry_reached_real_playback");
+  report.evidence.mediaRecovered = await screenshot(page, options.evidenceDir, "web-official-media-playback-recovered");
+  await clickProductTag(page, "fullscreen-media.close");
+
   await page.evaluate(() => globalThis.__quataOfficialFeedE2eProduct.create());
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official-editor" &&
@@ -158,6 +179,7 @@ try {
     }));
   }
 } finally {
+  if (server) report.mediaResponses = [...server.mediaResponses];
   await context?.close().catch(() => {});
   await browser?.close().catch(() => {});
   await server?.close().catch(() => {});
@@ -222,12 +244,37 @@ async function configuredDistribution(source) {
 
 async function startServer(root, requests) {
   let origin;
+  let mediaAvailable = false;
+  const mediaResponses = [];
+  const mediaFixture = resolve("play-store/05-assets/quata-demo-video.mp4");
   const server = createServer(async (request, response) => {
     try {
       if (!origin) throw new Error("server_origin_missing");
       const url = new URL(request.url ?? "/", origin);
       if (url.pathname.startsWith("/rest/v1/")) {
-        return handleRest(url, request, response, requests);
+        return handleRest(url, request, response, requests, origin);
+      }
+      if (url.pathname === "/storage/v1/object/public/official-media/fixture-media.mp4") {
+        mediaResponses.push(mediaAvailable ? "valid" : "invalid");
+        if (!mediaAvailable) {
+          const invalidBody = Buffer.from("not-a-valid-mp4", "utf8");
+          response.writeHead(200, {
+            "Content-Type": "video/mp4",
+            "Content-Length": String(invalidBody.length),
+            "Cache-Control": "no-store",
+            "Cross-Origin-Resource-Policy": "same-origin",
+          });
+          return response.end(invalidBody);
+        }
+        const body = await readFile(mediaFixture);
+        response.writeHead(200, {
+          "Content-Type": "video/mp4",
+          "Content-Length": String(body.length),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "no-store",
+          "Cross-Origin-Resource-Policy": "same-origin",
+        });
+        return response.end(body);
       }
       if (url.pathname === "/favicon.ico") return response.writeHead(204).end();
       const file = resolve(root, `.${url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname)}`);
@@ -252,10 +299,15 @@ async function startServer(root, requests) {
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("static_server_start_failed");
   origin = `http://127.0.0.1:${address.port}`;
-  return { origin, close: () => new Promise((ok, fail) => server.close((error) => error ? fail(error) : ok())) };
+  return {
+    origin,
+    mediaResponses,
+    enableMedia: () => { mediaAvailable = true; },
+    close: () => new Promise((ok, fail) => server.close((error) => error ? fail(error) : ok())),
+  };
 }
 
-function handleRest(url, request, response, requests) {
+function handleRest(url, request, response, requests, origin) {
   const table = url.pathname.replace("/rest/v1/", "");
   const authorizationPresent = typeof request.headers.authorization === "string" && request.headers.authorization.trim().length > 0;
   const authenticated = request.headers.authorization === `Bearer ${ACCESS_TOKEN}`;
@@ -281,6 +333,7 @@ function handleRest(url, request, response, requests) {
       method: request.method,
       authorization: request.headers.authorization,
       query,
+      rows: [officialVideoFixture(origin)],
     });
     return observedJson(response, observed, fixture.status, fixture.body);
   }
@@ -294,7 +347,6 @@ function handleRest(url, request, response, requests) {
   }
   if (request.method !== "GET") return observedJson(response, observed, 405, { error: "fixture_mutation_forbidden" });
   if (table === "community_profiles") {
-    if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
     if (url.searchParams.get("id") !== `in.(${PROFILE_ID})`) {
       return observedJson(response, observed, 400, { error: "fixture_profile_filter_required" });
     }
@@ -311,6 +363,26 @@ function handleRest(url, request, response, requests) {
     }]);
   }
   return observedJson(response, observed, 404, { error: "fixture_table_missing" });
+}
+
+function officialVideoFixture(origin) {
+  return {
+    id: "22222222-2222-4222-8222-222222222222",
+    profile_id: PROFILE_ID,
+    title: "Vídeo oficial de recuperación",
+    summary: "Fallo temporal y reintento sobre la misma fuente",
+    post_type: "article",
+    content_html: "<p>Fixture reversible de reproducción.</p>",
+    read_more_label: "Leer más",
+    language: "es",
+    translation_group_id: "33333333-3333-4333-8333-333333333333",
+    media_url: `${origin}/storage/v1/object/public/official-media/fixture-media.mp4`,
+    media_type: "video",
+    link_url: null,
+    is_live: false,
+    published_at: "2026-10-05T00:00:00.000Z",
+    created_at: "2026-10-05T00:00:00.000Z",
+  };
 }
 
 function gitMetadata() {
@@ -464,6 +536,39 @@ async function clickVisibleProductElement(page, id) {
   await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
 }
 
+async function clickProductTag(page, tag) {
+  const locator = page.locator(`[id=${cssString(tag)}], [aria-label*=${cssString(tag)}], [title*=${cssString(tag)}]`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  const box = await waitForVisibleBoundingBox(locator);
+  if (!box) throw new Error(`missing_visible_product_anchor:${tag}`);
+  await page.mouse.click(Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2));
+}
+
+async function waitForProductTag(page, tag, timeoutMs = 15_000) {
+  const locator = page.locator(`[id=${cssString(tag)}], [aria-label*=${cssString(tag)}], [title*=${cssString(tag)}]`).first();
+  await locator.waitFor({ state: "attached", timeout: timeoutMs });
+  if (!(await waitForVisibleBoundingBox(locator, timeoutMs))) throw new Error(`missing_visible_product_anchor:${tag}`);
+}
+
+async function productTagExists(page, tag) {
+  const locator = page.locator(`[id=${cssString(tag)}], [aria-label*=${cssString(tag)}], [title*=${cssString(tag)}]`).first();
+  return (await locator.count()) > 0 && Boolean(await locator.boundingBox().catch(() => null));
+}
+
+async function browserVideoState(page) {
+  return page.evaluate(() => {
+    const video = document.getElementById("quata-root")?.shadowRoot?.querySelector("video");
+    if (!video || video.error) return "failed";
+    if (video.readyState >= 2 && !video.paused && video.currentTime > 0) return "playing";
+    return "pending";
+  });
+}
+
+function cssString(value) {
+  return JSON.stringify(value);
+}
+
 async function waitForVisibleBoundingBox(locator, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -507,6 +612,17 @@ async function collectPageDiagnostics(page) {
     ugcKeys: Object.keys(localStorage).filter((key) => key.startsWith("ugc_terms:accepted:")).sort(),
     feedBridge: globalThis.__quataOfficialFeedE2eProduct?.state?.() ?? null,
     editorBridge: globalThis.__quataOfficialEditorE2eProduct?.state?.() ?? null,
+    video: (() => {
+      const element = document.getElementById("quata-root")?.shadowRoot?.querySelector("video");
+      return element ? {
+        src: element.getAttribute("src"),
+        currentSrc: element.currentSrc,
+        readyState: element.readyState,
+        networkState: element.networkState,
+        paused: element.paused,
+        errorCode: element.error?.code ?? null,
+      } : null;
+    })(),
     ids: Array.from(document.querySelectorAll("[id]")).map((node) => node.id).filter(Boolean).slice(0, 80),
     bodyText: document.body?.innerText?.slice(0, 2000) ?? "",
   }));
@@ -526,5 +642,7 @@ function safeFailure(error) {
     "request_not_observed", "official_feed_e2e_session_missing",
     "official_feed_e2e_state_timeout", "official_editor_e2e_state_timeout",
     "official_editor_body_input_not_committed", "official_editor_body_field_text_timeout",
+    "official_media_failure_state_missing", "official_media_retry_playback_not_observed",
+    "official_media_failure_not_cleared", "official_media_retry_same_source_not_observed",
   ].find((prefix) => message.startsWith(prefix)) ?? "official_editor_web_evidence_failure";
 }

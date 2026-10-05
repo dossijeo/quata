@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA-PLAYBACK-RECOVERY",
+  "platform": "android",
+  "status": "passed",
+  "productSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+  "executionSha": "27740dd4ea220eebc39056289d201fcf19a775b5",
+  "git": {
+    "head": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+    "workingTreeDirty": false,
+    "trackedChanges": ""
+  },
+  "environment": {
+    "apiLevel": 35,
+    "testCount": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "test": "com.quata.core.ui.components.MediaPlaybackRecoveryInstrumentedTest.failedVideoRetriesTheSameSourceIntoAPlayableState",
+  "junitSha256": "03dba29c79c73c649a6c76d88da6101ba0aec133a59641173810a55fc2770e84",
+  "sourceSha256": {
+    "app/src/androidTest/java/com/quata/core/ui/components/MediaPlaybackRecoveryInstrumentedTest.kt": "b448552593f1f712ce08aeff90dc7a13e7e968eb97f17c990e4997e983d4733f",
+    "app/src/androidTest/assets/quata-media-retry.mp4": "6aa52e23fe3b7604c88c5c033308d93e9222bb703df7bb96cec4278a542214f9"
+  },
+  "assertions": [
+    "missing_file_exposes_playback_failure",
+    "retry_uses_the_same_content_uri",
+    "loading_and_failure_overlays_clear_after_retry",
+    "media3_reaches_ready_state",
+    "ready_player_state_is_playing_or_paused"
+  ],
+  "exactHeadValidation": [
+    "app_compileDebugKotlin_passed",
+    "web_compileKotlinWasmJs_passed",
+    "feature_official_compileKotlinIosX64_passed",
+    "feed_wasm_focal_test_report_present_and_passing"
+  ],
+  "custody": {
+    "executionSha": "27740dd4ea220eebc39056289d201fcf19a775b5",
+    "publishedProductSha": "806b00a994e659c0da94f6e810d1f6a20af0424d",
+    "recompositionBaseSha": "4f078a9371da6702a71354beb5706c053a5703da",
+    "productFilesCompared": 25,
+    "blobMismatches": 0,
+    "baseOverlapWithProductFiles": 0,
+    "conclusion": "The runtime-tested sources and fixtures are byte-identical after recomposition; the final product follow-up changes only the fail-closed capability hash and inventory binding.",
+    "finalBindingOnlyPaths": [
+      "capabilities/platform-capability-matrix.json",
+      "docs/MULTIPLATFORM_INVENTORY.md"
+    ]
+  },
+  "cleanup": {
+    "verified": true,
+    "mode": "local_content_uri_fixture_no_backend_mutation"
+  },
+  "failedAttempts": [
+    {
+      "result": "not_executed",
+      "reason": "An unquoted PowerShell # truncated the first command before Gradle execution; the quoted rerun passed."
+    }
+  ],
+  "notes": [
+    "Acceptance requires Media3 STATE_READY. It does not infer active playback when the emulator leaves the ready player paused.",
+    "Earlier six-second fixture and playing-only attempts remain failed historical attempts and are not acceptance evidence."
+  ],
+  "steps": [
+    "android_missing_source_failure_visible",
+    "android_same_source_retry_reaches_media3_ready",
+    "android_exact_head_affected_compiles_passed"
+  ]
+}

@@ -46,6 +46,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     private var imageTask: URLSessionDataTask?
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
+    private var videoURL: URL?
     private var active = false
     private var configuredActive = false
     private var started = false
@@ -77,6 +78,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
         root.isOpaque = false
         root.backgroundColor = .clear
         guard let videoURL else { reportedError = "feed_video_url_invalid"; return }
+        self.videoURL = videoURL
         let player = AVPlayer(url: videoURL)
         player.actionAtItemEnd = .none
         let layer = AVPlayerLayer(player: player)
@@ -144,8 +146,25 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     }
 
     func retry() {
+        guard let player, let videoURL else {
+            reportedError = "feed_video_url_invalid"
+            return
+        }
         reportedError = nil
-        if active { player?.play() }
+        NotificationCenter.default.removeObserver(
+            self,
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem
+        )
+        let replacement = AVPlayerItem(url: videoURL)
+        player.replaceCurrentItem(with: replacement)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(loopVideo),
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: replacement
+        )
+        if active { player.play() }
     }
 
     func snapshot() -> IosFeedMediaSnapshot {
@@ -154,6 +173,9 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
                 isPlaying: false, isBuffering: false, positionMs: 0, durationMs: 0,
                 hasStartedPlayback: false, isEnded: false, error: reportedError,
             )
+        }
+        if player.error != nil || player.currentItem?.status == .failed {
+            reportedError = "feed_video_playback_failed"
         }
         playerLayer?.opacity = playerLayer?.isReadyForDisplay == true ? 1 : 0
         let positionSeconds = CMTimeGetSeconds(player.currentTime())

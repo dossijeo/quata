@@ -271,6 +271,7 @@
     <string name="feed_play">Lire</string>
     <string name="feed_unmute">Activer son</string>
     <string name="feed_mute">Muet</string>
+    <string name="media_playback_failed">La vidéo n’a pas pu être lue.</string>
     <string name="comments_title">COMMENTAIRES</string>
     <string name="comments_placeholder">Ecris un commentaire&#8230;</string>
     <string name="comments_show_emojis">Afficher emojis</string>

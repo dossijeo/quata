@@ -1523,6 +1523,59 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertGreaterThan(player.currentTime().seconds, 0.1)
     }
 
+    func testIosFeedVideoSurfaceRecoversAfterTheSameSourceBecomesAvailable() throws {
+        let localFixture = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-feed-retry-\(UUID().uuidString).mp4")
+        try? FileManager.default.removeItem(at: localFixture)
+        defer { try? FileManager.default.removeItem(at: localFixture) }
+
+        let surface = IosFeedNativeMediaFactory.shared.createVideo(url: localFixture.absoluteString)
+        defer { surface.dispose() }
+        surface.configure(isActive: true, isMuted: true, initialPositionMs: 0)
+
+        let failed = waitForIosFeedMediaSnapshot(surface: surface) { $0.error != nil }
+        XCTAssertEqual(try XCTUnwrap(failed).error, "feed_video_playback_failed")
+
+        try writeFeedPlaybackFixtureVideo(to: localFixture)
+        surface.retry()
+        let recovered = waitForIosFeedMediaSnapshot(surface: surface) { snapshot in
+            snapshot.error == nil && snapshot.durationMs >= 1_900 && snapshot.isPlaying
+        }
+        XCTAssertNil(try XCTUnwrap(recovered).error)
+    }
+
+    func testIosFeedVideoRetryPreservesAnInvalidSourceFailure() throws {
+        let surface = IosFeedNativeMediaFactory.shared.createVideo(url: "")
+        defer { surface.dispose() }
+
+        XCTAssertEqual(surface.snapshot().error, "feed_video_url_invalid")
+        surface.retry()
+        XCTAssertEqual(surface.snapshot().error, "feed_video_url_invalid")
+    }
+
+    func testIosOfficialVideoViewerRecoversAfterTheSameSourceBecomesAvailable() throws {
+        let localFixture = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-official-retry-\(UUID().uuidString).mp4")
+        try? FileManager.default.removeItem(at: localFixture)
+        defer { try? FileManager.default.removeItem(at: localFixture) }
+
+        let surface = IosOfficialMediaBridge.shared.create(
+            url: localFixture.absoluteString,
+            isVideo: true
+        )
+        defer { surface.dispose() }
+
+        let failed = waitForIosOfficialMediaSnapshot(surface: surface) { $0.error != nil }
+        XCTAssertEqual(try XCTUnwrap(failed).error, "official_video_playback_failed")
+
+        try writeFeedPlaybackFixtureVideo(to: localFixture)
+        surface.retry()
+        let recovered = waitForIosOfficialMediaSnapshot(surface: surface) { snapshot in
+            snapshot.error == nil && snapshot.isPlaying
+        }
+        XCTAssertNil(try XCTUnwrap(recovered).error)
+    }
+
     func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {
         let imageUrl = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("quata-chat-media-contract.png")
@@ -3288,6 +3341,22 @@ private func waitForIosFeedMediaSnapshot(
     timeout: TimeInterval = 5,
     condition: (IosFeedMediaSnapshot) -> Bool,
 ) -> IosFeedMediaSnapshot? {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        let snapshot = surface.snapshot()
+        if condition(snapshot) {
+            return snapshot
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+    }
+    return nil
+}
+
+private func waitForIosOfficialMediaSnapshot(
+    surface: any IosOfficialMediaViewerSurface,
+    timeout: TimeInterval = 5,
+    condition: (IosOfficialMediaViewerSnapshot) -> Bool,
+) -> IosOfficialMediaViewerSnapshot? {
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         let snapshot = surface.snapshot()

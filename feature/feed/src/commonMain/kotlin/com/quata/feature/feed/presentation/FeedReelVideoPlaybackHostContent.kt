@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.QuataMediaPlaybackRecoveryContent
 
 internal val FeedReelPlaybackControlsHeight = 56.dp
 internal val FeedReelPlaybackControlsShape = RoundedCornerShape(18.dp)
@@ -69,6 +70,8 @@ data class VideoPlaybackStrings(
     val pause: String,
     val mute: String,
     val unmute: String,
+    val playbackFailed: String,
+    val retry: String,
 )
 
 /**
@@ -112,16 +115,17 @@ fun FeedReelVideoPlaybackHostContent(
                 .fillMaxSize()
                 .clickable { toggle(showFeedback = true) },
         )
-        FeedReelPlaybackFeedbackIconContent(
-            feedbackIcon = when (state.feedback) {
-                VideoPlaybackFeedback.Play -> Icons.Filled.PlayArrow
-                VideoPlaybackFeedback.Pause -> Icons.Filled.Pause
-                null -> null
-            },
-            isRebuffering = state.isRebuffering,
-            modifier = Modifier.align(Alignment.Center),
-        )
-        Row(
+        if (state.error == null) {
+            FeedReelPlaybackFeedbackIconContent(
+                feedbackIcon = when (state.feedback) {
+                    VideoPlaybackFeedback.Play -> Icons.Filled.PlayArrow
+                    VideoPlaybackFeedback.Pause -> Icons.Filled.Pause
+                    null -> null
+                },
+                isRebuffering = state.isRebuffering,
+                modifier = Modifier.align(Alignment.Center),
+            )
+            Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(
@@ -136,7 +140,7 @@ fun FeedReelVideoPlaybackHostContent(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+            ) {
             FeedReelPlaybackControlButton(
                 contentDescription = if (state.isPlaying) strings.pause else strings.play,
                 onClick = { toggle(showFeedback = false) },
@@ -179,6 +183,14 @@ fun FeedReelVideoPlaybackHostContent(
                     )
                 }
             }
+            }
+        }
+        if (state.error != null) {
+            QuataMediaPlaybackRecoveryContent(
+                message = strings.playbackFailed,
+                retryLabel = strings.retry,
+                onRetry = onError,
+            )
         }
     }
 }

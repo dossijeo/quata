@@ -64,8 +64,8 @@ iOS adicional genera un MP4 local, inspecciona el `AVPlayerLayer` y verifica rep
 Las tres plataformas terminan sin residuo en Storage ni base de datos.
 [Attestation](./candidate-attestations/official-video-viewer.json). La PR #389 se fusionó mediante `a91cbabd`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-El cierre es focal: no acredita todos los codecs, fallos de red, descarga/compartir, reproducción en
-segundo plano, otros productores de vídeo, comentarios integrados ni restauración profunda de scroll.
+El cierre es focal: no acredita todos los codecs, descarga/compartir, reproducción en segundo plano,
+otros productores de vídeo, comentarios integrados ni restauración profunda de scroll.
 `OVR-POST-DETAIL` y `OVR-MEDIA` conservan esos límites y no reciben un GO global.
 
 ## OVR-MEDIA / visor de vídeo Feed — integrado por #388 el 20 de septiembre de 2026
@@ -79,9 +79,21 @@ y terminan sin residuo en Storage ni base de datos. En iOS, la primera jerarquí
 que `LIVE` tapaba el control y dejaba sólo 8 px; la ubicación final `TopCenter` conserva sus 44 px y
 el XCTest real pasa. [Attestation](./candidate-attestations/feed-video-viewer.json). La PR #388 se fusionó mediante `d3ae116f`; sus gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
 
-El cierre es focal: no acredita todos los codecs, fallos de red, descarga/compartir, reproducción
-en segundo plano, otros productores de vídeo, comentarios integrados ni restauración profunda de
-scroll. `OVR-POST-DETAIL` y `OVR-MEDIA` conservan esos límites y no reciben un GO global.
+El cierre es focal: no acredita todos los codecs, descarga/compartir, reproducción en segundo plano,
+otros productores de vídeo, comentarios integrados ni restauración profunda de scroll.
+`OVR-POST-DETAIL` y `OVR-MEDIA` conservan esos límites y no reciben un GO global.
+
+## OVR-MEDIA / recuperación de reproducción Feed y Official — candidata
+
+Product SHA `806b00a994e659c0da94f6e810d1f6a20af0424d`. Android, Web/Wasm e iOS
+muestran un error común ante un fallo recuperable del decodificador y reintentan exactamente la
+misma fuente. Web acredita el fallo real del elemento `video` y su reproducción posterior; Android
+acredita `STATE_READY` sin inferir reproducción cuando el emulador deja el player pausado; iOS
+acredita reproducción posterior en los bridges AVFoundation de Feed y Official.
+[Atestación](./candidate-attestations/media-playback-recovery.json).
+
+Permanecen fuera el catálogo exhaustivo de codecs, reproducción prolongada en segundo plano,
+descarga/compartir, comentarios integrados y productores de media distintos de Feed y Official.
 
 ## FLOW-DOCUMENT-VIEWER — integrado por #382 el 19 de septiembre de 2026
 

@@ -271,6 +271,7 @@
     <string name="feed_play">Reproducir</string>
     <string name="feed_unmute">Activar sonido</string>
     <string name="feed_mute">Silenciar</string>
+    <string name="media_playback_failed">No se pudo reproducir el vídeo.</string>
     <string name="comments_title">COMENTARIOS</string>
     <string name="comments_placeholder">Escribe un comentario…</string>
     <string name="comments_show_emojis">Mostrar emojis</string>

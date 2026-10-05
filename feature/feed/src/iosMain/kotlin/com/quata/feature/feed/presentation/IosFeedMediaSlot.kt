@@ -151,7 +151,14 @@ private fun IosFeedVideoPlayback(
             error = playback.error,
             feedback = feedback,
         ),
-        strings = VideoPlaybackStrings("Reproducir", "Pausar", "Silenciar", "Activar sonido"),
+        strings = VideoPlaybackStrings(
+            play = "Reproducir",
+            pause = "Pausar",
+            mute = "Silenciar",
+            unmute = "Activar sonido",
+            playbackFailed = "No se pudo reproducir el vídeo.",
+            retry = "Reintentar",
+        ),
         media = {
             UIKitView(
                 factory = surface::nativeView,

@@ -192,7 +192,7 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "6744b38f81eeed874b083ba17dbc5c76142332818727a0971533a87b1275c885",
+              "sha256": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
               "role": "composition"
             },
             {
@@ -253,7 +253,7 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "6744b38f81eeed874b083ba17dbc5c76142332818727a0971533a87b1275c885",
+              "sha256": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
               "role": "composition"
             },
             {
@@ -322,7 +322,7 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "6744b38f81eeed874b083ba17dbc5c76142332818727a0971533a87b1275c885",
+              "sha256": "55ef969ddbf78f98e2e325605494d242b13d66c8a27ff2bc1db9df72aa3aabd7",
               "role": "composition"
             },
             {

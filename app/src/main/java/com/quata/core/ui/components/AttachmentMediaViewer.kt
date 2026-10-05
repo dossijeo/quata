@@ -552,6 +552,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
     var playbackRotation by remember(videoUri) { mutableStateOf(0) }
     var isLoading by remember(videoUri) { mutableStateOf(true) }
     var isPlaying by remember(videoUri) { mutableStateOf(false) }
+    var hasPlaybackError by remember(videoUri) { mutableStateOf(false) }
     LaunchedEffect(videoUri) {
         playbackRotation = withContext(Dispatchers.IO) {
             readQuataVideoRotation(context, Uri.parse(videoUri))
@@ -572,6 +573,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isLoading = playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_IDLE
+                if (playbackState == Player.STATE_READY) hasPlaybackError = false
             }
 
             override fun onRenderedFirstFrame() {
@@ -585,6 +587,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
             override fun onPlayerError(error: PlaybackException) {
                 isLoading = false
                 isPlaying = false
+                hasPlaybackError = true
             }
         }
         player.addListener(listener)
@@ -612,6 +615,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
             .testTag("fullscreen-media.video")
             .semantics {
                 stateDescription = when {
+                    hasPlaybackError -> "failed"
                     isLoading -> "loading"
                     isPlaying -> "playing"
                     else -> "paused"
@@ -661,6 +665,20 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
                     )
                 }
             }
+        }
+        if (hasPlaybackError) {
+            QuataMediaPlaybackRecoveryContent(
+                message = stringResource(R.string.media_playback_failed),
+                retryLabel = stringResource(R.string.common_retry),
+                onRetry = {
+                    hasPlaybackError = false
+                    isLoading = true
+                    player.stop()
+                    player.setMediaItem(MediaItem.fromUri(videoUri))
+                    player.prepare()
+                    player.playWhenReady = true
+                },
+            )
         }
     }
 }
