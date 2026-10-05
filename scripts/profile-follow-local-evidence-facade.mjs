@@ -37,11 +37,14 @@ if (!(postgrestEndpoint.hostname === "127.0.0.1" || postgrestEndpoint.hostname =
 const parsedConnection = new URL((await readFile(config.dbUrlFile, "utf8")).trim());
 parsedConnection.searchParams.delete("sslmode");
 const ca = await readFile(config.dbCaFile, "utf8");
-const client = new pg.Client({
+const client = new pg.Pool({
   connectionString: parsedConnection.toString(),
   ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  max: 2,
+  idleTimeoutMillis: 20_000,
+  connectionTimeoutMillis: 20_000,
 });
-await client.connect();
+await client.query("select 1");
 
 const createdWebSessionIds = new Set();
 const receipt = {
@@ -49,11 +52,14 @@ const receipt = {
   status: "running",
   startedAt: new Date().toISOString(),
   authLogins: 0,
+  nativeAuthLogins: 0,
+  databaseConnectionErrors: 0,
   proxiedRestRequests: 0,
   createdWebSessions: 0,
   removedWebSessions: 0,
   cleanupVerified: false,
 };
+client.on("error", () => { receipt.databaseConnectionErrors += 1; });
 
 const base64url = (value) => Buffer.from(value).toString("base64url");
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -105,7 +111,10 @@ function json(request, response, status, body) {
 
 async function login(request, response) {
   const payload = await readJson(request);
-  if (payload.action !== "web_login") return json(request, response, 400, { error: "unsupported_action" });
+  const action = payload.action ?? "login";
+  if (action !== "web_login" && action !== "login") {
+    return json(request, response, 400, { error: "unsupported_action" });
+  }
   const countryCode = digits(payload.country_code);
   const phone = digits(payload.phone_local ?? payload.phone);
   const password = String(payload.password ?? "");
@@ -124,24 +133,9 @@ async function login(request, response) {
   if (!passwordMatches || profile.account_status !== "active" || !profile.auth_user_id) {
     return json(request, response, 401, { error: "invalid_credentials" });
   }
-  const clientInstanceId = String(payload.client_instance_id ?? "").trim();
-  if (clientInstanceId.length < 8 || clientInstanceId.length > 200) {
-    return json(request, response, 400, { error: "invalid_client_instance_id" });
-  }
-  const webToken = randomBytes(32).toString("base64url");
-  const webSession = await client.query(`
-    insert into public.web_client_sessions(
-      profile_id, auth_user_id, client_instance_id, token_hash, updated_at, last_seen_at, revoked_at
-    ) values ($1, $2, $3, $4, now(), now(), null)
-    on conflict (profile_id, client_instance_id) do nothing
-    returning id
-  `, [profile.id, profile.auth_user_id, clientInstanceId, sha256(webToken)]);
-  if (webSession.rowCount !== 1) throw new Error("local_facade_client_session_conflict");
-  createdWebSessionIds.add(String(webSession.rows[0].id));
   const session = jwtFor(profile.auth_user_id);
   receipt.authLogins += 1;
-  receipt.createdWebSessions = createdWebSessionIds.size;
-  return json(request, response, 200, {
+  const result = {
     version: 1,
     profile: {
       id: profile.id,
@@ -161,9 +155,29 @@ async function login(request, response) {
       token_type: "bearer",
     },
     user: { id: profile.auth_user_id },
-    client_type: "web",
-    web_session: { id: webSession.rows[0].id, token: webToken },
-  });
+  };
+  if (action === "web_login") {
+    const clientInstanceId = String(payload.client_instance_id ?? "").trim();
+    if (clientInstanceId.length < 8 || clientInstanceId.length > 200) {
+      return json(request, response, 400, { error: "invalid_client_instance_id" });
+    }
+    const webToken = randomBytes(32).toString("base64url");
+    const webSession = await client.query(`
+      insert into public.web_client_sessions(
+        profile_id, auth_user_id, client_instance_id, token_hash, updated_at, last_seen_at, revoked_at
+      ) values ($1, $2, $3, $4, now(), now(), null)
+      on conflict (profile_id, client_instance_id) do nothing
+      returning id
+    `, [profile.id, profile.auth_user_id, clientInstanceId, sha256(webToken)]);
+    if (webSession.rowCount !== 1) throw new Error("local_facade_client_session_conflict");
+    createdWebSessionIds.add(String(webSession.rows[0].id));
+    receipt.createdWebSessions = createdWebSessionIds.size;
+    result.client_type = "web";
+    result.web_session = { id: webSession.rows[0].id, token: webToken };
+  } else {
+    receipt.nativeAuthLogins += 1;
+  }
+  return json(request, response, 200, result);
 }
 
 async function proxyRest(request, response, requestUrl) {

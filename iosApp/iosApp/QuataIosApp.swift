@@ -52,16 +52,52 @@ enum IosPublicRuntimeConfiguration {
     private static let registrationApiKeyKey = "QUATA_IOS_REGISTRATION_API_KEY"
     private static let turnstileSiteKey = "QUATA_IOS_TURNSTILE_SITE_KEY"
     private static let turnstileAllowedOriginKey = "QUATA_IOS_TURNSTILE_ALLOWED_ORIGIN"
+    private static let nativeFacadeAuthorizationKey = "QUATA_IOS_NATIVE_FACADE_AUTHORIZATION"
+    private static let nativeFacadeAuthorization = "MANAGER_APPROVED_QADATA_IOS_NATIVE_FACADE"
+    private static let nativeFacadeUrlKey = "QUATA_IOS_NATIVE_FACADE_URL"
+    private static let nativeFacadePublishableKeyKey = "QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY"
 
     /// Values are injected as build settings. The Supabase publishable key is client-safe;
     /// service-role credentials must never be added to an iOS bundle.
-    static func feedConfiguration(bundle: Bundle = .main) -> IosFeedRuntimeConfiguration? {
-        feedConfiguration(infoDictionary: bundle.infoDictionary ?? [:])
+    static func feedConfiguration(
+        bundle: Bundle = .main,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> IosFeedRuntimeConfiguration? {
+        feedConfiguration(infoDictionary: bundle.infoDictionary ?? [:], environment: environment)
     }
 
     /// Kept separate from Bundle access so XCTest can validate unconfigured/expanded settings
     /// without a deployment bundle, network request or a client credential.
-    static func feedConfiguration(infoDictionary: [String: Any]) -> IosFeedRuntimeConfiguration? {
+    static func feedConfiguration(
+        infoDictionary: [String: Any],
+        environment: [String: String] = [:]
+    ) -> IosFeedRuntimeConfiguration? {
+        let facadeValues = [
+            environment[nativeFacadeAuthorizationKey],
+            environment[nativeFacadeUrlKey],
+            environment[nativeFacadePublishableKeyKey],
+        ]
+        if facadeValues.contains(where: { $0?.isEmpty == false }) {
+            guard
+                environment[nativeFacadeAuthorizationKey] == nativeFacadeAuthorization,
+                let rawUrl = environment[nativeFacadeUrlKey],
+                let url = URL(string: rawUrl),
+                url.scheme == "http",
+                url.host == "127.0.0.1",
+                url.port != nil,
+                url.user == nil,
+                url.password == nil,
+                url.query == nil,
+                url.fragment == nil,
+                url.path.isEmpty,
+                let publishableKey = environment[nativeFacadePublishableKeyKey],
+                publishableKey.hasPrefix("sb_publishable_")
+            else { return nil }
+            return IosFeedRuntimeConfiguration(
+                supabaseUrl: rawUrl,
+                supabasePublishableKey: publishableKey
+            )
+        }
         guard
             let url = configuredURL(for: supabaseUrlKey, infoDictionary: infoDictionary),
             let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)

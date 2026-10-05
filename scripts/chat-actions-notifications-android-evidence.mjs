@@ -47,6 +47,11 @@ const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTI
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
+const nativeFacadeAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_AUTHORIZATION";
+const nativeFacadeAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE";
+const backendRequestTimeoutMs = process.env[nativeFacadeAuthorizationEnvironment] === nativeFacadeAuthorizationValue
+  ? 60_000
+  : 20_000;
 const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileFollowNegativeOnly = process.argv.includes("--profile-follow-negative-only");
@@ -705,6 +710,31 @@ function adjacentRecipientPhones(primaryPhone) {
 }
 
 async function publicBackendConfig() {
+  const nativeFacadeHostUrl = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_HOST_URL?.trim();
+  const nativeFacadeDeviceUrl = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_DEVICE_URL?.trim();
+  const nativeFacadeKey = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_NATIVE_FACADE_PUBLISHABLE_KEY?.trim();
+  if (nativeFacadeHostUrl || nativeFacadeDeviceUrl || nativeFacadeKey) {
+    if (process.env[nativeFacadeAuthorizationEnvironment] !== nativeFacadeAuthorizationValue) {
+      throw new Error("native_facade_authorization_missing");
+    }
+    if (!profileFollowNegativeOnly) throw new Error("native_facade_scope_not_allowed");
+    const host = new URL(nativeFacadeHostUrl ?? "");
+    const device = new URL(nativeFacadeDeviceUrl ?? "");
+    if (host.protocol !== "http:" || host.hostname !== "127.0.0.1" || host.pathname !== "/" || host.search || host.hash) {
+      throw new Error("native_facade_host_must_be_exact_loopback");
+    }
+    if (device.protocol !== "http:" || device.hostname !== "10.0.2.2" || device.pathname !== "/" || device.search || device.hash) {
+      throw new Error("native_facade_device_must_be_exact_emulator_loopback");
+    }
+    if (host.port !== device.port || !nativeFacadeKey?.startsWith("sb_publishable_")) {
+      throw new Error("native_facade_configuration_invalid");
+    }
+    return {
+      baseUrl: host.origin,
+      key: nativeFacadeKey,
+      nativeFacadeDeviceUrl: device.origin,
+    };
+  }
   const configuredUrl = process.env.QUATA_SUPABASE_URL?.trim();
   const configuredKey = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (configuredUrl && configuredKey) return { baseUrl: configuredUrl.replace(/\/+$/, ""), key: configuredKey };
@@ -733,7 +763,7 @@ function headers(config, token) {
 
 async function jsonRequest(url, options, prefix) {
   let response;
-  try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }); }
+  try { response = await fetch(url, { ...options, signal: AbortSignal.timeout(backendRequestTimeoutMs) }); }
   catch { throw new Error(`${prefix}:network`); }
   const text = await response.text();
   if (!response.ok) throw createBackendHttpError(prefix, response.status, text);
@@ -1889,8 +1919,11 @@ const evidenceDir = options.evidenceDir;
 const releaseAndroidEvidenceLock = await acquireAndroidEvidenceLock();
 try {
   const config = await publicBackendConfig();
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
+  if (!config.nativeFacadeDeviceUrl && !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) {
+    throw new Error("invalid_public_supabase_url");
+  }
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
+  if (config.nativeFacadeDeviceUrl) report.steps.push("native_loopback_auth_rest_facade_accepted_for_profile_follow_retry");
   const users = await authorizedUsers();
   const userA = users.a;
   const userB = users.b;
@@ -2093,7 +2126,15 @@ try {
   await mkdir(dirname(localCredentials), { recursive: true });
   await writeFile(localCredentials, `${JSON.stringify({ country_code: userA.countryCode, phone: userA.phone, password: userA.password })}\n`, { mode: 0o600 });
   const gradle = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-  await run(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--console=plain"], {
+  const gradleArguments = [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--console=plain"];
+  if (config.nativeFacadeDeviceUrl) {
+    gradleArguments.push(
+      "-Pquata.evidenceBackendOverride=true",
+      `-Pquata.evidenceSupabaseUrl=${config.nativeFacadeDeviceUrl}`,
+      `-Pquata.evidenceSupabasePublishableKey=${config.key}`,
+    );
+  }
+  await run(gradle, gradleArguments, {
     env: {
       ...process.env,
       JAVA_HOME: process.env.JAVA_HOME || "C:\\Program Files\\Android\\Android Studio\\jbr",
@@ -2103,7 +2144,7 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || conversationCreateOnly) {
+  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || conversationCreateOnly || (profileFollowNegativeOnly && config.nativeFacadeDeviceUrl)) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push(attachmentsAudioOnly
       ? "android_debug_package_precompiled_before_attachments_audio_instrumentation"
@@ -2111,7 +2152,9 @@ try {
         ? "android_debug_package_precompiled_before_document_actions_instrumentation"
       : (conversationsOnly || conversationCreateOnly)
         ? "android_debug_package_precompiled_before_conversations_instrumentation"
-        : "android_debug_package_precompiled_before_profile_entry_instrumentation");
+        : profileFollowNegativeOnly
+          ? "android_debug_package_precompiled_before_profile_follow_retry_instrumentation"
+          : "android_debug_package_precompiled_before_profile_entry_instrumentation");
     if (attachmentsAudioOnly) report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
   }
   await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
@@ -2125,9 +2168,11 @@ try {
   await run(adbCommand, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adbCommand, ["shell", "rm", "-f", deviceTempCredentialsPath]);
   await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
-  const runInstrumentationStage = async (stage) => await runCapture(adbCommand, [
-    "shell",
-    [
+  const runInstrumentationStage = async (stage) => {
+    await run(adbCommand, ["logcat", "-c"]);
+    const output = await runCapture(adbCommand, [
+      "shell",
+      [
       "am", "instrument", "-w", "-r",
       "-e", "class", "com.quata.feature.chat.presentation.chat.ChatActionsNotificationsInstrumentedTest",
       "-e", "quataChatActionsStage", stage,
@@ -2201,8 +2246,21 @@ try {
       "-e", "quataChatGroupBlockDisplayName", state.groupBlockProfile?.displayName ?? "",
       "-e", "quataChatGroupBlockSearchQuery", state.groupBlockProfile?.phoneLocal ?? "",
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
-    ].map(adbShellQuote).join(" "),
-  ]);
+      ].map(adbShellQuote).join(" "),
+    ]);
+    if (/Process crashed/i.test(output)) {
+      const rawCrash = await runCapture(adbCommand, ["logcat", "-d", "-t", "2000"])
+        .catch(() => "android_crash_log_unavailable");
+      const crash = rawCrash.split(/\r?\n/).filter((line) =>
+        /com\.quata|AndroidRuntime|FATAL|Fatal signal|Process crashed|DEBUG|libc|test runner/i.test(line)
+      ).join("\n");
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        [`androidCrashLog:${stage}`]: crash.split(/\r?\n/).slice(-160).join("\n"),
+      };
+    }
+    return output;
+  };
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
     if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
       report.diagnostics = {

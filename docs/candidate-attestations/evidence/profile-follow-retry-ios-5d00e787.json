@@ -1,0 +1,71 @@
+{
+  "check": "PROFILE-FOLLOW-RETRY-IOS-NATIVE-001",
+  "status": "passed",
+  "startedAt": "2026-10-05T20:27:55.965Z",
+  "finishedAt": "2026-10-05T20:37:15.110Z",
+  "git": {
+    "head": "5d00e787812647b315b773cd188c5e34e3524548",
+    "workingTreeDirty": false
+  },
+  "scope": "Signed iOS Simulator product UI against the production database and its real RLS/RPC behavior through an explicitly authorized Mac-loopback Auth/PostgREST facade and SSH reverse tunnel",
+  "steps": [
+    "native_loopback_auth_rest_facade_accepted_for_ios_profile_follow_retry",
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_mac_loopback_reverse_tunnel_verified",
+    "profile_follow_initial_state_snapshot_and_absent_prepared",
+    "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified",
+    "profile_follow_failure_rolled_back_then_visible_retry_converged_and_backend_edge_was_created",
+    "ios_mac_loopback_reverse_tunnel_stopped"
+  ],
+  "observations": {
+    "xctestPassed": true,
+    "retry": "The first mutation was forced to fail before transport; UI rollback restored action and count, the same visible Retry control converged, and the production follow edge was then observed.",
+    "nativeSurface": "The signed Simulator app opened the peer profile from Chat, exercised the common retry surface, and returned through the authenticated product flow."
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "profile_follow_edge_restored_to_initial_state",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "limits": [
+    "Hosted Supabase Auth returned HTTP 402, so authentication and REST transport were supplied by the opt-in Mac-loopback facade while retaining the production database, RLS and RPC behavior.",
+    "The facade did not implement hosted Realtime and this focal report does not certify the hosted Auth/API gateway."
+  ],
+  "provenance": {
+    "sourceReportSha256": "2322c286bd3e4115ab15950b03f85de965dcc51eeb01494df5525809c8db2beb",
+    "sourceReportStoredOutsideGit": true,
+    "signedBuildCommit": "5d00e787812647b315b773cd188c5e34e3524548",
+    "laterAndroidOnlyTestCommit": "62c8993ae99b67184255364c865bf8776686ad61"
+  }
+}

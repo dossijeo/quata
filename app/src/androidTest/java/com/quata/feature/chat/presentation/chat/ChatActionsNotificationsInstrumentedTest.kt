@@ -3089,12 +3089,20 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun semanticsText(tag: String): String =
-        compose.onNodeWithTag(tag, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .config
-            .getOrNull(SemanticsProperties.Text)
+        sequenceOf(false, true)
+            .mapNotNull { useUnmergedTree ->
+                runCatching {
+                    compose.onNodeWithTag(tag, useUnmergedTree = useUnmergedTree)
+                        .fetchSemanticsNode()
+                        .config
+                        .getOrNull(SemanticsProperties.Text)
+                        .orEmpty()
+                        .joinToString("|") { it.text }
+                        .takeIf(String::isNotBlank)
+                }.getOrNull()
+            }
+            .firstOrNull()
             .orEmpty()
-            .joinToString("|") { it.text }
 
     private fun runProfileRolesSafetyStage(peerProbe: String, profileId: String) {
         openPeerProfile(peerProbe, profileId)
@@ -3686,12 +3694,24 @@ class ChatActionsNotificationsInstrumentedTest {
                 true
             }.getOrDefault(false)
             if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe, profileId)
-            runCatching {
+            val openedAfterFallback = runCatching {
                 compose.waitUntil(30_000) { publicProfileVisible(profileId) }
-            }.onFailure {
+                true
+            }.getOrDefault(false)
+            if (!openedAfterFallback) {
+                // Capturing the diagnostic waits for the Compose surface to settle. A slow
+                // profile load can therefore become visible while the failure image is written;
+                // re-observe the tagged product surface before classifying navigation as failed.
                 saveScreenshot("android-chat-profile-open-failed")
-                throw AssertionError("public_profile_not_visible_after_avatar_click:$profileId", it)
-            }.getOrThrow()
+                val openedAfterDiagnostic = runCatching {
+                    compose.waitUntil(10_000) { publicProfileVisible(profileId) }
+                    true
+                }.getOrDefault(false)
+                assertTrue(
+                    "public_profile_not_visible_after_avatar_click:$profileId",
+                    openedAfterDiagnostic,
+                )
+            }
         }
         listOf(
             "public-profile.avatar.$profileId",

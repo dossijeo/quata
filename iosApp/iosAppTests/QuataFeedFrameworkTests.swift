@@ -346,6 +346,37 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
     }
 
+    func testPublicRuntimeConfigurationAcceptsOnlyExplicitAuthorizedLoopbackFacade() {
+        let bundled = [
+            "QUATA_SUPABASE_URL": "https://deployment.invalid",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY": "public-build-setting",
+        ]
+        let authorized = [
+            "QUATA_IOS_NATIVE_FACADE_AUTHORIZATION": "MANAGER_APPROVED_QADATA_IOS_NATIVE_FACADE",
+            "QUATA_IOS_NATIVE_FACADE_URL": "http://127.0.0.1:31236",
+            "QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY": "sb_publishable_local_evidence",
+        ]
+
+        let configuration = IosPublicRuntimeConfiguration.feedConfiguration(
+            infoDictionary: bundled,
+            environment: authorized
+        )
+        XCTAssertEqual(configuration?.supabaseUrl, "http://127.0.0.1:31236")
+        XCTAssertEqual(configuration?.supabasePublishableKey, "sb_publishable_local_evidence")
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(
+            infoDictionary: bundled,
+            environment: authorized.merging(["QUATA_IOS_NATIVE_FACADE_AUTHORIZATION": "wrong"]) { _, new in new }
+        ))
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(
+            infoDictionary: bundled,
+            environment: authorized.merging(["QUATA_IOS_NATIVE_FACADE_URL": "http://192.168.1.109:31236"]) { _, new in new }
+        ))
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(
+            infoDictionary: bundled,
+            environment: authorized.merging(["QUATA_IOS_NATIVE_FACADE_URL": "https://127.0.0.1:31236/path"]) { _, new in new }
+        ))
+    }
+
     func testLaunchContractInstallsPublicFeedBeforeAsynchronousSessionValidation() throws {
         let appSourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
