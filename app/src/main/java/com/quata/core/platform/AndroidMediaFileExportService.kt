@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.net.toUri
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -231,7 +232,7 @@ private fun defaultAndroidMediaExportClient(): OkHttpClient = OkHttpClient.Build
     .readTimeout(45, TimeUnit.SECONDS)
     .build()
 
-private fun localMediaExportPath(file: PlatformFile): File? = Uri.parse(file.reference).path?.let(::File)
+private fun localMediaExportPath(file: PlatformFile): File? = file.reference.toUri().path?.let(::File)
 
 private fun String?.safeMediaExportName(): String = this.orEmpty().trim()
     .substringAfterLast('/').substringAfterLast('\\')

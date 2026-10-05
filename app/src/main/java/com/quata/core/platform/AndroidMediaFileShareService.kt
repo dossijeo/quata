@@ -16,6 +16,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -156,7 +157,7 @@ private class AndroidMediaShareCoordinator {
 }
 
 private fun PlatformFile.shareableMediaUri(context: Context): Uri? {
-    val parsed = Uri.parse(reference)
+    val parsed = reference.toUri()
     if (parsed.scheme == "content") return parsed
     if (parsed.scheme != "file") return null
     val file = parsed.path?.let(::File)?.takeIf { it.isFile && it.length() > 0L } ?: return null
