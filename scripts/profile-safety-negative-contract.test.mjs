@@ -85,7 +85,8 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same
   assert.match(iosRunner, /!profileFollowNegativeOnly && !profileSafetyNegativeOnly/);
   assert.match(iosRunner, /native_loopback_auth_rest_facade_accepted_for_ios_profile_safety_retry/);
   assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE/);
-  assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*app\.wait\(for: \.runningForeground/);
+  assert.match(iosUi, /QUATA_IOS_NATIVE_FACADE_AUTHORIZATION[\s\S]*app\.launchEnvironment\[key\] = value/);
+  assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*quata-ios-authenticated-top-chrome[\s\S]*authenticatedChrome\.waitForExistence/);
   assert.match(iosUi, /\} else \{[\s\S]*feed\.waitForExistence\(timeout: 20\)[\s\S]*The seeded normal launch must restore Feed/);
 });
 
