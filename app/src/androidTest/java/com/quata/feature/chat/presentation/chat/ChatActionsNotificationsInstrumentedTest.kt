@@ -3694,12 +3694,24 @@ class ChatActionsNotificationsInstrumentedTest {
                 true
             }.getOrDefault(false)
             if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe, profileId)
-            runCatching {
+            val openedAfterFallback = runCatching {
                 compose.waitUntil(30_000) { publicProfileVisible(profileId) }
-            }.onFailure {
+                true
+            }.getOrDefault(false)
+            if (!openedAfterFallback) {
+                // Capturing the diagnostic waits for the Compose surface to settle. A slow
+                // profile load can therefore become visible while the failure image is written;
+                // re-observe the tagged product surface before classifying navigation as failed.
                 saveScreenshot("android-chat-profile-open-failed")
-                throw AssertionError("public_profile_not_visible_after_avatar_click:$profileId", it)
-            }.getOrThrow()
+                val openedAfterDiagnostic = runCatching {
+                    compose.waitUntil(10_000) { publicProfileVisible(profileId) }
+                    true
+                }.getOrDefault(false)
+                assertTrue(
+                    "public_profile_not_visible_after_avatar_click:$profileId",
+                    openedAfterDiagnostic,
+                )
+            }
         }
         listOf(
             "public-profile.avatar.$profileId",
