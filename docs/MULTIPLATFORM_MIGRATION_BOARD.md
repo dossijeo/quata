@@ -525,7 +525,7 @@ permanece ausente y restituyen el estado inicial durante la limpieza con residuo
 Manifest: `docs/candidate-attestations/profile-follow-negative.json`. No acredita denegación de
 permisos, carreras concurrentes, retry ni otros errores de perfil público.
 
-**Candidato actual:** Product SHA `db6cc7e316b9f3f79ee56aaddff5305e90d10f80` cierra el retry
+**Candidato actual:** Product SHA `f498da2e9813a6b9143a9c3103b5d531400c28db` cierra el retry
 de `PROF-FOLLOW` en Android e iOS Simulator sin repetir la matriz Web no afectada. Las dos UI nativas
 fuerzan el primer fallo antes del transporte, restauran acción y contador, reintentan desde el mismo
 control, verifican la arista real y restituyen el estado inicial con residuo físico cero. La fachada
