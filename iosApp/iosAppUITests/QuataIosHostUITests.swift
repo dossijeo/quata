@@ -1145,6 +1145,22 @@ final class QuataIosHostUITests: XCTestCase {
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-profile-sos-search-keyboard-restored-portrait")
 
+        let searchDone = app.keyboards.buttons["Return"]
+        XCTAssertTrue(
+            searchDone.waitForExistence(timeout: 2),
+            "The restored SOS search keyboard must expose Done before switching tabs.",
+        )
+        searchDone.tap()
+        let searchKeyboardDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.keyboards.firstMatch,
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [searchKeyboardDismissed], timeout: 5),
+            .completed,
+            "Done must release SOS search focus and restore the portrait header.",
+        )
+
         let messageTab = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.tab.message")
             .firstMatch
@@ -1211,15 +1227,28 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertTrue(openSos.waitForExistence(timeout: 15))
         openSos.tap()
 
-        app.descendants(matching: .any)
-            .matching(identifier: "profile.sos.contact.toggle.sos-fixture-1")
+        let editor = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.root")
             .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
-        app.descendants(matching: .any)
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        let firstContact = visibleSosContactToggle(index: 1, in: app)
+        firstContact.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let firstContactSelected = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "Remove"),
+            object: firstContact,
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [firstContactSelected], timeout: 10),
+            .completed,
+            "The first SOS contact must be selected before the save gesture.",
+        )
+        XCTAssertTrue(editor.exists, "Selecting a contact must not consume the forced save failure.")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        let save = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.save")
             .firstMatch
-            .tap()
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        save.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         XCTAssertTrue(
             app.descendants(matching: .any)
@@ -1266,33 +1295,8 @@ final class QuataIosHostUITests: XCTestCase {
                 "The SOS search Done action must release focus before selecting contacts.",
             )
         }
-        func visibleContactToggle(index: Int) -> XCUIElement {
-            let query = app.buttons
-                .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
-            for attempt in 0..<8 {
-                let toggle = query.firstMatch
-                let currentList = app.descendants(matching: .any)
-                    .matching(identifier: "profile.sos.contacts.list")
-                    .firstMatch
-                XCTAssertTrue(currentList.exists)
-                if toggle.exists {
-                    let center = CGPoint(x: toggle.frame.midX, y: toggle.frame.midY)
-                    if !toggle.frame.isEmpty && currentList.frame.contains(center) { return toggle }
-                }
-                if attempt < 7 {
-                    if toggle.exists && toggle.frame.midY < currentList.frame.minY {
-                        currentList.swipeDown()
-                    } else {
-                        currentList.swipeUp()
-                    }
-                }
-            }
-            XCTFail("SOS contact \(index) must enter the visible shared-list viewport after bounded scrolling.")
-            return query.firstMatch
-        }
-
         for index in 1...5 {
-            let toggle = visibleContactToggle(index: index)
+            let toggle = visibleSosContactToggle(index: index, in: app)
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             let selectedToggle = app.buttons
                 .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
@@ -1307,7 +1311,7 @@ final class QuataIosHostUITests: XCTestCase {
                 "SOS contact \(index) must expose its selected state before the next interaction.",
             )
         }
-        let sixth = visibleContactToggle(index: 6)
+        let sixth = visibleSosContactToggle(index: 6, in: app)
         sixth.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let rejectedSixth = app.buttons
             .matching(identifier: "profile.sos.contact.toggle.sos-fixture-6")
@@ -1584,6 +1588,32 @@ final class QuataIosHostUITests: XCTestCase {
         if let shellRoute { app.launchArguments += ["-quata-ui-test-shell-route", shellRoute] }
         if exposeKeyboardBackdrop { app.launchArguments += ["-quata-ui-test-expose-keyboard-backdrop"] }
         return app
+    }
+
+    private func visibleSosContactToggle(index: Int, in app: XCUIApplication) -> XCUIElement {
+        let query = app.buttons
+            .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
+        for attempt in 0..<8 {
+            let toggle = query.firstMatch
+            let contactsList = app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.contacts.list")
+                .firstMatch
+            XCTAssertTrue(contactsList.exists)
+            let visibleHeight = contactsList.frame.intersection(toggle.frame).height
+            if toggle.exists && !toggle.frame.isEmpty && visibleHeight >= toggle.frame.height * 0.6 {
+                return toggle
+            }
+            if attempt < 7 {
+                if toggle.exists && toggle.frame.midY < contactsList.frame.midY {
+                    contactsList.swipeDown()
+                } else {
+                    contactsList.swipeUp()
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            }
+        }
+        XCTFail("SOS contact \(index) must enter the visible shared-list viewport after bounded scrolling.")
+        return query.firstMatch
     }
 
     private func waitForWindow(

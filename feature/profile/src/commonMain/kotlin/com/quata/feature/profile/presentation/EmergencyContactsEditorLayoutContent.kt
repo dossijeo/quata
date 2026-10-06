@@ -18,13 +18,16 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun EmergencyContactsLandscapeEditorLayoutContent(
+    showTopBar: Boolean,
     topBar: @Composable () -> Unit,
     contacts: @Composable (Modifier) -> Unit,
     message: @Composable (Modifier) -> Unit
 ) {
     Column(Modifier.fillMaxSize().imePadding()) {
-        topBar()
-        Spacer(Modifier.height(8.dp))
+        if (showTopBar) {
+            topBar()
+            Spacer(Modifier.height(8.dp))
+        }
         Row(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(14.dp)

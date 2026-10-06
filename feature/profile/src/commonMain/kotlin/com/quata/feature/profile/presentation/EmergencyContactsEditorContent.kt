@@ -111,8 +111,12 @@ fun EmergencyContactsEditorContent(
     SideEffect {
         onTabChanged(selectedTab)
     }
-    LaunchedEffect(isMessageFocused, isSearchFocused, isImeVisible) {
-        if (isMessageFocused && isImeVisible) messageBringIntoViewRequester.bringIntoView()
+    LaunchedEffect(isMessageFocused, isSearchFocused, isImeVisible, isLandscapeLayout) {
+        if (isMessageFocused && isImeVisible) {
+            withFrameNanos { }
+            if (isLandscapeLayout) messageScrollState.scrollTo(messageScrollState.maxValue)
+            messageBringIntoViewRequester.bringIntoView()
+        }
         if (!isMessageFocused && !isSearchFocused && !isImeVisible) keyboardOwner = null
     }
     val messageInputIsMounted = isLandscapeLayout || selectedTab == EmergencyContactsTab.Message
@@ -130,6 +134,8 @@ fun EmergencyContactsEditorContent(
                 EmergencyContactsKeyboardOwner.Message -> {
                     if (messageInputIsMounted) {
                         messageFocusRequester.requestFocus()
+                        withFrameNanos { }
+                        if (isLandscapeLayout) messageScrollState.scrollTo(messageScrollState.maxValue)
                         messageBringIntoViewRequester.bringIntoView()
                     }
                 }
@@ -148,6 +154,7 @@ fun EmergencyContactsEditorContent(
     ) {
         if (isLandscapeLayout) {
             EmergencyContactsLandscapeEditorLayoutContent(
+                showTopBar = !isImeVisible,
                 topBar = {
                     EmergencyContactsLandscapeTopBarContent(
                         backLabel = strings.header.back,
@@ -204,7 +211,7 @@ fun EmergencyContactsEditorContent(
                     )
                 },
                 message = { modifier ->
-                    Column(modifier.verticalScroll(messageScrollState).imePadding()) {
+                    Column(modifier.verticalScroll(messageScrollState)) {
                         EmergencyContactsLandscapeMessageIntroContent(
                             tabLabel = strings.header.messageTab,
                             description = strings.header.description,
