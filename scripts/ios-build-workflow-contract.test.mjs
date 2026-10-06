@@ -384,6 +384,8 @@ test('iOS build workflow preserves JDK 17 while Gradle resolves its daemon from 
   assertIosJavaContract(yaml);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
+  assert.match(criteria, /^toolchainUrl\.MAC_OS\.AARCH64=https\\:\/\/cache-redirector\.jetbrains\.com\/intellij-jbr\/jbrsdk_jcef-21\.0\.10-osx-aarch64-b1163\.110\.tar\.gz$/m);
+  assert.match(criteria, /^toolchainUrl\.MAC_OS\.X86_64=https\\:\/\/cache-redirector\.jetbrains\.com\/intellij-jbr\/jbrsdk_jcef-21\.0\.10-osx-x64-b1163\.110\.tar\.gz$/m);
 });
 
 test('iOS workflow cancels only superseded pull-request runs', async (t) => {
@@ -438,11 +440,15 @@ test('iOS Java and daemon criteria contract fails closed when launcher or criter
     ['JBR bootstrap added', yaml.replace('      - name: Set up JDK 17', '      - name: Set up JetBrains Runtime 21 for Gradle daemon\n\n      - name: Set up JDK 17'), criteria],
     ['daemon vendor removed', yaml, criteria.replace('toolchainVendor=JETBRAINS\n', '')],
     ['daemon version removed', yaml, criteria.replace('toolchainVersion=21\n', '')],
+    ['Apple Silicon daemon archive removed', yaml, criteria.replace(/^toolchainUrl\.MAC_OS\.AARCH64=.*\n/m, '')],
+    ['Intel daemon archive removed', yaml, criteria.replace(/^toolchainUrl\.MAC_OS\.X86_64=.*\n/m, '')],
   ]) await t.test(name, () => {
     assert.throws(() => {
       assertIosJavaContract(workflowMutation);
       assert.match(criteriaMutation, /^toolchainVendor=JETBRAINS$/m);
       assert.match(criteriaMutation, /^toolchainVersion=21$/m);
+      assert.match(criteriaMutation, /^toolchainUrl\.MAC_OS\.AARCH64=https\\:\/\/cache-redirector\.jetbrains\.com\/intellij-jbr\/jbrsdk_jcef-21\.0\.10-osx-aarch64-b1163\.110\.tar\.gz$/m);
+      assert.match(criteriaMutation, /^toolchainUrl\.MAC_OS\.X86_64=https\\:\/\/cache-redirector\.jetbrains\.com\/intellij-jbr\/jbrsdk_jcef-21\.0\.10-osx-x64-b1163\.110\.tar\.gz$/m);
     });
   });
 });
