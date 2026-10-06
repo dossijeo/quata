@@ -68,8 +68,8 @@
   "supersedesRuntimeLimitation": "supabase_realtime_http_402_exceed_egress_quota",
   "scope": {
     "proves": [
-      "public Realtime delivery for the four key-only directory publications",
-      "authenticated Realtime delivery including the authenticated publication set",
+      "public socket subscription to the four key-only directory publications",
+      "authenticated socket subscription to the authenticated publication set",
       "one owned community_walls fixture observed exactly once on each socket",
       "database fixture removal and authentication-session revocation"
     ],
