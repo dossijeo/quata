@@ -1,0 +1,32 @@
+{
+  "check": "SOS-IOS-REBASE-BUILD-001",
+  "status": "passed",
+  "productSha": "e639f418b9d3ff1cfb0cfa53a56502c76bb2630a",
+  "sourceProvenanceSha256": "4b99032561d3b5001e1871ac82de8e61db42dfc519f6630ff2a52e88e9aeec4f",
+  "steps": [
+    "exact_rebased_product_sha_materialized_on_mac",
+    "ios_x64_framework_compiled_and_linked",
+    "combined_quata_ios_app_swift_compiled",
+    "simulator_signed_build_for_testing_succeeded",
+    "compose_resources_verified",
+    "codesign_and_entitlement_guards_passed"
+  ],
+  "artifacts": {
+    "app": {
+      "relativePath": "Build/Products/SimulatorSigned-iphonesimulator/QuataIos.app/QuataIos",
+      "sha256": "f48a7bb6f48a5460eda3ade92299e1fbb96355e7ca04952a9323d893b8a4cd0a"
+    },
+    "sharedFramework": {
+      "relativePath": "Build/Products/SimulatorSigned-iphonesimulator/QuataIos.app/Frameworks/QuataShared.framework/QuataShared",
+      "sha256": "8f29554f274aae8b9c623680e1ed11546f79198658db441e5513073c534468a5"
+    },
+    "testBundle": {
+      "relativePath": "Build/Products/SimulatorSigned-iphonesimulator/QuataIos.app/PlugIns/QuataIosTests.xctest/QuataIosTests",
+      "sha256": "3b4d0a4224ab481419809a9866f41f0f826cffff1d53c137a1081e147f378d4f"
+    },
+    "xctestrun": {
+      "relativePath": "Build/Products/QuataIos_iphonesimulator26.5-x86_64.xctestrun",
+      "sha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7"
+    }
+  }
+}
