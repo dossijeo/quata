@@ -274,6 +274,9 @@ class ChatViewModel(
         messageObservationFailure = null
         historyLoadFailure = null
         _uiState.value = _uiState.value.copy(messageLoadFailure = null, error = null)
+        if (retryObservation) {
+            (repository as? ChatMessageObservationRetryFixture)?.allowMessageObservationRetry()
+        }
         if (retryObservation || !retryOlderPage) observeMessages()
         if (retryOlderPage && retryHistory) loadOlderMessages()
     }

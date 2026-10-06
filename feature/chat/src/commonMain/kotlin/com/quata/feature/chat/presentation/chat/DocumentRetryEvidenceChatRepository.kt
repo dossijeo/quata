@@ -30,9 +30,9 @@ class DocumentRetryEvidenceChatRepository(
     attachmentReference: String,
     attachmentName: String = DocumentRetryEvidenceDocumentName,
     attachmentMimeType: String = DocumentRetryEvidenceDocumentMime,
-    private val failFirstMessageObservation: Boolean = false,
-) : ChatRepository {
-    private var messageObservationAttempts = 0
+    failFirstMessageObservation: Boolean = false,
+) : ChatRepository, ChatMessageObservationRetryFixture {
+    private var messageObservationAllowed = !failFirstMessageObservation
     private val user = User("local-document-retry-user", "document-retry@invalid", "Prueba local")
     private val conversations = MutableStateFlow(
         listOf(
@@ -89,13 +89,15 @@ class DocumentRetryEvidenceChatRepository(
             flowOf(emptyList())
         } else {
             flow {
-                val attempt = messageObservationAttempts++
-                if (failFirstMessageObservation && attempt == 0) {
+                if (!messageObservationAllowed) {
                     error("deep_link_retry_fixture_initial_failure")
                 }
                 emit(messages.value)
             }
         }
+    override fun allowMessageObservationRetry() {
+        messageObservationAllowed = true
+    }
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = Result.success(false)
     override fun observeParticipantCandidates(): Flow<List<User>> = flowOf(emptyList())
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int) =
@@ -156,4 +158,9 @@ class DocumentRetryEvidenceChatRepository(
     )
     override suspend fun flushPendingMessages() = true
     override suspend fun retryPendingMessage(clientMessageId: String) = Result.success(Unit)
+}
+
+/** Test-fixture hook; production repositories never implement it. */
+internal interface ChatMessageObservationRetryFixture {
+    fun allowMessageObservationRetry()
 }

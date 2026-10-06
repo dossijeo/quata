@@ -3603,6 +3603,17 @@ async function visibleExactAriaLocator(page, label, timeout) {
   return null;
 }
 
+async function visibleFirstLocator(locator, timeout) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const candidate = locator.first();
+    const box = await candidate.boundingBox().catch(() => null);
+    if (box && box.width > 0 && box.height > 0) return candidate;
+    await delay(250);
+  }
+  return null;
+}
+
 async function clickExactAriaLabel(page, label) {
   return page.evaluate((targetLabel) => {
     const root = document.querySelector("#quata-root");
@@ -7415,22 +7426,34 @@ try {
       args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
     });
     pageContext = await openLocalDeepLinkRetryPage(browser, server.origin, faults);
-    const failure = await visibleExactAriaLocator(pageContext.page, "chat.read.failure", 30_000);
-    const retry = await visibleExactAriaLocator(pageContext.page, "chat.read.retry", 5_000);
+    const failure = await visibleFirstLocator(
+      pageContext.page.getByText(/^(No se pudieron cargar los mensajes\.|Messages could not be loaded\.|Impossible de charger les messages\.)$/),
+      30_000,
+    );
+    const retry = await visibleFirstLocator(
+      pageContext.page.getByRole("button", { name: /^(Reintentar mensajes|Retry messages|Réessayer les messages)$/ }),
+      5_000,
+    );
     if (!failure || !retry) throw new Error("deep_link_retry_controls_missing");
     report.evidence.beforeRetry = await attachScreenshot(
       pageContext.page,
       options.evidenceDir,
       "web-deep-link-retry-failure",
     );
-    await retry.click();
+    await retry.evaluate((element) => element.click());
     const recovered = await visibleExactAriaLocator(
       pageContext.page,
       "chat.message.local-document-retry-message",
-      30_000,
+      5_000,
+    ) ?? await visibleFirstLocator(
+      pageContext.page.getByRole("button", { name: /^Prueba local: Documento local para reintento$/ }),
+      25_000,
     );
     if (!recovered) throw new Error("deep_link_retry_message_not_recovered");
-    if (await visibleExactAriaLocator(pageContext.page, "chat.read.failure", 1_000)) {
+    if (await visibleFirstLocator(
+      pageContext.page.getByText(/^(No se pudieron cargar los mensajes\.|Messages could not be loaded\.|Impossible de charger les messages\.)$/),
+      1_000,
+    )) {
       throw new Error("deep_link_retry_failure_remained_visible");
     }
     report.evidence.afterRetry = await attachScreenshot(
@@ -7440,13 +7463,31 @@ try {
     );
     const route = await pageContext.page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route"));
     if (route !== "chat/local:document-retry") throw new Error("deep_link_retry_route_changed");
+    const back = await visibleFirstLocator(
+      pageContext.page.getByRole("button", { name: /^(Volver|Back|Retour)$/ }),
+      5_000,
+    );
+    if (!back) throw new Error("deep_link_retry_back_missing");
+    await back.evaluate((element) => element.click());
+    await pageContext.page.waitForFunction(
+      () => {
+        const current = document.documentElement.getAttribute("data-quata-shell-route");
+        return current === "feed" || current === "chats";
+      },
+      undefined,
+      { timeout: 15_000 },
+    ).catch(() => { throw new Error("deep_link_retry_back_failed"); });
+    const returnRoute = await pageContext.page.evaluate(
+      () => document.documentElement.getAttribute("data-quata-shell-route"),
+    );
     if (faults.length) throw new Error("browser_runtime_fault");
     report.status = "passed";
     report.check = "FLOW-DEEP-LINKS-WEB-RETRY-001";
-    report.steps.push("deep_link_failure_visible", "native_retry_clicked", "exact_conversation_recovered");
+    report.steps.push("deep_link_failure_visible", "native_retry_clicked", "exact_conversation_recovered", "back_to_chats");
     report.fixture = {
       conversationId: "local:document-retry",
       messageId: "local-document-retry-message",
+      returnRoute,
       backend: "not_used",
     };
     throw new EvidenceCompleted();

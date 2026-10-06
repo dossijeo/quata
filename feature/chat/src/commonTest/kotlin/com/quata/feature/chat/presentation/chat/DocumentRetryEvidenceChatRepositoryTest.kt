@@ -8,7 +8,7 @@ import kotlin.test.assertFailsWith
 
 class DocumentRetryEvidenceChatRepositoryTest {
     @Test
-    fun failOnceModeRequiresASecondObservationAndThenReturnsTheExactFixture() = runTest {
+    fun failOnceModeRemainsFailedUntilTheNativeRetrySignalThenReturnsTheExactFixture() = runTest {
         val repository = DocumentRetryEvidenceChatRepository(
             attachmentReference = "local-fixture.docx",
             failFirstMessageObservation = true,
@@ -17,7 +17,11 @@ class DocumentRetryEvidenceChatRepositoryTest {
         assertFailsWith<IllegalStateException> {
             repository.observeMessages(DocumentRetryEvidenceConversationId).first()
         }
+        assertFailsWith<IllegalStateException> {
+            repository.observeMessages(DocumentRetryEvidenceConversationId).first()
+        }
 
+        repository.allowMessageObservationRetry()
         val recovered = repository.observeMessages(DocumentRetryEvidenceConversationId).first()
         assertEquals(listOf(DocumentRetryEvidenceMessageId), recovered.map { it.id })
         assertEquals(DocumentRetryEvidenceConversationId, recovered.single().conversationId)

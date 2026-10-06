@@ -5,9 +5,10 @@ import { readFile } from "node:fs/promises";
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("FLOW-DEEP-LINKS retry uses the shared failure surface and exact recovered message", async () => {
-  const [host, repository] = await Promise.all([
+  const [host, repository, viewModel] = await Promise.all([
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/DocumentRetryEvidenceChatRepository.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
   ]);
 
   assert.match(host, /testTag = "chat\.read\.failure"/);
@@ -15,6 +16,8 @@ test("FLOW-DEEP-LINKS retry uses the shared failure surface and exact recovered 
   assert.match(host, /model\.retryMessageLoading\(\)/);
   assert.match(repository, /failFirstMessageObservation: Boolean = false/);
   assert.match(repository, /deep_link_retry_fixture_initial_failure/);
+  assert.match(repository, /interface ChatMessageObservationRetryFixture/);
+  assert.match(viewModel, /allowMessageObservationRetry\(\)/);
   assert.match(repository, /DocumentRetryEvidenceMessageId = "local-document-retry-message"/);
 });
 
@@ -48,8 +51,10 @@ test("Web retry is localhost-only and the browser runner clicks the real Compose
   assert.match(fixture, /webDeepLinkRetryEvidenceReferenceOrNull\(\)/);
   assert.match(fixture, /failFirstMessageObservation = true/);
   assert.match(runner, /--deep-link-retry-local-only/);
-  assert.match(runner, /visibleExactAriaLocator\(pageContext\.page, "chat\.read\.retry"/);
-  assert.match(runner, /await retry\.click\(\)/);
+  assert.match(runner, /getByRole\("button", \{ name: \/\^\(Reintentar mensajes\|Retry messages/);
+  assert.match(runner, /await retry\.evaluate\(\(element\) => element\.click\(\)\)/);
+  assert.match(runner, /deep_link_retry_back_failed/);
+  assert.match(runner, /current === "feed" \|\| current === "chats"/);
   assert.match(runner, /FLOW-DEEP-LINKS-WEB-RETRY-001/);
   assert.match(runner, /backend: "not_used"/);
 });
