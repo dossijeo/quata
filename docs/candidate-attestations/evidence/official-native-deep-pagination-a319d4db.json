@@ -2,7 +2,7 @@
   "version": 1,
   "unit": "SCR-OFFICIAL-NATIVE-DEEP-PAGINATION",
   "status": "passed",
-  "productSha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
+  "productSha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
   "noBackendMutation": true,
   "android": {
     "status": "passed",
@@ -27,9 +27,9 @@
   },
   "ios": {
     "status": "passed",
-    "executionBaseSha": "bc5d549b3eed8e89aeb5224148ccf40859386877",
-    "executionWorkingTreeDirty": true,
-    "productCheckoutAfterExecution": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
+    "executionBaseSha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
+    "executionWorkingTreeDirty": false,
+    "productCheckoutAfterExecution": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
     "device": "iPhone 16 Pro Simulator, iOS 26.5, x86_64",
     "simulatorUdid": "0506CC31-D3CF-401D-B275-444BEE5F69B6",
     "configuration": "SimulatorSigned",
@@ -38,11 +38,14 @@
     "failures": 0,
     "expectedFailures": 0,
     "skipped": 0,
-    "durationSeconds": 155.535,
-    "xcodebuildLogSha256": "6d54a0d654bffdb37d44b81639940b0c862462fffbfd34868aacd24770c60ab3",
-    "xcresultSummarySha256": "2561798588d37883f8c2501bbbd6b4f4e8a7f04873573e02270f637638f5f5ef",
-    "testSourceSha256": "4cf43dae93b1816b9e408ffeb4794704d7bbbce2e690b5ebc204ff6cc399d8bc",
-    "productTestSourceSha256": "4cf43dae93b1816b9e408ffeb4794704d7bbbce2e690b5ebc204ff6cc399d8bc",
+    "durationSeconds": 165.698,
+    "defaultTestExecutionTimeAllowanceSeconds": 90,
+    "maximumTestExecutionTimeAllowanceSeconds": 180,
+    "requestedTestExecutionTimeAllowanceSeconds": 180,
+    "xcodebuildLogSha256": "219606017320ab8c4aba3c8ee2707cab9b76f97fb6ad83b7bf9c6b4de02d0163",
+    "xcresultSummarySha256": "e26633e7337e50078cb2d9173434028abd46111c8662b6ebe331dabe4d0a5af0",
+    "testSourceSha256": "b9acde65e673bc7c682dd50bd7231ec08e901e780519d047d5a36309d5666d40",
+    "productTestSourceSha256": "b9acde65e673bc7c682dd50bd7231ec08e901e780519d047d5a36309d5666d40",
     "assertions": [
       "the shared Official root starts with the first 50 posts and the original marker",
       "bounds-relative native drags traverse the real VerticalPager until the forced old-page failure",
@@ -59,7 +62,7 @@
   "provenance": {
     "affectedSourcesMatchProductSha": true,
     "finalTrackedCheckoutClean": true,
-    "reasonEvidenceWasNotRepeatedForCommitIdentity": "The final product commit changes only the contract assertion after the successful runs; the executed Android and iOS test sources have the exact byte hashes stored above."
+    "reasonAndroidEvidenceWasNotRepeated": "The commits after the Android run change only iOS UI-test timing, contracts and documentation. The Android test source has the exact byte hash stored above."
   },
   "cleanup": {
     "backendResidue": "not_applicable_no_backend_mutation",

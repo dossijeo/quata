@@ -5,15 +5,15 @@
     "OVR-LIVE-RANKING"
   ],
   "status": "passed",
-  "productSha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
+  "productSha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
   "certification": "official-native-deep-pagination-fail-closed-retry-exact-target",
   "evidenceKind": "ANDROID_INSTRUMENTATION_AND_IOS_SIMULATOR_NATIVE_UI",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
-      "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-3d079a5f.json",
-      "reportSha256": "831bbc75d6e11afda77651cf839eec86c992b3ff4099e72c9252c688ce922981",
+      "sha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
+      "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-a319d4db.json",
+      "reportSha256": "112c8ec9552ee953e1b20f9bde79fa79ca291162b68f18db42e0d8d7c6f3781c",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "cleanup": {
@@ -23,9 +23,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
-      "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-3d079a5f.json",
-      "reportSha256": "831bbc75d6e11afda77651cf839eec86c992b3ff4099e72c9252c688ce922981",
+      "sha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
+      "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-a319d4db.json",
+      "reportSha256": "112c8ec9552ee953e1b20f9bde79fa79ca291162b68f18db42e0d8d7c6f3781c",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "cleanup": {
@@ -46,13 +46,16 @@
     "status": "PENDING_EXACT_HEAD_REVIEW",
     "reviewedSha": null,
     "blockingFindings": [],
+    "resolvedFindings": [
+      "P1: the first reviewed head left the new 155-second XCTest under the CI step's 90-second default allowance. Product SHA a319d4db requests a focal 180-second allowance, the contract requires it, and the exact test passes with the gate's unchanged default=90 and maximum=180 parameters."
+    ],
     "scopeLimit": "Closes the documented lack of native Android and iOS deep-page navigation evidence for the existing Official 101-post fixture. It does not recertify editor, comments, media or unrelated Live/Ranking flows."
   },
   "notes": [
     "Both platforms mount the real shared Official host and ViewModel over the existing hermetic 101-post fixture; neither test calls the pagination event or repository directly.",
     "The tests prove native traversal to the prefetch boundary, preservation of the first 50 posts after the forced failure, the visible product retry, publication of 100 posts and arrival at the exact stable-identity target.",
-    "The Android run passed 1/1 on API 35. The iOS SimulatorSigned run passed 1/1 on iOS 26.5 x86_64 in 155.535 seconds with no failures or skips.",
+    "The Android run passed 1/1 on API 35. The iOS SimulatorSigned run passed 1/1 on iOS 26.5 x86_64 in 165.698 seconds with no failures or skips, using the gate's exact default/maximum timeout parameters and the test's focal 180-second allowance.",
     "Failed iOS pilots are retained in the evidence report: generic swipe helpers did not reach the boundary reliably. The accepted helper performs a bounds-relative native drag on the discovered ScrollView and leaves product state transitions to the real pager and ViewModel.",
-    "The final Product SHA changes only the contract assertion after execution. Exact SHA-256 hashes prove that the executed Android and iOS test sources equal the sources in the Product SHA; no matrix was repeated solely for commit identity."
+    "The iOS rerun used the exact Product SHA. Android was not repeated because the later delta is limited to iOS UI-test timing, contracts and documentation; the Android source SHA-256 remains exact."
   ]
 }
