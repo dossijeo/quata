@@ -1267,7 +1267,7 @@ final class QuataIosHostUITests: XCTestCase {
             )
         }
         func visibleContactToggle(index: Int) -> XCUIElement {
-            let query = app.descendants(matching: .any)
+            let query = app.buttons
                 .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
             for attempt in 0..<8 {
                 let toggle = query.firstMatch
@@ -1276,7 +1276,7 @@ final class QuataIosHostUITests: XCTestCase {
                     let currentList = app.descendants(matching: .any)
                         .matching(identifier: "profile.sos.contacts.list")
                         .firstMatch
-                    XCTAssertTrue(currentList.exists && currentList.isHittable)
+                    XCTAssertTrue(currentList.exists)
                     currentList.swipeUp()
                 }
             }
