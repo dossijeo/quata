@@ -1294,9 +1294,39 @@ final class QuataIosHostUITests: XCTestCase {
         for index in 1...5 {
             let toggle = visibleContactToggle(index: index)
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            let selectedToggle = app.buttons
+                .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
+                .firstMatch
+            let selected = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", "Remove"),
+                object: selectedToggle,
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [selected], timeout: 10),
+                .completed,
+                "SOS contact \(index) must expose its selected state before the next interaction.",
+            )
         }
         let sixth = visibleContactToggle(index: 6)
         sixth.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let rejectedSixth = app.buttons
+            .matching(identifier: "profile.sos.contact.toggle.sos-fixture-6")
+            .firstMatch
+        XCTAssertEqual(
+            rejectedSixth.value as? String,
+            "Add",
+            "The sixth SOS contact must remain visibly unselected when the shared limit is reached.",
+        )
+        for index in 1...5 {
+            XCTAssertEqual(
+                app.buttons
+                    .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
+                    .firstMatch
+                    .value as? String,
+                "Remove",
+                "The first five SOS contacts must remain visibly selected before save.",
+            )
+        }
 
         let currentContactsList = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.contacts.list")

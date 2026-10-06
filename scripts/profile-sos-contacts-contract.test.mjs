@@ -73,6 +73,8 @@ test("SOS contacts editor exposes shared semantic anchors from commonMain", () =
   assert.match(loaded.editor, /saveAction = \{\s*if \(!isImeVisible\) \{/);
   assert.match(loaded.editor, /keyboardOptions = KeyboardOptions\(imeAction = ImeAction\.Done\)/);
   assert.match(loaded.editor, /keyboardActions = KeyboardActions\(onDone = \{ focusManager\.clearFocus\(\) \}\)/);
+  assert.match(loaded.row, /this\.selected = selected/);
+  assert.match(loaded.row, /stateDescription = if \(selected\) removeLabel else addLabel/);
   assert.match(loaded.iosKeyboardVisibility, /UIKeyboardDidShowNotification/);
   assert.match(loaded.iosKeyboardVisibility, /UIKeyboardDidHideNotification/);
   assert.match(loaded.iosKeyboardVisibility, /removeObserver\(showObserver\)/);
@@ -172,6 +174,9 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.equal(loaded.iosEvidence.includes("SOS contact \\(index) must enter the visible shared-list viewport after bounded scrolling"), true);
   assert.match(loaded.iosEvidence, /let sixth = visibleContactToggle\(index: 6\)/);
   assert.match(loaded.iosEvidence, /sixth\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
+  assert.equal(loaded.iosEvidence.includes("SOS contact \\(index) must expose its selected state before the next interaction"), true);
+  assert.match(loaded.iosEvidence, /The sixth SOS contact must remain visibly unselected when the shared limit is reached/);
+  assert.match(loaded.iosEvidence, /The first five SOS contacts must remain visibly selected before save/);
   assert.match(loaded.iosEvidence, /The SOS search Done action must release focus/);
   assert.match(loaded.iosEvidence, /"profile\.sos\.tab\.message"/);
   assert.match(loaded.iosEvidence, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
