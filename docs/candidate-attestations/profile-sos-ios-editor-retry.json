@@ -5,12 +5,12 @@
     "SOS-CONTACTS-IOS-EDITOR-RETRY"
   ],
   "status": "passed",
-  "productSha": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+  "productSha": "369eba1e1b2995e214824db67d3bba87a02d8dca",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+      "sha": "369eba1e1b2995e214824db67d3bba87a02d8dca",
       "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-web-e3e2c597.json",
       "reportSha256": "740f3e6ed3e77eb9f0b1bdea3c08e5bc05ffc42b314cb411016c53523343f90a",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+      "sha": "369eba1e1b2995e214824db67d3bba87a02d8dca",
       "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-android-e3e2c597.json",
       "reportSha256": "c815e55e39b2c101920a469475c9cba9953ee67d3041871c02cf2a303be03f4d",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+      "sha": "369eba1e1b2995e214824db67d3bba87a02d8dca",
       "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-ios-e3e2c597.json",
       "reportSha256": "6ca36db915ebfd21fd85b5c7792706758124b9008f1c82dabf0fb2b0dab27f1a",
       "reportStatus": "passed",
@@ -91,6 +91,7 @@
   "notes": [
     "The iOS product now observes native keyboard visibility instead of treating the IME as permanently absent. In portrait, the shared Save action is mounted above the message keyboard and the search field exposes Done so focus can be released without blind gestures.",
     "The focal XCTest selects five exact fixture contacts through observed list geometry, confirms each toggle exposes the selected Remove state, attempts the sixth, proves the sixth still exposes Add while the original five still expose Remove, edits the exact SOS message, verifies the keyboard and shared Save placement, observes one forced repository failure without closing the editor, then retries through the same control and verifies the exact five-contact payload before the editor closes.",
+    "The rebased Product SHA 369eba1e preserves the SOS implementation and focal XCTest patch byte-for-byte while carrying unrelated current-main changes; the retained execution SHA e3e2c597 remains recorded in reportGitHead and report filenames, so no runtime matrix was repeated solely for the changed commit identity.",
     "The accepted UI run executed on clean tracked Product SHA e3e2c597. It is the exact product and XCTest head that adds the accessibility selection state and the pre-save five-selected/sixth-unselected assertions requested by independent review.",
     "The final Product SHA passed Android debug and Web/Wasm compilation, the 6/6 SOS contract, diff-check and the complete Profile common iOS x64 unit suite. The attempted Wasm Node unit runner failed before executing tests because Skiko could not load its runtime .wasm under Node 22; the same common tests passed in iOS x64 and the Web product compiler passed.",
     "This fixture is hermetic. It does not call Supabase, dispatch SOS, send notifications or contact third parties. Existing SB-06 persistence and FLOW-SOS-DISPATCH evidence remain independent and were not repeated.",
