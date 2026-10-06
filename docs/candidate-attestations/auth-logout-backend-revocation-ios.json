@@ -34,6 +34,7 @@
     "node --check scripts/account-postflight-ios-evidence.mjs",
     "bash -n scripts/run-ios-account-postflight-ui-test.sh",
     "node --test scripts/auth-login-logout-postflight-contract.test.mjs scripts/ios-shell-layout-contract.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs",
     "xcodebuild build-for-testing QuataIosAuthenticatedSessionSeederTests and QuataIosAuthenticatedAccountPostflightUITests",
     "node scripts/account-postflight-ios-evidence.mjs --logout --verify-backend-revocation"
   ],
