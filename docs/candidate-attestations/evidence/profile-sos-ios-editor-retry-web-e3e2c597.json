@@ -1,19 +1,19 @@
 {
-  "check": "PROFILE-SOS-IOS-EDITOR-RETRY-ANDROID-COMPILE-001",
+  "check": "PROFILE-SOS-IOS-EDITOR-RETRY-WEB-COMPILE-001",
   "status": "passed",
   "git": {
-    "head": "d87084610548751efde711728568c0d89f1450e5",
+    "head": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
     "workingTreeDirty": false
   },
   "gates": {
-    "appCompileDebugKotlin": "passed",
+    "webCompileKotlinWasmJs": "passed",
     "profileSosContactsContract": "6/6 passed",
     "diffCheck": "passed"
   },
   "steps": [
     "profile_sos_contacts_contract_passed_6_of_6",
-    "android_debug_product_compiled_on_final_head",
-    "no_android_runtime_matrix_repeated_for_ios_focal_change"
+    "web_wasm_product_compiled_on_final_head",
+    "no_web_runtime_matrix_repeated_for_ios_focal_change"
   ],
   "cleanup": {
     "state": "compile_and_contract_only_no_runtime_fixture"
