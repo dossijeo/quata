@@ -76,6 +76,42 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(window.overrideUserInterfaceStyle, .light)
     }
 
+    func testMemberProfileRouteStoreRestoresOnlyExactActorAndOrigin() throws {
+        let suiteName = "quata-ios-profile-route-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = IosMemberProfileRouteStore(defaults: defaults)
+
+        store.save(actorId: "actor-a", originRoute: "official", profileIds: ["parent", "child"])
+        XCTAssertEqual(
+            store.restore(actorId: "actor-a", originRoute: "official"),
+            IosMemberProfileRouteSnapshot(
+                actorId: "actor-a",
+                originRoute: "official",
+                profileIds: ["parent", "child"]
+            )
+        )
+
+        XCTAssertNil(store.restore(actorId: "actor-b", originRoute: "official"))
+        XCTAssertNil(store.restore(actorId: "actor-a", originRoute: "official"))
+    }
+
+    func testMemberProfileRouteStoreSeparatesAnonymousAndClearsInvalidSnapshots() throws {
+        let suiteName = "quata-ios-profile-route-anonymous-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = IosMemberProfileRouteStore(defaults: defaults)
+
+        store.save(actorId: nil, originRoute: "feed", profileIds: ["anonymous-profile"])
+        XCTAssertEqual(
+            store.restore(actorId: nil, originRoute: "feed")?.profileIds,
+            ["anonymous-profile"]
+        )
+
+        store.save(actorId: nil, originRoute: "feed", profileIds: ["valid", "   "])
+        XCTAssertNil(store.restore(actorId: nil, originRoute: "feed"))
+    }
+
     private func mountRouter() -> MountedRouter {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.disableStartupSplashForTesting()
