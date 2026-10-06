@@ -608,10 +608,17 @@ fun AppNavGraph(
     }
     val globalProfileViewModel: NeighborhoodsAndroidViewModel = viewModel(
         key = "global_user_profile",
-        factory = NeighborhoodsAndroidViewModel.factory(container.neighborhoodRepository, currentUserId)
+        factory = NeighborhoodsAndroidViewModel.factory(
+            container.neighborhoodRepository,
+            currentUserId,
+            currentRoute ?: AppDestinations.Feed.route,
+        )
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
     LaunchedEffect(currentUserId) { globalProfileViewModel.bindActor(currentUserId) }
+    LaunchedEffect(currentRoute) {
+        currentRoute?.let(globalProfileViewModel::bindOrigin)
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     var isAppForeground by remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))

@@ -122,8 +122,8 @@ fun WebNeighborhoodsHost(
                 backLabel = strings.profile.back,
                 onRetry = viewModel::retryFailedUserProfile,
                 onBack = {
-                    viewModel.dismissUserProfileLoadFailure()
-                    onInitialMemberProfileClosed()
+                    val closed = viewModel.closeUserProfile()
+                    if (closed) onInitialMemberProfileClosed()
                 },
             )
         }

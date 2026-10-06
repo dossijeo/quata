@@ -14,15 +14,15 @@ class NeighborhoodsAndroidViewModel(
     repository: NeighborhoodRepository,
     private val savedStateHandle: SavedStateHandle,
     initialActorId: String?,
+    initialOriginRoute: String,
 ) : ViewModel(), NeighborhoodsScreenModel {
     private var actorId = initialActorId
-    private val initialRoute = if (savedStateHandle.get<String>(PROFILE_ROUTE_ACTOR_KEY) == initialActorId) {
-        savedStateHandle.get<ArrayList<String>>(PROFILE_ROUTE_KEY).orEmpty()
-    } else {
-        savedStateHandle[PROFILE_ROUTE_ACTOR_KEY] = initialActorId
-        savedStateHandle.remove<ArrayList<String>>(PROFILE_ROUTE_KEY)
-        emptyList()
-    }
+    private var originRoute = initialOriginRoute
+    private val initialRoute = restoredProfileRoute(
+        savedStateHandle = savedStateHandle,
+        actorId = initialActorId,
+        originRoute = initialOriginRoute,
+    )
     private val delegate = NeighborhoodsViewModel(
         repository = repository,
         initialProfileRoute = initialRoute,
@@ -51,6 +51,13 @@ class NeighborhoodsAndroidViewModel(
         savedStateHandle[PROFILE_ROUTE_ACTOR_KEY] = nextActorId
         savedStateHandle.remove<ArrayList<String>>(PROFILE_ROUTE_KEY)
     }
+    fun bindOrigin(nextOriginRoute: String) {
+        if (originRoute == nextOriginRoute) return
+        delegate.clearUserProfile()
+        originRoute = nextOriginRoute
+        savedStateHandle[PROFILE_ROUTE_ORIGIN_KEY] = nextOriginRoute
+        savedStateHandle.remove<ArrayList<String>>(PROFILE_ROUTE_KEY)
+    }
     fun reportProfilePost(postId: String) = delegate.reportProfilePost(postId)
     fun ensureProfilePostReported(profileId: String, postId: String) =
         delegate.ensureProfilePostReported(profileId, postId)
@@ -74,16 +81,44 @@ class NeighborhoodsAndroidViewModel(
             savedStateHandle[PROFILE_ROUTE_KEY] = ArrayList(route)
         }
         savedStateHandle[PROFILE_ROUTE_ACTOR_KEY] = actorId
+        savedStateHandle[PROFILE_ROUTE_ORIGIN_KEY] = originRoute
     }
 
     companion object {
         private const val PROFILE_ROUTE_KEY = "quata.profile.route.ids"
         private const val PROFILE_ROUTE_ACTOR_KEY = "quata.profile.route.actor"
+        private const val PROFILE_ROUTE_ORIGIN_KEY = "quata.profile.route.origin"
 
-        fun factory(repository: NeighborhoodRepository, actorId: String?): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        internal fun restoredProfileRoute(
+            savedStateHandle: SavedStateHandle,
+            actorId: String?,
+            originRoute: String,
+        ): List<String> {
+            if (
+                savedStateHandle.get<String>(PROFILE_ROUTE_ACTOR_KEY) == actorId &&
+                savedStateHandle.get<String>(PROFILE_ROUTE_ORIGIN_KEY) == originRoute
+            ) {
+                return savedStateHandle.get<ArrayList<String>>(PROFILE_ROUTE_KEY).orEmpty()
+            }
+            savedStateHandle[PROFILE_ROUTE_ACTOR_KEY] = actorId
+            savedStateHandle[PROFILE_ROUTE_ORIGIN_KEY] = originRoute
+            savedStateHandle.remove<ArrayList<String>>(PROFILE_ROUTE_KEY)
+            return emptyList()
+        }
+
+        fun factory(
+            repository: NeighborhoodRepository,
+            actorId: String?,
+            originRoute: String = "communities",
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T =
-                NeighborhoodsAndroidViewModel(repository, extras.createSavedStateHandle(), actorId) as T
+                NeighborhoodsAndroidViewModel(
+                    repository,
+                    extras.createSavedStateHandle(),
+                    actorId,
+                    originRoute,
+                ) as T
         }
     }
 }

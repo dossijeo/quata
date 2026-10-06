@@ -257,7 +257,10 @@ fun QuataCommunityProfileViewController(
                 retryLabel = communityProfileStringsForLanguage(dependencies.languageCode).retry,
                 backLabel = communityProfileStringsForLanguage(dependencies.languageCode).back,
                 onRetry = viewModel::retryFailedUserProfile,
-                onBack = dependencies.onClose,
+                onBack = {
+                    val closed = viewModel.closeUserProfile()
+                    if (closed) dependencies.onClose()
+                },
             )
         } else {
             val commentsTranslationGateway = remember(dependencies.languageCode) {

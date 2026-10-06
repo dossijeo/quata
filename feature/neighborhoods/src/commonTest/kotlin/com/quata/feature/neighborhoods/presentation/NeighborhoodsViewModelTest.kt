@@ -207,6 +207,30 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `back from a failed restored child returns to the persisted parent`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            profileResults["c"] = CompletableDeferred(Result.failure(IllegalStateException("offline")))
+        }
+        val published = mutableListOf<List<String>>()
+        val model = model(
+            repository = repository,
+            initialProfileRoute = listOf("a", "b", "c"),
+            onProfileRouteChanged = published::add,
+        )
+
+        advanceUntilIdle()
+        assertEquals("c", model.uiState.value.failedProfileUserId)
+
+        assertFalse(model.closeUserProfile())
+        advanceUntilIdle()
+
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf("a", "b"), model.profileRouteSnapshot())
+        assertEquals(listOf("a", "b"), published.last())
+        model.close()
+    }
+
+    @Test
     fun `late platform restoration seeds the common stack only while no profile owns it`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val published = mutableListOf<List<String>>()
