@@ -11,6 +11,7 @@ const androidNavigation = await readFile(new URL("../app/src/main/java/com/quata
 const iosAuthRepository = await readFile(new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt", import.meta.url), "utf8");
 const iosLogoutOrdering = await readFile(new URL("../feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt", import.meta.url), "utf8");
 const iosSeeder = await readFile(new URL("../iosApp/iosAppTests/QuataIosAuthenticatedSessionSeederTests.swift", import.meta.url), "utf8");
+const iosHost = await readFile(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 
 test("Android logout postflight uses the real product control and proves durable local retirement", () => {
   assert.match(android, /fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession\(\)/);
@@ -68,6 +69,8 @@ test("iOS single-gesture logout binds the seeded Auth session to fail-closed bac
 
 test("iOS logout postflight activates Profile logout and rejects restored private state", () => {
   assert.match(ios, /func testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession\(\)/);
+  assert.match(ios, /launchArguments \+= \[[\s\S]*-quata-ui-test-reset-primary-route/);
+  assert.match(iosHost, /arguments\.contains\("-quata-ui-test-reset-primary-route"\)[\s\S]*clearPersistedPrimaryRouteForTesting\(\)[\s\S]*guard let fixtureIndex/);
   assert.match(ios, /tapIdentifier\("profile\.logout"[\s\S]*assertVisible\("feed\.root"/);
   assert.match(ios, /assertPrivateProfileAbsent[\s\S]*relaunch[\s\S]*feed\.root[\s\S]*assertPrivateProfileAbsent/);
   assert.match(ios, /request Account while anonymous[\s\S]*quata-ios-auth-required-dialog/);

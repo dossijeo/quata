@@ -49,7 +49,10 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         app.terminate()
         let relaunched = XCUIApplication()
         disableQuiescenceWait(for: relaunched)
-        relaunched.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        relaunched.launchArguments += [
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
+            "-quata-ui-test-reset-primary-route",
+        ]
         relaunched.launch()
         assertVisible("feed.root", in: relaunched, context: "public Feed after logout relaunch", timeout: 25)
         assertPrivateProfileAbsent(in: relaunched, context: "after logout relaunch")
@@ -98,7 +101,10 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         app.terminate()
         let relaunched = XCUIApplication()
         disableQuiescenceWait(for: relaunched)
-        relaunched.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        relaunched.launchArguments += [
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
+            "-quata-ui-test-reset-primary-route",
+        ]
         relaunched.launch()
         assertVisible("feed.root", in: relaunched, context: "public Feed after lifecycle relaunch", timeout: 25)
         assertPrivateProfileAbsent(in: relaunched, context: "after lifecycle relaunch")
@@ -130,7 +136,10 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
     private func launchAuthenticatedApp() -> XCUIApplication {
         let app = XCUIApplication()
         disableQuiescenceWait(for: app)
-        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchArguments += [
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
+            "-quata-ui-test-reset-primary-route",
+        ]
         app.launch()
         assertVisible("navigation.primary.profile", in: app, context: "restored authenticated shell", timeout: 25)
         return app
