@@ -1271,16 +1271,23 @@ final class QuataIosHostUITests: XCTestCase {
                 .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
             for attempt in 0..<8 {
                 let toggle = query.firstMatch
-                if toggle.exists && toggle.isHittable { return toggle }
+                let currentList = app.descendants(matching: .any)
+                    .matching(identifier: "profile.sos.contacts.list")
+                    .firstMatch
+                XCTAssertTrue(currentList.exists)
+                if toggle.exists {
+                    let center = CGPoint(x: toggle.frame.midX, y: toggle.frame.midY)
+                    if !toggle.frame.isEmpty && currentList.frame.contains(center) { return toggle }
+                }
                 if attempt < 7 {
-                    let currentList = app.descendants(matching: .any)
-                        .matching(identifier: "profile.sos.contacts.list")
-                        .firstMatch
-                    XCTAssertTrue(currentList.exists)
-                    currentList.swipeUp()
+                    if toggle.exists && toggle.frame.midY < currentList.frame.minY {
+                        currentList.swipeDown()
+                    } else {
+                        currentList.swipeUp()
+                    }
                 }
             }
-            XCTFail("SOS contact \(index) must become hittable inside the shared lazy list after bounded scrolling.")
+            XCTFail("SOS contact \(index) must enter the visible shared-list viewport after bounded scrolling.")
             return query.firstMatch
         }
 
