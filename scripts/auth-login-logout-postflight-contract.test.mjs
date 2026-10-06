@@ -61,6 +61,9 @@ test("iOS single-gesture logout binds the seeded Auth session to fail-closed bac
   assert.match(iosRunner, /exists\(select 1 from auth\.sessions where id=\$1::uuid and user_id=\$2::uuid\)/);
   assert.match(iosRunner, /count\(\*\) filter\(where revoked is not true\)::int as active_refresh_tokens/);
   assert.match(iosRunner, /row\?\.session_exists !== false \|\| row\?\.active_refresh_tokens !== 0/);
+  assert.match(iosRunner, /dbConnectionStringWithPinnedTls/);
+  assert.match(iosRunner, /\["sslmode", "sslrootcert", "sslcert", "sslkey", "uselibpqcompat"\]/);
+  assert.match(iosRunner, /rejectUnauthorized: true/);
   assert.match(iosRunner, /ios_exact_seeded_auth_session_absent_after_single_ui_logout/);
   assert.match(iosRunner, /ios_exact_seeded_refresh_chain_has_zero_active_tokens/);
   assert.match(iosRunner, /rm", "-rf", remoteLogoutReceiptDir/);

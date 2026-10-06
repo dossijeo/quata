@@ -250,7 +250,9 @@ async function verifyBackendRevocation() {
     throw new Error("logout_session_receipt_invalid");
   }
   const client = new Client({
-    connectionString: (await readFile(options.dbUrlFile, "utf8")).trim(),
+    connectionString: dbConnectionStringWithPinnedTls(
+      (await readFile(options.dbUrlFile, "utf8")).trim(),
+    ),
     ssl: { ca: await readFile(options.tlsCaFile, "utf8"), rejectUnauthorized: true },
   });
   await client.connect();
@@ -276,6 +278,14 @@ async function verifyBackendRevocation() {
   } finally {
     await client.end();
   }
+}
+
+function dbConnectionStringWithPinnedTls(value) {
+  const connection = new URL(value);
+  for (const key of ["sslmode", "sslrootcert", "sslcert", "sslkey", "uselibpqcompat"]) {
+    connection.searchParams.delete(key);
+  }
+  return connection.toString();
 }
 
 function isUuid(value) {
