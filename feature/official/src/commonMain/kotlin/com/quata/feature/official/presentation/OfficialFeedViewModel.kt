@@ -32,7 +32,14 @@ class OfficialFeedViewModel(
     initialCurrentUser: User? = null,
 ) : OfficialFeedStateHolder {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
-    private val _uiState = MutableStateFlow(OfficialFeedUiState(currentUser = initialCurrentUser))
+    private val _uiState = MutableStateFlow(
+        OfficialFeedUiState(
+            currentUser = initialCurrentUser,
+            // An injected user keeps the first frame stable, but its role is not authoritative
+            // until the repository has refreshed the current actor for this host instance.
+            isCurrentUserRoleResolved = false,
+        )
+    )
     override val uiState: StateFlow<OfficialFeedUiState> = _uiState.asStateFlow()
     private val feedStore = QuataPagedFeedStore(
         pageSize = OfficialFeedPageSize,
@@ -43,11 +50,12 @@ class OfficialFeedViewModel(
     private var refreshJob: Job? = null
     private var loadOlderJob: Job? = null
     private var rankingJob: Job? = null
+    private var currentUserRefreshJob: Job? = null
+    private var currentUserRefreshGeneration = 0L
     private var exactLoadedPosts: Map<String, OfficialPostItem> = emptyMap()
 
     init {
         observeFeed()
-        refreshCurrentUser()
     }
 
     override fun onEvent(event: OfficialFeedUiEvent) {
@@ -75,13 +83,23 @@ class OfficialFeedViewModel(
     }
 
     override fun refreshCurrentUser() {
-        scope.launch {
-            repository.refreshCurrentUser()
-                .onSuccess { user -> _uiState.update { state -> state.copy(currentUser = user) } }
+        val generation = ++currentUserRefreshGeneration
+        currentUserRefreshJob?.cancel()
+        _uiState.update { state -> state.copy(isCurrentUserRoleResolved = false) }
+        currentUserRefreshJob = scope.launch {
+            val result = repository.refreshCurrentUser()
+            if (generation != currentUserRefreshGeneration) return@launch
+            result
+                .onSuccess { user ->
+                    _uiState.update { state ->
+                        state.copy(currentUser = user, isCurrentUserRoleResolved = true)
+                    }
+                }
                 .onFailure { error ->
                     _uiState.update { state ->
                         state.copy(
                             currentUser = state.currentUser?.copy(isAdmin = false, isOfficial = false),
+                            isCurrentUserRoleResolved = true,
                             error = error.message ?: state.error,
                         )
                     }

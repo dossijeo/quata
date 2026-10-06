@@ -110,10 +110,19 @@ test("the iOS shell persists primary roots plus safe secondary routes and proves
   assert.match(appHost, /case "feed": return \.feed\(postId: nil\)/);
   assert.match(appHost, /case "profile": return \.profileSos/);
   assert.match(appHost, /persistPrimaryRoute\("feed"\)/);
-  for (const route of ["notifications", "settings", "about", "release-history"]) {
+  for (const route of [
+    "official-editor",
+    "notifications",
+    "composer",
+    "settings",
+    "whats-new",
+    "about",
+    "release-history",
+  ]) {
     assert.match(appHost, new RegExp(`case "${route}": return \\.`));
   }
-  assert.match(appHost, /case \.composer:[\s\S]*?default: return nil/);
+  assert.match(appHost, /func resolvePendingOfficialEditorEligibility\(isOfficial: Bool\)/);
+  assert.match(appHost, /guard pendingRoute == \.officialEditor else \{ return \}/);
   assert.match(
     frameworkTest,
     /func testEveryPrimaryRootSurvivesRouterRecreationWithoutFallbackOverwritingDeferredSelection\(\)/,
@@ -125,8 +134,11 @@ test("the iOS shell persists primary roots plus safe secondary routes and proves
   assert.match(appHost, /if let pendingRoute \{[\s\S]*routeToRestoreAfterAuthenticationUpgrade = pendingRoute/);
   assert.match(appHost, /case \.communities:[\s\S]*communitiesFactory\?\(\)/);
   assert.match(uiTest, /func testPrimaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay\(\)/);
-  assert.match(frameworkTest, /func testSafeSecondaryRoutesSurviveRouterRecreationWithoutPersistingTransientEditors\(\)/);
+  assert.match(frameworkTest, /func testPublicSecondaryRoutesSurviveRouterRecreation\(\)/);
+  assert.match(frameworkTest, /func testComposerRestorationWaitsForAuthenticationAndClearsAfterClose\(\)/);
+  assert.match(frameworkTest, /func testRestoredOfficialEditorRequiresFreshRoleAndRejectsStaleResolution\(\)/);
   assert.match(uiTest, /func testSafeSecondaryRouteSurvivesApplicationTerminationAndRelaunchWithoutRouteReplay\(\)/);
+  assert.match(uiTest, /func testWhatsNewComposerAndOfficialEditorSurviveApplicationTerminationWithoutRouteReplay\(\)/);
   assert.match(uiTest, /firstLaunch\.terminate\(\)/);
   assert.match(uiTest, /fixtureApp\("shell-layout", resetPrimaryRoute: false\)/);
   assert.match(appHost, /-quata-ui-test-reset-primary-route/);

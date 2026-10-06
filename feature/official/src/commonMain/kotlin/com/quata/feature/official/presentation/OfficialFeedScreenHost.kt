@@ -262,6 +262,7 @@ fun OfficialFeedScreenHost(
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
+    onCurrentUserRoleResolved: (Boolean) -> Unit = {},
     modifier: Modifier,
 ) {
     val ownedViewModel = remember(repository, initialCurrentUser, stateHolder) {
@@ -311,6 +312,11 @@ fun OfficialFeedScreenHost(
     fun create() { if (effectiveUserId == null) onAuthRequired() else onCreateOfficialPost() }
     LaunchedEffect(repository, currentUserId) {
         viewModel.refreshCurrentUser()
+    }
+    LaunchedEffect(state.isCurrentUserRoleResolved, state.currentUser?.isOfficial) {
+        if (state.isCurrentUserRoleResolved) {
+            onCurrentUserRoleResolved(state.currentUser?.isOfficial == true)
+        }
     }
 
     LaunchedEffect(state.message) {

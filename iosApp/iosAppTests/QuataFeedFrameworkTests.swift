@@ -2843,7 +2843,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         }
     }
 
-    func testSafeSecondaryRoutesSurviveRouterRecreationWithoutPersistingTransientEditors() {
+    func testPublicSecondaryRoutesSurviveRouterRecreation() {
         typealias SecondaryRouteScenario = (
             name: String,
             identifier: String,
@@ -2857,6 +2857,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
             ("settings", "quata-ios-settings-host", { router, controller in
                 router.installSettingsFactory { controller }
             }, { $0.showSettings() }),
+            ("whats-new", "quata-ios-whats-new-host", { router, controller in
+                router.installWhatsNewFactory { controller }
+            }, { $0.showWhatsNew() }),
             ("about", "quata-ios-about-host", { router, controller in
                 router.installAboutFactory { controller }
             }, { $0.showAbout() }),
@@ -2898,9 +2901,13 @@ final class QuataFeedFrameworkTests: XCTestCase {
             XCTAssertEqual(restoredTarget.view.accessibilityIdentifier, scenario.identifier)
         }
 
-        let suiteName = "QuataFeedFrameworkTests.secondary-route.transient.\(UUID().uuidString)"
+    }
+
+    func testComposerRestorationWaitsForAuthenticationAndClearsAfterClose() {
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.composer.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
+
         let firstRouter = IosFeedHostContainerViewController(
             platformServices: makePlatformServiceComposition(),
             routeSelectionDefaults: defaults
@@ -2908,10 +2915,6 @@ final class QuataFeedFrameworkTests: XCTestCase {
         firstRouter.disableStartupSplashForTesting()
         firstRouter.loadViewIfNeeded()
         firstRouter.installFeedFactory { _ in UIViewController() }
-        firstRouter.installOfficialFactory { _ in UIViewController() }
-        firstRouter.showOfficial(postId: nil)
-        firstRouter.installSettingsFactory { UIViewController() }
-        firstRouter.showSettings()
         firstRouter.installComposerFactory { UIViewController() }
         firstRouter.showComposer()
 
@@ -2921,11 +2924,149 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
         restoredRouter.disableStartupSplashForTesting()
         restoredRouter.loadViewIfNeeded()
+        let publicFeed = UIViewController()
+        restoredRouter.installPublicFeed { _ in publicFeed }
+        restoredRouter.installComposerFactory { UIViewController() }
+        XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === publicFeed)
+
+        restoredRouter.preserveVisibleRouteAfterAuthenticationUpgrade()
         restoredRouter.installFeedFactory { _ in UIViewController() }
-        let restoredOfficial = UIViewController()
-        restoredRouter.installOfficialFactory { _ in restoredOfficial }
-        XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === restoredOfficial)
-        XCTAssertEqual(restoredOfficial.view.accessibilityIdentifier, "quata-ios-official-host")
+        restoredRouter.refreshVisibleRouteAfterAuthentication()
+        XCTAssertEqual(
+            authenticatedRouteController(in: restoredRouter)?.view.accessibilityIdentifier,
+            "quata-ios-composer-host"
+        )
+
+        restoredRouter.showFeed(postId: nil)
+        let closedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        closedRouter.disableStartupSplashForTesting()
+        closedRouter.loadViewIfNeeded()
+        let closedFeed = UIViewController()
+        closedRouter.installPublicFeed { _ in closedFeed }
+        closedRouter.installComposerFactory { UIViewController() }
+        XCTAssertTrue(authenticatedRouteController(in: closedRouter) === closedFeed)
+    }
+
+    func testRestoredOfficialEditorRequiresFreshRoleAndRejectsStaleResolution() {
+        let suiteName = "QuataFeedFrameworkTests.secondary-route.official-editor.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        func seedEditorIntent() {
+            let router = IosFeedHostContainerViewController(
+                platformServices: makePlatformServiceComposition(),
+                routeSelectionDefaults: defaults
+            )
+            router.disableStartupSplashForTesting()
+            router.loadViewIfNeeded()
+            router.installFeedFactory { _ in UIViewController() }
+            router.installOfficialFactory { _ in UIViewController() }
+            router.installOfficialEditorFactory(isOfficialEligible: false) { UIViewController() }
+            router.showOfficial(postId: nil)
+            router.showOfficialEditorFromVerifiedOfficialSurface()
+            XCTAssertEqual(
+                authenticatedRouteController(in: router)?.view.accessibilityIdentifier,
+                "quata-ios-official-editor-host"
+            )
+        }
+
+        seedEditorIntent()
+        let acceptedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        acceptedRouter.disableStartupSplashForTesting()
+        acceptedRouter.loadViewIfNeeded()
+        acceptedRouter.installPublicFeed { _ in UIViewController() }
+        acceptedRouter.installOfficialFactory { _ in UIViewController() }
+        acceptedRouter.preserveVisibleRouteAfterAuthenticationUpgrade()
+        acceptedRouter.installFeedFactory { _ in UIViewController() }
+        let acceptedEditor = UIViewController()
+        acceptedRouter.installOfficialEditorFactory(isOfficialEligible: false) { acceptedEditor }
+        XCTAssertFalse(acceptedRouter.canOpenOfficialEditor)
+        XCTAssertEqual(
+            authenticatedRouteController(in: acceptedRouter)?.view.accessibilityIdentifier,
+            "quata-ios-official-host"
+        )
+        acceptedRouter.resolvePendingOfficialEditorEligibility(isOfficial: true)
+        XCTAssertTrue(authenticatedRouteController(in: acceptedRouter) === acceptedEditor)
+
+        seedEditorIntent()
+        let rejectedRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        rejectedRouter.disableStartupSplashForTesting()
+        rejectedRouter.loadViewIfNeeded()
+        rejectedRouter.installPublicFeed { _ in UIViewController() }
+        let rejectedOfficial = UIViewController()
+        rejectedRouter.installOfficialFactory { _ in rejectedOfficial }
+        rejectedRouter.preserveVisibleRouteAfterAuthenticationUpgrade()
+        rejectedRouter.installFeedFactory { _ in UIViewController() }
+        rejectedRouter.installOfficialEditorFactory(isOfficialEligible: false) { UIViewController() }
+        rejectedRouter.resolvePendingOfficialEditorEligibility(isOfficial: false)
+        XCTAssertTrue(authenticatedRouteController(in: rejectedRouter) === rejectedOfficial)
+        XCTAssertFalse(rejectedRouter.canOpenOfficialEditor)
+
+        seedEditorIntent()
+        let supersededRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        supersededRouter.disableStartupSplashForTesting()
+        supersededRouter.loadViewIfNeeded()
+        let selectedFeed = UIViewController()
+        supersededRouter.installFeedFactory { _ in selectedFeed }
+        supersededRouter.installOfficialEditorFactory(isOfficialEligible: false) { UIViewController() }
+        supersededRouter.showFeed(postId: nil)
+        supersededRouter.resolvePendingOfficialEditorEligibility(isOfficial: true)
+        XCTAssertTrue(authenticatedRouteController(in: supersededRouter) === selectedFeed)
+        XCTAssertFalse(supersededRouter.canOpenOfficialEditor)
+
+        seedEditorIntent()
+        let detailSupersededRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        detailSupersededRouter.disableStartupSplashForTesting()
+        detailSupersededRouter.loadViewIfNeeded()
+        detailSupersededRouter.installFeedFactory { _ in UIViewController() }
+        let selectedOfficial = UIViewController()
+        detailSupersededRouter.installOfficialFactory { _ in selectedOfficial }
+        detailSupersededRouter.preserveVisibleRouteAfterAuthenticationUpgrade()
+        detailSupersededRouter.installOfficialEditorFactory(isOfficialEligible: false) { UIViewController() }
+        detailSupersededRouter.markOfficialDetailChanged(postId: "selected-post")
+        detailSupersededRouter.resolvePendingOfficialEditorEligibility(isOfficial: true)
+        XCTAssertTrue(authenticatedRouteController(in: detailSupersededRouter) === selectedOfficial)
+        XCTAssertFalse(detailSupersededRouter.canOpenOfficialEditor)
+
+        seedEditorIntent()
+        let loggedOutRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        loggedOutRouter.disableStartupSplashForTesting()
+        loggedOutRouter.loadViewIfNeeded()
+        loggedOutRouter.installFeedFactory { _ in UIViewController() }
+        loggedOutRouter.installOfficialEditorFactory(isOfficialEligible: false) { UIViewController() }
+        loggedOutRouter.installLogoutAction({ completed in completed() }, onLoggedOut: {})
+        loggedOutRouter.performLogout()
+        loggedOutRouter.resolvePendingOfficialEditorEligibility(isOfficial: true)
+        XCTAssertFalse(loggedOutRouter.canOpenOfficialEditor)
+
+        let afterLogoutRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        afterLogoutRouter.disableStartupSplashForTesting()
+        afterLogoutRouter.loadViewIfNeeded()
+        let afterLogoutFeed = UIViewController()
+        afterLogoutRouter.installPublicFeed { _ in afterLogoutFeed }
+        afterLogoutRouter.installOfficialEditorFactory(isOfficialEligible: true) { UIViewController() }
+        XCTAssertTrue(authenticatedRouteController(in: afterLogoutRouter) === afterLogoutFeed)
     }
 
     func testExactChatConversationAndFocusedMessageSurviveRouterRecreation() {
