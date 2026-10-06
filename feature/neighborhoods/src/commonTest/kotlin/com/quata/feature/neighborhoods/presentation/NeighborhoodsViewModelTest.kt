@@ -207,6 +207,22 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `late platform restoration seeds the common stack only while no profile owns it`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val published = mutableListOf<List<String>>()
+        val model = model(repository, onProfileRouteChanged = published::add)
+
+        model.restoreProfileRoute(listOf("a", "b", "c"))
+        model.restoreProfileRoute(listOf("wrong", "route"))
+        advanceUntilIdle()
+
+        assertEquals("c", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf("a", "b", "c"), model.profileRouteSnapshot())
+        assertEquals(listOf(listOf("a", "b", "c")), published)
+        model.close()
+    }
+
+    @Test
     fun `successful private conversation consumes the visible profile route before navigation`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val published = mutableListOf<List<String>>()

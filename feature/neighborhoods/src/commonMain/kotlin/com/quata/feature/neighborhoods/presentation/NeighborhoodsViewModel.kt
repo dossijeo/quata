@@ -35,16 +35,13 @@ class NeighborhoodsViewModel(
     private var privateChatJob: Job? = null
     private var profileRequestGeneration = 0L
     private var privateChatRequestGeneration = 0L
-    private val restoredProfileRoute = initialProfileRoute.filter(String::isNotBlank)
-    private val profileBackStack = restoredProfileRoute.dropLast(1).toMutableList()
-    private var retainedProfileRoute = restoredProfileRoute
+    private val profileBackStack = mutableListOf<String>()
+    private var retainedProfileRoute = emptyList<String>()
     private var lastPublishedProfileRoute: List<String>? = null
     private val pendingProfileCommentCounts = mutableMapOf<String, Int>()
 
     init {
-        restoredProfileRoute.lastOrNull()?.let { profileId ->
-            openUserProfile(profileId, addCurrentToBackStack = false)
-        }
+        restoreProfileRoute(initialProfileRoute)
     }
 
     override fun startObservingCommunities() {
@@ -413,6 +410,20 @@ class NeighborhoodsViewModel(
             ?.let { profileBackStack + it }
             ?: retainedProfileRoute.takeIf { _uiState.value.failedProfileUserId != null }
             ?: emptyList()
+
+    fun restoreProfileRoute(route: List<String>) {
+        if (
+            profileBackStack.isNotEmpty() ||
+            _uiState.value.selectedProfile != null ||
+            _uiState.value.openingProfileUserId != null ||
+            _uiState.value.failedProfileUserId != null
+        ) return
+        val restored = route.filter(String::isNotBlank)
+        val profileId = restored.lastOrNull() ?: return
+        profileBackStack += restored.dropLast(1)
+        retainedProfileRoute = restored
+        openUserProfile(profileId, addCurrentToBackStack = false)
+    }
 
     private fun publishVisibleProfileRoute() {
         val profileId = _uiState.value.selectedProfile?.user?.id ?: return
