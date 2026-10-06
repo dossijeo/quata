@@ -148,6 +148,87 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `restored successful profile route reopens the child and publishes each valid parent on back`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val published = mutableListOf<List<String>>()
+        val model = model(
+            repository = repository,
+            initialProfileRoute = listOf("a", "b", "c"),
+            onProfileRouteChanged = published::add,
+        )
+
+        advanceUntilIdle()
+
+        assertEquals("c", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf("a", "b", "c"), model.profileRouteSnapshot())
+        assertEquals(listOf(listOf("a", "b", "c")), published)
+
+        assertFalse(model.closeUserProfile())
+        assertEquals(listOf("a", "b"), published.last())
+        advanceUntilIdle()
+        assertEquals("b", model.uiState.value.selectedProfile?.user?.id)
+
+        assertFalse(model.closeUserProfile())
+        assertEquals(listOf("a"), published.last())
+        advanceUntilIdle()
+        assertEquals("a", model.uiState.value.selectedProfile?.user?.id)
+
+        assertTrue(model.closeUserProfile())
+        assertEquals(emptyList(), published.last())
+        assertEquals(emptyList(), model.profileRouteSnapshot())
+        model.close()
+    }
+
+    @Test
+    fun `failed restored child keeps the exact persisted route until retry succeeds`() = runTest {
+        val repository = FakeNeighborhoodRepository().apply {
+            profileResults["c"] = CompletableDeferred(Result.failure(IllegalStateException("offline")))
+        }
+        val published = mutableListOf<List<String>>()
+        val model = model(
+            repository = repository,
+            initialProfileRoute = listOf("a", "b", "c"),
+            onProfileRouteChanged = published::add,
+        )
+
+        advanceUntilIdle()
+
+        assertEquals("c", model.uiState.value.failedProfileUserId)
+        assertEquals(listOf("a", "b", "c"), model.profileRouteSnapshot())
+        assertTrue(published.isEmpty())
+
+        repository.profileResults["c"] = CompletableDeferred(Result.success(profile("c")))
+        model.retryFailedUserProfile()
+        advanceUntilIdle()
+
+        assertEquals("c", model.uiState.value.selectedProfile?.user?.id)
+        assertEquals(listOf(listOf("a", "b", "c")), published)
+        model.close()
+    }
+
+    @Test
+    fun `successful private conversation consumes the visible profile route before navigation`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val published = mutableListOf<List<String>>()
+        val opened = mutableListOf<Pair<String, List<String>>>()
+        val model = model(repository, onProfileRouteChanged = published::add)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        model.openUserProfile("b")
+        advanceUntilIdle()
+
+        model.openPrivateChat("b") { conversationId ->
+            opened += conversationId to model.profileRouteSnapshot()
+        }
+        advanceUntilIdle()
+
+        assertEquals(listOf("private" to emptyList()), opened)
+        assertEquals(emptyList(), published.last())
+        assertEquals(null, model.uiState.value.selectedProfile)
+        model.close()
+    }
+
+    @Test
     fun `failed profile opening does not leave a phantom back stack entry`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -1493,9 +1574,18 @@ class NeighborhoodsViewModelTest {
         model.close()
     }
 
-    private fun kotlinx.coroutines.test.TestScope.model(repository: FakeNeighborhoodRepository): NeighborhoodsViewModel {
+    private fun kotlinx.coroutines.test.TestScope.model(
+        repository: FakeNeighborhoodRepository,
+        initialProfileRoute: List<String> = emptyList(),
+        onProfileRouteChanged: (List<String>) -> Unit = {},
+    ): NeighborhoodsViewModel {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        return NeighborhoodsViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        return NeighborhoodsViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(dispatcher, dispatcher, dispatcher),
+            initialProfileRoute = initialProfileRoute,
+            onProfileRouteChanged = onProfileRouteChanged,
+        )
     }
 }
 

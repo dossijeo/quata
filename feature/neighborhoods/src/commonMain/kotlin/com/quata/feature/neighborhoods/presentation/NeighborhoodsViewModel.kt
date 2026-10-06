@@ -22,7 +22,9 @@ import kotlinx.coroutines.withContext
 
 class NeighborhoodsViewModel(
     private val repository: NeighborhoodRepository,
-    private val dispatchers: AppDispatchers = AppDispatchers()
+    private val dispatchers: AppDispatchers = AppDispatchers(),
+    initialProfileRoute: List<String> = emptyList(),
+    private val onProfileRouteChanged: (List<String>) -> Unit = {},
 ) : NeighborhoodsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.main)
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
@@ -33,8 +35,17 @@ class NeighborhoodsViewModel(
     private var privateChatJob: Job? = null
     private var profileRequestGeneration = 0L
     private var privateChatRequestGeneration = 0L
-    private val profileBackStack = mutableListOf<String>()
+    private val restoredProfileRoute = initialProfileRoute.filter(String::isNotBlank)
+    private val profileBackStack = restoredProfileRoute.dropLast(1).toMutableList()
+    private var retainedProfileRoute = restoredProfileRoute
+    private var lastPublishedProfileRoute: List<String>? = null
     private val pendingProfileCommentCounts = mutableMapOf<String, Int>()
+
+    init {
+        restoredProfileRoute.lastOrNull()?.let { profileId ->
+            openUserProfile(profileId, addCurrentToBackStack = false)
+        }
+    }
 
     override fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
@@ -238,6 +249,7 @@ class NeighborhoodsViewModel(
                         ) return@fold
                         privateChatJob = null
                         _uiState.value = currentState.copy(openingPrivateChatUserId = null)
+                        clearUserProfile()
                         onOpened(conversationId)
                     },
                     onFailure = { error ->
@@ -313,6 +325,7 @@ class NeighborhoodsViewModel(
                         ?.takeIf { it.userId == userId }
                         ?.errorMessage
                 )
+                publishVisibleProfileRoute()
             } else {
                 _uiState.value = _uiState.value.copy(
                     openingProfileUserId = userId,
@@ -347,6 +360,7 @@ class NeighborhoodsViewModel(
                                         ?.takeIf { it.userId == userId }
                                         ?.errorMessage
                                 )
+                                if (shouldUpdateVisibleProfile) publishVisibleProfileRoute()
                             }
                             .onFailure { error ->
                                 val currentState = _uiState.value
@@ -368,6 +382,7 @@ class NeighborhoodsViewModel(
     fun closeUserProfile(): Boolean {
         val previousProfileId = profileBackStack.removeLastOrNull()
         if (previousProfileId != null) {
+            publishProfileRoute(profileBackStack + previousProfileId)
             openUserProfile(previousProfileId, addCurrentToBackStack = false)
             return false
         }
@@ -390,6 +405,25 @@ class NeighborhoodsViewModel(
             selectedProfile = null,
             error = null,
         )
+        publishProfileRoute(emptyList())
+    }
+
+    fun profileRouteSnapshot(): List<String> =
+        _uiState.value.selectedProfile?.user?.id
+            ?.let { profileBackStack + it }
+            ?: retainedProfileRoute.takeIf { _uiState.value.failedProfileUserId != null }
+            ?: emptyList()
+
+    private fun publishVisibleProfileRoute() {
+        val profileId = _uiState.value.selectedProfile?.user?.id ?: return
+        publishProfileRoute(profileBackStack + profileId)
+    }
+
+    private fun publishProfileRoute(route: List<String>) {
+        retainedProfileRoute = route.toList()
+        if (route == lastPublishedProfileRoute) return
+        lastPublishedProfileRoute = retainedProfileRoute
+        onProfileRouteChanged(lastPublishedProfileRoute.orEmpty())
     }
 
     fun reportProfilePost(postId: String) {
