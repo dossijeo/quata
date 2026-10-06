@@ -4,13 +4,13 @@
     "SCR-COMMUNITIES"
   ],
   "status": "passed",
-  "productSha": "87263d44eb091b95f371ec12521a55eb73d5531f",
-  "certification": "local-focal-production-database-release-and-independent-review-complete-remote-realtime-blocked-http-402-final-CI-pending",
+  "productSha": "19bde838083a0c428a5d3bcd80f0afb60c2803d1",
+  "certification": "remote-realtime-recovery-observed-awaiting-independent-review-and-separate-final-CI",
   "evidenceKind": "COMMUNITIES_DIRECTORY_EXHAUSTIVE_PAGINATION_AND_REALTIME_INVALIDATION",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "87263d44eb091b95f371ec12521a55eb73d5531f",
+      "sha": "19bde838083a0c428a5d3bcd80f0afb60c2803d1",
       "report": "docs/candidate-attestations/evidence/community-directory-pagination-realtime-87263d44.json",
       "reportSha256": "cdd9bea59fbb1b7601391eca1a22ac2246894be30e82c9e459c8bd5e4cf16092",
       "reportStatus": "passed-with-external-runtime-limitation",
@@ -36,6 +36,32 @@
         "verified": true,
         "mode": "owned-fixture-removed-no-session-created-no-secret-recorded"
       }
+    },
+    "remoteRealtimeRecovery": {
+      "status": "passed",
+      "sha": "19bde838083a0c428a5d3bcd80f0afb60c2803d1",
+      "report": "docs/candidate-attestations/evidence/community-directory-realtime-recovery-0abcc80d.json",
+      "reportSha256": "4c1d7f4bcaf4e6f9dddc24311381935d544c8ac7c6294af5834f59622d27c1db",
+      "reportStatus": "passed",
+      "reportGitHead": "0abcc80dd74d29bb576940a75a67606f3bf9646f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "realtime_preflight_no_longer_http_402",
+        "public_socket_joined_without_access_token",
+        "authenticated_socket_joined_via_auth_bridge",
+        "owned_wall_fixture_observed_once_by_public_socket",
+        "owned_wall_fixture_observed_once_by_authenticated_socket",
+        "owned_wall_fixture_removed",
+        "authentication_session_revoked",
+        "secret_persistence_zero"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-fixture-removed-authentication-session-revoked-residue-zero"
+      }
     }
   },
   "preflight": [
@@ -49,18 +75,20 @@
     "production publication SQL audit after reconnect"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "87263d44eb091b95f371ec12521a55eb73d5531f",
-    "reviewedProductSha": "87263d44eb091b95f371ec12521a55eb73d5531f",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewedProductSha": "19bde838083a0c428a5d3bcd80f0afb60c2803d1",
     "blockingFindings": [],
-    "scopeLimit": "Independent review covers exhaustive directory pagination, public/authenticated Realtime lifecycle, publication safety, fixture/session custody and the redacted external limitation receipt."
+    "scopeLimit": "The historical GO remains valid for pagination, publication safety and fixture custody. The new exact-head independent review must verify the recovered public/authenticated production Realtime receipt before promotion."
   },
   "notes": [
     "Android, Web/Wasm and iOS exhaust directory profiles and active wall statistics with stable id keysets instead of one transport-limited page. The shared refresh policy emits immediately, reacts to Realtime invalidations and polls after 30 seconds as bounded recovery.",
     "Anonymous sockets subscribe only to the four key-only directory publications. community_messages remains authenticated-only because its legacy publication includes body and created_at; anonymous message-driven wall activity converges through the bounded fallback.",
     "A full encrypted logical backup and affected-table restore drill preceded the release. Migration 20261003183000 committed four key-only publications and the direct SQL audit passed again after reconnect.",
     "The evidence trigger creates only its own UUID wall fixture, journals custody before insertion, recovers a prior journal before a new attempt, removes by exact id/slug/name and leaves zero owned rows or journal residue.",
-    "The public Realtime preflight still returns HTTP 402 exceed_egress_quota before WebSocket join, authentication, fixture creation or database mutation. The redacted receipt preserves that sole external runtime limitation without attributing an unattempted authenticated result.",
-    "The first independent review returned NO-GO for fixture/session custody, phase attribution and public message payload scope. Product SHA 87263d44 includes all corrections; the final independent review returned GO with no P0-P3 findings."
+    "Rebase onto current main preserved both documentation-only patches exactly; Product SHA 19bde838 binds the committed sanitized recovery projection, while reportGitHead 0abcc80d remains the clean source execution.",
+    "The historical receipt recorded HTTP 402 before socket, session or mutation. A new production run on source head 0abcc80d supersedes that runtime limitation: the public socket and an auth-bridge session socket each observed exactly one event for the same owned community_walls fixture, then the fixture was removed and the session revoked with zero recorded residue.",
+    "The first independent review returned NO-GO for fixture/session custody, phase attribution and public message payload scope. Product SHA 87263d44 includes all corrections; the final independent review returned GO with no P0-P3 findings.",
+    "The recovery receipt is deliberately narrower than a global Chat or UI claim: it proves the directory publication sets and production delivery path only; platform UI, anonymous community_messages delivery and visual parity remain separate units."
   ]
 }
