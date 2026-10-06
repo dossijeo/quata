@@ -8,6 +8,8 @@ const files = {
   frame: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsDialogFrameContent.kt",
   header: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsHeaderContent.kt",
   editor: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorContent.kt",
+  layout: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorLayoutContent.kt",
+  message: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsMessageContent.kt",
   contactActions: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsContactActionsContent.kt",
   selection: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsSelectionContent.kt",
   row: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyUserRowContent.kt",
@@ -23,7 +25,9 @@ const files = {
   iosGateway: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfilePostgrestGateway.kt",
   iosProfileHost: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt",
   iosProfileSosHost: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosHost.kt",
+  iosKeyboardVisibility: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosKeyboardVisibility.kt",
   iosProfileBootstrap: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
+  iosFixture: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileLegalEvidenceFixture.kt",
   iosApp: "../iosApp/iosApp/QuataIosApp.swift",
   webSosBridge: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileSosE2eBridge.kt",
   androidEvidence: "../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfileSosContactsInstrumentedTest.kt",
@@ -64,6 +68,28 @@ test("SOS contacts editor exposes shared semantic anchors from commonMain", () =
   }
   assert.match(loaded.host, /EmergencyContactsSettingsActionContent\(strings\.configureEmergency, profile\.emergencyContactIds\.size, onClick = onSos\)/);
   assert.match(loaded.host, /EmergencyContactsDialogContent\(/);
+  assert.match(loaded.message, /imeAction: \(@Composable \(\) -> Unit\)\? = null/);
+  assert.match(loaded.message, /messageInput\(\)[\s\S]*imeAction\?\.let \{ action ->[\s\S]*action\(\)/);
+  assert.match(loaded.editor, /imeAction = if \(isImeVisible\) \{[\s\S]*EmergencyContactsPortraitSaveButtonContent\(/);
+  assert.match(loaded.editor, /saveAction = \{\s*if \(!isImeVisible\) \{/);
+  assert.match(loaded.editor, /keyboardOptions = KeyboardOptions\(imeAction = ImeAction\.Done\)/);
+  assert.match(loaded.editor, /keyboardActions = KeyboardActions\(onDone = \{ focusManager\.clearFocus\(\) \}\)/);
+  assert.match(loaded.layout, /Column\(Modifier\.fillMaxSize\(\)\.imePadding\(\)\)/);
+  assert.match(loaded.layout, /if \(showTopBar\) \{\s*topBar\(\)\s*Spacer\(Modifier\.height\(8\.dp\)\)/);
+  assert.match(loaded.editor, /showTopBar = !isImeVisible/);
+  assert.match(loaded.editor, /Column\(modifier\.verticalScroll\(messageScrollState\)\)/);
+  assert.doesNotMatch(loaded.editor, /Column\(modifier\.verticalScroll\(messageScrollState\)\.imePadding\(\)\)/);
+  assert.match(loaded.editor, /if \(isLandscapeLayout\) messageScrollState\.scrollTo\(messageScrollState\.maxValue\)/);
+  assert.match(loaded.row, /this\.selected = selected/);
+  assert.match(loaded.row, /stateDescription = if \(selected\) removeLabel else addLabel/);
+  assert.match(loaded.iosKeyboardVisibility, /UIKeyboardDidShowNotification/);
+  assert.match(loaded.iosKeyboardVisibility, /UIKeyboardDidHideNotification/);
+  assert.match(loaded.iosKeyboardVisibility, /removeObserver\(showObserver\)/);
+  assert.match(loaded.iosKeyboardVisibility, /removeObserver\(hideObserver\)/);
+  assert.match(loaded.iosProfileHost, /val isImeVisible = rememberIosKeyboardVisible\(\)/);
+  assert.match(loaded.iosProfileHost, /isImeVisible = \{ isImeVisible \}/);
+  assert.match(loaded.iosProfileSosHost, /val observedImeVisible = rememberIosKeyboardVisible\(\)/);
+  assert.match(loaded.iosProfileSosHost, /isImeVisible = dependencies\.isImeVisible \|\| observedImeVisible/);
   for (const source of [loaded.settingsAction, loaded.frame, loaded.header, loaded.editor, loaded.selection, loaded.contactActions, loaded.row, loaded.save]) {
     assert.match(source, /contentDescription = ProfileSos|contentDescription = tag|contentDescription = testTag/);
   }
@@ -127,13 +153,44 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.androidEvidence, /toggleEmergencyContactSelection\(selectedIds, contact\.id\)/);
   assert.match(loaded.iosEvidence, /testProfileSosFixtureRendersSharedContactsEditorAnchors/);
   assert.match(loaded.iosEvidence, /testProfileSosSaveFailureKeepsSharedErrorInDialog/);
+  assert.match(loaded.iosEvidence, /testProfileSosRejectsSixthContactAndRetriesExactEditedSettings/);
   assert.match(loaded.iosEvidence, /"profile\.sos\.error"/);
   assert.match(loaded.iosEvidence, /-quata-ui-test-profile-sos-save-error/);
-  assert.match(loaded.iosApp, /forceSosSaveError: arguments\.contains\("-quata-ui-test-profile-sos-save-error"\)/);
+  assert.match(loaded.iosApp, /case "profile-legal", "profile-sos-retry":/);
+  assert.match(loaded.iosApp, /arguments\.contains\("-quata-ui-test-profile-sos-save-error"\)/);
+  assert.match(loaded.iosApp, /environment\["QUATA_UI_TEST_PROFILE_SOS_SAVE_ERROR"\] == "1"/);
+  assert.match(loaded.iosEvidence, /launchEnvironment\["QUATA_UI_TEST_PROFILE_SOS_SAVE_ERROR"\] = "1"/);
+  assert.match(loaded.iosEvidence, /fixtureApp\("profile-sos-retry", spanishLocale: true\)/);
+  assert.match(loaded.iosApp, /profile-sos-save-success/);
+  assert.match(loaded.iosFixture, /remainingForcedSosSaveFailures = if \(forceSosSaveError\) 1 else 0/);
+  assert.match(loaded.iosFixture, /fun QuataIosProfileSosRetryEvidenceViewController\(/);
+  assert.match(loaded.iosFixture, /forceSosSaveError = true/);
+  assert.match(loaded.iosFixture, /contactIds\.joinToString\(","\)/);
+  assert.match(loaded.iosFixture, /onSosSaved\(/);
   assert.match(loaded.iosEvidence, /"profile\.sos\.contact\.toggle\.sos-fixture-6"/);
   assert.match(loaded.iosEvidence, /"profile\.sos\.tab\.message"/);
   assert.match(loaded.iosEvidence, /"profile\.sos\.message\.input"/);
-  assert.match(loaded.iosEvidence, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)/);
+  assert.match(loaded.iosEvidence, /sos-fixture-1,sos-fixture-2,sos-fixture-3,sos-fixture-4,sos-fixture-5/);
+  assert.match(loaded.iosEvidence, /Avisar a mis contactos de emergencia/);
+  assert.match(loaded.iosEvidence, /private func visibleSosContactToggle\(index: Int, in app: XCUIApplication\) -> XCUIElement/);
+  assert.match(loaded.iosEvidence, /let query = app\.buttons/);
+  assert.match(loaded.iosEvidence, /let visibleHeight = contactsList\.frame\.intersection\(toggle\.frame\)\.height/);
+  assert.match(loaded.iosEvidence, /visibleHeight >= toggle\.frame\.height \* 0\.6/);
+  assert.match(loaded.iosEvidence, /toggle\.frame\.midY < contactsList\.frame\.midY/);
+  assert.match(loaded.iosEvidence, /contactsList\.swipeDown\(\)/);
+  assert.match(loaded.iosEvidence, /contactsList\.swipeUp\(\)/);
+  assert.equal(loaded.iosEvidence.includes("SOS contact \\(index) must enter the visible shared-list viewport after bounded scrolling"), true);
+  assert.match(loaded.iosEvidence, /let sixth = visibleSosContactToggle\(index: 6, in: app\)/);
+  assert.match(loaded.iosEvidence, /sixth\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
+  assert.equal(loaded.iosEvidence.includes("SOS contact \\(index) must expose its selected state before the next interaction"), true);
+  assert.match(loaded.iosEvidence, /The first SOS contact must be selected before the save gesture/);
+  assert.match(loaded.iosEvidence, /Selecting a contact must not consume the forced save failure/);
+  assert.match(loaded.iosEvidence, /The restored SOS search keyboard must expose Done before switching tabs/);
+  assert.match(loaded.iosEvidence, /The sixth SOS contact must remain visibly unselected when the shared limit is reached/);
+  assert.match(loaded.iosEvidence, /The first five SOS contacts must remain visibly selected before save/);
+  assert.match(loaded.iosEvidence, /The SOS search Done action must release focus/);
+  assert.match(loaded.iosEvidence, /"profile\.sos\.tab\.message"/);
+  assert.match(loaded.iosEvidence, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(loaded.webEvidence, /PROFILE_SOS_CANDIDATES/);
   assert.match(loaded.webEvidence, /selectFiveProfileSosContacts/);
   assert.match(loaded.webEvidence, /data-quata-profile-sos-selected-count/);

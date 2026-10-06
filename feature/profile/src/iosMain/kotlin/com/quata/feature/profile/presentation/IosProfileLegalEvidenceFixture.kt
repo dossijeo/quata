@@ -36,10 +36,34 @@ import platform.UIKit.UIViewController
 fun QuataIosProfileLegalEvidenceViewController(
     languageCode: String?,
     onOpened: (String) -> Unit,
+    onSosSaved: (String) -> Unit,
     forceSosSaveError: Boolean = false,
+): UIViewController = quataIosProfileLegalEvidenceViewController(
+    languageCode = languageCode,
+    onOpened = onOpened,
+    onSosSaved = onSosSaved,
+    forceSosSaveError = forceSosSaveError,
+)
+
+fun QuataIosProfileSosRetryEvidenceViewController(
+    languageCode: String?,
+    onOpened: (String) -> Unit,
+    onSosSaved: (String) -> Unit,
+): UIViewController = quataIosProfileLegalEvidenceViewController(
+    languageCode = languageCode,
+    onOpened = onOpened,
+    onSosSaved = onSosSaved,
+    forceSosSaveError = true,
+)
+
+private fun quataIosProfileLegalEvidenceViewController(
+    languageCode: String?,
+    onOpened: (String) -> Unit,
+    onSosSaved: (String) -> Unit,
+    forceSosSaveError: Boolean,
 ): UIViewController = QuataProfileViewController(
     IosProfileHostDependencies(
-        repository = IosProfileLegalEvidenceRepository(forceSosSaveError),
+        repository = IosProfileLegalEvidenceRepository(forceSosSaveError, onSosSaved),
         onLogout = {},
         onDeactivateAccount = {},
         onDeleteAccountData = {},
@@ -93,7 +117,9 @@ private object IosProfileLegalEvidencePermissionService : PermissionService {
 
 private class IosProfileLegalEvidenceRepository(
     private val forceSosSaveError: Boolean,
+    private val onSosSaved: (String) -> Unit,
 ) : ProfileRepository {
+    private var remainingForcedSosSaveFailures = if (forceSosSaveError) 1 else 0
     private val model = ProfileEditModel(
         profile = UserProfile(
             displayName = "Gabrielo",
@@ -134,12 +160,22 @@ private class IosProfileLegalEvidenceRepository(
         contactIds: List<String>,
         message: String,
         messageIsDefault: Boolean,
-    ): Result<Unit> =
-        if (forceSosSaveError) {
+    ): Result<Unit> = when {
+        remainingForcedSosSaveFailures > 0 -> {
+            remainingForcedSosSaveFailures -= 1
             Result.failure(IllegalStateException("ios_profile_sos_save_failed"))
-        } else {
+        }
+        else -> {
+            onSosSaved(
+                listOf(
+                    contactIds.joinToString(","),
+                    message,
+                    messageIsDefault.toString(),
+                ).joinToString("\u001F"),
+            )
             Result.success(Unit)
         }
+    }
 
     override fun defaultEmergencyMessage(displayName: String): String =
         "Avisar a mis contactos de emergencia."

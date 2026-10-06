@@ -6,6 +6,7 @@ final class QuataIosLiveRankingUITests: XCTestCase {
             fixture: "live-ranking-feed",
             rootIdentifier: "feed.root",
             initialMarker: "Feed initial pager remains intact",
+            liveActionIdentifier: "feed.action.live.feed-ranking-fixture-0",
             errorIdentifier: "feed-ranking-error",
             retryIdentifier: "feed-ranking-retry",
             targetId: "feed-ranking-remote-target",
@@ -19,6 +20,7 @@ final class QuataIosLiveRankingUITests: XCTestCase {
             fixture: "live-ranking-official",
             rootIdentifier: "official-feed-common-root",
             initialMarker: "Official initial pager remains intact",
+            liveActionIdentifier: "official.action.live.official-ranking-fixture-0",
             errorIdentifier: "official-ranking-error",
             retryIdentifier: "official-ranking-retry",
             targetId: "official-ranking-remote-target",
@@ -31,6 +33,7 @@ final class QuataIosLiveRankingUITests: XCTestCase {
         fixture: String,
         rootIdentifier: String,
         initialMarker: String,
+        liveActionIdentifier: String,
         errorIdentifier: String,
         retryIdentifier: String,
         targetId: String,
@@ -51,10 +54,10 @@ final class QuataIosLiveRankingUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[initialMarker].waitForExistence(timeout: 20), app.debugDescription)
         attachScreenshot(app, name: "\(screenshotPrefix)-initial-pager")
 
-        let liveButtons = app.buttons
-            .matching(NSPredicate(format: "label BEGINSWITH %@", "LIVE"))
-        XCTAssertTrue(liveButtons.firstMatch.waitForExistence(timeout: 10), app.debugDescription)
-        revealAndTapFirstHittable(liveButtons, in: app)
+        let liveAction = element(liveActionIdentifier, in: app)
+        XCTAssertTrue(liveAction.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(liveAction.isHittable, app.debugDescription)
+        liveAction.tap()
 
         let error = element(errorIdentifier, in: app)
         XCTAssertTrue(error.waitForExistence(timeout: 10), app.debugDescription)
@@ -78,17 +81,6 @@ final class QuataIosLiveRankingUITests: XCTestCase {
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-    }
-
-    private func revealAndTapFirstHittable(_ query: XCUIElementQuery, in app: XCUIApplication) {
-        for _ in 0..<4 {
-            if let element = query.allElementsBoundByIndex.first(where: \.isHittable) {
-                element.tap()
-                return
-            }
-            app.swipeUp()
-        }
-        XCTFail("No visible LIVE button after bounded scrolling.\n\(app.debugDescription)")
     }
 
     private func attachScreenshot(_ app: XCUIApplication, name: String) {

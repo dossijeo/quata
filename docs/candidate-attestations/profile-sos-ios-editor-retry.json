@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SOS",
+    "SOS-CONTACTS-IOS-EDITOR-RETRY"
+  ],
+  "status": "passed",
+  "productSha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+  "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-web-e3e2c597.json",
+      "reportSha256": "740f3e6ed3e77eb9f0b1bdea3c08e5bc05ffc42b314cb411016c53523343f90a",
+      "reportStatus": "passed",
+      "reportGitHead": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "compile_and_contract_only_no_runtime_fixture",
+      "requiredSteps": [
+        "profile_sos_contacts_contract_passed_6_of_6",
+        "web_wasm_product_compiled_on_final_head",
+        "no_web_runtime_matrix_repeated_for_ios_focal_change"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-contract-only-no-runtime-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-android-e3e2c597.json",
+      "reportSha256": "c815e55e39b2c101920a469475c9cba9953ee67d3041871c02cf2a303be03f4d",
+      "reportStatus": "passed",
+      "reportGitHead": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "compile_and_contract_only_no_runtime_fixture",
+      "requiredSteps": [
+        "profile_sos_contacts_contract_passed_6_of_6",
+        "android_debug_product_compiled_on_final_head",
+        "no_android_runtime_matrix_repeated_for_ios_focal_change"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-contract-only-no-runtime-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-final-gate-repair-45e5550f.json",
+      "reportSha256": "fab39bd545647759740e1f925143867ebafe3d6a753f10f2455861a64f0fe5d6",
+      "reportStatus": "passed",
+      "reportGitHead": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "hermetic_simulator_fixture_no_remote_mutation",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "simulator_signed_build_for_testing_succeeded",
+        "profile_sos_fixture_anchors_rendered",
+        "search_keyboard_dismissed_before_message_tab_transition",
+        "message_draft_and_global_keyboard_survived_portrait_landscape_portrait",
+        "focused_landscape_message_input_remained_above_keyboard",
+        "five_exact_sos_contacts_selected_through_bounded_visible_row_geometry",
+        "first_five_contact_toggles_remained_selected_after_sixth_attempt",
+        "sixth_contact_toggle_remained_unselected_after_attempt",
+        "forced_save_failure_remained_visible_inside_open_editor",
+        "profile_sos_contacts_contract_passed_6_of_6"
+      ],
+      "requiredLog": {
+        "path": "docs/candidate-attestations/evidence/profile-sos-ios-final-gate-repair-45e5550f.json",
+        "sha256": "fab39bd545647759740e1f925143867ebafe3d6a753f10f2455861a64f0fe5d6",
+        "contains": [
+          "\"status\": \"passed\"",
+          "\"productSha\": \"45e5550f15aac0b3beb2ec4211f6a38d6f5d1982\"",
+          "\"simulatorSignedBuildForTesting\": \"passed\"",
+          "\"passed\": 4"
+        ]
+      },
+      "supplementalEvidence": {
+        "path": "docs/candidate-attestations/evidence/profile-sos-live-ranking-selector-6a5609fd.json",
+        "sha256": "30d5fbf48da1997c6bf1c9f2df895d1c97c174b850d10633ad002adff133a240",
+        "purpose": "Preserve the failed GitHub interaction and bind the exact-selector repair to a passing focal Simulator execution."
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-simulator-fixture-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-sos-contacts-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon --console=plain",
+    "bash gradlew :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --no-daemon --console=plain",
+    "xcodebuild build-for-testing -configuration SimulatorSigned",
+    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosFixtureRendersSharedContactsEditorAnchors -only-testing:QuataIosUITests/QuataIosHostUITests/testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosRejectsSixthContactAndRetriesExactEditedSettings -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosSaveFailureKeepsSharedErrorInDialog",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-sos-ios-editor-retry.json"
+  ],
+  "notes": [
+    "The iOS product now observes native keyboard visibility instead of treating the IME as permanently absent. In portrait, the shared Save action is mounted above the message keyboard and the search field exposes Done so focus can be released without blind gestures.",
+    "The focal XCTest selects five exact fixture contacts through observed list geometry, confirms each toggle exposes the selected Remove state, attempts the sixth, proves the sixth still exposes Add while the original five still expose Remove, edits the exact SOS message, verifies the keyboard and shared Save placement, observes one forced repository failure without closing the editor, then retries through the same control and verifies the exact five-contact payload before the editor closes.",
+    "Product SHA 5d9ab8c5 preserves all 16 non-conflicting SOS runtime and test blobs byte-for-byte. QuataIosApp.swift is the sole runtime conflict and combines the reviewed SOS host changes with integrated main; exact build head e639f418 passed iosX64 framework linking and SimulatorSigned build-for-testing. The pre-CI product freeze 965b9b52 differed from that build only by normalization of the capability-matrix EOF; the current tree additionally contains the KVM workflow preflight and its contract described below, without changing SOS runtime inputs. The retained functional UI execution SHA e3e2c597 remains recorded in reportGitHead and report filenames, so unrelated Android/Web matrices and the patch-identical focal XCTest were not repeated solely for commit identity.",
+    "The accepted UI run executed on clean tracked Product SHA e3e2c597. It is the exact product and XCTest head that adds the accessibility selection state and the pre-save five-selected/sixth-unselected assertions requested by independent review.",
+    "Product SHA 5d9ab8c5 adds only the reviewed GitHub Actions KVM permission preflight and its fail-closed contract after an unaccelerated emulator failed before APK installation. SOS runtime, tests and evidence blobs remain unchanged; final CI reruns the affected Android instrumentation lane on the corrected runner.",
+    "Product SHA 6a5609fd resolves the subsequent iOS final-gate failure without changing ranking or SOS product semantics: Ranking and LIVE now expose stable per-post accessibility identifiers, and XCTest targets the initial fixture post instead of selecting a repeated label. The exact Feed focal test passed 1/1 on iOS 26.5 Simulator, the five live-ranking contracts passed, and the affected Android and Wasm products compiled. The preceding GitHub failure remains recorded in supplemental evidence.",
+    "Product SHA 6a5609fd passed Android debug and Web/Wasm compilation, the 6/6 SOS contract, diff-check and the complete Profile common iOS x64 unit suite. Those historical Android/Web runtime reports remain bound to execution head e3e2c597; Product SHA 45e5550f changes the shared SOS landscape/IME layout and iOS XCTest interaction, and its affected Android/Web compile gates passed without repeating full runtime matrices. The attempted Wasm Node unit runner failed before executing tests because Skiko could not load its runtime .wasm under Node 22; the same common tests passed in iOS x64 and the Web product compiler passed.",
+    "This fixture is hermetic. It does not call Supabase, dispatch SOS, send notifications or contact third parties. Existing SB-06 persistence and FLOW-SOS-DISPATCH evidence remain independent and were not repeated.",
+    "This closes the previously explicit iOS Simulator limits for 5-to-6 selection, exact message editing, visible save failure and exact retry. It does not claim physical ContactsUI or physical address-book permission behavior, which remains externally unavailable without an iOS device and is separate from shared editor acceptance.",
+    "Raw xcresult, logs and host paths remain unversioned. The committed report is a sanitized projection bound to their SHA-256 values; the raw bundle is retained in the authorized local evidence store.",
+    "Product SHA 45e5550f repairs the preserved GitHub iOS final-gate failure. It changes the shared SOS landscape/IME layout and iOS XCTest interaction; the new runtime validation is iOS-only, while the affected Android debug, Web/Wasm and iOS x64 compile gates pass on this Product SHA. The exact four-test Simulator focal suite passed together: the search keyboard releases focus before the Message transition, the edited draft remains mounted and above the keyboard across portrait-landscape-portrait, the bounded row helper rejects clipped contact rows while preserving the exact five-contact payload, and the forced first save failure remains inside the open editor. The landscape top bar yields the IME-reduced row while typing and returns when the keyboard is dismissed; product save, selection and retry semantics are unchanged."
+  ]
+}

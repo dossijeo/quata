@@ -33,6 +33,7 @@ fun EmergencyContactsMessageContent(
     onTabSelected: (EmergencyContactsTab) -> Unit,
     onDismiss: () -> Unit,
     messageInput: @Composable () -> Unit,
+    imeAction: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
@@ -70,6 +71,10 @@ fun EmergencyContactsMessageContent(
                 }
                 Spacer(Modifier.height(10.dp))
                 messageInput()
+                imeAction?.let { action ->
+                    Spacer(Modifier.height(12.dp))
+                    action()
+                }
             }
         }
     }

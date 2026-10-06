@@ -63,8 +63,9 @@ test('Swift mounts both opt-in fixtures and verifies fail-closed retry and exact
   assert.ok(swiftTest.includes('retry.tap()'));
   assert.ok(swiftTest.includes('targetOpen.tap()'));
   assert.ok(swiftTest.includes('XCTAssertFalse(error.exists'));
-  assert.match(swiftTest, /label BEGINSWITH %@.*LIVE/);
-  assert.match(swiftTest, /for _ in 0\.\.<4[\s\S]*?allElementsBoundByIndex\.first\(where: \\.isHittable\)/);
+  assert.ok(swiftTest.includes('liveActionIdentifier: "feed.action.live.feed-ranking-fixture-0"'));
+  assert.ok(swiftTest.includes('liveActionIdentifier: "official.action.live.official-ranking-fixture-0"'));
+  assert.match(swiftTest, /let liveAction = element\(liveActionIdentifier, in: app\)[\s\S]*?XCTAssertTrue\(liveAction\.isHittable[\s\S]*?liveAction\.tap\(\)/);
   assert.doesNotMatch(swiftTest, /coordinate\(|CGVector|press\(forDuration/);
 });
 
@@ -80,6 +81,7 @@ test('iOS CI runs the focal class once and requires both named XCTest passes', (
 });
 
 test('Android CI runs both focal classes and verifies their exact JUnit passes', () => {
+  assert.match(webAndroidWorkflow, /name: Enable Android emulator hardware acceleration[\s\S]*?if \[\[ -e \/dev\/kvm \]\]; then[\s\S]*?sudo chmod 0666 \/dev\/kvm[\s\S]*?test -r \/dev\/kvm[\s\S]*?test -w \/dev\/kvm/);
   assert.match(webAndroidWorkflow, /name: Run native live Ranking focal instrumentation\n\s+timeout-minutes: 45[\s\S]*?uses: reactivecircus\/android-emulator-runner@v2/);
   assert.match(webAndroidWorkflow, /api-level: 35[\s\S]*?disable-animations: true\n\s+emulator-boot-timeout: 900/);
   assert.match(webAndroidWorkflow, /script: bash scripts\/run-live-ranking-android-e2e\.sh/);

@@ -1,0 +1,79 @@
+{
+  "check": "PROFILE-SOS-IOS-EDITOR-RETRY-001",
+  "status": "passed",
+  "sourceReportSha256": "1583ca31695c5c820a8142ffa6d4b93f058d2bde2e9fd86deaac2f7512404e87",
+  "git": {
+    "head": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+    "workingTreeDirty": false,
+    "uiRuntimeHead": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+    "postUiRuntimeChanges": []
+  },
+  "environment": {
+    "platform": "iOS Simulator",
+    "runtime": "26.5",
+    "architecture": "x86_64",
+    "xcode": "26.6 (17F113)"
+  },
+  "tests": {
+    "count": 1,
+    "failures": 0,
+    "skipped": 0,
+    "durationSeconds": 73.185,
+    "names": [
+      "testProfileSosRejectsSixthContactAndRetriesExactEditedSettings"
+    ]
+  },
+  "assertions": {
+    "selectedContactIds": [
+      "sos-fixture-1",
+      "sos-fixture-2",
+      "sos-fixture-3",
+      "sos-fixture-4",
+      "sos-fixture-5"
+    ],
+    "selectedStateBeforeSave": "all_five_accessibility_values_remained_remove_after_sixth_attempt",
+    "rejectedContactId": "sos-fixture-6",
+    "rejectedStateBeforeSave": "accessibility_value_remained_add_after_attempt",
+    "message": "Avisar a mis contactos de emergencia. [iOS retry exacto]",
+    "messageIsDefault": false,
+    "firstSave": "forced_failure_visible_editor_preserved_no_success_marker",
+    "retry": "same_shared_save_action_exact_payload_success_editor_closed",
+    "keyboard": "native_keyboard_visible_and_shared_save_above_keyboard"
+  },
+  "gates": {
+    "iosX64FrameworkLink": "passed",
+    "simulatorSignedBuildForTesting": "passed",
+    "selectedXcTest": "passed",
+    "featureProfileIosX64TestFinalHead": "passed",
+    "profileSosContactsContract": "6/6 passed",
+    "diffCheck": "passed"
+  },
+  "sourceHashes": {
+    "xcresultArchiveSha256": "1583ca31695c5c820a8142ffa6d4b93f058d2bde2e9fd86deaac2f7512404e87",
+    "testLogSha256": "17830b11c4c8b9c68df8328332a65426b0a3d7c07cf82a3266614cad3a46e0d5",
+    "buildLogSha256": "24d1f19706554bfedcf22a51a2772f93fb6a48c12af36692f9b57a2adc696086",
+    "frameworkLinkLogSha256": "bc5c0772a387f0cc51ed2dfc1c293c0392b9bb31e6a3758217930dc3a1d8dd29",
+    "iosX64TestLogSha256": "4e4dd79b09750989b8a92a03163444a99e0c7a67104a388d7d11e25c952a17d5",
+    "frameworkBinarySha256": "2e32a429056e6e82604ee09c5cc9e959b6a7ea7cd33f597713e19d473ed854e1"
+  },
+  "steps": [
+    "mac_checkout_final_head_matched_candidate_product_sha",
+    "ios_x64_framework_linked_and_copied_byte_identically",
+    "simulator_signed_host_built_for_testing",
+    "five_exact_sos_contacts_selected_through_adaptive_visible_row_geometry",
+    "first_five_contact_toggles_remained_selected_after_sixth_attempt",
+    "sixth_contact_toggle_remained_unselected_after_attempt",
+    "exact_sos_message_edited_with_native_keyboard_visible",
+    "shared_save_action_remained_hittable_above_keyboard",
+    "first_save_failed_visibly_without_closing_or_success_marker",
+    "same_save_action_retry_preserved_exact_payload_and_closed_editor",
+    "profile_common_ios_x64_unit_suite_passed_on_final_head"
+  ],
+  "cleanup": {
+    "state": "hermetic_simulator_fixture_no_remote_mutation",
+    "residueCounts": {
+      "remoteRows": 0,
+      "externalNotifications": 0
+    }
+  }
+}

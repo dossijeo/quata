@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,13 +18,16 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun EmergencyContactsLandscapeEditorLayoutContent(
+    showTopBar: Boolean,
     topBar: @Composable () -> Unit,
     contacts: @Composable (Modifier) -> Unit,
     message: @Composable (Modifier) -> Unit
 ) {
-    Column(Modifier.fillMaxSize()) {
-        topBar()
-        Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxSize().imePadding()) {
+        if (showTopBar) {
+            topBar()
+            Spacer(Modifier.height(8.dp))
+        }
         Row(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(14.dp)

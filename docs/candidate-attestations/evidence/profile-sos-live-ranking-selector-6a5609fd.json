@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "6a5609fd6083bf193a9d4ac2551540152fd30b85",
+  "platform": "ios",
+  "scope": "native-live-ranking-exact-action-selector",
+  "failurePreserved": {
+    "githubRun": 37448172017,
+    "job": 112219747821,
+    "test": "QuataIosLiveRankingUITests.testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget",
+    "result": "failed",
+    "observed": "The label-based query tapped a visible LIVE element, but the Feed panel did not open; feed-ranking-error and feed-ranking-retry therefore never appeared. The sibling Official case passed."
+  },
+  "change": {
+    "behavior": "The shared action rail exposes stable per-post identifiers for Ranking and LIVE. XCTest targets the initial fixture post's exact LIVE identifier and still requires the fail-closed error, the same retry control, the remote row and exact-target navigation.",
+    "coordinateFallback": false,
+    "sourceSha256": {
+      "designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFeedActionRail.kt": "88af29484038c8b4326d496339cad4442e85578e88355421169653b595b2ecea",
+      "iosApp/iosAppUITests/QuataIosLiveRankingUITests.swift": "dfc4d62019e8e9a30fbba4e66db9f6b521a273ea2bec859ade9a7eb08a9df06c",
+      "scripts/live-ranking-native-e2e-contract.test.mjs": "4478c000f6cee2fa7a67d38679b30d30e9f5ccdd51d74ed5179c6f9ee27bad90"
+    }
+  },
+  "validation": {
+    "simulator": {
+      "name": "Quata-SOS-Candidate-85f98524",
+      "udid": "0506CC31-D3CF-401D-B275-444BEE5F69B6",
+      "osVersion": "26.5",
+      "architecture": "x86_64"
+    },
+    "xctest": {
+      "name": "QuataIosLiveRankingUITests.testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "durationSeconds": 32.919
+    },
+    "rawLogSha256": "7ae6093bf8d3378a2586ca13aca13a885e39caeab7046b890324a2d5aa1c0999",
+    "xcresultSummarySha256": "da0bb2564d562b81bd54bb2cfceb5742b05841b4288886b701c5ce4e777fe1",
+    "contracts": "5/5",
+    "androidCompile": "passed",
+    "wasmCompile": "passed",
+    "diffCheck": "passed"
+  },
+  "custody": {
+    "remoteMutation": false,
+    "backendUsed": false,
+    "secretsUsed": false,
+    "rawArtifactsVersioned": false,
+    "trackedTreeConfirmedAtProductShaAfterExecution": true,
+    "generatedXcodeProjectUntracked": true
+  }
+}

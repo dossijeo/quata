@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+  "platform": "ios",
+  "scope": "profile-sos-final-gate-keyboard-rotation-contact-visibility-and-save-failure",
+  "failurePreserved": {
+    "githubRun": 37461154508,
+    "job": 112260863714,
+    "result": "failed",
+    "observed": [
+      "The portrait search keyboard remained focused and hid the Message tab after rotation.",
+      "The bounded contact helper accepted a clipped row on the ARM runner, shifting the five-contact payload.",
+      "The forced save-failure test did not prove the first contact selection had settled before invoking Save.",
+      "The landscape SOS top bar consumed the IME-reduced viewport, leaving the focused message pane with zero usable row height."
+    ]
+  },
+  "change": {
+    "behavior": "The search Done action is awaited before switching tabs; contact selection requires at least sixty percent vertical visibility and confirms state before later gestures; the forced-failure test confirms selection before Save; and the landscape editor hides its own top bar while the IME is visible, scrolls the focused message pane to its measured end and avoids duplicate IME padding.",
+    "productSemanticsChanged": false,
+    "coordinateFallback": false,
+    "sourceSha256": {
+      "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorContent.kt": "137557b20c73b5ce2a0b5e640f9e43a4bb0064306455358b6333ed7cc26175ed",
+      "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/EmergencyContactsEditorLayoutContent.kt": "9b3c30b98efda49e9ca0a5921d0b52427c14cde1c026f6c662047b8561251d89",
+      "iosApp/iosAppUITests/QuataIosHostUITests.swift": "d78f6e717e4a95351b41e9e361ae440d569a890ba87fb6a887b13bcddc71c231",
+      "scripts/profile-sos-contacts-contract.test.mjs": "7cf4e4906dd81e13b900ff19e27c24a778730232287228f1500f8d1ad6059a2a"
+    }
+  },
+  "validation": {
+    "simulator": {
+      "name": "Quata-SOS-Candidate-85f98524",
+      "udid": "0506CC31-D3CF-401D-B275-444BEE5F69B6",
+      "model": "iPhone 16 Pro",
+      "osVersion": "26.5",
+      "architecture": "x86_64"
+    },
+    "xcode": "26.6 (17F113)",
+    "simulatorSignedBuildForTesting": "passed",
+    "xctest": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "names": [
+        "testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation",
+        "testProfileSosFixtureRendersSharedContactsEditorAnchors",
+        "testProfileSosRejectsSixthContactAndRetriesExactEditedSettings",
+        "testProfileSosSaveFailureKeepsSharedErrorInDialog"
+      ]
+    },
+    "contracts": "6/6",
+    "diffCheck": "passed",
+    "rawLogSha256": "f77a5774278f0676d1e2f3bb6aab87e523098d5fe330df68360e199d17d63c59",
+    "xcresultSummarySha256": "90461ccddfb43a1cdba75b5888f94bdae003989a642dff94e48fd26de34da214",
+    "xcresultArchiveSha256": "c21833e91ed98a0e3a8cb7caf7e8a0b4f6dc9e4a00cf75235010652a4687cc38",
+    "buildLogSha256": "a401ff95f70c990156de1278f7cdac87c947f5f6e76b06178c14c1765146b709",
+    "frameworkBinarySha256": "e3365d8e2264d420e53d8f70991fb26115caf3ffb7be27aec06e2b4603769107",
+    "androidCompile": "passed",
+    "wasmCompile": "passed",
+    "androidWebCompileLogSha256": "b1e0b97d76659a44f3f189db4f0f31bc0bbb5f9770f5cde789a93b422de102f4"
+  },
+  "custody": {
+    "remoteMutation": false,
+    "backendUsed": false,
+    "secretsUsed": false,
+    "rawArtifactsVersioned": false,
+    "trackedProductFilesMatchedProductSha": true,
+    "generatedXcodeProjectUntracked": true,
+    "cleanup": "hermetic_simulator_fixture_no_remote_mutation"
+  },
+  "steps": [
+    "simulator_signed_build_for_testing_succeeded",
+    "profile_sos_fixture_anchors_rendered",
+    "search_keyboard_dismissed_before_message_tab_transition",
+    "message_draft_and_global_keyboard_survived_portrait_landscape_portrait",
+    "focused_landscape_message_input_remained_above_keyboard",
+    "five_exact_sos_contacts_selected_through_bounded_visible_row_geometry",
+    "first_five_contact_toggles_remained_selected_after_sixth_attempt",
+    "sixth_contact_toggle_remained_unselected_after_attempt",
+    "forced_save_failure_remained_visible_inside_open_editor",
+    "profile_sos_contacts_contract_passed_6_of_6"
+  ],
+  "cleanup": {
+    "state": "hermetic_simulator_fixture_no_remote_mutation",
+    "residueCounts": {
+      "remoteRows": 0,
+      "externalNotifications": 0
+    }
+  },
+  "git": {
+    "head": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+    "workingTreeDirty": false,
+    "uiRuntimeHead": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+    "postUiRuntimeChanges": []
+  }
+}
