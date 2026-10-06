@@ -912,3 +912,35 @@ El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back m
 ## Rechazo caliente de sesión nativa — candidata local del 30 de septiembre de 2026
 
 Cierre focal local en Android e iOS Simulator: el mismo proceso recibió el enlace después del vencimiento criptográfico y del rechazo previo de Auth; la renovación terminal HTTP 400 retiró la sesión exacta, mostró la barrera pública y la cancelación dejó Feed sin abrir el Chat. Android conserva `failed_cleanup_pending` en su informe original y una recuperación exacta separada; iOS terminó PASS y limpio sobre `4a2d54f97c20d54ffcd189b3cfc191548c10ad71`. Los seis NO-GO iOS previos siguen preservados. [Plan y causal completa](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#rechazo-caliente-de-sesión-nativa--candidata-local-del-30-de-septiembre-de-2026) · [atestación](candidate-attestations/evidence/native-session-hot-rejection-20260930.json). Permanecen fuera la traza HTTP de paquete, APNs, dispositivo físico/distribución y rutas no incluidas.
+
+## Retry nativo del destino Chat — candidata local del 7 de octubre de 2026
+
+Android y Web ejecutan el mismo control `Retry` del host Chat después de una
+lectura inicial fallida. La fixture local requiere el opt-in exacto de cada host,
+no usa credenciales ni backend y mantiene el fallo aunque Compose vuelva a
+suscribirse durante el montaje. Sólo el gesto real habilita la siguiente
+observación. Después se exige la conversación `local:document-retry`, el mensaje
+único `local-document-retry-message`, retirada del fallo y salida por Back.
+
+La evidencia Web conserva los dos intentos anteriores: el primero detectó que
+los `testTag` no se exportan como `aria-label` en Compose Web; el segundo confirmó
+la recuperación visual, pero falló al buscar el texto como nodo DOM. El ensayo
+aceptado usa el botón accesible real generado por Compose, coteja remitente y
+contenido en su nodo accesible, y conserva capturas antes y después. Android usa
+el nodo Compose etiquetado.
+
+La variante iOS compila y el XCTest focal inicia la aplicación exacta, pero la
+VM macOS no expone un dispositivo Metal. El proceso termina al crear
+`androidx.compose.ui.window.MetalView`, antes de montar el host Chat; el backtrace
+exacto alcanza `MetalView.uikit.kt:51` y `MTLCreateSystemDefaultDevice()` no puede
+proporcionar el renderizador que Compose iOS requiere. Reiniciar CoreSimulator,
+arrancar Simulator en la sesión gráfica y repetir el test no cambió el resultado.
+No se atribuye este fallo a Retry ni al producto, y no existe aceptación iOS de
+esta unidad hasta ejecutarla en un Mac con Metal disponible.
+
+Esta candidata elimina el límite histórico «Retry nativo no ejecutado» en
+Android y Web. iOS conserva ese límite por la restricción de renderizado anterior.
+No atribuye disponibilidad al backend, no sustituye los casos reales de destino
+ausente o sesión rechazada y no amplía la aceptación a Universal Links, APNs,
+push ni lifecycle global. La evidencia exacta y sus hashes están en
+[`deep-link-native-retry.json`](candidate-attestations/deep-link-native-retry.json).
