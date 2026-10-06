@@ -10,6 +10,7 @@ const iosShell = await readFile(new URL("./run-ios-account-postflight-ui-test.sh
 const androidNavigation = await readFile(new URL("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt", import.meta.url), "utf8");
 const iosAuthRepository = await readFile(new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt", import.meta.url), "utf8");
 const iosLogoutOrdering = await readFile(new URL("../feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt", import.meta.url), "utf8");
+const iosSeeder = await readFile(new URL("../iosApp/iosAppTests/QuataIosAuthenticatedSessionSeederTests.swift", import.meta.url), "utf8");
 
 test("Android logout postflight uses the real product control and proves durable local retirement", () => {
   assert.match(android, /fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession\(\)/);
@@ -45,6 +46,23 @@ test("platform runners select the logout methods and fail closed on missing exec
   assert.match(iosRunner, /QUATA_IOS_AUTH_LOGOUT_UI_E2E/);
   assert.match(iosShell, /testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession/);
   assert.match(iosShell, /check-ios-xctest-executed\.py/);
+});
+
+test("iOS single-gesture logout binds the seeded Auth session to fail-closed backend verification", () => {
+  assert.match(iosSeeder, /QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE/);
+  assert.match(iosSeeder, /jwtSessionId\(session\.accessToken\)/);
+  assert.match(iosSeeder, /\["session_id": sessionId, "auth_user_id": session\.authUserId\]/);
+  assert.match(iosSeeder, /\.posixPermissions: 0o600/);
+  assert.doesNotMatch(iosSeeder, /refreshToken|"access_token"|"refresh_token"/);
+  assert.match(iosShell, /logout_mode == '1' and logout_receipt/);
+  assert.match(iosRunner, /--verify-backend-revocation/);
+  assert.match(iosRunner, /exists\(select 1 from auth\.sessions where id=\$1::uuid and user_id=\$2::uuid\)/);
+  assert.match(iosRunner, /count\(\*\) filter\(where revoked is not true\)::int as active_refresh_tokens/);
+  assert.match(iosRunner, /row\?\.session_exists !== false \|\| row\?\.active_refresh_tokens !== 0/);
+  assert.match(iosRunner, /ios_exact_seeded_auth_session_absent_after_single_ui_logout/);
+  assert.match(iosRunner, /ios_exact_seeded_refresh_chain_has_zero_active_tokens/);
+  assert.match(iosRunner, /rm", "-rf", remoteLogoutReceiptDir/);
+  assert.match(iosRunner, /logoutSessionReceiptRemoved/);
 });
 
 test("iOS logout postflight activates Profile logout and rejects restored private state", () => {

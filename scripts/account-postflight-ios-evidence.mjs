@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import pg from "pg";
+
+const { Client } = pg;
 
 const RAW_ARGS = process.argv.slice(2);
 const LOGOUT_MODE = RAW_ARGS.includes("--logout");
+const VERIFY_BACKEND_REVOCATION = RAW_ARGS.includes("--verify-backend-revocation");
 const lifecycleIndex = RAW_ARGS.indexOf("--lifecycle-action");
 const LIFECYCLE_ACTION = lifecycleIndex >= 0 ? RAW_ARGS[lifecycleIndex + 1] : "";
 if (LIFECYCLE_ACTION && !["deactivate", "delete"].includes(LIFECYCLE_ACTION)) {
@@ -14,6 +18,7 @@ if (LIFECYCLE_ACTION && !["deactivate", "delete"].includes(LIFECYCLE_ACTION)) {
 }
 const LIFECYCLE_MODE = Boolean(LIFECYCLE_ACTION);
 if (LOGOUT_MODE && LIFECYCLE_MODE) throw new Error("conflicting_account_postflight_modes");
+if (VERIFY_BACKEND_REVOCATION && !LOGOUT_MODE) throw new Error("backend_revocation_requires_logout_mode");
 const CHECK = LIFECYCLE_MODE ? `ACCOUNT-LIFECYCLE-IOS-${LIFECYCLE_ACTION.toUpperCase()}-REAL-001`
   : LOGOUT_MODE ? "AUTH-LOGOUT-IOS-REAL-001" : "ACCOUNT-POSTFLIGHT-IOS-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
@@ -33,6 +38,8 @@ const report = {
 let localCredentials;
 let remoteCredentials;
 let remoteRuntimeBackup;
+let remoteLogoutReceiptDir;
+let localLogoutReceiptDir;
 try {
   const credentials = (await loadCredentials()).a;
   localCredentials = join(await mkdirTemp("quata-ios-account-postflight-credentials-"), "credentials.json");
@@ -65,6 +72,12 @@ printf '{"head":"%s","workingTreeDirty":%s}\\n' "$head" "$dirty"
   remoteRuntimeBackup = await prepareRemotePublicRuntimeConfig(options);
   report.steps.push("ios_public_runtime_xcconfig_prepared_transiently");
 
+  if (VERIFY_BACKEND_REVOCATION) {
+    remoteLogoutReceiptDir = (await runCapture("ssh", [options.host, "mktemp", "-d", "/tmp/quata-ios-auth-logout-receipt.XXXXXX"])).trim();
+    await run("ssh", [options.host, "chmod", "700", remoteLogoutReceiptDir]);
+    localLogoutReceiptDir = await mkdirTemp("quata-ios-auth-logout-receipt-");
+  }
+
   if (options.buildFirst) {
     await runSshScript(options.host, `
 set -euo pipefail
@@ -85,6 +98,11 @@ scripts/build-ios-intel-simulator-signed.sh
     report.steps.push("ios_authenticated_profile_logout_control_activated");
     report.steps.push("ios_public_feed_visible_after_logout");
     report.steps.push("ios_keychain_session_absent_after_relaunch");
+    if (VERIFY_BACKEND_REVOCATION) {
+      report.backendRevocation = await verifyBackendRevocation();
+      report.steps.push("ios_exact_seeded_auth_session_absent_after_single_ui_logout");
+      report.steps.push("ios_exact_seeded_refresh_chain_has_zero_active_tokens");
+    }
   } else {
     report.steps.push("ios_account_root_navigation_and_lifecycle_cancellation_verified");
     report.steps.push("ios_authenticated_session_preserved_after_cancellation_and_relaunch");
@@ -113,11 +131,20 @@ scripts/build-ios-intel-simulator-signed.sh
     report.cleanup.remoteCredentialsError = safeFailure(error);
     report.status = "failed";
   });
+  if (remoteLogoutReceiptDir) await run("ssh", [options.host, "rm", "-rf", remoteLogoutReceiptDir]).catch((error) => {
+    report.cleanup.remoteLogoutReceiptError = safeFailure(error);
+    report.status = "failed";
+  });
+  if (localLogoutReceiptDir) await rm(localLogoutReceiptDir, { recursive: true, force: true }).catch((error) => {
+    report.cleanup.localLogoutReceiptError = safeFailure(error);
+    report.status = "failed";
+  });
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch((error) => {
     report.cleanup.localCredentialsError = safeFailure(error);
     report.status = "failed";
   });
   report.cleanup.temporaryCredentialsRemoved = !report.cleanup.remoteCredentialsError && !report.cleanup.localCredentialsError;
+  report.cleanup.logoutSessionReceiptRemoved = !report.cleanup.remoteLogoutReceiptError && !report.cleanup.localLogoutReceiptError;
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -139,6 +166,9 @@ cd ${shellQuote(options.project)}
 export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
+    export QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE=${shellQuote(
+      VERIFY_BACKEND_REVOCATION ? `${remoteLogoutReceiptDir}/session.json` : "",
+    )}
     export QUATA_IOS_AUTH_LOGOUT_UI_E2E=${shellQuote(LOGOUT_MODE ? "1" : "0")}
     export QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E=${shellQuote(LIFECYCLE_MODE ? "1" : "0")}
     export QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION=${shellQuote(LIFECYCLE_ACTION)}
@@ -168,11 +198,14 @@ function parseArgs(args) {
       : LOGOUT_MODE ? "auth-login-logout-evidence" : "account-postflight-evidence"),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
+    dbUrlFile: process.env.QUATA_SUPABASE_DB_URL_FILE?.trim() || "",
+    tlsCaFile: process.env.QUATA_SUPABASE_DB_TLS_CA_FILE?.trim() || "",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
     if (key === "--logout") continue;
+    if (key === "--verify-backend-revocation") continue;
     if (key === "--lifecycle-action") {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
@@ -190,14 +223,63 @@ function parseArgs(args) {
       if (key === "--simulator") parsed.simulatorUdid = value;
     } else if (key === "--build-first") {
       parsed.buildFirst = true;
+    } else if (["--db-url-file", "--tls-ca-file"].includes(key)) {
+      if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
+      index += 1;
+      if (key === "--db-url-file") parsed.dbUrlFile = value;
+      else parsed.tlsCaFile = value;
     } else {
       throw new Error(`unknown_argument:${key}`);
     }
   }
   if (!parsed.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
+  if (VERIFY_BACKEND_REVOCATION && (!parsed.dbUrlFile || !parsed.tlsCaFile)) {
+    throw new Error("backend_revocation_private_db_input_required");
+  }
   parsed.output = resolve(parsed.output);
   parsed.evidenceDir = resolve(parsed.evidenceDir);
   return parsed;
+}
+
+async function verifyBackendRevocation() {
+  const remote = `${options.host}:${remoteLogoutReceiptDir}/session.json`;
+  const local = join(localLogoutReceiptDir, "session.json");
+  await run("scp", [remote, local]);
+  const receipt = JSON.parse(await readFile(local, "utf8"));
+  if (![receipt.session_id, receipt.auth_user_id].every((value) => isUuid(value))) {
+    throw new Error("logout_session_receipt_invalid");
+  }
+  const client = new Client({
+    connectionString: (await readFile(options.dbUrlFile, "utf8")).trim(),
+    ssl: { ca: await readFile(options.tlsCaFile, "utf8"), rejectUnauthorized: true },
+  });
+  await client.connect();
+  try {
+    const result = await client.query(`
+      select
+        exists(select 1 from auth.sessions where id=$1::uuid and user_id=$2::uuid) as session_exists,
+        count(*) filter(where revoked is not true)::int as active_refresh_tokens
+      from auth.refresh_tokens
+      where session_id=$1::uuid
+    `, [receipt.session_id, receipt.auth_user_id]);
+    const row = result.rows[0];
+    if (result.rowCount !== 1 || row?.session_exists !== false || row?.active_refresh_tokens !== 0) {
+      throw new Error("logout_backend_revocation_not_observed");
+    }
+    return {
+      verified: true,
+      sessionExists: false,
+      activeRefreshTokens: 0,
+      sessionReceiptSha256: createHash("sha256")
+        .update(`${receipt.session_id}:${receipt.auth_user_id}`, "utf8").digest("hex"),
+    };
+  } finally {
+    await client.end();
+  }
+}
+
+function isUuid(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 }
 
 async function loadCredentials() {

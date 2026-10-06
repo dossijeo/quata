@@ -36,6 +36,10 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
             completionCount += 1
             XCTAssertNil(error, "The production login completion must not return an error.")
             XCTAssertNotNil(session, "The production login completion must return an authenticated session.")
+            if let receiptPath = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE"],
+               !receiptPath.isEmpty {
+                XCTAssertNoThrow(try writeLogoutSessionReceipt(session: session, path: receiptPath))
+            }
             completed.fulfill()
         }
 
@@ -69,6 +73,33 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
         XCTAssertNil(session.restoredSession(), "Visual-gate cleanup must remove the Keychain session.")
         XCTAssertFalse(runtimeBootstrap.hasRestoredSession(), "The production runtime must return to anonymous state.")
     }
+}
+
+private func writeLogoutSessionReceipt(session: AuthSession?, path: String) throws {
+    guard let session,
+          UUID(uuidString: session.authUserId) != nil,
+          let sessionId = jwtSessionId(session.accessToken),
+          UUID(uuidString: sessionId) != nil else {
+        throw AuthSeederConfigurationError.invalidSessionReceipt
+    }
+    let data = try JSONSerialization.data(
+        withJSONObject: ["session_id": sessionId, "auth_user_id": session.authUserId],
+        options: [.sortedKeys],
+    )
+    let url = URL(fileURLWithPath: path)
+    try data.write(to: url, options: .atomic)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+}
+
+private func jwtSessionId(_ token: String) -> String? {
+    let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+    guard parts.count == 3 else { return nil }
+    var encoded = String(parts[1]).replacingOccurrences(of: "-", with: "+")
+        .replacingOccurrences(of: "_", with: "/")
+    encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+    guard let data = Data(base64Encoded: encoded),
+          let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+    return payload["session_id"] as? String
 }
 
 private struct AuthSeederCredentials: Decodable {
@@ -116,12 +147,14 @@ private enum AuthSeederConfigurationError: LocalizedError {
     case invalidCredentials
     case invalidCountryCode
     case unsupportedCountryCode
+    case invalidSessionReceipt
 
     var errorDescription: String? {
         switch self {
         case .invalidCredentials: return "The auth seeder file has an invalid credential shape."
         case .invalidCountryCode: return "The auth seeder country code does not match the E.164 phone."
         case .unsupportedCountryCode: return "The current iOS seeder requires Equatorial Guinea country code 240."
+        case .invalidSessionReceipt: return "The seeded session cannot produce a private logout receipt."
         }
     }
 }

@@ -11,6 +11,7 @@ set -euo pipefail
 : "${QUATA_IOS_AUTH_LOGOUT_UI_E2E:=0}"
 : "${QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E:=0}"
 : "${QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION:=}"
+: "${QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE:=}"
 if [[ "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" == "1" && ! "$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" =~ ^(deactivate|delete)$ ]]; then
   echo "QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION must be deactivate or delete." >&2
   exit 2
@@ -45,9 +46,9 @@ run_bounded() {
 run_bounded bootstatus 120 "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/bootstatus.log" \
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" "$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_AUTH_LOGOUT_UI_E2E" "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" "$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" "$QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE" <<'PY'
 import plistlib, sys
-path, credentials, logout_mode, lifecycle_mode, lifecycle_action = sys.argv[1:]
+path, credentials, logout_mode, lifecycle_mode, lifecycle_action, logout_receipt = sys.argv[1:]
 with open(path, 'rb') as stream:
     data = plistlib.load(stream)
 matched = set()
@@ -56,6 +57,8 @@ def patch(target, hint=''):
     env = target.setdefault('EnvironmentVariables', {})
     if 'QuataIosTests' in name:
         env['QUATA_IOS_AUTH_E2E_FILE'] = credentials
+        if logout_mode == '1' and logout_receipt:
+            env['QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE'] = logout_receipt
         matched.add('seed')
     if 'QuataIosUITests' in name:
         env['QUATA_IOS_AUTH_E2E_FILE'] = credentials
