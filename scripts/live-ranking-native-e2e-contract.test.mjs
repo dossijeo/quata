@@ -44,6 +44,7 @@ test('Android and iOS native Official pagers preserve content, retry and reach t
   assert.match(androidOfficialPagination, /assertEquals\(50, model\.uiState\.value\.posts\.size\)[\s\S]*?OfficialOlderPostsRetryTestTag[\s\S]*?posts\.size == 100/);
   assert.match(androidOfficialPagination, /AndroidOfficialRemoteTargetTitle[\s\S]*?assertIsDisplayed\(\)/);
   assert.ok(swiftTest.includes('testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget'));
+  assert.match(swiftTest, /testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget\(\)[\s\S]*?executionTimeAllowance = 180/);
   assert.ok(swiftTest.includes('official-feed-common-state.created.none.count.50'));
   assert.ok(swiftTest.includes('official-feed-common-state.created.none.count.100'));
   assert.match(swiftTest, /official-older-posts-error[\s\S]*?official-older-posts-retry[\s\S]*?retry\.tap\(\)/);

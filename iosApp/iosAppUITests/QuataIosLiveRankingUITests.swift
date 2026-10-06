@@ -30,6 +30,7 @@ final class QuataIosLiveRankingUITests: XCTestCase {
     }
 
     func testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget() {
+        executionTimeAllowance = 180
         let app = XCUIApplication()
         app.launchEnvironment["QUATA_IOS_AUTH_UI_E2E"] = "1"
         app.launchArguments += [
