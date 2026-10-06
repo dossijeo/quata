@@ -101,6 +101,7 @@ function parseArgs(argv) {
     notificationInboxPropagationOnly: false,
     documentAttachmentOnly: false,
     documentRetryLocalOnly: false,
+    deepLinkRetryLocalOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
     attachmentPickerSource: "document",
@@ -292,6 +293,12 @@ function parseArgs(argv) {
       result.documentRetryLocalOnly = true;
       result.output = resolve("build-reports/web/document-retry-local-evidence.json");
       result.evidenceDir = resolve("build-reports/web/document-retry-local-evidence");
+      continue;
+    }
+    if (key === "--deep-link-retry-local-only") {
+      result.deepLinkRetryLocalOnly = true;
+      result.output = resolve("build-reports/web/deep-link-retry-local-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/deep-link-retry-local-evidence");
       continue;
     }
     if (key === "--attachment-picker-only") {
@@ -1746,6 +1753,30 @@ async function openLocalDocumentRetryPage(browser, origin, faults) {
     return root && (root.querySelector("canvas") || root.shadowRoot?.querySelector("canvas"));
   }, { timeout: 45_000 });
   await delay(1_500);
+  return { context, page };
+}
+
+async function openLocalDeepLinkRetryPage(browser, origin, faults) {
+  const context = await browser.newContext({ viewport: { width: 430, height: 932 } });
+  const page = await context.newPage();
+  page.on("pageerror", (error) => faults.push(redactBrowserRuntimeFault({
+    type: "pageerror",
+    message: String(error?.message ?? "pageerror"),
+    stack: typeof error?.stack === "string" ? error.stack : undefined,
+  })));
+  page.on("console", (entry) => {
+    if (entry.type() !== "error") return;
+    faults.push(redactBrowserRuntimeFault({ type: "console_error", text: entry.text() }));
+  });
+  const conversationId = "local:document-retry";
+  const query = "quata-chat-document-retry-e2e=1&quata-chat-deep-link-retry-e2e=1";
+  await page.goto(`${origin}/?${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    `chat/${conversationId}`,
+    { timeout: 45_000 },
+  );
   return { context, page };
 }
 
@@ -7374,6 +7405,52 @@ let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
 try {
+  if (options.deepLinkRetryLocalOnly) {
+    config = await publicBackendConfig();
+    distribution = await configuredDistribution(options.distribution, config);
+    server = await startServer(distribution);
+    browser = await chromium.launch({
+      executablePath: options.chrome,
+      headless: true,
+      args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
+    });
+    pageContext = await openLocalDeepLinkRetryPage(browser, server.origin, faults);
+    const failure = await visibleExactAriaLocator(pageContext.page, "chat.read.failure", 30_000);
+    const retry = await visibleExactAriaLocator(pageContext.page, "chat.read.retry", 5_000);
+    if (!failure || !retry) throw new Error("deep_link_retry_controls_missing");
+    report.evidence.beforeRetry = await attachScreenshot(
+      pageContext.page,
+      options.evidenceDir,
+      "web-deep-link-retry-failure",
+    );
+    await retry.click();
+    const recovered = await visibleExactAriaLocator(
+      pageContext.page,
+      "chat.message.local-document-retry-message",
+      30_000,
+    );
+    if (!recovered) throw new Error("deep_link_retry_message_not_recovered");
+    if (await visibleExactAriaLocator(pageContext.page, "chat.read.failure", 1_000)) {
+      throw new Error("deep_link_retry_failure_remained_visible");
+    }
+    report.evidence.afterRetry = await attachScreenshot(
+      pageContext.page,
+      options.evidenceDir,
+      "web-deep-link-retry-recovered",
+    );
+    const route = await pageContext.page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route"));
+    if (route !== "chat/local:document-retry") throw new Error("deep_link_retry_route_changed");
+    if (faults.length) throw new Error("browser_runtime_fault");
+    report.status = "passed";
+    report.check = "FLOW-DEEP-LINKS-WEB-RETRY-001";
+    report.steps.push("deep_link_failure_visible", "native_retry_clicked", "exact_conversation_recovered");
+    report.fixture = {
+      conversationId: "local:document-retry",
+      messageId: "local-document-retry-message",
+      backend: "not_used",
+    };
+    throw new EvidenceCompleted();
+  }
   if (options.documentRetryLocalOnly) {
     config = await publicBackendConfig();
     distribution = await configuredDistribution(options.distribution, config);

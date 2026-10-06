@@ -383,8 +383,13 @@ data class ChatScreenHostSlots(
 
 @Composable
 private fun ChatReadFailureContent(message: String, retryLabel: String, onRetry: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(14.dp).semantics { testTag = "chat.read.failure" },
+    ) {
         Text(message, color = MaterialTheme.colorScheme.error)
-        Button(onClick = onRetry) { Text(retryLabel) }
+        Button(
+            onClick = onRetry,
+            modifier = Modifier.semantics { testTag = "chat.read.retry" },
+        ) { Text(retryLabel) }
     }
 }

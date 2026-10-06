@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 
 const val DocumentRetryEvidenceConversationId = "local:document-retry"
 const val DocumentRetryEvidenceMessageId = "local-document-retry-message"
@@ -29,7 +30,9 @@ class DocumentRetryEvidenceChatRepository(
     attachmentReference: String,
     attachmentName: String = DocumentRetryEvidenceDocumentName,
     attachmentMimeType: String = DocumentRetryEvidenceDocumentMime,
+    private val failFirstMessageObservation: Boolean = false,
 ) : ChatRepository {
+    private var messageObservationAttempts = 0
     private val user = User("local-document-retry-user", "document-retry@invalid", "Prueba local")
     private val conversations = MutableStateFlow(
         listOf(
@@ -82,7 +85,17 @@ class DocumentRetryEvidenceChatRepository(
     override suspend fun getConversations(): Result<List<Conversation>> = Result.success(conversations.value)
     override fun observeConversations(): Flow<List<Conversation>> = conversations
     override fun observeMessages(conversationId: String): Flow<List<Message>> =
-        if (conversationId == DocumentRetryEvidenceConversationId) messages else flowOf(emptyList())
+        if (conversationId != DocumentRetryEvidenceConversationId) {
+            flowOf(emptyList())
+        } else {
+            flow {
+                val attempt = messageObservationAttempts++
+                if (failFirstMessageObservation && attempt == 0) {
+                    error("deep_link_retry_fixture_initial_failure")
+                }
+                emit(messages.value)
+            }
+        }
     override suspend fun loadOlderMessages(conversationId: String, limit: Int): Result<Boolean> = Result.success(false)
     override fun observeParticipantCandidates(): Flow<List<User>> = flowOf(emptyList())
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int) =

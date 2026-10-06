@@ -961,6 +961,30 @@ private final class IosAppCompositionRoot {
             )
             router.showChat(conversationId: "local:document-retry", messageId: "local-document-retry-message")
             return router
+        case "deep-link-retry-local":
+            guard
+                ProcessInfo.processInfo.environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"] ==
+                    "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE",
+                ProcessInfo.processInfo.environment["QUATA_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE_OPT_IN"] ==
+                    "I_ACCEPT_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE",
+                let localChatRuntimeBootstrap = IosChatRuntimeBootstrapKt
+                    .createIosDocumentRetryLocalRuntimeBootstrap()
+            else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-deep-link-retry-local"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS local deep-link retry fixture unavailable"
+                return fixtureRoot
+            }
+            let router = IosAuthenticatedHostRouter(platformServices: platformServices)
+            router.installUiTestRoutes()
+            router.installAuthenticatedChat(
+                localChatRuntimeBootstrap,
+                profileOpeningState: memberProfileOpeningState,
+                onOpenProfile: { _ in },
+            )
+            let dispatcher = IosDeepLinkDispatcher()
+            dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
+            _ = dispatcher.handleUrl(url: "quata://egquata.com/#chat-local%3Adocument-retry")
+            return router
         case "shell-layout":
             // Mount the production UIKit shell with inert local route controllers. This fixture
             // exercises real containment, safe-area and rotation layout without restoring

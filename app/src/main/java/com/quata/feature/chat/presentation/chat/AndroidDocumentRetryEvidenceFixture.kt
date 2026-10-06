@@ -7,6 +7,8 @@ import java.io.File
 private const val DocumentRetryEvidencePreferences = "quata_chat_evidence"
 private const val DocumentRetryEvidenceOptInKey = "documentRetryLocal.optIn"
 private const val DocumentRetryEvidenceOptIn = "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE"
+private const val DeepLinkRetryEvidenceOptInKey = "deepLinkRetryLocal.optIn"
+private const val DeepLinkRetryEvidenceOptIn = "I_ACCEPT_ANDROID_DEEP_LINK_RETRY_LOCAL_FIXTURE"
 private const val DocumentRetryEvidenceAsset = "legal/privacy_es.docx"
 
 /** Local, explicit alternative to remote fixture seeding when Supabase Auth is unavailable. */
@@ -22,7 +24,15 @@ internal fun androidDocumentRetryEvidenceRepositoryOrNull(context: Context): Cha
         }
         fixture.isFile && fixture.length() > 0L
     }.getOrDefault(false)
-    return if (prepared) DocumentRetryEvidenceChatRepository(fixture.absolutePath) else null
+    val failFirstMessageObservation = optedIn &&
+        context.getSharedPreferences(DocumentRetryEvidencePreferences, Context.MODE_PRIVATE)
+            .getString(DeepLinkRetryEvidenceOptInKey, null) == DeepLinkRetryEvidenceOptIn
+    return if (prepared) {
+        DocumentRetryEvidenceChatRepository(
+            attachmentReference = fixture.absolutePath,
+            failFirstMessageObservation = failFirstMessageObservation,
+        )
+    } else null
 }
 
 internal fun androidDocumentRetryEvidenceFile(context: Context): File =

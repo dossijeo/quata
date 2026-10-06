@@ -168,6 +168,7 @@ private fun iosChatDocumentRetryLocalFixtureOrNull(): IosChatDocumentRetryLocalF
             attachmentReference = path,
             attachmentName = "quata-document-retry.rtf",
             attachmentMimeType = "application/rtf",
+            failFirstMessageObservation = iosChatDeepLinkRetryLocalFixtureOptedIn(),
         ),
         path = path,
     )
@@ -275,3 +276,7 @@ fun createIosDocumentRetryLocalRuntimeBootstrap(): IosChatRuntimeBootstrap? {
 private fun iosChatDocumentRetryLocalFixtureOptedIn(): Boolean =
     NSProcessInfo.processInfo.environment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"]?.toString() ==
         "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"
+
+private fun iosChatDeepLinkRetryLocalFixtureOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment["QUATA_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE_OPT_IN"]?.toString() ==
+        "I_ACCEPT_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE"
