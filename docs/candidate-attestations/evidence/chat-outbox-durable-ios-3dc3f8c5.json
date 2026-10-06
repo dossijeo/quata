@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "check": "CHAT-OUTBOX-DURABLE-IOS-001",
+  "status": "passed",
+  "sourceReportSha256": "b657e6d00b3b432ac3a686399a39140aea949acd617b33ac9abd92ea612b1df6",
+  "git": {
+    "head": "3dc3f8c522507c5c9758cf0f31ad56b9785a21ce",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_product_queued_offline_message_recreated_app_and_recovered_network",
+    "backend_observed_exact_message_once_after_ios_replay"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "exact_test_message_deleted",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "session_a_revoked",
+      "session_b_revoked",
+      "remote_credentials_removed_and_verified",
+      "local_credentials_removed_and_verified"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "exactRemoteCount": 1,
+    "buildProvenanceSha256": "399e778c15d205248e937c6aabbd132bcf2048d8f1e0316e4b319d1037b2283b",
+    "appBinarySha256": "b10cc90d7cd7ac4b80ae7294d3f9c77981343b49c3124d2006166d2f375212ef",
+    "sharedFrameworkSha256": "66f67f758a07785c09c85b6a59882accffa385400c71e87b2ce3d8181978ea1e",
+    "xctestrunSha256": "6e3d1c5667f6d340dbb8a8655cdd1cd6e5dd6e9f42af776dafe11b1e54dd6fd7",
+    "seedLogSha256": "f44c253ac37915bf583f5a156ee9a5e37270414076db8ff2124f119def7ae9a8",
+    "uiLogSha256": "d630630d6a20b1db00107e205ccea0c960db091de9ff94055b2a3d8e192b5a8d",
+    "clearLogSha256": "d83c670d67211675d0c2bf36aa3402d50bcf79d7068efae132788f491633f3ef",
+    "executedMethods": [
+      "testSeedAuthenticatedSessionForVisualGates",
+      "testDurableOutboxSurvivesAppRecreationAndReplaysAfterNetworkRecovery",
+      "testClearAuthenticatedSessionAfterVisualGates"
+    ]
+  },
+  "notes": [
+    "The signed Simulator run queued offline, terminated the app, restored the exact local echo in a second offline process, then relaunched with a bounded offline-to-online transition and observed one remote message.",
+    "The final coordinator ran on exact clean head 3dc3f8c5 and verified independent Auth/Web Push logout plus deletion of both local and remote credential copies after revoking both sessions.",
+    "The signed runtime binary remains the accepted c255ca96 build; later commits change only capability metadata and the evidence harness.",
+    "The committed projection omits local paths, raw marker text, credentials, session material, xcresult payloads and command output."
+  ]
+}
