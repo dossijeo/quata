@@ -672,6 +672,17 @@ jobs:
             -parallel-testing-enabled NO \
             -maximum-parallel-testing-workers 1 \
             test
+          deep_link_retry_test="QuataIosExternalChatLinkUITests testLocalDeepLinkReadFailureRetryRecoversExactConversation"
+          if ! grep -F "$deep_link_retry_test" build/reports/ios/xcodebuild-tests.log \
+            | grep -F "passed" >/dev/null; then
+            echo "::error::Deep-link retry focal XCTest did not report a passed semantic execution"
+            exit 1
+          fi
+          if grep -F "$deep_link_retry_test" build/reports/ios/xcodebuild-tests.log \
+            | grep -Ei "skipped|disabled" >/dev/null; then
+            echo "::error::Deep-link retry focal XCTest was skipped or disabled"
+            exit 1
+          fi
 
       - name: Capture simulator diagnostics
         if: always()

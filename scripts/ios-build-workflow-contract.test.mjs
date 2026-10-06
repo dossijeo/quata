@@ -315,10 +315,22 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the global host suite must not rerun the focal Feed playback class');
   assert.match(invocation, /-skip-testing:QuataIosUITests\/QuataIosLiveRankingUITests/,
     'the global host suite must not rerun the focal native live Ranking class');
+  assert.doesNotMatch(invocation, /-skip-testing:QuataIosUITests\/QuataIosExternalChatLinkUITests/,
+    'the global host suite must execute the external Chat deep-link retry XCTest');
   assert.match(
     invocation,
     /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
     'the effective xcodebuild test invocation must end with isolated runtime settings and serialized tests',
+  );
+  assert.match(
+    uiTestBlock,
+    /QuataIosExternalChatLinkUITests testLocalDeepLinkReadFailureRetryRecoversExactConversation[\s\S]*?grep -F "passed"[\s\S]*?Deep-link retry focal XCTest did not report a passed semantic execution/,
+    'the final iOS lane must fail closed unless the deep-link retry XCTest reports a pass',
+  );
+  assert.match(
+    uiTestBlock,
+    /Deep-link retry focal XCTest was skipped or disabled/,
+    'the final iOS lane must reject a skipped or disabled deep-link retry XCTest',
   );
 }
 
