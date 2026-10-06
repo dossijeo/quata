@@ -27,7 +27,7 @@ xctestrun="$patched_xctestrun"
 redact_diagnostics() {
   /usr/bin/python3 -c '
 import re, sys
-secret = re.compile(r"(?i)(bearer\\s+|authorization\\s*[:=]\\s*|token\\s*[:=]\\s*|password\\s*[:=]\\s*|apikey\\s*[:=]\\s*)[^\\s,;]+")
+secret = re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+|bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+")
 for line in sys.stdin:
     print(secret.sub(lambda match: match.group(1) + "[REDACTED]", line), end="")
 '
@@ -56,7 +56,7 @@ run_bounded() {
   /usr/bin/python3 "$watchdog" --timeout-seconds "$seconds" --log "$log" -- "$@"
   local status=$?
   set -e
-  cat "$log"
+  redact_diagnostics < "$log"
   if [[ "$status" -eq 124 ]]; then
     timeout_diagnostics "$label"
   fi
@@ -106,7 +106,7 @@ run_and_require() {
   if [[ -n "$QUATA_IOS_CHAT_OUTBOX_DURABLE_RESULT_BUNDLE_DIR" ]]; then
     mkdir -p "$QUATA_IOS_CHAT_OUTBOX_DURABLE_RESULT_BUNDLE_DIR"
     local result_bundle="$QUATA_IOS_CHAT_OUTBOX_DURABLE_RESULT_BUNDLE_DIR/${method}.xcresult"
-    rm -rf "$result_bundle"
+    [[ ! -e "$result_bundle" ]] || { echo "Refusing existing result bundle: $result_bundle" >&2; return 2; }
     result_args=(-resultBundlePath "$result_bundle")
   fi
   run_bounded "$method" "$timeout_seconds" "$log" \

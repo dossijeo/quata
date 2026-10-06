@@ -36,10 +36,17 @@ try {
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
 
   const users = usersFromEnvironment();
-  [state.a, state.b] = await Promise.all([login(config, users[0]), login(config, users[1])]);
+  const loginA = login(config, users[0]).then((session) => (state.a = session));
+  const loginB = login(config, users[1]).then((session) => (state.b = session));
+  const loginResults = await Promise.allSettled([loginA, loginB]);
+  const loginFailure = loginResults.find((result) => result.status === "rejected");
+  if (loginFailure) throw loginFailure.reason;
   report.steps.push("two_authorized_profiles_logged_in");
 
   const runId = randomUUID();
+  const remoteRunDirectory = `run-${runId}`;
+  options.remoteLogDir = `${options.remoteLogDir}/${remoteRunDirectory}`;
+  options.remoteResultBundleDir = `${options.remoteResultBundleDir}/${remoteRunDirectory}`;
   state.uniqueKey = `qadata-chat-outbox-durable-ios-${runId}`;
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
@@ -152,13 +159,30 @@ bash scripts/run-ios-chat-outbox-durable-ui-test.sh
       cleanup.actions.push(`session_${session.label.toLowerCase()}_revoked`);
     } catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
   }
+  if (remoteCredentials) {
+    try {
+      await runSshScript(options.host, `
+set -euo pipefail
+credential=${shellQuote(remoteCredentials)}
+rm -f -- "$credential"
+[[ ! -e "$credential" ]]
+`);
+      cleanup.actions.push("remote_credentials_removed_and_verified");
+    } catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
+  }
+  if (localCredentials) {
+    try {
+      const localCredentialDirectory = dirname(localCredentials);
+      await rm(localCredentialDirectory, { recursive: true, force: true });
+      if (existsSync(localCredentialDirectory)) throw new Error("local_credentials_cleanup_not_verified");
+      cleanup.actions.push("local_credentials_removed_and_verified");
+    } catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
+  }
   if (cleanupFailed) {
     cleanup.state = "failed_or_incomplete";
     if (report.status === "passed") { report.status = "failed"; report.error = cleanup.error ?? "cleanup_residue_detected"; }
   }
   report.cleanup = cleanup;
-  if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
-  if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });

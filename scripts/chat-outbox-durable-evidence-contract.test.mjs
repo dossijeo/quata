@@ -38,6 +38,14 @@ test("iOS evidence gates network control and proves replay after process recreat
   assert.match(iosCoordinator, /all\.length !== 1/);
   assert.match(iosCoordinator, /cleanup_verified_physical_residue_absent/);
   assert.match(iosCoordinator, /session_\$\{session\.label\.toLowerCase\(\)\}_revoked/);
+  assert.match(iosCoordinator, /login\(config, users\[0\]\)\.then\(\(session\) => \(state\.a = session\)\)/);
+  assert.match(iosCoordinator, /login\(config, users\[1\]\)\.then\(\(session\) => \(state\.b = session\)\)/);
+  assert.match(iosCoordinator, /Promise\.allSettled\(\[loginA, loginB\]\)/);
+  assert.match(iosCoordinator, /remote_credentials_removed_and_verified/);
+  assert.match(iosCoordinator, /local_credentials_removed_and_verified/);
+  assert.match(iosShell, /redact_diagnostics < "\$log"/);
+  assert.match(iosShell, /Refusing existing result bundle/);
+  assert.doesNotMatch(iosShell, /rm -rf "\$result_bundle"/);
   assert.match(iosBuild, /:ios-shared:compileKotlinIosX64 :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand/);
 });
 
