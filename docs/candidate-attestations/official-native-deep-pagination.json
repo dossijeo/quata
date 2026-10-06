@@ -44,7 +44,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "692a0e8df3bb9d384daaded731e5472009d84fdb",
+    "reviewedSha": "16a5cae3abdce53b2760f0c22e11cc934f678aa7",
     "blockingFindings": [],
     "resolvedFindings": [
       "P1: the first reviewed head left the new 155-second XCTest under the CI step's 90-second default allowance. Product SHA 55708b11 requests a focal 180-second allowance, the contract requires it, and the exact test passes with the gate's unchanged default=90 and maximum=180 parameters."
