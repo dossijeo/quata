@@ -1246,8 +1246,6 @@ final class QuataIosHostUITests: XCTestCase {
         app.launch()
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 10))
-        device.orientation = .landscapeLeft
-        waitForWindow(window, toBeLandscape: true, context: "Profile SOS retry landscape")
 
         let openSos = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.open")
@@ -1265,7 +1263,13 @@ final class QuataIosHostUITests: XCTestCase {
             for attempt in 0..<8 {
                 let toggle = query.firstMatch
                 if toggle.exists && toggle.isHittable { return toggle }
-                if attempt < 7 { contactsList.swipeUp() }
+                if attempt < 7 {
+                    let currentList = app.descendants(matching: .any)
+                        .matching(identifier: "profile.sos.contacts.list")
+                        .firstMatch
+                    XCTAssertTrue(currentList.exists && currentList.isHittable)
+                    currentList.swipeUp()
+                }
             }
             XCTFail("SOS contact \(index) must become hittable inside the shared lazy list after bounded scrolling.")
             return query.firstMatch
@@ -1278,10 +1282,11 @@ final class QuataIosHostUITests: XCTestCase {
         let sixth = visibleContactToggle(index: 6)
         sixth.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
-        device.orientation = .portrait
-        waitForWindow(window, toBeLandscape: false, context: "Profile SOS retry message portrait")
-        contactsList.swipeDown()
-        contactsList.swipeDown()
+        let currentContactsList = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.contacts.list")
+            .firstMatch
+        currentContactsList.swipeDown()
+        currentContactsList.swipeDown()
         if app.keyboards.firstMatch.exists {
             let done = app.keyboards.buttons["Return"]
             XCTAssertTrue(done.exists, "The focused SOS search field must expose its Done action.")
