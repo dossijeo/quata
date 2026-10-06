@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-OFFICIAL",
+    "OVR-LIVE-RANKING"
+  ],
+  "status": "passed",
+  "productSha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
+  "certification": "official-native-deep-pagination-fail-closed-retry-exact-target",
+  "evidenceKind": "ANDROID_INSTRUMENTATION_AND_IOS_SIMULATOR_NATIVE_UI",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
+      "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-3d079a5f.json",
+      "reportSha256": "831bbc75d6e11afda77651cf839eec86c992b3ff4099e72c9252c688ce922981",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-instrumentation-fixture-no-backend-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "3d079a5f6487937b2812ebde2c1cbd7b0c975cc9",
+      "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-3d079a5f.json",
+      "reportSha256": "831bbc75d6e11afda77651cf839eec86c992b3ff4099e72c9252c688ce922981",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "simulator-fixture-no-backend-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/live-ranking-native-e2e-contract.test.mjs scripts/verify-live-ranking-android-results.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.official.presentation.OfficialDeepPaginationInstrumentedTest --no-daemon --console=plain",
+    "xcodebuild SimulatorSigned -only-testing:QuataIosUITests/QuataIosLiveRankingUITests/testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget test",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-native-deep-pagination.json --head HEAD"
+  ],
+  "review": {
+    "status": "PENDING_EXACT_HEAD_REVIEW",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "scopeLimit": "Closes the documented lack of native Android and iOS deep-page navigation evidence for the existing Official 101-post fixture. It does not recertify editor, comments, media or unrelated Live/Ranking flows."
+  },
+  "notes": [
+    "Both platforms mount the real shared Official host and ViewModel over the existing hermetic 101-post fixture; neither test calls the pagination event or repository directly.",
+    "The tests prove native traversal to the prefetch boundary, preservation of the first 50 posts after the forced failure, the visible product retry, publication of 100 posts and arrival at the exact stable-identity target.",
+    "The Android run passed 1/1 on API 35. The iOS SimulatorSigned run passed 1/1 on iOS 26.5 x86_64 in 155.535 seconds with no failures or skips.",
+    "Failed iOS pilots are retained in the evidence report: generic swipe helpers did not reach the boundary reliably. The accepted helper performs a bounds-relative native drag on the discovered ScrollView and leaves product state transitions to the real pager and ViewModel.",
+    "The final Product SHA changes only the contract assertion after execution. Exact SHA-256 hashes prove that the executed Android and iOS test sources equal the sources in the Product SHA; no matrix was repeated solely for commit identity."
+  ]
+}
