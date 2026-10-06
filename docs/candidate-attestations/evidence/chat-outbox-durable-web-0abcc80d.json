@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "check": "CHAT-OUTBOX-DURABLE-WEB-001",
+  "status": "passed",
+  "sourceReportSha256": "377638623a29492cbd078e2a5e59255ab0539b49493e3b8b4f49ef3b88915d3d",
+  "git": {
+    "head": "0abcc80dd74d29bb576940a75a67606f3bf9646f",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "real_product_composer_persisted_one_indexeddb_outbox_row_offline",
+    "original_product_page_destroyed_while_outbox_remained_durable",
+    "new_product_page_restored_same_durable_outbox_row",
+    "new_product_page_observed_offline_to_online_recovery_transition",
+    "new_product_page_replayed_exact_message_after_network_recovery",
+    "remote_effect_unique_and_indexeddb_row_removed"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "exact_test_message_deleted",
+      "hard_deleted_owned_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "session_a_revoked",
+      "session_b_revoked"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "evidence": {
+    "distributionSourceRevision": "0abcc80dd74d29bb576940a75a67606f3bf9646f",
+    "webJsSha256": "1fe06d7e90bc9558c8e42ba8cd846cf841f6da85681a7bfe70ce4e7f26fc3b73",
+    "queuedOutboxRows": 1,
+    "attemptsBeforeRecovery": 0,
+    "deliveredAwaitingCleanupBeforeRecovery": false,
+    "exactRemoteCount": 1,
+    "clientMessageIdMatched": true,
+    "remainingOutboxCount": 0,
+    "browserPageErrors": [],
+    "offlineScreenshotSha256": "a2f599611485d35c710169d0045bf88e8eb960b28d5b32b7023c20365c3f5e84",
+    "replayedScreenshotSha256": "dd2e057937d9bde7bd0c06f489b8c63f9f1d02ac514849f7e7c9dddbc75d2225"
+  },
+  "notes": [
+    "The committed projection omits local paths, raw marker text, credentials, session material and command output.",
+    "No Web runtime source changed between this clean accepted run and Product SHA c255ca963c67ac27c61c463f4f4de329b20974d9."
+  ]
+}

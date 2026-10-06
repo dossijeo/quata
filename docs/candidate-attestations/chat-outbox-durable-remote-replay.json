@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-MESSAGES",
+    "CHAT-COMPOSER",
+    "FLOW-CONNECTIVITY-PRESENCE"
+  ],
+  "status": "passed",
+  "productSha": "3dc3f8c522507c5c9758cf0f31ad56b9785a21ce",
+  "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "3dc3f8c522507c5c9758cf0f31ad56b9785a21ce",
+      "report": "docs/candidate-attestations/evidence/chat-outbox-durable-web-0abcc80d.json",
+      "reportSha256": "5ba7263ef0cd7ce3ad2d00a7aa3ed1a79a0adf38905e62483a5c70bc602561ff",
+      "reportStatus": "passed",
+      "reportGitHead": "0abcc80dd74d29bb576940a75a67606f3bf9646f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "real_product_composer_persisted_one_indexeddb_outbox_row_offline",
+        "original_product_page_destroyed_while_outbox_remained_durable",
+        "new_product_page_restored_same_durable_outbox_row",
+        "new_product_page_observed_offline_to_online_recovery_transition",
+        "new_product_page_replayed_exact_message_after_network_recovery",
+        "remote_effect_unique_and_indexeddb_row_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-production-backend-reversible-browser-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "3dc3f8c522507c5c9758cf0f31ad56b9785a21ce",
+      "report": "docs/candidate-attestations/evidence/chat-outbox-durable-ios-3dc3f8c5.json",
+      "reportSha256": "15640f37c53d3aea292a64f2a9b5190dbf704207d7484d1a448dc1bcf601100a",
+      "reportStatus": "passed",
+      "reportGitHead": "3dc3f8c522507c5c9758cf0f31ad56b9785a21ce",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_product_queued_offline_message_recreated_app_and_recovered_network",
+        "backend_observed_exact_message_once_after_ios_replay"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-production-backend-reversible-signed-ios-simulator-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-outbox-durable-web-evidence.mjs scripts/chat-outbox-durable-ios-evidence.mjs",
+    "bash -n scripts/run-ios-chat-outbox-durable-ui-test.sh",
+    "npm run test:chat-outbox-durable-contract",
+    "scripts/build-ios-intel-simulator-signed.sh",
+    "node scripts/chat-outbox-durable-ios-evidence.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-outbox-durable-remote-replay.json"
+  ],
+  "notes": [
+    "Web/Wasm used the real Kotlin/Wasm composer, one IndexedDB outbox row, a destroyed source page, a fresh product page, an explicit offline-to-online transition and one authenticated remote effect with the same client_message_id.",
+    "iOS used the signed Simulator product and a real Keychain session. It accepted the send offline, terminated the process, restored the exact pending message in a second offline process, terminated again, then replayed after a bounded recovery transition in a third process.",
+    "Both runs produced exactly one backend message, removed the durable row after confirmation, deleted the exact message and owned temporary thread, verified zero physical residue and revoked both sessions.",
+    "The accepted Web report remains on clean head 0abcc80d. Diff inspection through Product SHA 3dc3f8c5 found no changes under web, core/commonMain, feature/chat or designsystem; the later Web coordinator change only captures partial login custody before validation, so the product matrix was not repeated solely for that failure-path hardening.",
+    "The final iOS coordinator ran on exact clean head 3dc3f8c5 after independent review hardened partial-login custody, independent Auth/Web Push revocation, credential cleanup, diagnostic redaction and immutable result bundles. Its signed product binary remains the accepted c255ca96 build because later commits change only the capability digest and evidence harness, so no platform matrix was repeated solely for those non-runtime changes.",
+    "Android keeps its previously integrated SQLite outbox and this candidate changes no Android product runtime. This focal closure removes only the documented missing authenticated remote replay for the Web/iOS durable outbox.",
+    "The initial iOS pilot exposed three harness issues without product mutation: fresh Mac worktrees must configure Gradle on demand, a stale Simulator install could reject the UI-test placeholder, and Xcode needed a 300-second bounded watchdog on the virtualized host. The final clean exact-head run includes those bounded fixes.",
+    "An intermediate iOS assertion raced recovery against restoration. The final test separates the proof into a second offline process for restoration and a third process for recovery, avoiding a timing-based inference.",
+    "No credentials, session values, marker text, local paths, raw command tails or xcresult payloads are committed.",
+    "This does not claim exactly-once delivery after termination during an unconfirmed remote effect; final deduplication still relies on the backend client_message_id contract. It does not promote SCR-CHAT globally or recertify unrelated push, media, group, mutation or navigation units."
+  ]
+}

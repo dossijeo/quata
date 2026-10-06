@@ -696,6 +696,61 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-audio-recording-sent")
     }
 
+    func testDurableOutboxSurvivesAppRecreationAndReplaysAfterNetworkRecovery() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OUTBOX_DURABLE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat durable-outbox gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let marker = nonEmpty(environment["QUATA_IOS_CHAT_OUTBOX_DURABLE_MARKER"]) else {
+            throw XCTSkip("Disposable Chat durable-outbox fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_CHAT_OUTBOX_DURABLE_FIXTURE_OPT_IN"] =
+            "I_ACCEPT_IOS_CHAT_OUTBOX_DURABLE_NETWORK_FIXTURE"
+        app.launchEnvironment["QUATA_IOS_CHAT_OUTBOX_DURABLE_NETWORK_MODE"] = "offline"
+        app.launch()
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "durable outbox offline conversation")
+        assertChatRoute(conversationId, in: app, context: "durable outbox offline conversation")
+        typeText(marker, into: "chat.composer.input", in: app)
+        tapTaggedButton("chat.composer.send", in: app, context: "queue durable outbox message while offline")
+        XCTAssertTrue(
+            messageText(marker, in: app).waitForExistence(timeout: 15),
+            "The offline send must project the exact local echo after accepting it into durable storage.\n\(app.debugDescription)",
+        )
+        attachScreenshot(app, name: "ios-chat-outbox-durable-offline")
+        app.terminate()
+
+        app.launchEnvironment["QUATA_IOS_CHAT_OUTBOX_DURABLE_NETWORK_MODE"] = "offline"
+        app.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "durable outbox restored offline conversation")
+        assertChatRoute(conversationId, in: app, context: "durable outbox restored offline conversation")
+        XCTAssertTrue(
+            messageText(marker, in: app).waitForExistence(timeout: 45),
+            "The recreated product host must restore the exact durable message before recovery.\n\(app.debugDescription)",
+        )
+        attachScreenshot(app, name: "ios-chat-outbox-durable-restored-offline")
+        app.terminate()
+
+        app.launchEnvironment["QUATA_IOS_CHAT_OUTBOX_DURABLE_NETWORK_MODE"] = "recover"
+        app.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "durable outbox recovered conversation")
+        assertChatRoute(conversationId, in: app, context: "durable outbox recovered conversation")
+        XCTAssertTrue(
+            messageText(marker, in: app).waitForExistence(timeout: 45),
+            "The exact durable message must remain visible while recovery replays it.\n\(app.debugDescription)",
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(8))
+        XCTAssertTrue(messageText(marker, in: app).exists, "The replayed message must remain visible after recovery settles.")
+        attachScreenshot(app, name: "ios-chat-outbox-durable-replayed")
+    }
+
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E"] == "1" else {

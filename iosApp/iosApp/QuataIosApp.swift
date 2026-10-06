@@ -441,14 +441,33 @@ private final class IosAppCompositionRoot {
     // observe its network gateway before authentication without constructing a private reader.
     private lazy var chatRuntimeBootstrap: IosChatRuntimeBootstrap? = {
         guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
-        return IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
+        let bootstrap = IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
             configuration: IosChatRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
             authSession: renewableAuthSession,
         )
+        configureChatOutboxDurableEvidenceNetworkIfRequested(bootstrap)
+        return bootstrap
     }()
+
+    private func configureChatOutboxDurableEvidenceNetworkIfRequested(_ bootstrap: IosChatRuntimeBootstrap) {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OUTBOX_DURABLE_FIXTURE_OPT_IN"] ==
+                "I_ACCEPT_IOS_CHAT_OUTBOX_DURABLE_NETWORK_FIXTURE" else { return }
+        switch environment["QUATA_IOS_CHAT_OUTBOX_DURABLE_NETWORK_MODE"] {
+        case "offline":
+            bootstrap.repository().setDeviceNetworkAvailable(isAvailable: false)
+        case "recover":
+            bootstrap.repository().setDeviceNetworkAvailable(isAvailable: false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                bootstrap.repository().setDeviceNetworkAvailable(isAvailable: true)
+            }
+        default:
+            break
+        }
+    }
     // The inbox and the shared top chrome deliberately retain one notification repository. This
     // prevents the badge from becoming a separate Swift count with different unread semantics.
     private lazy var notificationsRuntimeBootstrap: IosNotificationsRuntimeBootstrap? = {
