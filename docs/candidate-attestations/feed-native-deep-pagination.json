@@ -75,6 +75,13 @@
     "node --test scripts/live-ranking-native-e2e-contract.test.mjs scripts/verify-live-ranking-android-results.test.mjs scripts/ios-build-workflow-contract.test.mjs",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/feed-native-deep-pagination.json --head HEAD"
   ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "8793e9804c852109e9461be27bb424c09ec4c5bf",
+    "reviewedProductSha": "99e2163026d0ad7c8102989b1df69f80860dcbb4",
+    "blockingFindings": [],
+    "scopeLimit": "The independent review covers the recomposed SCR-FEED deep-pagination unit and the shared four-case native runner. Final CI remains separate."
+  },
   "notes": [
     "The common pager loads 101 unique posts as 50, 50 and 1, preserves the first page after the older-page failure and retries the exact failed cursor only after the explicit action.",
     "Android and iOS use the product Feed host. Each focal run observes retained content, visible failure, the retry control and the exact deep target after recovery.",
