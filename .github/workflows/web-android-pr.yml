@@ -671,6 +671,16 @@ jobs:
           bash ./gradlew :app:verifyDebugComposeResources --no-daemon --stacktrace --console=plain \
             2>&1 | tee build/reports/android-ci/assemble-debug.log
 
+      - name: Enable Android emulator hardware acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 0666 /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+          fi
+
       - name: Run native live Ranking focal instrumentation
         timeout-minutes: 45
         uses: reactivecircus/android-emulator-runner@v2
