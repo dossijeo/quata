@@ -23,6 +23,8 @@ test("Web evidence crosses the real composer, durable IndexedDB and recovery rep
   assert.match(web, /allRemote\.length !== 1/);
   assert.match(web, /clientMessageIdMatched/);
   assert.match(web, /cleanup_verified_physical_residue_absent/);
+  assert.match(web, /if \(candidate\.accessToken\) acceptCustody\(candidate\)/);
+  assert.match(web, /Promise\.allSettled\(\[loginA, loginB\]\)/);
 });
 
 test("iOS evidence gates network control and proves replay after process recreation", () => {
@@ -38,9 +40,11 @@ test("iOS evidence gates network control and proves replay after process recreat
   assert.match(iosCoordinator, /all\.length !== 1/);
   assert.match(iosCoordinator, /cleanup_verified_physical_residue_absent/);
   assert.match(iosCoordinator, /session_\$\{session\.label\.toLowerCase\(\)\}_revoked/);
-  assert.match(iosCoordinator, /login\(config, users\[0\]\)\.then\(\(session\) => \(state\.a = session\)\)/);
-  assert.match(iosCoordinator, /login\(config, users\[1\]\)\.then\(\(session\) => \(state\.b = session\)\)/);
+  assert.match(iosCoordinator, /login\(config, users\[0\], \(session\) => \{ state\.a = session; \}\)/);
+  assert.match(iosCoordinator, /login\(config, users\[1\], \(session\) => \{ state\.b = session; \}\)/);
   assert.match(iosCoordinator, /Promise\.allSettled\(\[loginA, loginB\]\)/);
+  assert.match(iosCoordinator, /if \(candidate\.accessToken\) acceptCustody\(candidate\)/);
+  assert.match(iosCoordinator, /if \(!webLogoutSettled \|\| !authLogoutSettled\) throw new Error\("session_logout_incomplete"\)/);
   assert.match(iosCoordinator, /remote_credentials_removed_and_verified/);
   assert.match(iosCoordinator, /local_credentials_removed_and_verified/);
   assert.match(iosShell, /redact_diagnostics < "\$log"/);

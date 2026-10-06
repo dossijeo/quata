@@ -93,7 +93,7 @@ async function jsonRequest(url, options, prefix) {
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
 }
 
-async function login(config, user) {
+async function login(config, user, acceptCustody) {
   const payload = await jsonRequest(`${config.baseUrl}/functions/v1/quata-auth-bridge`, {
     method: "POST", headers: headers(config), body: JSON.stringify({
       action: "web_login", country_code: user.countryCode, phone_local: user.phone, password: user.password,
@@ -101,8 +101,10 @@ async function login(config, user) {
     }),
   }, "public_auth_request_failed");
   const session = payload?.session, profileId = payload?.profile?.id, webSessionToken = payload?.web_session?.token;
+  const candidate = { label: user.label, profileId, accessToken: session?.access_token, refreshToken: session?.refresh_token, expiresAt: session?.expires_at, webSessionToken };
+  if (candidate.accessToken) acceptCustody(candidate);
   if (!uuid.test(profileId ?? "") || !session?.access_token || !session?.refresh_token || !Number.isFinite(session?.expires_at) || !webSessionToken) throw new Error("invalid_auth_response");
-  return { label: user.label, profileId, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
+  return candidate;
 }
 
 async function logout(config, session) {
@@ -332,7 +334,11 @@ try {
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
   const users = usersFromEnvironment();
-  [state.a, state.b] = await Promise.all([login(config, users[0]), login(config, users[1])]);
+  const loginA = login(config, users[0], (session) => { state.a = session; });
+  const loginB = login(config, users[1], (session) => { state.b = session; });
+  const loginResults = await Promise.allSettled([loginA, loginB]);
+  const loginFailure = loginResults.find((result) => result.status === "rejected");
+  if (loginFailure) throw loginFailure.reason;
   report.steps.push("two_authorized_profiles_logged_in");
 
   const runId = randomUUID();

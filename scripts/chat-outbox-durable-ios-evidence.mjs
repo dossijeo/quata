@@ -36,8 +36,8 @@ try {
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
 
   const users = usersFromEnvironment();
-  const loginA = login(config, users[0]).then((session) => (state.a = session));
-  const loginB = login(config, users[1]).then((session) => (state.b = session));
+  const loginA = login(config, users[0], (session) => { state.a = session; });
+  const loginB = login(config, users[1], (session) => { state.b = session; });
   const loginResults = await Promise.allSettled([loginA, loginB]);
   const loginFailure = loginResults.find((result) => result.status === "rejected");
   if (loginFailure) throw loginFailure.reason;
@@ -298,7 +298,7 @@ async function jsonRequest(url, requestOptions, prefix) {
   try { return text ? JSON.parse(text) : {}; } catch { throw new Error(`${prefix}:invalid_json`); }
 }
 
-async function login(config, user) {
+async function login(config, user, acceptCustody) {
   const payload = await jsonRequest(`${config.baseUrl}/functions/v1/quata-auth-bridge`, {
     method: "POST",
     headers: headers(config),
@@ -313,16 +313,25 @@ async function login(config, user) {
   const session = payload?.session;
   const profileId = payload?.profile?.id;
   const webSessionToken = payload?.web_session?.token;
+  const candidate = {
+    label: user.label,
+    profileId,
+    accessToken: session?.access_token,
+    refreshToken: session?.refresh_token,
+    expiresAt: session?.expires_at,
+    webSessionToken,
+  };
+  if (candidate.accessToken) acceptCustody(candidate);
   if (!uuid.test(profileId ?? "") || !session?.access_token || !session?.refresh_token || !Number.isFinite(session?.expires_at)) {
     throw new Error(`invalid_auth_response:${user.label}`);
   }
-  return { label: user.label, profileId, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
+  return candidate;
 }
 
 async function logout(config, session) {
   if (!session) return;
-  const failures = [];
-  let alreadyRevoked = false;
+  let webLogoutSettled = false;
+  let authLogoutSettled = false;
   try {
     const response = await fetch(`${config.baseUrl}/functions/v1/quata-web-push`, {
       method: "POST",
@@ -330,9 +339,9 @@ async function logout(config, session) {
       body: JSON.stringify({ action: "logout" }),
       signal: AbortSignal.timeout(20_000),
     });
-    if ([401, 403].includes(response.status)) alreadyRevoked = true;
-    else if (!response.ok) throw new Error(`web_logout_failed:http_${response.status}`);
-  } catch (error) { failures.push(error); }
+    if (!response.ok && ![401, 403].includes(response.status)) throw new Error(`web_logout_failed:http_${response.status}`);
+    webLogoutSettled = true;
+  } catch {}
   try {
     const response = await fetch(`${config.baseUrl}/auth/v1/logout?scope=local`, {
       method: "POST",
@@ -340,10 +349,10 @@ async function logout(config, session) {
       body: "{}",
       signal: AbortSignal.timeout(20_000),
     });
-    if ([401, 403].includes(response.status)) alreadyRevoked = true;
-    else if (!response.ok) throw new Error(`auth_logout_failed:http_${response.status}`);
-  } catch (error) { failures.push(error); }
-  if (failures.length && !alreadyRevoked) throw new Error("session_logout_incomplete");
+    if (!response.ok && ![401, 403].includes(response.status)) throw new Error(`auth_logout_failed:http_${response.status}`);
+    authLogoutSettled = true;
+  } catch {}
+  if (!webLogoutSettled || !authLogoutSettled) throw new Error("session_logout_incomplete");
 }
 
 function rpc(config, session, name, body) {
