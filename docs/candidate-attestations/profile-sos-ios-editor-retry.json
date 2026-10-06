@@ -5,12 +5,12 @@
     "SOS-CONTACTS-IOS-EDITOR-RETRY"
   ],
   "status": "passed",
-  "productSha": "6a5609fd6083bf193a9d4ac2551540152fd30b85",
+  "productSha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "6a5609fd6083bf193a9d4ac2551540152fd30b85",
+      "sha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
       "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-web-e3e2c597.json",
       "reportSha256": "740f3e6ed3e77eb9f0b1bdea3c08e5bc05ffc42b314cb411016c53523343f90a",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "6a5609fd6083bf193a9d4ac2551540152fd30b85",
+      "sha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
       "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-android-e3e2c597.json",
       "reportSha256": "c815e55e39b2c101920a469475c9cba9953ee67d3041871c02cf2a303be03f4d",
       "reportStatus": "passed",
@@ -50,36 +50,35 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "6a5609fd6083bf193a9d4ac2551540152fd30b85",
-      "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-ios-e3e2c597.json",
-      "reportSha256": "6ca36db915ebfd21fd85b5c7792706758124b9008f1c82dabf0fb2b0dab27f1a",
+      "sha": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-final-gate-repair-45e5550f.json",
+      "reportSha256": "fab39bd545647759740e1f925143867ebafe3d6a753f10f2455861a64f0fe5d6",
       "reportStatus": "passed",
-      "reportGitHead": "e3e2c597c77beb790cae27a4d5a2af58d8eaaad0",
+      "reportGitHead": "45e5550f15aac0b3beb2ec4211f6a38d6f5d1982",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "hermetic_simulator_fixture_no_remote_mutation",
       "requireCleanupResidueZero": true,
       "requiredSteps": [
-        "mac_checkout_final_head_matched_candidate_product_sha",
-        "ios_x64_framework_linked_and_copied_byte_identically",
-        "simulator_signed_host_built_for_testing",
-        "five_exact_sos_contacts_selected_through_adaptive_visible_row_geometry",
+        "simulator_signed_build_for_testing_succeeded",
+        "profile_sos_fixture_anchors_rendered",
+        "search_keyboard_dismissed_before_message_tab_transition",
+        "message_draft_and_global_keyboard_survived_portrait_landscape_portrait",
+        "focused_landscape_message_input_remained_above_keyboard",
+        "five_exact_sos_contacts_selected_through_bounded_visible_row_geometry",
         "first_five_contact_toggles_remained_selected_after_sixth_attempt",
         "sixth_contact_toggle_remained_unselected_after_attempt",
-        "exact_sos_message_edited_with_native_keyboard_visible",
-        "shared_save_action_remained_hittable_above_keyboard",
-        "first_save_failed_visibly_without_closing_or_success_marker",
-        "same_save_action_retry_preserved_exact_payload_and_closed_editor",
-        "profile_common_ios_x64_unit_suite_passed_on_final_head"
+        "forced_save_failure_remained_visible_inside_open_editor",
+        "profile_sos_contacts_contract_passed_6_of_6"
       ],
       "requiredLog": {
-        "path": "docs/candidate-attestations/evidence/profile-sos-ios-editor-rebase-build-e639f418.json",
-        "sha256": "a0596f8eea3385252960d1dd99e87ba9535e564e8731716b7165506f3bc99946",
+        "path": "docs/candidate-attestations/evidence/profile-sos-ios-final-gate-repair-45e5550f.json",
+        "sha256": "fab39bd545647759740e1f925143867ebafe3d6a753f10f2455861a64f0fe5d6",
         "contains": [
           "\"status\": \"passed\"",
-          "\"productSha\": \"e639f418b9d3ff1cfb0cfa53a56502c76bb2630a\"",
-          "combined_quata_ios_app_swift_compiled",
-          "simulator_signed_build_for_testing_succeeded"
+          "\"productSha\": \"45e5550f15aac0b3beb2ec4211f6a38d6f5d1982\"",
+          "\"simulatorSignedBuildForTesting\": \"passed\"",
+          "\"passed\": 4"
         ]
       },
       "supplementalEvidence": {
@@ -99,8 +98,7 @@
     ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon --console=plain",
     "bash gradlew :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --no-daemon --console=plain",
     "xcodebuild build-for-testing -configuration SimulatorSigned",
-    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosRejectsSixthContactAndRetriesExactEditedSettings",
-    "bash gradlew :feature:profile:iosX64Test --configure-on-demand --no-daemon --console=plain",
+    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosFixtureRendersSharedContactsEditorAnchors -only-testing:QuataIosUITests/QuataIosHostUITests/testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosRejectsSixthContactAndRetriesExactEditedSettings -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosSaveFailureKeepsSharedErrorInDialog",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-sos-ios-editor-retry.json"
   ],
   "notes": [
@@ -110,9 +108,10 @@
     "The accepted UI run executed on clean tracked Product SHA e3e2c597. It is the exact product and XCTest head that adds the accessibility selection state and the pre-save five-selected/sixth-unselected assertions requested by independent review.",
     "Product SHA 5d9ab8c5 adds only the reviewed GitHub Actions KVM permission preflight and its fail-closed contract after an unaccelerated emulator failed before APK installation. SOS runtime, tests and evidence blobs remain unchanged; final CI reruns the affected Android instrumentation lane on the corrected runner.",
     "Product SHA 6a5609fd resolves the subsequent iOS final-gate failure without changing ranking or SOS product semantics: Ranking and LIVE now expose stable per-post accessibility identifiers, and XCTest targets the initial fixture post instead of selecting a repeated label. The exact Feed focal test passed 1/1 on iOS 26.5 Simulator, the five live-ranking contracts passed, and the affected Android and Wasm products compiled. The preceding GitHub failure remains recorded in supplemental evidence.",
-    "The final Product SHA passed Android debug and Web/Wasm compilation, the 6/6 SOS contract, diff-check and the complete Profile common iOS x64 unit suite. The attempted Wasm Node unit runner failed before executing tests because Skiko could not load its runtime .wasm under Node 22; the same common tests passed in iOS x64 and the Web product compiler passed.",
+    "Product SHA 6a5609fd passed Android debug and Web/Wasm compilation, the 6/6 SOS contract, diff-check and the complete Profile common iOS x64 unit suite. Those historical Android/Web runtime reports remain bound to execution head e3e2c597; Product SHA 45e5550f changes the shared SOS landscape/IME layout and iOS XCTest interaction, and its affected Android/Web compile gates passed without repeating full runtime matrices. The attempted Wasm Node unit runner failed before executing tests because Skiko could not load its runtime .wasm under Node 22; the same common tests passed in iOS x64 and the Web product compiler passed.",
     "This fixture is hermetic. It does not call Supabase, dispatch SOS, send notifications or contact third parties. Existing SB-06 persistence and FLOW-SOS-DISPATCH evidence remain independent and were not repeated.",
     "This closes the previously explicit iOS Simulator limits for 5-to-6 selection, exact message editing, visible save failure and exact retry. It does not claim physical ContactsUI or physical address-book permission behavior, which remains externally unavailable without an iOS device and is separate from shared editor acceptance.",
-    "Raw xcresult, logs and host paths remain unversioned. The committed report is a sanitized projection bound to their SHA-256 values; the raw bundle is retained in the authorized local evidence store."
+    "Raw xcresult, logs and host paths remain unversioned. The committed report is a sanitized projection bound to their SHA-256 values; the raw bundle is retained in the authorized local evidence store.",
+    "Product SHA 45e5550f repairs the preserved GitHub iOS final-gate failure. It changes the shared SOS landscape/IME layout and iOS XCTest interaction; the new runtime validation is iOS-only, while the affected Android debug, Web/Wasm and iOS x64 compile gates pass on this Product SHA. The exact four-test Simulator focal suite passed together: the search keyboard releases focus before the Message transition, the edited draft remains mounted and above the keyboard across portrait-landscape-portrait, the bounded row helper rejects clipped contact rows while preserving the exact five-contact payload, and the forced first save failure remains inside the open editor. The landscape top bar yields the IME-reduced row while typing and returns when the keyboard is dismissed; product save, selection and retry semantics are unchanged."
   ]
 }
