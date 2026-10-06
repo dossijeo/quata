@@ -1,0 +1,73 @@
+{
+  "check": "PROFILE-SAFETY-RETRY-IOS-NATIVE-001",
+  "status": "passed",
+  "startedAt": "2026-10-05T22:00:39.482Z",
+  "finishedAt": "2026-10-05T22:09:12.075Z",
+  "git": {
+    "head": "fcd239475ad14f9facd68d562f0076107e0aab10",
+    "workingTreeDirty": false
+  },
+  "scope": "Signed iOS Simulator product UI against the production database and its real RLS/RPC behavior through an explicitly authorized Mac-loopback Auth/PostgREST facade and SSH reverse tunnel",
+  "steps": [
+    "native_loopback_auth_rest_facade_accepted_for_ios_profile_safety_retry",
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_local_xcconfig_generated_on_mac",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "ios_mac_loopback_reverse_tunnel_verified",
+    "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+    "ios_xctest_profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified",
+    "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified",
+    "ios_mac_loopback_reverse_tunnel_stopped"
+  ],
+  "observations": {
+    "xctestPassed": true,
+    "retry": "The first block was forced to fail before transport; the signed Simulator UI exposed its optimistic unblock state, restored the original block action with an error, and the same visible Retry control converged to a production block edge.",
+    "nativeSurface": "The app restored the authenticated surface through the explicitly forwarded loopback runtime, opened the peer profile from Chat, completed the shared retry flow and returned to the same conversation."
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "profile_roles_safety_fixture_restored",
+      "cleanup_verified_profile_roles_safety_restored"
+    ],
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "limits": [
+    "Hosted Supabase Auth returned HTTP 402, so authentication and REST transport were supplied by the opt-in Mac-loopback facade while retaining the production database, RLS and RPC behavior.",
+    "The facade did not implement hosted Realtime and this focal report does not certify the hosted Auth/API gateway."
+  ],
+  "provenance": {
+    "sourceReportSha256": "6ec8d562ffb75a2d4dfc01315bb536a3d87a7c673f0a475ee1161ed1f9d076b6",
+    "sourceReportStoredOutsideGit": true,
+    "priorFailedAttempt": "The first signed run completed cleanup but the safety XCTest launched the app without forwarding the authorized native-facade runtime, so the Chat host never mounted. Product SHA fcd23947 forwards the same three bounded launch values already used by the accepted follow-retry test and requires the authenticated chrome before opening Chat."
+  }
+}

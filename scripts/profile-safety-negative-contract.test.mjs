@@ -78,9 +78,15 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same
     assert.match(ui, /public-profile\.safety\.block\./);
   }
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__/);
+  assert.match(androidRunner, /!profileFollowNegativeOnly && !profileSafetyNegativeOnly/);
+  assert.match(androidRunner, /native_loopback_auth_rest_facade_accepted_for_profile_safety_retry/);
+  assert.match(androidRunner, /android_debug_package_precompiled_before_profile_safety_retry_instrumentation/);
   assert.match(androidRunner, /profile_safety_retry_block_persisted_verified_by_db/);
+  assert.match(iosRunner, /!profileFollowNegativeOnly && !profileSafetyNegativeOnly/);
+  assert.match(iosRunner, /native_loopback_auth_rest_facade_accepted_for_ios_profile_safety_retry/);
   assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE/);
-  assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*app\.wait\(for: \.runningForeground/);
+  assert.match(iosUi, /QUATA_IOS_NATIVE_FACADE_AUTHORIZATION[\s\S]*app\.launchEnvironment\[key\] = value/);
+  assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*quata-ios-authenticated-top-chrome[\s\S]*authenticatedChrome\.waitForExistence/);
   assert.match(iosUi, /\} else \{[\s\S]*feed\.waitForExistence\(timeout: 20\)[\s\S]*The seeded normal launch must restore Feed/);
 });
 

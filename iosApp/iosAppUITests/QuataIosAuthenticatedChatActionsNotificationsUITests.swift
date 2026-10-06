@@ -3081,6 +3081,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         let profileSafetyNegative = environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] == "1"
+        for key in [
+            "QUATA_IOS_NATIVE_FACADE_AUTHORIZATION",
+            "QUATA_IOS_NATIVE_FACADE_URL",
+            "QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY",
+        ] {
+            if let value = environment[key] {
+                app.launchEnvironment[key] = value
+            }
+        }
         app.launchEnvironment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] = profileSafetyNegative ? "1" : "0"
         app.launchEnvironment["QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE"] = verifiesRoleErrorRetry ? "1" : "0"
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
@@ -3090,9 +3099,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
         if profileSafetyNegative || verifiesNonAdminPermissions || verifiesRoleErrorRetry {
+            let authenticatedChrome = app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-authenticated-top-chrome")
+                .firstMatch
             XCTAssertTrue(
-                app.wait(for: .runningForeground, timeout: 20),
-                "The seeded application must reach the foreground before opening Chat.",
+                authenticatedChrome.waitForExistence(timeout: 20),
+                "The seeded application must restore its authenticated surface before opening Chat.",
             )
         } else {
             XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")

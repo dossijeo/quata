@@ -57,7 +57,9 @@ class FeedRemoteRankingInstrumentedTest {
             compose.onAllNodesWithTag("live.ranking.open.$AndroidFeedRemoteTargetId").assertCountEquals(0)
 
             compose.onNodeWithTag(FeedRankingRetryTestTag).performClick()
-            compose.waitUntil(10_000) { model.uiState.value.rankingPosts?.size == 101 }
+            // A cold hosted emulator can spend several seconds compiling the 101-row retry
+            // composition. Wait for the product state instead of coupling acceptance to JIT speed.
+            compose.waitUntil(30_000) { model.uiState.value.rankingPosts?.size == 101 }
             compose.runOnIdle {
                 assertEquals(50, model.uiState.value.posts.size)
                 assertFalse(model.uiState.value.posts.any { it.id == AndroidFeedRemoteTargetId })

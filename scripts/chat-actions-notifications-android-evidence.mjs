@@ -717,7 +717,7 @@ async function publicBackendConfig() {
     if (process.env[nativeFacadeAuthorizationEnvironment] !== nativeFacadeAuthorizationValue) {
       throw new Error("native_facade_authorization_missing");
     }
-    if (!profileFollowNegativeOnly) throw new Error("native_facade_scope_not_allowed");
+    if (!profileFollowNegativeOnly && !profileSafetyNegativeOnly) throw new Error("native_facade_scope_not_allowed");
     const host = new URL(nativeFacadeHostUrl ?? "");
     const device = new URL(nativeFacadeDeviceUrl ?? "");
     if (host.protocol !== "http:" || host.hostname !== "127.0.0.1" || host.pathname !== "/" || host.search || host.hash) {
@@ -1923,7 +1923,11 @@ try {
     throw new Error("invalid_public_supabase_url");
   }
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
-  if (config.nativeFacadeDeviceUrl) report.steps.push("native_loopback_auth_rest_facade_accepted_for_profile_follow_retry");
+  if (config.nativeFacadeDeviceUrl) {
+    report.steps.push(profileSafetyNegativeOnly
+      ? "native_loopback_auth_rest_facade_accepted_for_profile_safety_retry"
+      : "native_loopback_auth_rest_facade_accepted_for_profile_follow_retry");
+  }
   const users = await authorizedUsers();
   const userA = users.a;
   const userB = users.b;
@@ -2144,7 +2148,7 @@ try {
   });
   await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || conversationCreateOnly || (profileFollowNegativeOnly && config.nativeFacadeDeviceUrl)) {
+  if (attachmentsAudioOnly || documentActionsOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || conversationCreateOnly || ((profileFollowNegativeOnly || profileSafetyNegativeOnly) && config.nativeFacadeDeviceUrl)) {
     await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "com.quata"]);
     report.steps.push(attachmentsAudioOnly
       ? "android_debug_package_precompiled_before_attachments_audio_instrumentation"
@@ -2154,6 +2158,8 @@ try {
         ? "android_debug_package_precompiled_before_conversations_instrumentation"
         : profileFollowNegativeOnly
           ? "android_debug_package_precompiled_before_profile_follow_retry_instrumentation"
+        : profileSafetyNegativeOnly
+          ? "android_debug_package_precompiled_before_profile_safety_retry_instrumentation"
           : "android_debug_package_precompiled_before_profile_entry_instrumentation");
     if (attachmentsAudioOnly) report.steps.push("android_debug_manifest_removes_firebase_messaging_wakeup_components");
   }
