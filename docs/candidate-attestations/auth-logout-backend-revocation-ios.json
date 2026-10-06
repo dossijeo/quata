@@ -4,16 +4,16 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
+  "productSha": "760c07bc9491e64d40fed49d810ceef4a89e4f53",
   "certification": "ios-single-ui-logout-backend-revocation-passed-independent-review-and-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
-      "report": "docs/candidate-attestations/evidence/auth-logout-backend-revocation-ios-37f1f887.json",
-      "reportSha256": "1f0a4a358b6c24ce69f8b1c3017c794ba10227b6ed96b9b4805ffd611c316c6a",
+      "sha": "760c07bc9491e64d40fed49d810ceef4a89e4f53",
+      "report": "docs/candidate-attestations/evidence/auth-logout-backend-revocation-ios-760c07bc.json",
+      "reportSha256": "0e8ff591567aaafca736cbd5adc977b2cadc6c587b8be200a71350dc5321dd55",
       "reportStatus": "passed",
-      "reportGitHead": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
+      "reportGitHead": "760c07bc9491e64d40fed49d810ceef4a89e4f53",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -41,6 +41,7 @@
     "One real Profile logout control activation crossed the production iOS repository and Supabase Auth transport, returned to public Feed and left the Keychain session absent after relaunch.",
     "The private receipt bound the restored Auth session ID and user ID to the backend postflight without persisting either access or refresh tokens. The exact auth.sessions row was absent and its refresh chain had zero active tokens.",
     "The database connection pinned the configured CA with certificate verification. Connection strings, credentials, tokens and backend row contents are absent from committed evidence.",
+    "The focal evidence was rerun after recomposing this unit on the frozen iOS SOS candidate; the Windows and macOS checkouts matched productSha exactly and were clean before execution.",
     "The first focal attempt preserved locally failed because the authenticated app restored a Chat route. The explicit existing UI-test route-reset flag now clears persisted primary and secondary routes before production composition without changing normal product behavior.",
     "Android and Web runtime blobs did not change, so their matrices were not repeated solely for this SHA.",
     "This focal result closes only the documented iOS backend revocation limit for one UI logout gesture. It does not recertify every auth route, APNs delivery, Android, Web or a global multi-device logout.",

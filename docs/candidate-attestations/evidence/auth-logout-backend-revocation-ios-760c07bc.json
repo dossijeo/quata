@@ -1,14 +1,14 @@
 {
   "check": "AUTH-LOGOUT-IOS-BACKEND-REVOCATION-001",
   "status": "passed",
-  "sourceReportSha256": "477e56c11c4061db0226d81d179157e259dac5270f407e2b15c422c63bc0a22f",
+  "sourceReportSha256": "9626d61f3b58d3f04353597089ae0fc7fbfa341162c4838f9f2e68d4194dd634",
   "git": {
-    "head": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
+    "head": "760c07bc9491e64d40fed49d810ceef4a89e4f53",
     "branch": "codex/auth-login-residual",
     "workingTreeDirty": false
   },
   "mac": {
-    "head": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
+    "head": "760c07bc9491e64d40fed49d810ceef4a89e4f53",
     "workingTreeDirty": false
   },
   "steps": [
@@ -26,7 +26,7 @@
     "verified": true,
     "sessionExists": false,
     "activeRefreshTokens": 0,
-    "sessionReceiptSha256": "60a329a90e2604fd7995178c4dbc6f69b239c498307f4be265c0a5d2ce4d6faf"
+    "sessionReceiptSha256": "37cfa76939e9b06d377823f717a8dbd73e0cdab698baf68ea792996191ee0f2b"
   },
   "cleanup": {
     "temporaryCredentialsRemoved": true,
