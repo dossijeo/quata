@@ -4,16 +4,16 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "49b9ba925ba1473f5707fb35ca773b8b149ba0ad",
+  "productSha": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
   "certification": "ios-single-ui-logout-backend-revocation-passed-independent-review-and-final-ci-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "49b9ba925ba1473f5707fb35ca773b8b149ba0ad",
-      "report": "docs/candidate-attestations/evidence/auth-logout-backend-revocation-ios-49b9ba92.json",
-      "reportSha256": "809885f99821a2f52fb2f8414300b0a7bd7abd6b46e2b75d0299bfcec4cfd822",
+      "sha": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
+      "report": "docs/candidate-attestations/evidence/auth-logout-backend-revocation-ios-37f1f887.json",
+      "reportSha256": "1f0a4a358b6c24ce69f8b1c3017c794ba10227b6ed96b9b4805ffd611c316c6a",
       "reportStatus": "passed",
-      "reportGitHead": "49b9ba925ba1473f5707fb35ca773b8b149ba0ad",
+      "reportGitHead": "37f1f8874065d3e2abd6edba81dbfdac911a8aa8",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
