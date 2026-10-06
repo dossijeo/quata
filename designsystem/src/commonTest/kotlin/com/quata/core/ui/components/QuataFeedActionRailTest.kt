@@ -20,5 +20,9 @@ class QuataFeedActionRailTest {
             quataFeedActionTestTag("official.action", "comments", "notice-456"),
         )
         assertEquals("feed.action.comments", quataFeedActionTestTag("feed.action", "comments"))
+        assertEquals(
+            "feed.action.live.post-123",
+            quataFeedActionTestTag("feed.action", "live", "post-123"),
+        )
     }
 }

@@ -63,8 +63,9 @@ test('Swift mounts both opt-in fixtures and verifies fail-closed retry and exact
   assert.ok(swiftTest.includes('retry.tap()'));
   assert.ok(swiftTest.includes('targetOpen.tap()'));
   assert.ok(swiftTest.includes('XCTAssertFalse(error.exists'));
-  assert.match(swiftTest, /label BEGINSWITH %@.*LIVE/);
-  assert.match(swiftTest, /for _ in 0\.\.<4[\s\S]*?allElementsBoundByIndex\.first\(where: \\.isHittable\)/);
+  assert.ok(swiftTest.includes('liveActionIdentifier: "feed.action.live.feed-ranking-fixture-0"'));
+  assert.ok(swiftTest.includes('liveActionIdentifier: "official.action.live.official-ranking-fixture-0"'));
+  assert.match(swiftTest, /let liveAction = element\(liveActionIdentifier, in: app\)[\s\S]*?XCTAssertTrue\(liveAction\.isHittable[\s\S]*?liveAction\.tap\(\)/);
   assert.doesNotMatch(swiftTest, /coordinate\(|CGVector|press\(forDuration/);
 });
 

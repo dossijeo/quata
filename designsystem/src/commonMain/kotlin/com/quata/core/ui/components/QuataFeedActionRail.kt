@@ -55,8 +55,19 @@ fun QuataFeedActionRail(
         verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 14.dp),
     ) {
         if (!isLandscape) {
-            FeedTextAction(QuataFeedEmoji.Rank, rankLabel, postRank.toString(), onClick = onOpenLive)
-            FeedTextAction(liveLabel, liveLabel, onClick = onOpenLive)
+            FeedTextAction(
+                QuataFeedEmoji.Rank,
+                rankLabel,
+                postRank.toString(),
+                testTag = quataFeedActionTestTag(actionTestTagPrefix, "ranking", actionTestTagSuffix),
+                onClick = onOpenLive,
+            )
+            FeedTextAction(
+                liveLabel,
+                liveLabel,
+                testTag = quataFeedActionTestTag(actionTestTagPrefix, "live", actionTestTagSuffix),
+                onClick = onOpenLive,
+            )
         }
         FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike, testTag = quataFeedActionTestTag(actionTestTagPrefix, "like", actionTestTagSuffix))
         FeedIconAction(Icons.Filled.ChatBubble, commentsLabel, comments.toString(), onClick = onOpenComments, testTag = quataFeedActionTestTag(actionTestTagPrefix, "comments", actionTestTagSuffix))
@@ -145,9 +156,25 @@ internal fun FeedIconAction(icon: ImageVector, description: String, count: Strin
 }
 
 @Composable
-private fun FeedTextAction(text: String, description: String, count: String? = null, tint: Color = Color.White, onClick: () -> Unit) {
+private fun FeedTextAction(
+    text: String,
+    description: String,
+    count: String? = null,
+    tint: Color = Color.White,
+    testTag: String? = null,
+    onClick: () -> Unit,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(Color.Black.copy(alpha = .42f)).semantics { contentDescription = description }.clickable(onClick = onClick), Alignment.Center) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = .42f))
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = description }
+                .then(testTag?.let { Modifier.testTag(it) } ?: Modifier),
+            Alignment.Center,
+        ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 FeedEmojiText(text, color = tint, fontSize = if (text.length <= 2) 19.sp else 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = if (text.length <= 2) 20.sp else 12.sp, modifier = Modifier.padding(horizontal = 5.dp))
                 count?.let { Text(it, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 10.sp) }
