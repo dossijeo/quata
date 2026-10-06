@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN"
+  ],
+  "status": "passed",
+  "productSha": "49b9ba925ba1473f5707fb35ca773b8b149ba0ad",
+  "certification": "ios-single-ui-logout-backend-revocation-passed-independent-review-and-final-ci-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "49b9ba925ba1473f5707fb35ca773b8b149ba0ad",
+      "report": "docs/candidate-attestations/evidence/auth-logout-backend-revocation-ios-49b9ba92.json",
+      "reportSha256": "809885f99821a2f52fb2f8414300b0a7bd7abd6b46e2b75d0299bfcec4cfd822",
+      "reportStatus": "passed",
+      "reportGitHead": "49b9ba925ba1473f5707fb35ca773b8b149ba0ad",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_authenticated_profile_logout_control_activated",
+        "ios_public_feed_visible_after_logout",
+        "ios_keychain_session_absent_after_relaunch",
+        "ios_exact_seeded_auth_session_absent_after_single_ui_logout",
+        "ios_exact_seeded_refresh_chain_has_zero_active_tokens"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-credentials-runtime-config-and-private-session-receipt-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/account-postflight-ios-evidence.mjs",
+    "bash -n scripts/run-ios-account-postflight-ui-test.sh",
+    "node --test scripts/auth-login-logout-postflight-contract.test.mjs scripts/ios-shell-layout-contract.test.mjs",
+    "xcodebuild build-for-testing QuataIosAuthenticatedSessionSeederTests and QuataIosAuthenticatedAccountPostflightUITests",
+    "node scripts/account-postflight-ios-evidence.mjs --logout --verify-backend-revocation"
+  ],
+  "notes": [
+    "One real Profile logout control activation crossed the production iOS repository and Supabase Auth transport, returned to public Feed and left the Keychain session absent after relaunch.",
+    "The private receipt bound the restored Auth session ID and user ID to the backend postflight without persisting either access or refresh tokens. The exact auth.sessions row was absent and its refresh chain had zero active tokens.",
+    "The database connection pinned the configured CA with certificate verification. Connection strings, credentials, tokens and backend row contents are absent from committed evidence.",
+    "The first focal attempt preserved locally failed because the authenticated app restored a Chat route. The explicit existing UI-test route-reset flag now clears persisted primary and secondary routes before production composition without changing normal product behavior.",
+    "Android and Web runtime blobs did not change, so their matrices were not repeated solely for this SHA.",
+    "This focal result closes only the documented iOS backend revocation limit for one UI logout gesture. It does not recertify every auth route, APNs delivery, Android, Web or a global multi-device logout.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}
