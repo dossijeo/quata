@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "235a0c47e2cff1c251609d8a7af6442a755c3667",
+  "git": {
+    "head": "235a0c47e2cff1c251609d8a7af6442a755c3667",
+    "workingTreeDirty": false
+  },
+  "executedAt": "2026-10-06T00:00:00Z",
+  "evidenceKind": "FOCUSED_NATIVE_DEEP_PAGINATION_RECOVERY",
+  "steps": [
+    "common_feed_loaded_101_posts_in_pages_50_50_1",
+    "common_feed_preserved_first_page_after_older_page_failure",
+    "common_feed_retried_the_exact_failed_cursor_after_explicit_retry",
+    "common_feed_reached_101_unique_posts_without_duplicates",
+    "android_product_host_preserved_first_page_and_reached_exact_deep_target",
+    "ios_product_host_preserved_visible_content_and_reached_exact_deep_target",
+    "ios_used_feed_root_relative_gestures_without_screen_fixed_coordinates",
+    "final_source_contracts_passed_72_of_72"
+  ],
+  "results": {
+    "commonWeb": {
+      "status": "passed",
+      "tests": 6,
+      "failures": 0,
+      "pageSizes": [
+        50,
+        50,
+        1
+      ],
+      "uniquePosts": 101,
+      "retryExactCursor": true
+    },
+    "android": {
+      "status": "passed",
+      "executionSha": "88cba79a74a7b3bbecf624cab6d18a1e95e07291",
+      "tests": 1,
+      "failures": 0,
+      "test": "nativePagerPreservesFirstPageRetriesAndReachesDeepTarget",
+      "junitSha256": "aee0624ffcd0948042f9193725e2dd02fcec29bca6f4befbd24468344edd8633",
+      "sourceEquivalence": "The Android product and focal test blobs are unchanged between the execution SHA and the final Product SHA."
+    },
+    "ios": {
+      "status": "passed",
+      "executionSha": "20c3eaba7448d6e78b361e0d0087ba30f09443b1",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "durationSeconds": 166.22,
+      "simulator": "iPhone 16 Pro, iOS 26.5, x86_64",
+      "swiftTestBlob": "4760ccb3d75774519f1a59901d00b5f987d11800",
+      "xctestLogSha256": "ba7b367c87c513fdceb512268a1d51447e80c13d059c77dbbb22451c0c829133",
+      "buildLogSha256": "51c6af0d6d9cb945a40305a8da49644e842f6672e21f65750c6b029ffe93ed23",
+      "sourceEquivalence": "The complete focal Swift XCTest blob is identical on the execution SHA and final Product SHA; the only later source delta is its static contract."
+    },
+    "contracts": {
+      "status": "passed",
+      "tests": 72,
+      "failures": 0
+    }
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "mode": "hermetic-fixtures-and-local-platform-runtimes",
+    "verified": true
+  },
+  "scope": {
+    "proves": [
+      "The common Feed pager crosses 50, 50 and 1 item pages, preserves loaded content after an older-page failure, retries the same cursor explicitly and reaches 101 unique posts.",
+      "Android and iOS exercise the product Feed host through visible older-page failure, explicit retry and the exact deep target while retaining the first page.",
+      "The iOS gesture is normalized within the semantic feed.root element and does not use a screen-fixed coordinate."
+    ],
+    "doesNotProve": [
+      "Native E2E of the separate Feed Ranking panel or unrelated media, detail, comments, profiles and mutations.",
+      "A production backend mutation or remote data deployment.",
+      "A global visual or operational acceptance of SCR-FEED."
+    ]
+  },
+  "notes": [
+    "Failed iOS pilots remain as unversioned local diagnostics. They distinguished an unexpanded or non-scrolling accessibility target from product failure and are not counted as positive evidence.",
+    "Platform evidence was not repeated solely for amended commit identity. Source-blob equivalence binds the accepted runs to the final Product SHA."
+  ]
+}

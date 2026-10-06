@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-FEED"
+  ],
+  "status": "passed",
+  "productSha": "99e2163026d0ad7c8102989b1df69f80860dcbb4",
+  "certification": "focused-native-deep-pagination-recovery-complete-final-ci-pending",
+  "evidenceKind": "FOCUSED_NATIVE_DEEP_PAGINATION_RECOVERY",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "99e2163026d0ad7c8102989b1df69f80860dcbb4",
+      "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
+      "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
+      "reportStatus": "passed",
+      "reportGitHead": "235a0c47e2cff1c251609d8a7af6442a755c3667",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "common_feed_loaded_101_posts_in_pages_50_50_1",
+        "common_feed_preserved_first_page_after_older_page_failure",
+        "common_feed_retried_the_exact_failed_cursor_after_explicit_retry",
+        "common_feed_reached_101_unique_posts_without_duplicates"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-fixtures-and-local-platform-runtimes"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "99e2163026d0ad7c8102989b1df69f80860dcbb4",
+      "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
+      "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
+      "reportStatus": "passed",
+      "reportGitHead": "235a0c47e2cff1c251609d8a7af6442a755c3667",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "android_product_host_preserved_first_page_and_reached_exact_deep_target"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-fixtures-and-local-platform-runtimes"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "99e2163026d0ad7c8102989b1df69f80860dcbb4",
+      "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
+      "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
+      "reportStatus": "passed",
+      "reportGitHead": "235a0c47e2cff1c251609d8a7af6442a755c3667",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "ios_product_host_preserved_visible_content_and_reached_exact_deep_target",
+        "ios_used_feed_root_relative_gestures_without_screen_fixed_coordinates"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-fixtures-and-local-platform-runtimes"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:feed:wasmJsBrowserTest --tests FeedPaginationRecoveryTest --tests FeedRootStatesTest --no-daemon",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.feed.presentation.FeedDeepPaginationInstrumentedTest --no-daemon",
+    "xcodebuild test-without-building for QuataIosLiveRankingUITests/testFeedNativePagerFailsClosedRetriesAndReachesDeepTarget",
+    "node --test scripts/live-ranking-native-e2e-contract.test.mjs scripts/verify-live-ranking-android-results.test.mjs scripts/ios-build-workflow-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/feed-native-deep-pagination.json --head HEAD"
+  ],
+  "notes": [
+    "The common pager loads 101 unique posts as 50, 50 and 1, preserves the first page after the older-page failure and retries the exact failed cursor only after the explicit action.",
+    "Android and iOS use the product Feed host. Each focal run observes retained content, visible failure, the retry control and the exact deep target after recovery.",
+    "The accepted iOS gesture is normalized inside feed.root. It does not use a screen-fixed coordinate; failed accessibility swipe pilots remain unversioned diagnostics and are not positive evidence.",
+    "The accepted Android and iOS executions remain anchored to the clean reportGitHead 235a0c47. Recomposition onto Product SHA 99e21630 preserves the Feed pager implementation and focal test semantics while combining the already-reviewed Official pager in shared runners; the affected source contracts now pass 75 of 75, and platform matrices are left to final CI because no Feed runtime or fixture changed during recomposition.",
+    "No backend mutation, production data, credential, inventory outside SCR-FEED or unrelated native matrix was touched.",
+    "The separate Ranking panel, media, detail, comments, profile entry, mutations and global visual or operational acceptance keep their existing owners and limits."
+  ]
+}
