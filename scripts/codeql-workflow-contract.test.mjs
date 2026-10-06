@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const workflow = resolve(import.meta.dirname, "..", ".github", "workflows", "codeql.yml");
+const daemonCriteria = resolve(import.meta.dirname, "..", "gradle", "gradle-daemon-jvm.properties");
 
 function jobBlock(yaml, job) {
   const start = yaml.indexOf(`  ${job}:`);
@@ -45,6 +46,15 @@ function assertCodeQlWorkflow(yaml) {
 
 test("CodeQL classifies docs-only PRs before expensive setup and cancels only superseded PR runs", async () => {
   assertCodeQlWorkflow(await readFile(workflow, "utf8"));
+});
+
+test("CodeQL Android builds resolve the pinned Linux JBR without an ephemeral Foojay package id", async () => {
+  const criteria = await readFile(daemonCriteria, "utf8");
+  assert.match(criteria, /^toolchainUrl\.LINUX\.X86_64=https\\:\/\/cache-redirector\.jetbrains\.com\/intellij-jbr\/jbrsdk_jcef-21\.0\.10-linux-x64-b1163\.110\.tar\.gz$/m);
+  assert.doesNotMatch(
+    criteria.match(/^toolchainUrl\.LINUX\.X86_64=.*$/m)?.[0] ?? "",
+    /api\.foojay\.io/,
+  );
 });
 
 test("CodeQL workflow contract fails closed if docs-only or concurrency guards are weakened", async () => {

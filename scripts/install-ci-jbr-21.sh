@@ -8,14 +8,17 @@ fi
 
 jbr_home="${RUNNER_TOOL_CACHE:-$HOME/.cache}/quata-jbr-21-linux-x64"
 jbr_java="$jbr_home/bin/java"
+jbr_url="https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk_jcef-21.0.10-linux-x64-b1163.110.tar.gz"
+jbr_sha512="a2e3910f6c0650923cea22ab8fe5596c15553b757cd85d4b5cd7e3b213f699c740a64a3016df96ffc9b845093b6ac737eb025d6bcbd3fd1868972c6722cfc7e2"
 
 if [[ ! -x "$jbr_java" ]]; then
   rm -rf "$jbr_home"
   mkdir -p "$jbr_home"
   archive="$RUNNER_TEMP/quata-jbr-21-linux-x64.tar.gz"
   curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 \
-    "https://api.foojay.io/disco/v3.0/ids/398ffe3949748bfb1d5636f023d228fd/redirect" \
+    "$jbr_url" \
     -o "$archive"
+  printf '%s  %s\n' "$jbr_sha512" "$archive" | sha512sum --check --status
   tar -xzf "$archive" --strip-components=1 -C "$jbr_home"
 fi
 

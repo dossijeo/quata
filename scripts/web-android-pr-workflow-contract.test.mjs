@@ -14,7 +14,9 @@ function assertJetBrainsDaemonBootstrap(yaml, installer, expectedJobs) {
   assert.equal([...yaml.matchAll(pairedSteps)].length, expectedJobs, 'every Gradle job must install Temurin 17 before the pinned JBR daemon runtime');
   assert.doesNotMatch(yaml, /distribution: jetbrains/, 'CI must not resolve JBR through setup-java/Foojay on every job');
   assert.doesNotMatch(yaml, /\bset-default:/, 'setup-java@v5 does not accept set-default');
-  assert.match(installer, /https:\/\/api\.foojay\.io\/disco\/v3\.0\/ids\/398ffe3949748bfb1d5636f023d228fd\/redirect/);
+  assert.match(installer, /https:\/\/cache-redirector\.jetbrains\.com\/intellij-jbr\/jbrsdk_jcef-21\.0\.10-linux-x64-b1163\.110\.tar\.gz/);
+  assert.match(installer, /a2e3910f6c0650923cea22ab8fe5596c15553b757cd85d4b5cd7e3b213f699c740a64a3016df96ffc9b845093b6ac737eb025d6bcbd3fd1868972c6722cfc7e2/);
+  assert.match(installer, /sha512sum --check --status/);
   assert.match(installer, /JAVA_HOME_17_X64/);
   assert.match(installer, /GRADLE_OPTS=.*org\.gradle\.java\.installations\.paths/);
   assert.match(installer, /org\.gradle\.java\.installations\.auto-download=false/);
