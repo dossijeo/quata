@@ -5,6 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import pg from "pg";
+import { pinnedTlsClientConfig } from "./postgres-pinned-tls.mjs";
 
 const { Client } = pg;
 
@@ -249,12 +250,10 @@ async function verifyBackendRevocation() {
   if (![receipt.session_id, receipt.auth_user_id].every((value) => isUuid(value))) {
     throw new Error("logout_session_receipt_invalid");
   }
-  const client = new Client({
-    connectionString: dbConnectionStringWithPinnedTls(
-      (await readFile(options.dbUrlFile, "utf8")).trim(),
-    ),
-    ssl: { ca: await readFile(options.tlsCaFile, "utf8"), rejectUnauthorized: true },
-  });
+  const client = new Client(pinnedTlsClientConfig(
+    (await readFile(options.dbUrlFile, "utf8")).trim(),
+    await readFile(options.tlsCaFile, "utf8"),
+  ));
   await client.connect();
   try {
     const result = await client.query(`
@@ -278,14 +277,6 @@ async function verifyBackendRevocation() {
   } finally {
     await client.end();
   }
-}
-
-function dbConnectionStringWithPinnedTls(value) {
-  const connection = new URL(value);
-  for (const key of ["sslmode", "sslrootcert", "sslcert", "sslkey", "uselibpqcompat"]) {
-    connection.searchParams.delete(key);
-  }
-  return connection.toString();
 }
 
 function isUuid(value) {

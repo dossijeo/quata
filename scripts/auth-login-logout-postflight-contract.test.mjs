@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import pg from "pg";
+import { pinnedTlsClientConfig } from "./postgres-pinned-tls.mjs";
+
+const { Client } = pg;
 
 const android = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfilePostflightInstrumentedTest.kt", import.meta.url), "utf8");
 const ios = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedAccountPostflightUITests.swift", import.meta.url), "utf8");
@@ -61,13 +65,26 @@ test("iOS single-gesture logout binds the seeded Auth session to fail-closed bac
   assert.match(iosRunner, /exists\(select 1 from auth\.sessions where id=\$1::uuid and user_id=\$2::uuid\)/);
   assert.match(iosRunner, /count\(\*\) filter\(where revoked is not true\)::int as active_refresh_tokens/);
   assert.match(iosRunner, /row\?\.session_exists !== false \|\| row\?\.active_refresh_tokens !== 0/);
-  assert.match(iosRunner, /dbConnectionStringWithPinnedTls/);
-  assert.match(iosRunner, /\["sslmode", "sslrootcert", "sslcert", "sslkey", "uselibpqcompat"\]/);
-  assert.match(iosRunner, /rejectUnauthorized: true/);
+  assert.match(iosRunner, /pinnedTlsClientConfig/);
   assert.match(iosRunner, /ios_exact_seeded_auth_session_absent_after_single_ui_logout/);
   assert.match(iosRunner, /ios_exact_seeded_refresh_chain_has_zero_active_tokens/);
   assert.match(iosRunner, /rm", "-rf", remoteLogoutReceiptDir/);
   assert.match(iosRunner, /logoutSessionReceiptRemoved/);
+});
+
+test("iOS backend evidence removes every URL TLS override before pg resolves the pinned CA", () => {
+  for (const override of ["ssl=0", "ssl=no-verify", "ssl=true", "sslmode=require", "sslrootcert=system"]) {
+    const config = pinnedTlsClientConfig(
+      `postgresql://user:password@localhost/database?${override}`,
+      "focal-test-ca",
+    );
+    assert.equal(new URL(config.connectionString).search, "");
+    const client = new Client(config);
+    assert.deepEqual(client.connectionParameters.ssl, {
+      ca: "focal-test-ca",
+      rejectUnauthorized: true,
+    });
+  }
 });
 
 test("iOS logout postflight activates Profile logout and rejects restored private state", () => {
