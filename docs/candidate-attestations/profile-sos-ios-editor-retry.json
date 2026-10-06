@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SOS",
+    "SOS-CONTACTS-IOS-EDITOR-RETRY"
+  ],
+  "status": "passed",
+  "productSha": "d87084610548751efde711728568c0d89f1450e5",
+  "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d87084610548751efde711728568c0d89f1450e5",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-web-d8708461.json",
+      "reportSha256": "215f372507adde3d4c394cf36b3857c04b8b5d5bea6f69d34b6ab729abbc26cd",
+      "reportStatus": "passed",
+      "reportGitHead": "d87084610548751efde711728568c0d89f1450e5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "compile_and_contract_only_no_runtime_fixture",
+      "requiredSteps": [
+        "profile_sos_contacts_contract_passed_6_of_6",
+        "web_wasm_product_compiled_on_final_head",
+        "no_web_runtime_matrix_repeated_for_ios_focal_change"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-contract-only-no-runtime-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d87084610548751efde711728568c0d89f1450e5",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-android-d8708461.json",
+      "reportSha256": "1b1d6bbc00ff29db6b69fa84eeba9fe93a60458150380cd5cdf5730277ba2404",
+      "reportStatus": "passed",
+      "reportGitHead": "d87084610548751efde711728568c0d89f1450e5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "compile_and_contract_only_no_runtime_fixture",
+      "requiredSteps": [
+        "profile_sos_contacts_contract_passed_6_of_6",
+        "android_debug_product_compiled_on_final_head",
+        "no_android_runtime_matrix_repeated_for_ios_focal_change"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "compile-and-contract-only-no-runtime-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d87084610548751efde711728568c0d89f1450e5",
+      "report": "docs/candidate-attestations/evidence/profile-sos-ios-editor-retry-ios-d8708461.json",
+      "reportSha256": "384d519e1ee48cf08fa62fb831c57765591dcf2765a1477888da182173a32557",
+      "reportStatus": "passed",
+      "reportGitHead": "d87084610548751efde711728568c0d89f1450e5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "hermetic_simulator_fixture_no_remote_mutation",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_final_head_matched_candidate_product_sha",
+        "ios_x64_framework_linked_and_copied_byte_identically",
+        "simulator_signed_host_built_for_testing",
+        "five_exact_sos_contacts_selected_through_adaptive_visible_row_geometry",
+        "sixth_sos_contact_rejected_by_shared_five_contact_limit",
+        "exact_sos_message_edited_with_native_keyboard_visible",
+        "shared_save_action_remained_hittable_above_keyboard",
+        "first_save_failed_visibly_without_closing_or_success_marker",
+        "same_save_action_retry_preserved_exact_payload_and_closed_editor",
+        "profile_common_ios_x64_unit_suite_passed_on_final_head",
+        "contract_only_post_ui_delta_validated_without_repeating_runtime_matrix"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-simulator-fixture-no-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/profile-sos-contacts-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon --console=plain",
+    "bash gradlew :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --no-daemon --console=plain",
+    "xcodebuild build-for-testing -configuration SimulatorSigned",
+    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosRejectsSixthContactAndRetriesExactEditedSettings",
+    "bash gradlew :feature:profile:iosX64Test --configure-on-demand --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-sos-ios-editor-retry.json"
+  ],
+  "notes": [
+    "The iOS product now observes native keyboard visibility instead of treating the IME as permanently absent. In portrait, the shared Save action is mounted above the message keyboard and the search field exposes Done so focus can be released without blind gestures.",
+    "The focal XCTest selects five exact fixture contacts through observed list geometry, attempts the sixth, edits the exact SOS message, verifies the keyboard and shared Save placement, observes one forced repository failure without closing the editor, then retries through the same control and verifies the exact five-contact payload before the editor closes.",
+    "The accepted UI run executed on clean tracked Product SHA 94f283a1. The only later change before Product SHA d8708461 updates the focal static contract to require the demonstrated adaptive geometry; no runtime, product source, fixture or XCTest byte changed, so the runtime matrix was not repeated solely for that SHA change.",
+    "The final Product SHA passed Android debug and Web/Wasm compilation, the 6/6 SOS contract, diff-check and the complete Profile common iOS x64 unit suite. The attempted Wasm Node unit runner failed before executing tests because Skiko could not load its runtime .wasm under Node 22; the same common tests passed in iOS x64 and the Web product compiler passed.",
+    "This fixture is hermetic. It does not call Supabase, dispatch SOS, send notifications or contact third parties. Existing SB-06 persistence and FLOW-SOS-DISPATCH evidence remain independent and were not repeated.",
+    "This closes the previously explicit iOS Simulator limits for 5-to-6 selection, exact message editing, visible save failure and exact retry. It does not claim physical ContactsUI or physical address-book permission behavior, which remains externally unavailable without an iOS device and is separate from shared editor acceptance.",
+    "Raw xcresult, logs and host paths remain unversioned. The committed report is a sanitized projection bound to their SHA-256 values; the raw bundle is retained in the authorized local evidence store."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "check": "PROFILE-SOS-IOS-EDITOR-RETRY-WEB-COMPILE-001",
+  "status": "passed",
+  "git": {
+    "head": "d87084610548751efde711728568c0d89f1450e5",
+    "workingTreeDirty": false
+  },
+  "gates": {
+    "webCompileKotlinWasmJs": "passed",
+    "profileSosContactsContract": "6/6 passed",
+    "diffCheck": "passed"
+  },
+  "steps": [
+    "profile_sos_contacts_contract_passed_6_of_6",
+    "web_wasm_product_compiled_on_final_head",
+    "no_web_runtime_matrix_repeated_for_ios_focal_change"
+  ],
+  "cleanup": {
+    "state": "compile_and_contract_only_no_runtime_fixture"
+  }
+}
