@@ -22,7 +22,7 @@ derived_data_path="${QUATA_IOS_SIGNED_DERIVED_DATA_PATH:-build/ios-intel-simulat
 result_bundle_path="${QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH:-build/reports/ios/QuataIos-intel-signed-build.xcresult}"
 rm -rf "$derived_data_path" "$result_bundle_path"
 
-bash ./gradlew :ios-shared:compileKotlinIosX64 :ios-shared:linkDebugFrameworkIosX64 --stacktrace --warning-mode all --console=plain
+bash ./gradlew :ios-shared:compileKotlinIosX64 :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --stacktrace --warning-mode all --console=plain
 intel_framework="ios-shared/build/bin/iosX64/debugFramework/QuataShared.framework"
 xcframework_path="ios-shared/build/XCFrameworks/debug/QuataShared.xcframework"
 [[ -d "$intel_framework" ]] || { echo "Expected Intel framework was not produced." >&2; exit 1; }
