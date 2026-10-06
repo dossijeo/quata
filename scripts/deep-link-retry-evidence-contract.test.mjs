@@ -22,9 +22,10 @@ test("FLOW-DEEP-LINKS retry uses the shared failure surface and exact recovered 
 });
 
 test("native retry fixtures remain fail-closed behind platform-specific exact opt-ins", async () => {
-  const [androidFixture, androidTest, iosRuntime, iosApp, iosTest] = await Promise.all([
+  const [androidFixture, androidTest, androidRunner, iosRuntime, iosApp, iosTest] = await Promise.all([
     source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidDocumentRetryEvidenceFixture.kt"),
     source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+    source("scripts/chat-actions-notifications-android-evidence.mjs"),
     source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt"),
     source("iosApp/iosApp/QuataIosApp.swift"),
     source("iosApp/iosAppUITests/QuataIosExternalChatLinkUITests.swift"),
@@ -34,6 +35,11 @@ test("native retry fixtures remain fail-closed behind platform-specific exact op
   assert.match(androidTest, /"deep-link-retry-local"/);
   assert.match(androidTest, /FLOW-DEEP-LINKS-ANDROID-RETRY-001/);
   assert.match(androidTest, /onNodeWithTag\("chat\.read\.retry", useUnmergedTree = true\)\.performClick\(\)/);
+  assert.match(androidRunner, /--deep-link-retry-local-only/);
+  assert.match(androidRunner, /quataDocumentRetryLocalOptIn", "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE/);
+  assert.match(androidRunner, /quataDeepLinkRetryLocalOptIn", "I_ACCEPT_ANDROID_DEEP_LINK_RETRY_LOCAL_FIXTURE/);
+  assert.match(androidRunner, /android_deep_link_retry_product_report_invalid/);
+  assert.match(androidRunner, /android-deep-link-read-retry-recovered\.png/);
   assert.match(iosRuntime, /I_ACCEPT_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE/);
   assert.match(iosApp, /case "deep-link-retry-local"/);
   assert.match(iosTest, /testLocalDeepLinkReadFailureRetryRecoversExactConversation/);

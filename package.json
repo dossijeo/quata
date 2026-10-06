@@ -22,6 +22,8 @@
     "evidence:chat-messages-lifecycle-web": "node scripts/chat-actions-notifications-web-evidence.mjs --messages-lifecycle-only",
     "evidence:chat-messages-lifecycle-android": "node scripts/chat-actions-notifications-android-evidence.mjs --messages-lifecycle-only",
     "evidence:chat-messages-lifecycle-ios": "node scripts/chat-actions-notifications-ios-evidence.mjs --messages-lifecycle-only",
+    "evidence:deep-link-retry-android": "node scripts/chat-actions-notifications-android-evidence.mjs --deep-link-retry-local-only",
+    "evidence:deep-link-retry-web": "node scripts/chat-actions-notifications-web-evidence.mjs --deep-link-retry-local-only",
     "evidence:chat-outbox-durable-web": "node scripts/chat-outbox-durable-web-evidence.mjs",
     "evidence:chat-outbox-durable-ios": "node scripts/chat-outbox-durable-ios-evidence.mjs",
     "test:ci-impact-classifier": "node --test scripts/classify-ci-impact.test.mjs",
