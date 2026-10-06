@@ -85,7 +85,7 @@ class OfficialRemoteRankingInstrumentedTest {
     }
 }
 
-private class AndroidOfficialRemoteRankingRepository : OfficialRepository {
+internal class AndroidOfficialRemoteRankingRepository : OfficialRepository {
     private val allPosts = (0..100).map(::androidOfficialRankingPost)
     private val first = allPosts.subList(0, 50)
     private val second = allPosts.subList(50, 100)
@@ -120,7 +120,7 @@ private class AndroidOfficialRemoteRankingRepository : OfficialRepository {
     private fun <T> unsupported(): Result<T> = Result.failure(UnsupportedOperationException("fixture_mutation_not_supported"))
 }
 
-private fun androidOfficialRankingPost(index: Int): OfficialPostItem {
+internal fun androidOfficialRankingPost(index: Int): OfficialPostItem {
     val target = index == 50
     val id = if (target) AndroidOfficialRemoteTargetId else "android-official-ranking-$index"
     val title = when {
@@ -153,6 +153,6 @@ private fun androidOfficialRemoteRankingSlots() = OfficialFeedScreenPlatformSlot
     rankingAvatar = {},
 )
 
-private const val AndroidOfficialRemoteTargetId = "android-official-ranking-remote-target"
-private const val AndroidOfficialRemoteTargetTitle = "Android Official remote ranking target loaded exactly"
-private const val AndroidOfficialInitialMarker = "Android Official initial pager remains intact"
+internal const val AndroidOfficialRemoteTargetId = "android-official-ranking-remote-target"
+internal const val AndroidOfficialRemoteTargetTitle = "Android Official remote ranking target loaded exactly"
+internal const val AndroidOfficialInitialMarker = "Android Official initial pager remains intact"
