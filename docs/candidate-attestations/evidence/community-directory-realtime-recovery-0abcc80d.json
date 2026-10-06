@@ -1,0 +1,83 @@
+{
+  "status": "passed",
+  "check": "COMMUNITY-DIRECTORY-REALTIME-PUBLIC-AUTHENTICATED",
+  "checkedAt": "2026-10-06T04:45:07.683Z",
+  "git": {
+    "head": "0abcc80dd74d29bb576940a75a67606f3bf9646f",
+    "workingTreeDirty": false
+  },
+  "runner": {
+    "path": "scripts/community-directory-realtime-evidence.mjs",
+    "sha256": "77f8ea59934f7c6e67572c6ed99bb0cf7b38ca5003dcaabe97f8ba3059ebc627",
+    "reportBuilderPath": "scripts/community-directory-realtime-report.mjs",
+    "reportBuilderSha256": "10212516b5d31e868505dfea86befdcd392d888d07c6ea3a653d90c5c09d6f3e"
+  },
+  "mode": "public-and-authenticated",
+  "publicTables": [
+    "community_profiles",
+    "community_walls",
+    "community_members",
+    "community_posts"
+  ],
+  "authenticatedTables": [
+    "community_profiles",
+    "community_walls",
+    "community_members",
+    "community_posts",
+    "community_messages"
+  ],
+  "public": {
+    "joinedWithoutAccessToken": true,
+    "matchingEventObserved": true,
+    "eventCount": 1
+  },
+  "authenticated": {
+    "attempted": true,
+    "joinedWithAccessToken": true,
+    "authSource": "auth_bridge",
+    "actorSha256": "a35f9e3110e86703f8fd995f01a1912b8828c6fce60a951df13dfc85ba3de646",
+    "matchingEventObserved": true,
+    "eventCount": 1
+  },
+  "trigger": {
+    "table": "community_walls",
+    "rowSha256": "8e489fda8e0ba5b7e91ba829140dc9e261e7522d976a98dc02f1e083a92c8195",
+    "ownedFixtureRemoved": true
+  },
+  "cleanup": {
+    "state": "completed",
+    "databaseFixtureRemoved": true,
+    "authenticationSessionRevocationRequired": true,
+    "authenticationSessionRevoked": true,
+    "residueCounts": {
+      "ownedCommunityWalls": 0,
+      "authenticationSessions": 0
+    }
+  },
+  "steps": [
+    "realtime_preflight_no_longer_http_402",
+    "public_socket_joined_without_access_token",
+    "authenticated_socket_joined_via_auth_bridge",
+    "owned_wall_fixture_observed_once_by_public_socket",
+    "owned_wall_fixture_observed_once_by_authenticated_socket",
+    "owned_wall_fixture_removed",
+    "authentication_session_revoked",
+    "secret_persistence_zero"
+  ],
+  "secretsPersisted": false,
+  "supersedesRuntimeLimitation": "supabase_realtime_http_402_exceed_egress_quota",
+  "scope": {
+    "proves": [
+      "public Realtime delivery for the four key-only directory publications",
+      "authenticated Realtime delivery including the authenticated publication set",
+      "one owned community_walls fixture observed exactly once on each socket",
+      "database fixture removal and authentication-session revocation"
+    ],
+    "doesNotProve": [
+      "global Chat Realtime coverage",
+      "platform UI rendering",
+      "anonymous community_messages subscription",
+      "visual parity"
+    ]
+  }
+}
