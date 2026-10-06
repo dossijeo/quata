@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { verifyLiveRankingAndroidResults } from './verify-live-ranking-android-results.mjs';
 
 const feedClass = 'com.quata.feature.feed.presentation.FeedRemoteRankingInstrumentedTest';
+const feedPaginationClass = 'com.quata.feature.feed.presentation.FeedDeepPaginationInstrumentedTest';
 const officialClass = 'com.quata.feature.official.presentation.OfficialRemoteRankingInstrumentedTest';
 const officialPaginationClass = 'com.quata.feature.official.presentation.OfficialDeepPaginationInstrumentedTest';
 const method = 'remoteSecondPageFailsClosedRetriesAndOpensExactTarget';
@@ -25,19 +26,24 @@ async function fixture(cases) {
   return root;
 }
 
-test('accepts exactly the three passing native Ranking and pagination cases', async (t) => {
+test('accepts exactly the four passing native Ranking and pagination cases', async (t) => {
   const root = await fixture([
     passed(feedClass),
+    passed(feedPaginationClass, paginationMethod),
     passed(officialClass),
     passed(officialPaginationClass, paginationMethod),
   ]);
   t.after(() => rm(root, { recursive: true, force: true }));
   const result = await verifyLiveRankingAndroidResults(root);
-  assert.equal(result.passed, 3);
+  assert.equal(result.passed, 4);
 });
 
-test('fails closed when a required native Ranking case is absent', async (t) => {
-  const root = await fixture([passed(feedClass), passed(officialClass)]);
+test('fails closed when a required native Ranking or pagination case is absent', async (t) => {
+  const root = await fixture([
+    passed(feedClass),
+    passed(feedPaginationClass, paginationMethod),
+    passed(officialClass),
+  ]);
   t.after(() => rm(root, { recursive: true, force: true }));
   await assert.rejects(verifyLiveRankingAndroidResults(root), /live_ranking_android_missing/);
 });
@@ -45,6 +51,7 @@ test('fails closed when a required native Ranking case is absent', async (t) => 
 test('fails closed when a required native Ranking case is skipped', async (t) => {
   const root = await fixture([
     passed(feedClass),
+    passed(feedPaginationClass, paginationMethod),
     passed(officialClass),
     `<testcase classname="${officialPaginationClass}" name="${paginationMethod}"><skipped/></testcase>`,
   ]);
@@ -56,6 +63,7 @@ test('fails closed when a required native Ranking case is duplicated', async (t)
   const root = await fixture([
     passed(feedClass),
     passed(feedClass),
+    passed(feedPaginationClass, paginationMethod),
     passed(officialClass),
     passed(officialPaginationClass, paginationMethod),
   ]);

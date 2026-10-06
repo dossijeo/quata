@@ -77,7 +77,7 @@ class FeedRemoteRankingInstrumentedTest {
     }
 }
 
-private class AndroidFeedRemoteRankingRepository : FeedReadRepository {
+internal class AndroidFeedRemoteRankingRepository : FeedReadRepository {
     private val allPosts = (0..100).map(::androidFeedRankingPost)
     private val first = allPosts.subList(0, 50)
     private val second = allPosts.subList(50, 100)
@@ -123,6 +123,6 @@ private fun androidFeedRankingPost(index: Int): Post {
     )
 }
 
-private const val AndroidFeedRemoteTargetId = "android-feed-ranking-remote-target"
-private const val AndroidFeedRemoteTargetText = "Android Feed remote ranking target loaded exactly"
-private const val AndroidFeedInitialMarker = "Android Feed initial pager remains intact"
+internal const val AndroidFeedRemoteTargetId = "android-feed-ranking-remote-target"
+internal const val AndroidFeedRemoteTargetText = "Android Feed remote ranking target loaded exactly"
+internal const val AndroidFeedInitialMarker = "Android Feed initial pager remains intact"

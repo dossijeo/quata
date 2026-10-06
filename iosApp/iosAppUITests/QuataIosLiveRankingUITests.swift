@@ -1,6 +1,42 @@
 import XCTest
 
 final class QuataIosLiveRankingUITests: XCTestCase {
+    func testFeedNativePagerFailsClosedRetriesAndReachesDeepTarget() {
+        executionTimeAllowance = 240
+        let app = XCUIApplication()
+        app.launchArguments += [
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES",
+            "-quata-ui-test-fixture", "live-ranking-feed",
+            "-quata-live-ranking-fail-first-page",
+        ]
+        app.launch()
+
+        let root = element("feed.root", in: app)
+        XCTAssertTrue(root.waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Feed initial pager remains intact"].waitForExistence(timeout: 20), app.debugDescription)
+        let error = element("feed-older-posts-error", in: app)
+        for _ in 0..<45 {
+            swipeFeedPagerUp(root)
+        }
+        XCTAssertTrue(error.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(root.exists, "The first page must remain mounted after a deep-page failure.")
+        attachScreenshot(app, name: "ios-feed-deep-pagination-error")
+
+        let retry = element("feed-older-posts-retry", in: app)
+        XCTAssertTrue(retry.waitForExistence(timeout: 5), app.debugDescription)
+        retry.tap()
+
+        let target = app.staticTexts["Feed remote ranking target loaded exactly"]
+        for _ in 0..<5 {
+            swipeFeedPagerUp(root)
+        }
+        XCTAssertTrue(target.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(root.exists, "The product Feed host must remain mounted after pagination recovery.")
+        XCTAssertFalse(error.exists, "The recovered deep-page error must be cleared.")
+        attachScreenshot(app, name: "ios-feed-deep-pagination-target")
+    }
+
     func testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget() {
         runRemoteRankingScenario(
             fixture: "live-ranking-feed",
@@ -136,6 +172,17 @@ final class QuataIosLiveRankingUITests: XCTestCase {
             forDuration: 0.05,
             thenDragTo: end,
             withVelocity: .fast,
+            thenHoldForDuration: 0
+        )
+    }
+
+    private func swipeFeedPagerUp(_ root: XCUIElement) {
+        let start = root.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.78))
+        let end = root.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.22))
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: end,
+            withVelocity: .default,
             thenHoldForDuration: 0
         )
     }

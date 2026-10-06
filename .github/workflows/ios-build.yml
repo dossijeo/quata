@@ -557,7 +557,7 @@ jobs:
           fi
 
       - name: Run iOS live Ranking native UI tests
-        timeout-minutes: 8
+        timeout-minutes: 10
         shell: bash
         run: |
           set -euo pipefail
@@ -593,12 +593,13 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 90 \
-            -maximum-test-execution-time-allowance 180 \
+            -maximum-test-execution-time-allowance 300 \
             -only-testing:QuataIosUITests/QuataIosLiveRankingUITests \
             -parallel-testing-enabled NO \
             -maximum-parallel-testing-workers 1 \
             test
           for test_name in \
+            testFeedNativePagerFailsClosedRetriesAndReachesDeepTarget \
             testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget \
             testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget \
             testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget; do

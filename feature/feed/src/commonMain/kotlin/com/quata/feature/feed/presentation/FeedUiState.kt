@@ -12,6 +12,7 @@ data class FeedUiState(
     val isRefreshing: Boolean = false,
     val isLoadingOlder: Boolean = false,
     val hasMoreOlderPosts: Boolean = true,
+    val olderPageError: String? = null,
     val posts: List<Post> = emptyList(),
     val currentUser: User? = null,
     val error: String? = null,

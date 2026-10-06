@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-const [androidFeed, androidOfficial, androidOfficialPagination, iosFeed, iosOfficial, swiftHost, swiftTest, iosWorkflow, webAndroidWorkflow, androidVerifier, androidRunner] = await Promise.all([
+const [androidFeed, androidFeedPagination, androidOfficial, androidOfficialPagination, iosFeed, iosOfficial, swiftHost, swiftTest, iosWorkflow, webAndroidWorkflow, androidVerifier, androidRunner] = await Promise.all([
   read('app/src/androidTest/java/com/quata/feature/feed/presentation/FeedRemoteRankingInstrumentedTest.kt'),
+  read('app/src/androidTest/java/com/quata/feature/feed/presentation/FeedDeepPaginationInstrumentedTest.kt'),
   read('app/src/androidTest/java/com/quata/feature/official/presentation/OfficialRemoteRankingInstrumentedTest.kt'),
   read('app/src/androidTest/java/com/quata/feature/official/presentation/OfficialDeepPaginationInstrumentedTest.kt'),
   read('feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedLiveRankingFixtureHost.kt'),
@@ -68,7 +69,7 @@ test('iOS fixtures replace only the read boundary and retain product hosts', () 
   assert.doesNotMatch(iosOfficial, /Result\.success\([^)]*(createPost|deletePost|toggleLike|addComment)/);
 });
 
-test('Swift mounts both opt-in fixtures and verifies fail-closed retry and exact target', () => {
+test('Swift mounts both opt-in fixtures and verifies fail-closed retry and exact target without screen-fixed gestures', () => {
   for (const fixture of ['live-ranking-feed', 'live-ranking-official']) {
     assert.ok(swiftHost.includes(`case "${fixture}":`));
     assert.ok(swiftTest.includes(`fixture: "${fixture}"`));
@@ -83,11 +84,14 @@ test('Swift mounts both opt-in fixtures and verifies fail-closed retry and exact
   assert.match(swiftTest, /let liveAction = element\(liveActionIdentifier, in: app\)[\s\S]*?XCTAssertTrue\(liveAction\.isHittable[\s\S]*?liveAction\.tap\(\)/);
   const rankingScenario = swiftTest.match(/private func runRemoteRankingScenario[\s\S]*?private func element/)?.[0] ?? '';
   assert.doesNotMatch(rankingScenario, /coordinate\(|CGVector|press\(forDuration/);
+  assert.match(swiftTest, /private func swipeFeedPagerUp\(_ root: XCUIElement\)[\s\S]*?root\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.45, dy: 0\.78\)\)[\s\S]*?root\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.45, dy: 0\.22\)\)/);
+  assert.doesNotMatch(swiftTest, /app\.coordinate\(|coordinate\(withOffset:|XCUICoordinate\(/);
 });
 
 test('iOS CI runs the focal class once and requires both named XCTest passes', () => {
   assert.match(iosWorkflow, /run_watchdog 420 build\/reports\/ios\/xcodebuild-live-ranking-tests\.log xcodebuild[\s\S]*?-only-testing:QuataIosUITests\/QuataIosLiveRankingUITests/);
   for (const name of [
+    'testFeedNativePagerFailsClosedRetriesAndReachesDeepTarget',
     'testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget',
     'testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget',
     'testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget',
@@ -97,18 +101,21 @@ test('iOS CI runs the focal class once and requires both named XCTest passes', (
   assert.match(iosWorkflow, /-skip-testing:QuataIosUITests\/QuataIosLiveRankingUITests/);
 });
 
-test('Android CI runs both focal classes and verifies their exact JUnit passes', () => {
+test('Android CI runs all Ranking and native pagination focal classes and verifies their exact JUnit passes', () => {
   assert.match(webAndroidWorkflow, /name: Enable Android emulator hardware acceleration[\s\S]*?if \[\[ -e \/dev\/kvm \]\]; then[\s\S]*?sudo chmod 0666 \/dev\/kvm[\s\S]*?test -r \/dev\/kvm[\s\S]*?test -w \/dev\/kvm/);
   assert.match(webAndroidWorkflow, /name: Run native live Ranking focal instrumentation\n\s+timeout-minutes: 45[\s\S]*?uses: reactivecircus\/android-emulator-runner@v2/);
   assert.match(webAndroidWorkflow, /api-level: 35[\s\S]*?disable-animations: true\n\s+emulator-boot-timeout: 900/);
   assert.match(webAndroidWorkflow, /script: bash scripts\/run-live-ranking-android-e2e\.sh/);
   assert.doesNotMatch(webAndroidWorkflow, /script: \|/);
   assert.match(androidRunner, /^#!\/usr\/bin\/env bash\nset -euo pipefail/m);
-  assert.match(androidRunner, /:app:connectedDebugAndroidTest[\s\S]*?FeedRemoteRankingInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialRemoteRankingInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialDeepPaginationInstrumentedTest/);
+  assert.match(androidRunner, /:app:connectedDebugAndroidTest[\s\S]*?FeedRemoteRankingInstrumentedTest,com\.quata\.feature\.feed\.presentation\.FeedDeepPaginationInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialRemoteRankingInstrumentedTest,com\.quata\.feature\.official\.presentation\.OfficialDeepPaginationInstrumentedTest/);
   assert.match(androidRunner, /node scripts\/verify-live-ranking-android-results\.mjs[\s\S]*?app\/build\/outputs\/androidTest-results\/connected\/debug/);
   assert.match(webAndroidWorkflow, /node --test scripts\/live-ranking-native-e2e-contract\.test\.mjs scripts\/verify-live-ranking-android-results\.test\.mjs/);
   assert.match(androidVerifier, /live_ranking_android_junit_missing/);
   assert.match(androidVerifier, /live_ranking_android_not_passed/);
   assert.match(androidVerifier, /live_ranking_android_missing/);
   assert.match(androidVerifier, /live_ranking_android_duplicate/);
+  assert.match(androidFeedPagination, /FeedOlderPostsErrorTestTag/);
+  assert.match(androidFeedPagination, /FeedOlderPostsRetryTestTag/);
+  assert.match(androidFeedPagination, /posts\.size == 100/);
 });
