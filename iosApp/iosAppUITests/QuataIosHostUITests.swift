@@ -1257,6 +1257,15 @@ final class QuataIosHostUITests: XCTestCase {
             .matching(identifier: "profile.sos.contacts.list")
             .firstMatch
         XCTAssertTrue(contactsList.waitForExistence(timeout: 10))
+        if app.keyboards.firstMatch.exists {
+            let done = app.keyboards.buttons["Return"]
+            XCTAssertTrue(done.exists, "The focused SOS search field must expose its Done action before contact selection.")
+            done.tap()
+            XCTAssertFalse(
+                app.keyboards.firstMatch.waitForExistence(timeout: 2),
+                "The SOS search Done action must release focus before selecting contacts.",
+            )
+        }
         func visibleContactToggle(index: Int) -> XCUIElement {
             let query = app.descendants(matching: .any)
                 .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
