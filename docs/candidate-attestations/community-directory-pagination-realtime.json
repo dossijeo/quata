@@ -76,7 +76,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "7a0cf338221f7a748c7057a4aa9b66888eb7c854",
+    "reviewedSha": "210975c6b773f3d7a2de52c46cc5bb460f0f3658",
     "reviewedProductSha": "b4395f290aa53c4612ac33697f2fbc7d0f1a1835",
     "blockingFindings": [],
     "scopeLimit": "The exact-head independent review verified the recomposed public/authenticated production Realtime receipt and its deliberately narrow delivery claim. Final CI remains separate."
