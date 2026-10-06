@@ -50,8 +50,9 @@ test("platform runners select the logout methods and fail closed on missing exec
 
 test("iOS single-gesture logout binds the seeded Auth session to fail-closed backend verification", () => {
   assert.match(iosSeeder, /QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE/);
-  assert.match(iosSeeder, /jwtSessionId\(session\.accessToken\)/);
-  assert.match(iosSeeder, /\["session_id": sessionId, "auth_user_id": session\.authUserId\]/);
+  assert.match(iosSeeder, /let storedSession = interactiveSession\.restoredSession\(\)/);
+  assert.match(iosSeeder, /let accessToken = session\.accessToken[\s\S]*jwtSessionId\(accessToken\)/);
+  assert.match(iosSeeder, /\["session_id": sessionId, "auth_user_id": authUserId\]/);
   assert.match(iosSeeder, /\.posixPermissions: 0o600/);
   assert.doesNotMatch(iosSeeder, /refreshToken|"access_token"|"refresh_token"/);
   assert.match(iosShell, /logout_mode == '1' and logout_receipt/);

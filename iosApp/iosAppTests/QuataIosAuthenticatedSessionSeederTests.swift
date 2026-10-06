@@ -21,30 +21,43 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
         let runtimeBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
             configuration: feedConfiguration,
         )
+        let interactiveSession = runtimeBootstrap.authSessionForInteractiveLogin()
         let repository = IosAuthRepositoryKt.createIosAuthRepository(
             configuration: IosPublicRuntimeConfiguration.authConfiguration(from: feedConfiguration),
-            session: runtimeBootstrap.authSessionForInteractiveLogin(),
+            session: interactiveSession,
         )
         let completed = expectation(description: "one production login completion")
         var completionCount = 0
+        let receiptPath = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE"]
+        let receiptRequested = receiptPath?.isEmpty == false
+        var receiptWritten = false
 
         repository.login(
             countryCode: credentials.countryCode,
             phone: credentials.localPhone,
             password: credentials.password,
-        ) { session, error in
+        ) { result, error in
             completionCount += 1
             XCTAssertNil(error, "The production login completion must not return an error.")
-            XCTAssertNotNil(session, "The production login completion must return an authenticated session.")
-            if let receiptPath = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE"],
-               !receiptPath.isEmpty {
-                XCTAssertNoThrow(try writeLogoutSessionReceipt(session: session, path: receiptPath))
+            XCTAssertNotNil(result, "The production login completion must return an authenticated session.")
+            if receiptRequested,
+               let receiptPath,
+               let storedSession = interactiveSession.restoredSession() {
+                do {
+                    try writeLogoutSessionReceipt(session: storedSession, path: receiptPath)
+                    receiptWritten = true
+                } catch {
+                    // Keep the callback non-throwing and fail below without rendering private state.
+                }
             }
             completed.fulfill()
         }
 
         wait(for: [completed], timeout: 30)
         XCTAssertEqual(completionCount, 1, "The seeder must issue exactly one login completion.")
+        if receiptRequested {
+            XCTAssertTrue(receiptWritten, "The production login must write the private logout receipt.")
+        }
         XCTAssertTrue(runtimeBootstrap.hasRestoredSession(), "The production runtime must restore the saved Keychain session.")
     }
 
@@ -75,19 +88,20 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
     }
 }
 
-private func writeLogoutSessionReceipt(session: AuthSession?, path: String) throws {
-    guard let session,
-          UUID(uuidString: session.authUserId) != nil,
-          let sessionId = jwtSessionId(session.accessToken),
+private func writeLogoutSessionReceipt(session: AuthSession, path: String) throws {
+    guard let authUserId = session.authUserId,
+          UUID(uuidString: authUserId) != nil,
+          let accessToken = session.accessToken,
+          let sessionId = jwtSessionId(accessToken),
           UUID(uuidString: sessionId) != nil else {
         throw AuthSeederConfigurationError.invalidSessionReceipt
     }
     let data = try JSONSerialization.data(
-        withJSONObject: ["session_id": sessionId, "auth_user_id": session.authUserId],
+        withJSONObject: ["session_id": sessionId, "auth_user_id": authUserId],
         options: [.sortedKeys],
     )
     let url = URL(fileURLWithPath: path)
-    try data.write(to: url, options: .atomic)
+    try data.write(to: url, options: Data.WritingOptions.atomic)
     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
 }
 
