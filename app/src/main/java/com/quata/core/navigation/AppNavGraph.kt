@@ -606,18 +606,25 @@ fun AppNavGraph(
             navigateBottomRoute(route)
         }
     }
+    val globalProfileOrigin = if (
+        currentRoute == AppDestinations.Chat.route && currentConversationId != null
+    ) {
+        "${AppDestinations.Chat.route}:${currentConversationId.length}:$currentConversationId"
+    } else {
+        currentRoute ?: AppDestinations.Feed.route
+    }
     val globalProfileViewModel: NeighborhoodsAndroidViewModel = viewModel(
         key = "global_user_profile",
         factory = NeighborhoodsAndroidViewModel.factory(
             container.neighborhoodRepository,
             currentUserId,
-            currentRoute ?: AppDestinations.Feed.route,
+            globalProfileOrigin,
         )
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
     LaunchedEffect(currentUserId) { globalProfileViewModel.bindActor(currentUserId) }
-    LaunchedEffect(currentRoute) {
-        currentRoute?.let(globalProfileViewModel::bindOrigin)
+    LaunchedEffect(globalProfileOrigin) {
+        globalProfileViewModel.bindOrigin(globalProfileOrigin)
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     var isAppForeground by remember {

@@ -39,4 +39,24 @@ class NeighborhoodsAndroidViewModelRouteTest {
         assertNull(state.get<ArrayList<String>>("quata.profile.route.ids"))
         assertEquals("official", state.get<String>("quata.profile.route.origin"))
     }
+
+    @Test
+    fun rejectsAndConsumesARouteFromAnotherConversation() {
+        val chatA = "chat/{conversationId}:6:chat-a"
+        val chatB = "chat/{conversationId}:6:chat-b"
+        val state = SavedStateHandle(
+            mapOf(
+                "quata.profile.route.ids" to arrayListOf("a", "b"),
+                "quata.profile.route.actor" to "actor-a",
+                "quata.profile.route.origin" to chatA,
+            ),
+        )
+
+        assertEquals(
+            emptyList<String>(),
+            NeighborhoodsAndroidViewModel.restoredProfileRoute(state, "actor-a", chatB),
+        )
+        assertNull(state.get<ArrayList<String>>("quata.profile.route.ids"))
+        assertEquals(chatB, state.get<String>("quata.profile.route.origin"))
+    }
 }
