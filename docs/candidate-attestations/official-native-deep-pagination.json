@@ -5,13 +5,13 @@
     "OVR-LIVE-RANKING"
   ],
   "status": "passed",
-  "productSha": "55708b11942996f7711ef2dea208354085dfc77f",
+  "productSha": "2f232692fe238300f40baf25bcc355e8d13c695f",
   "certification": "official-native-deep-pagination-fail-closed-retry-exact-target",
   "evidenceKind": "ANDROID_INSTRUMENTATION_AND_IOS_SIMULATOR_NATIVE_UI",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "55708b11942996f7711ef2dea208354085dfc77f",
+      "sha": "2f232692fe238300f40baf25bcc355e8d13c695f",
       "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-a319d4db.json",
       "reportSha256": "112c8ec9552ee953e1b20f9bde79fa79ca291162b68f18db42e0d8d7c6f3781c",
       "reportStatus": "passed",
@@ -23,7 +23,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "55708b11942996f7711ef2dea208354085dfc77f",
+      "sha": "2f232692fe238300f40baf25bcc355e8d13c695f",
       "report": "docs/candidate-attestations/evidence/official-native-deep-pagination-a319d4db.json",
       "reportSha256": "112c8ec9552ee953e1b20f9bde79fa79ca291162b68f18db42e0d8d7c6f3781c",
       "reportStatus": "passed",
@@ -47,7 +47,7 @@
     "reviewedSha": "16a5cae3abdce53b2760f0c22e11cc934f678aa7",
     "blockingFindings": [],
     "resolvedFindings": [
-      "P1: the first reviewed head left the new 155-second XCTest under the CI step's 90-second default allowance. Product SHA 55708b11 requests a focal 180-second allowance, the contract requires it, and the exact test passes with the gate's unchanged default=90 and maximum=180 parameters."
+      "P1: the first reviewed head left the new 155-second XCTest under the CI step's 90-second default allowance. Product SHA 2f232692 requests a focal 180-second allowance, the contract requires it, and the exact test passes with the gate's unchanged default=90 and maximum=180 parameters."
     ],
     "scopeLimit": "Closes the documented lack of native Android and iOS deep-page navigation evidence for the existing Official 101-post fixture. It does not recertify editor, comments, media or unrelated Live/Ranking flows."
   },
@@ -56,6 +56,6 @@
     "The tests prove native traversal to the prefetch boundary, preservation of the first 50 posts after the forced failure, the visible product retry, publication of 100 posts and arrival at the exact stable-identity target.",
     "The Android run passed 1/1 on API 35. The iOS SimulatorSigned run passed 1/1 on iOS 26.5 x86_64 in 165.698 seconds with no failures or skips, using the gate's exact default/maximum timeout parameters and the test's focal 180-second allowance.",
     "Failed iOS pilots are retained in the evidence report: generic swipe helpers did not reach the boundary reliably. The accepted helper performs a bounds-relative native drag on the discovered ScrollView and leaves product state transitions to the real pager and ViewModel.",
-    "The source execution remains the clean a319d4db Product SHA. Recomposition onto 55708b11 preserves the Android focal patch and iOS pagination method/helper byte-for-byte; the only conflict keeps the newer stable Live-action selector outside the pagination scenario. The affected contracts are repeated, while platform E2E is left to final CI because no pagination runtime or fixture changed."
+    "The source execution remains the clean a319d4db Product SHA. Recomposition onto 2f232692 preserves every changed workflow, Android/iOS test, runner and verifier blob byte-for-byte; documentation conflicts retain main's unrelated Communities state. The 75 affected contracts and Android test compilation pass, while platform E2E is not repeated solely for the new commit identity. Historical independent review remains bound to 16a5cae3; the exact final candidate requires a fresh independent review after the active candidate merges."
   ]
 }
