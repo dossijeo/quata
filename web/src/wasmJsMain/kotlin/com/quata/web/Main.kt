@@ -327,6 +327,13 @@ private fun QuataWebApp(
     val feedMemberProfileRoute = remember(navigation) {
         WebFeedMemberProfileRoute(navigation::navigateConversation)
     }
+    LaunchedEffect(currentUserId, isSessionResolved, navigation.fragment) {
+        feedMemberProfileRoute.bindContext(
+            actorId = currentUserId,
+            originFragment = navigation.fragment,
+            sessionResolved = isSessionResolved,
+        )
+    }
     var profileEntryCommunityMembersRequest by remember { mutableStateOf<String?>(null) }
     DisposableEffect(feedMemberProfileRoute) {
         val uninstall = installWebProfileEntryE2eBridge(
@@ -376,6 +383,7 @@ private fun QuataWebApp(
         pendingAuthenticationFragment = null
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
+        feedMemberProfileRoute.close()
         authenticationContinuationCoordinator.clearAll()
         postComposerAuthenticationCoordinator.clear()
         sosCoordinator.cancel()
@@ -959,6 +967,8 @@ private fun QuataWebApp(
                             authenticationContinuationOriginRoute = "communities",
                             onOpenUserRoute = feedMemberProfileRoute::open,
                             initialMemberProfileId = memberProfileId,
+                            initialProfileRoute = feedMemberProfileRoute.profileRoute,
+                            onProfileRouteChanged = feedMemberProfileRoute::acceptVisibleRoute,
                             requestedCommunityMembers = profileEntryCommunityMembersRequest,
                             onInitialMemberProfileClosed = feedMemberProfileRoute::close,
                         )
@@ -1002,6 +1012,8 @@ private fun QuataWebApp(
                                 authenticationContinuationOriginRoute = "official",
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
+                                initialProfileRoute = feedMemberProfileRoute.profileRoute,
+                                onProfileRouteChanged = feedMemberProfileRoute::acceptVisibleRoute,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
                                 showInitialLoadingSurface = false,
                             )
@@ -1055,6 +1067,8 @@ private fun QuataWebApp(
                                 authenticationContinuationOriginRoute = "chat",
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
+                                initialProfileRoute = feedMemberProfileRoute.profileRoute,
+                                onProfileRouteChanged = feedMemberProfileRoute::acceptVisibleRoute,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
                                 showInitialLoadingSurface = false,
                             )
@@ -1103,6 +1117,8 @@ private fun QuataWebApp(
                                 authenticationContinuationOriginRoute = "feed",
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
+                                initialProfileRoute = feedMemberProfileRoute.profileRoute,
+                                onProfileRouteChanged = feedMemberProfileRoute::acceptVisibleRoute,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
                                 showInitialLoadingSurface = false,
                             )
