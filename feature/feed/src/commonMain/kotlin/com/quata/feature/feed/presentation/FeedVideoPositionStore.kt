@@ -1,5 +1,6 @@
 package com.quata.feature.feed.presentation
 
+import com.quata.core.platform.AtomicPreferenceStore
 import com.quata.core.platform.PreferenceStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,6 +32,15 @@ class FeedVideoPositionStore(
 
     suspend fun persistPosition(actorId: String?, mediaId: String, positionMs: Long) {
         if (mediaId.isBlank() || positionMs < 0L) return
+        val key = storageKey(actorId)
+        (preferences as? AtomicPreferenceStore)?.let { atomicPreferences ->
+            runCatching {
+                atomicPreferences.updateStringAtomically(key) { raw ->
+                    encodeUpdatedPositions(raw, mediaId, positionMs)
+                }
+            }
+            return
+        }
         actorLock(actorId).withLock {
             val positions = restoreUnlocked(actorId).toMutableMap()
             positions.remove(mediaId)
@@ -42,6 +52,27 @@ class FeedVideoPositionStore(
     private suspend fun restoreUnlocked(actorId: String?): Map<String, Long> {
         val raw = runCatching { preferences.getString(storageKey(actorId)) }.getOrNull()
             ?: return emptyMap()
+        return decodePositions(raw)
+    }
+
+    private suspend fun writeUnlocked(actorId: String?, positions: Map<String, Long>) {
+        val encoded = encodePositions(positions)
+        if (encoded == null) {
+            runCatching { preferences.remove(storageKey(actorId)) }
+        } else {
+            runCatching { preferences.putString(storageKey(actorId), encoded) }
+        }
+    }
+
+    private fun encodeUpdatedPositions(raw: String?, mediaId: String, positionMs: Long): String? {
+        val positions = decodePositions(raw).toMutableMap()
+        positions.remove(mediaId)
+        positions[mediaId] = positionMs
+        return encodePositions(positions)
+    }
+
+    private fun decodePositions(raw: String?): Map<String, Long> {
+        if (raw == null) return emptyMap()
         val root = runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull()
             ?: return emptyMap()
         if (root["version"]?.jsonPrimitive?.longOrNull != 1L) return emptyMap()
@@ -61,17 +92,17 @@ class FeedVideoPositionStore(
             .associate { it.mediaId to it.positionMs }
     }
 
-    private suspend fun writeUnlocked(actorId: String?, positions: Map<String, Long>) {
+    private fun encodePositions(positions: Map<String, Long>): String? {
         val entries = positions.entries
             .asSequence()
             .filter { it.key.isNotBlank() && it.value >= 0L }
             .map { FeedVideoPositionEntry(mediaId = it.key, positionMs = it.value) }
             .toList()
             .takeLast(FeedVideoPositionEntryLimit)
-        if (entries.isEmpty()) {
-            runCatching { preferences.remove(storageKey(actorId)) }
+        return if (entries.isEmpty()) {
+            null
         } else {
-            val encoded = buildJsonObject {
+            buildJsonObject {
                 put("version", 1)
                 put("entries", buildJsonArray {
                     entries.forEach { entry ->
@@ -82,9 +113,6 @@ class FeedVideoPositionStore(
                     }
                 })
             }.toString()
-            runCatching {
-                preferences.putString(storageKey(actorId), encoded)
-            }
         }
     }
 

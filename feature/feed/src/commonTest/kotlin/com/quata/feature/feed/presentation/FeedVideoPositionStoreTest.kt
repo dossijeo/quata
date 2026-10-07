@@ -1,6 +1,12 @@
 package com.quata.feature.feed.presentation
 
+import com.quata.core.platform.AtomicPreferenceStore
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -70,10 +76,58 @@ class FeedVideoPositionStoreTest {
         )
     }
 
+    @Test
+    fun separateBrowserTabsSerializeConcurrentActorMapUpdates() = runTest {
+        val backend = AtomicMemoryBackend()
+        val first = FeedVideoPositionStore(AtomicMemoryPreferenceStore(backend))
+        val second = FeedVideoPositionStore(AtomicMemoryPreferenceStore(backend))
+
+        coroutineScope {
+            listOf(
+                async { first.persistPosition("actor", "media-a", 1_000L) },
+                async { second.persistPosition("actor", "media-b", 2_000L) },
+            ).awaitAll()
+        }
+
+        assertEquals(2, backend.atomicUpdates)
+        assertEquals(
+            mapOf("media-a" to 1_000L, "media-b" to 2_000L),
+            first.restore("actor"),
+        )
+    }
+
     private class MemoryPreferenceStore : PreferenceStore {
         private val values = mutableMapOf<String, String>()
         override suspend fun getString(key: String): String? = values[key]
         override suspend fun putString(key: String, value: String) { values[key] = value }
         override suspend fun remove(key: String) { values.remove(key) }
+    }
+
+    private class AtomicMemoryBackend {
+        val values = mutableMapOf<String, String>()
+        val guard = Mutex()
+        val locks = mutableMapOf<String, Mutex>()
+        var atomicUpdates = 0
+    }
+
+    private class AtomicMemoryPreferenceStore(
+        private val backend: AtomicMemoryBackend,
+    ) : AtomicPreferenceStore {
+        override suspend fun getString(key: String): String? = backend.values[key]
+        override suspend fun putString(key: String, value: String) { backend.values[key] = value }
+        override suspend fun remove(key: String) { backend.values.remove(key) }
+
+        override suspend fun updateStringAtomically(
+            key: String,
+            transform: (String?) -> String?,
+        ): Boolean {
+            val lock = backend.guard.withLock { backend.locks.getOrPut(key) { Mutex() } }
+            lock.withLock {
+                val next = transform(backend.values[key])
+                if (next == null) backend.values.remove(key) else backend.values[key] = next
+                backend.atomicUpdates += 1
+            }
+            return true
+        }
     }
 }

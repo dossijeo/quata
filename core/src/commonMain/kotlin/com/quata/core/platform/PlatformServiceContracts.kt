@@ -60,6 +60,9 @@ object UnsupportedContactPickerService : ContactPickerService {
 interface PermissionService { suspend fun status(permission: PlatformPermission): PermissionStatus; suspend fun request(permission: PlatformPermission): PermissionStatus }
 interface LocationService { suspend fun currentLocation(): PlatformResult<GeoLocation> }
 interface PreferenceStore { suspend fun getString(key: String): String?; suspend fun putString(key: String, value: String); suspend fun remove(key: String) }
+interface AtomicPreferenceStore : PreferenceStore {
+    suspend fun updateStringAtomically(key: String, transform: (String?) -> String?): Boolean
+}
 interface PrefixClearablePreferenceStore : PreferenceStore { suspend fun removeByPrefix(prefix: String) }
 
 /** Platform service composition consumed by shared launchers/features without retaining an OS context. */

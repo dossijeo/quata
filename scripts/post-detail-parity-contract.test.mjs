@@ -12,6 +12,9 @@ async function source(path) {
 const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPostDetailChromeContent.kt");
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
 const feedVideoPositionStore = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStore.kt");
+const browserPreferenceStore = await source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserPreferenceStore.wasm.kt");
+const browserPreferenceStoreTest = await source("core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserPreferenceStoreTest.kt");
+const feedVideoPositionStoreTest = await source("feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStoreTest.kt");
 const feedPlaybackHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelVideoPlaybackHostContent.kt");
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
 const feedTextReader = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/TextOnlyReelContent.kt");
@@ -239,6 +242,12 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /feed_fullscreen_video_position_persisted_and_restored_after_document_reload/);
   assert.match(webEvidence, /page\.locator\("video"\)\.last\(\)/);
   assert.match(webEvidence, /quata\.feed\.video_positions\.v1\./);
+  assert.match(feedVideoPositionStore, /AtomicPreferenceStore/);
+  assert.match(feedVideoPositionStore, /updateStringAtomically\(key\)/);
+  assert.match(browserPreferenceStore, /navigator\?\.locks/);
+  assert.match(browserPreferenceStore, /locks\.request\('quata\.preference\.' \+ key/);
+  assert.match(browserPreferenceStoreTest, /separateBrowserStoresSerializeConcurrentUpdates/);
+  assert.match(feedVideoPositionStoreTest, /separateBrowserTabsSerializeConcurrentActorMapUpdates/);
   assert.match(webEvidence, /await page\.reload\(\{ waitUntil: "domcontentloaded", timeout: 60_000 \}\)/);
   assert.match(webEvidence, /if \(!options\.feedVideo\) await verifyOfficialDetail/);
   assert.match(androidEvidence, /--post-detail-feed-video/);
