@@ -4,31 +4,31 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "282ff8d6c932c59c4348219836c8eb2239ef0fe9",
-  "certification": "local-affected-runtime-and-independent-product-review-complete-final-CI-pending",
+  "productSha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+  "certification": "local-affected-runtime-complete-independent-final-head-review-pending-final-CI",
   "evidenceKind": "PUBLIC_PROFILE_NESTED_BACKSTACK_RESTORATION",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "282ff8d6c932c59c4348219836c8eb2239ef0fe9",
-      "report": "docs/candidate-attestations/evidence/shell-navigation-public-profile-backstack-ea566b85.json",
-      "reportSha256": "fed47e25a4e51cb50d678d0b997c6dff600e3f583e3ee2306ae7ec13a8a3449d",
+      "sha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-public-profile-backstack-afc071c5.json",
+      "reportSha256": "028aa03e3fe78c7e9ce616e00f19b797d306ab8acdabbbc6ad6cb49a21432dc3",
       "reportStatus": "passed-local-candidate",
-      "reportGitHead": "ea566b8563e19de6538c3badec26b1839656b9ef",
+      "reportGitHead": "1725b6c42683c3f239fdf3e4c07483ecd60eb24e",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "common_three_level_profile_route_restore_and_back_passed",
         "failed_restored_child_back_to_parent_passed",
         "late_route_restore_and_private_conversation_consumption_passed",
+        "android_failed_child_back_uses_profile_close_and_restores_parent_passed",
         "android_actor_root_and_exact_conversation_scope_passed",
-        "android_debug_compile_passed",
-        "web_route_storage_browser_tests_passed",
-        "web_wasm_browser_tests_passed",
-        "ios_x64_common_focal_test_passed",
-        "ios_framework_link_passed",
-        "ios_route_store_xctests_passed",
-        "ios_unsigned_simulator_host_test_build_passed"
+        "android_focal_jvm_test_passed",
+        "web_wasm_failed_child_focal_test_passed",
+        "ios_swift_parse_passed",
+        "ios_x64_framework_link_passed",
+        "ios_unsigned_intel_simulator_host_build_passed",
+        "ios_exact_chat_origin_xctests_passed"
       ],
       "cleanup": {
         "verified": true,
@@ -38,25 +38,28 @@
   },
   "preflight": [
     "git diff --check",
-    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.back from a failed restored child returns to the persisted parent\" :app:testDebugUnitTest --tests com.quata.feature.neighborhoods.presentation.NeighborhoodsAndroidViewModelRouteTest --no-daemon --console=plain",
-    ".\\gradlew.bat :app:compileDebugKotlin :web:wasmJsBrowserTest --no-daemon --console=plain",
-    "macOS: bash gradlew :feature:neighborhoods:iosX64Test --tests 'com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.back from a failed restored child returns to the persisted parent' :ios-shared:compileKotlinIosX64 :ios-shared:linkDebugFrameworkIosX64 --no-daemon --console=plain",
-    "macOS: xcodebuild focal QuataFeedFrameworkTests on Intel Simulator with CODE_SIGNING_ALLOWED=NO"
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.neighborhoods.presentation.NeighborhoodsAndroidViewModelRouteTest --no-daemon --no-build-cache --max-workers=1 -Pkotlin.incremental=false -Dkotlin.compiler.execution.strategy=in-process --console=plain",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests \"com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModelTest.back from a failed restored child returns to the persisted parent\" --no-daemon --no-build-cache --max-workers=1 -Pkotlin.incremental=false -Dkotlin.compiler.execution.strategy=in-process --console=plain",
+    "macOS: xcrun swiftc -frontend -parse iosApp/iosApp/QuataIosApp.swift iosApp/iosAppTests/QuataFeedFrameworkTests.swift",
+    "macOS: bash scripts/build-ios-intel-simulator.sh with isolated derived data and unsigned x86_64 host",
+    "macOS: xcodebuild selected QuataFeedFrameworkTests on booted iOS 26.5 Intel Simulator with CODE_SIGNING_ALLOWED=NO"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "282ff8d6c932c59c4348219836c8eb2239ef0fe9",
-    "reviewedProductSha": "282ff8d6c932c59c4348219836c8eb2239ef0fe9",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewedProductSha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
     "blockingFindings": [],
     "resolvedFindings": [
-      "Web and iOS failed-child Back now return through retained parents before dismissing the host.",
-      "Android restoration is scoped to the exact actor, root and concrete conversation rather than the destination pattern alone."
+      "Android failed-child Back now closes the public profile through the product model and restores the retained parent.",
+      "iOS preserves the concrete chat conversation ID in the continuation origin.",
+      "The evidence limits duplicate suppression to consecutive identical transitions; non-consecutive revisits remain valid history."
     ]
   },
   "notes": [
-    "The common model owns route success, retry, Back and consumption semantics; each platform persists only actor, origin and profile identifiers.",
-    "Android uses SavedStateHandle, Web uses sessionStorage and iOS uses UserDefaults with exact actor and origin matching.",
-    "The seven profile product commits remain 7/7 patch-id equivalent to the exact iOS evidence Product SHA ea566b8563e19de6538c3badec26b1839656b9ef, and every profile runtime, test and evidence-runner blob is byte-identical. The new base adds only independently reviewed Auth attestation metadata and the durable JBR source repair, whose affected contracts and clean-cache Gradle provisioning probe passed; no platform matrix was repeated solely for that unrelated base delta.",
+    "The common model owns route success, retry, Back and consumption semantics; each platform persists only actor, exact origin and profile identifiers.",
+    "Android uses SavedStateHandle, Web uses sessionStorage and iOS uses UserDefaults with exact actor and origin matching. Android and iOS distinguish concrete Chat conversation identifiers.",
+    "The historical ea566b85 evidence remains preserved but is superseded: independent review found an Android failed-child Back misbinding, an iOS conversation-origin collapse and an overbroad duplicate-history assertion.",
+    "The corrected Product SHA passed the affected Android and Wasm tests plus Swift parse, iosX64 framework link, unsigned Intel Simulator host build and two exact iOS XCTest methods. Broader unchanged matrices were not repeated solely for the new SHA.",
     "This closes the nested public member-profile back stack only. Scroll, drafts, editor state, media position and unrelated secondary back stacks remain separately bounded.",
     "No backend fixture, credential, push delivery or remote mutation was used."
   ]
