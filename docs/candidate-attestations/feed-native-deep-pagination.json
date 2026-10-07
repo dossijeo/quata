@@ -76,14 +76,14 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/feed-native-deep-pagination.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "3f9bf538ca6535443d720f6f090ece396de19788",
     "reviewedProductSha": "89acec92059ea56697dc10f911034e13c6d0c261",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2: board and inventory now reserve 101 posts, 50/50/1 and exact-cursor retry for the common Web/Wasm proof; native Android/iOS claims are limited to retained 50, visible retry, state 100 and the exact stable target."
     ],
-    "scopeLimit": "Independent review is pending for the exact recomposed SCR-FEED head on merged main."
+    "scopeLimit": "The independent review covers the exact recomposed SCR-FEED head on merged main, its evidence boundaries and the shared native runner. Final CI remains separate."
   },
   "notes": [
     "The common pager loads 101 unique posts as 50, 50 and 1, preserves the first page after the older-page failure and retries the exact failed cursor only after the explicit action.",
