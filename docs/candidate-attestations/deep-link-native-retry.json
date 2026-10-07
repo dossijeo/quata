@@ -4,12 +4,12 @@
     "FLOW-DEEP-LINKS"
   ],
   "status": "passed",
-  "productSha": "af8918fac528a240a3b5f69ed1f7185815c21ef5",
+  "productSha": "3424e2d79bd5e75c99b372a88cb7c1d35bf41205",
   "certification": "focal-native-chat-read-retry-android-web-ios-complete-capability-hash-rebound-independent-final-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "af8918fac528a240a3b5f69ed1f7185815c21ef5",
+      "sha": "3424e2d79bd5e75c99b372a88cb7c1d35bf41205",
       "report": "docs/candidate-attestations/evidence/deep-link-native-retry-ios-e310eaa8.json",
       "reportSha256": "75d2109d5a0c7aefb20a6fe0cc5aa25fe6ada4a6e740cb23fae3139920dfbc75",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "notes": [
     "The Android and Web runtime reports remain bound to their original clean heads. Range-diff confirms that recomposition preserved their reviewed patches, and the affected Web repository test plus Android instrumentation compilation passed on this Product SHA; their historical runtime results are not relabeled as exact-head executions.",
-    "The exact executable/test head e310eaa8dad0f38b3e545a0300f1ec806b9f636f passed the iOS Simulator UI test 1/1 with zero failures and zero skipped tests. It returned to the Chats list, as asserted by the empty iOS chat host after Back. Range-diff proves all thirteen unit commits patch-equivalent after recomposition onto the reviewed iOS-secondary head. Product SHA af8918fa preserves the runtime, test, workflow and evidence blobs from the reviewed e3a164a0 composition and updates only the reviewed capability hashes for changed composition sources; runtime was therefore not repeated solely for commit identity.",
+    "The exact executable/test head e310eaa8dad0f38b3e545a0300f1ec806b9f636f passed the iOS Simulator UI test 1/1 with zero failures and zero skipped tests. It returned to the Chats list, as asserted by the empty iOS chat host after Back. Range-diff proves all thirteen unit commits patch-equivalent after recomposition onto the reviewed iOS-secondary head. Product SHA 3424e2d79bd5e75c99b372a88cb7c1d35bf41205 has the same tree as the reviewed pre-squash Product SHA af8918fac528a240a3b5f69ed1f7185815c21ef5; runtime was therefore not repeated solely for commit identity.",
     "The earlier Metal diagnostic remains preserved. The accepted run used the validated Hyper-V raster Skiko environment and therefore separates the historical renderer limitation from product behavior.",
     "The fixture is local and fail-closed. It uses no credentials, backend or remote mutation and does not claim Universal Links, APNs, push delivery, real backend availability or unrelated lifecycle behavior.",
     "Independent review of exact head 306bb17cabc9f7e237fefacfc526eeefe45e0fdc returned GO with no P0-P3 findings after verifying 16/16 patch equivalence, byte-equivalent runtime/test/workflow and evidence blobs, all six capability hashes, report integrity and the stated acceptance boundaries.",
