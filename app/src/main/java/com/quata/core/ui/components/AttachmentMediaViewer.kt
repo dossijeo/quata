@@ -652,7 +652,12 @@ private fun FullscreenVideoPlayer(
                     range = 0f..duration.toFloat(),
                 )
                 setProgress { target ->
-                    player.seekTo(target.roundToLong().coerceIn(0L, duration))
+                    val targetMs = target.roundToLong().coerceAtLeast(0L)
+                    player.seekTo(
+                        playbackDurationMs.takeIf { it > 0L }
+                            ?.let(targetMs::coerceAtMost)
+                            ?: targetMs,
+                    )
                     true
                 }
                 stateDescription = when {
