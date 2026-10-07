@@ -1,0 +1,51 @@
+{
+  "check": "AUTH-LOGOUT-ENTRYPOINTS-IOS-SETTINGS-001",
+  "status": "passed",
+  "startedAt": "2026-10-07T09:39:38.954Z",
+  "git": {
+    "head": "9d2ac04484ee13ff1192fe0a6c63ba688e094d4a",
+    "branch": "codex/auth-logout-entrypoints",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "settings-logout-postflight",
+      "outcome": "success",
+      "status": "passed",
+      "remoteLogDir": "build/reports/ios/AUTH-LOGOUT-SETTINGS-ui"
+    }
+  ],
+  "evidence": {
+    "directory": "local-evidence/ios-settings"
+  },
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true,
+    "logoutSessionReceiptRemoved": true
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "ios_authenticated_settings_logout_control_activated",
+    "ios_public_feed_visible_after_logout",
+    "ios_keychain_session_absent_after_relaunch",
+    "ios_exact_seeded_auth_session_absent_after_single_ui_logout",
+    "ios_exact_seeded_refresh_chain_has_zero_active_tokens"
+  ],
+  "mac": {
+    "host": "configured-macos-host",
+    "project": "configured-clean-worktree",
+    "head": "9d2ac04484ee13ff1192fe0a6c63ba688e094d4a",
+    "workingTreeDirty": false
+  },
+  "backendRevocation": {
+    "verified": true,
+    "sessionExists": false,
+    "activeRefreshTokens": 0,
+    "sessionReceiptSha256": "09ad213adc9c3dd367eb5c1eefce968137dc517042b790596c3d538242465d15"
+  },
+  "finishedAt": "2026-10-07T09:51:56.887Z"
+}
