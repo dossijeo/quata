@@ -944,10 +944,13 @@ Esta candidata elimina el límite histórico «Retry nativo no ejecutado» en
 Android y Web. iOS conserva ese límite por la restricción de renderizado anterior.
 No atribuye disponibilidad al backend, no sustituye los casos reales de destino
 ausente o sesión rechazada y no amplía la aceptación a Universal Links, APNs,
-push ni lifecycle global. Android y Web pasaron sobre el head limpio
-`5397cedc61b6533d7ff4cbef0abd7afe4f5fd4c6`; sus reportes saneados y hashes están
-en [`deep-link-native-retry-android-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-android-5397cedc.json)
-y [`deep-link-native-retry-web-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-web-5397cedc.json).
+push ni lifecycle global. Android pasó sobre el head limpio `5397cedc`; Web se
+repitió sobre `a466d11580c4c7c87b521f0915c3988150fe7554` después de corregir sólo
+la etiqueta del paso de vuelta para que no dijera Chats cuando la ruta observada
+era Feed. No se repitió Android por ese cambio exclusivo del runner Web. Sus
+reportes saneados y hashes están en
+[`deep-link-native-retry-android-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-android-5397cedc.json)
+y [`deep-link-native-retry-web-a466d115.json`](candidate-attestations/evidence/deep-link-native-retry-web-a466d115.json).
 El fallo conservado de la VM está en
 [`deep-link-native-retry-ios-metal-diagnostic-8768d980.json`](candidate-attestations/evidence/deep-link-native-retry-ios-metal-diagnostic-8768d980.json).
 El manifest final no se emitirá hasta que el XCTest iOS pase en un host con Metal;
