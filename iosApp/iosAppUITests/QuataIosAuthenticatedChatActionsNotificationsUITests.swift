@@ -2328,10 +2328,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
-            "The seeded normal launch must restore Feed.",
-        )
+        dismissStartupWhatsNewIfPresent(in: app)
+        guard app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+            .waitForExistence(timeout: 20) else {
+            XCTFail("The seeded normal launch must restore Feed.")
+            return
+        }
 
         openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
         let timeline = waitForVisibleIdentifier("feed.video.timeline", in: app, context: "Feed video timeline")
@@ -2353,10 +2357,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         app.terminate()
         app.launch()
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
-            "Feed must relaunch from a new application process.",
-        )
+        dismissStartupWhatsNewIfPresent(in: app)
+        guard app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+            .waitForExistence(timeout: 20) else {
+            XCTFail("Feed must relaunch from a new application process.")
+            return
+        }
         openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
         let restoredControl = waitForVisibleIdentifier("feed.video.play-pause", in: app, context: "Restored Feed video playback state")
         pauseIfPlaying(restoredControl)
