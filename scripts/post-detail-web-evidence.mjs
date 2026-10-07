@@ -247,6 +247,10 @@ async function verifyOfficialDetail(page, origin, state) {
   await waitForAttribute(page, "data-quata-official-detail-summary", state.official.summary, "official_detail_summary_marker_missing");
   await waitForAttributeContains(page, "data-quata-official-detail-article", state.official.article, "official_detail_article_marker_missing");
   await waitForAttribute(page, "data-quata-official-detail-link", state.official.linkUrl, "official_detail_link_marker_missing");
+  if (options.officialVideoPositionLifecycle) {
+    await verifyOfficialVideoPositionSurvivesReload(page, state);
+    await waitForAnchor(page, "official.detail.chrome");
+  }
   const titleVisibleInAccessibility = await visibleText(page, state.official.title, 2_000);
   await clickAnchor(page, `official.detail.read-more.${state.official.postId}`);
   await waitForAnchor(page, "official.detail.panel");
@@ -312,6 +316,73 @@ async function verifyOfficialDetail(page, origin, state) {
   await waitForRoute(page, "official", "official_back_route_missing");
   report.evidence.officialBack = await screenshot(page, "web-post-detail-official-back");
   report.steps.push("official_detail_common_chrome_and_back_verified");
+}
+
+async function verifyOfficialVideoPositionSurvivesReload(page, state) {
+  await waitForAnchor(page, "official.media.open");
+  await clickAnchor(page, "official.media.open");
+  await waitForAnchor(page, "fullscreen-media.title");
+  const video = page.locator("video").last();
+  await page.waitForFunction(() => {
+    const root = document.getElementById("quata-root");
+    const videos = [...(root?.shadowRoot?.querySelectorAll("video") ?? root?.querySelectorAll("video") ?? [])];
+    const element = videos.at(-1);
+    return Boolean(element && Number.isFinite(element.duration) && element.duration > 4);
+  }, null, { timeout: 20_000 }).catch(() => {
+    throw new Error("official_video_metadata_not_ready_for_reload_probe");
+  });
+  const seededPositionSeconds = await video.evaluate((element) => {
+    const target = Math.min(8, Math.max(3, element.duration * 0.4));
+    element.currentTime = target;
+    element.dispatchEvent(new Event("timeupdate"));
+    return target;
+  });
+  const storageKey = `quata.official.video_positions.v1.${state.actorSession.profileId}`;
+  const mediaId = `${state.official.postId}\u001f${state.official.mediaUrl.trim()}`;
+  await page.waitForFunction(({ key, id, minimumMs }) => {
+    try {
+      const snapshot = JSON.parse(localStorage.getItem(key) ?? "null");
+      const entry = snapshot?.entries?.find((candidate) => candidate?.mediaId === id);
+      return snapshot?.version === 1 && Number(entry?.positionMs) >= minimumMs;
+    } catch {
+      return false;
+    }
+  }, { key: storageKey, id: mediaId, minimumMs: Math.floor(seededPositionSeconds * 1_000) - 500 }, { timeout: 10_000 }).catch(() => {
+    throw new Error("official_video_position_not_persisted_before_reload");
+  });
+  const persistedPositionMs = await page.evaluate(({ key, id }) => {
+    const snapshot = JSON.parse(localStorage.getItem(key));
+    return Number(snapshot.entries.find((entry) => entry.mediaId === id).positionMs);
+  }, { key: storageKey, id: mediaId });
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await waitForAttribute(page, "data-quata-official-detail-title", state.official.title, "official_detail_title_marker_missing_after_reload");
+  await waitForAnchor(page, "official.media.open");
+  await clickAnchor(page, "official.media.open");
+  await waitForAnchor(page, "fullscreen-media.title");
+  await page.waitForFunction(() => {
+    const root = document.getElementById("quata-root");
+    const videos = [...(root?.shadowRoot?.querySelectorAll("video") ?? root?.querySelectorAll("video") ?? [])];
+    const element = videos.at(-1);
+    return Boolean(element && Number.isFinite(element.duration) && element.duration > 0 && element.currentTime > 0);
+  }, null, { timeout: 20_000 }).catch(() => {
+    throw new Error("official_video_position_not_restored_after_reload");
+  });
+  const restoredPositionMs = await page.locator("video").last().evaluate((element) => {
+    element.pause();
+    return Math.floor(element.currentTime * 1_000);
+  });
+  if (restoredPositionMs < persistedPositionMs - 1_500) {
+    throw new Error(`official_video_position_restore_mismatch:${persistedPositionMs}:${restoredPositionMs}`);
+  }
+  report.evidence.officialVideoPositionReload = {
+    storageKeySha256: sha256(storageKey),
+    mediaIdSha256: sha256(mediaId),
+    persistedPositionMs,
+    restoredPositionMs,
+  };
+  report.steps.push("official_fullscreen_video_position_persisted_and_restored_after_document_reload");
+  await clickAnchor(page, "fullscreen-media.close");
 }
 
 async function openRoute(page, origin, fragment, expectedRoute) {
@@ -606,6 +677,7 @@ function parseArgs(args) {
     headless: true,
     feedVideo: false,
     officialVideo: false,
+    officialVideoPositionLifecycle: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -623,6 +695,13 @@ function parseArgs(args) {
       parsed.officialVideo = true;
       parsed.output = resolve("build-reports/web/post-detail-official-video-evidence.json");
       parsed.evidenceDir = resolve("build-reports/web/post-detail-official-video-evidence");
+      continue;
+    }
+    if (key === "--official-video-position-lifecycle") {
+      parsed.officialVideo = true;
+      parsed.officialVideoPositionLifecycle = true;
+      parsed.output = resolve("build-reports/web/official-video-position-lifecycle-evidence.json");
+      parsed.evidenceDir = resolve("build-reports/web/official-video-position-lifecycle-evidence");
       continue;
     }
     const value = args[index + 1];

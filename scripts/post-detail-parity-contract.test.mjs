@@ -12,6 +12,8 @@ async function source(path) {
 const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPostDetailChromeContent.kt");
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
 const feedVideoPositionStore = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStore.kt");
+const durableMediaPositionStore = await source("core/src/commonMain/kotlin/com/quata/core/platform/DurableMediaPositionStore.kt");
+const officialVideoPositionStoreTest = await source("feature/official/src/commonTest/kotlin/com/quata/feature/official/presentation/OfficialVideoPositionStoreTest.kt");
 const browserPreferenceStore = await source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserPreferenceStore.wasm.kt");
 const browserPreferenceStoreTest = await source("core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserPreferenceStoreTest.kt");
 const feedVideoPositionStoreTest = await source("feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStoreTest.kt");
@@ -242,8 +244,9 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /feed_fullscreen_video_position_persisted_and_restored_after_document_reload/);
   assert.match(webEvidence, /page\.locator\("video"\)\.last\(\)/);
   assert.match(webEvidence, /quata\.feed\.video_positions\.v1\./);
-  assert.match(feedVideoPositionStore, /AtomicPreferenceStore/);
-  assert.match(feedVideoPositionStore, /updateStringAtomically\(key\)/);
+  assert.match(feedVideoPositionStore, /DurableMediaPositionStore/);
+  assert.match(durableMediaPositionStore, /AtomicPreferenceStore/);
+  assert.match(durableMediaPositionStore, /updateStringAtomically\(key\)/);
   assert.match(browserPreferenceStore, /navigator\?\.locks/);
   assert.match(browserPreferenceStore, /locks\.request\('quata\.preference\.' \+ key/);
   assert.match(browserPreferenceStoreTest, /updatesWaitForTheSharedBrowserLockAndPreserveBothValues/);
@@ -281,19 +284,37 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /withOfficialVideo: options\.officialVideo/);
   assert.match(webEvidence, /official_detail_video_native_browser_playback_observed/);
   assert.match(webEvidence, /element\.currentTime > 0\.15/);
+  assert.match(webEvidence, /--official-video-position-lifecycle/);
+  assert.match(webEvidence, /quata\.official\.video_positions\.v1\./);
+  assert.match(webEvidence, /official_fullscreen_video_position_persisted_and_restored_after_document_reload/);
   assert.match(androidEvidence, /--post-detail-official-video/);
   assert.match(androidEvidence, /withOfficialVideo: postDetailOfficialVideo/);
+  assert.match(androidEvidence, /--official-video-position-lifecycle/);
+  assert.match(androidEvidence, /officialVideoPositionLifecycle \? "official-video-position" : "feed-video-position"/);
+  assert.match(androidEvidence, /`\$\{lifecyclePrefix\}-seed`/);
+  assert.match(androidEvidence, /`\$\{lifecyclePrefix\}-restore`/);
   assert.match(androidUiTest, /fullscreen-media\.video/);
   assert.match(androidUiTest, /StateDescription\) == "playing"/);
+  assert.match(androidUiTest, /OfficialVideoPositionTestTag/);
+  assert.match(androidUiTest, /quata\.official\.video_positions\.v1/);
   assert.match(androidAttachmentViewer, /\.testTag\("fullscreen-media\.video"\)/);
   assert.match(androidAttachmentViewer, /isPlaying -> "playing"/);
   assert.match(iosEvidence, /--post-detail-official-video/);
   assert.match(iosEvidence, /withOfficialVideo: postDetailOfficialVideo/);
+  assert.match(iosEvidence, /--official-video-position-lifecycle/);
+  assert.match(iosEvidence, /withOfficialVideo: postDetailOfficialVideo \|\| officialVideoPositionLifecycle/);
+  assert.match(iosEvidence, /testOfficialVideoPositionRestoresAfterProcessRelaunch/);
+  assert.match(iosUiWrapper, /QUATA_IOS_CHAT_OFFICIAL_VIDEO_POSITION_LIFECYCLE/);
+  assert.match(iosUiWrapper, /official-video-position-lifecycle\.log/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO/);
+  assert.match(iosUiTest, /func testOfficialVideoPositionRestoresAfterProcessRelaunch\(\) throws/);
+  assert.match(iosUiTest, /official\.video\.position/);
+  assert.match(iosUiTest, /ios-official-video-position-restored-after-relaunch/);
   assert.match(iosUiTest, /fullscreen-media\.video/);
   assert.match(iosOfficialBridge, /root\.accessibilityIdentifier = "fullscreen-media\.video"/);
   assert.match(iosOfficialBridge, /case \.playing: "playing"/);
   assert.match(iosFrameworkTests, /testIosOfficialVideoViewerAutoplaysARealLocalFixture/);
+  assert.match(officialVideoPositionStoreTest, /officialCheckpointsAreActorScopedAndDoNotReuseFeedStorage/);
 
   for (const source of [webEvidence, androidUiTest, iosUiTest]) {
     assert.match(source, /feed\.post\.media/);
@@ -342,8 +363,8 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(feedHost, /store\.persistPosition\(effectiveCurrentUserId, mediaId, normalized\)/);
   assert.equal(feedHost.match(/\{ position -> updateVideoPosition\(post, position\) \}/g)?.length, 2);
   assert.match(feedHost, /feedVideoPositionMediaId\(post\.id, url\)/);
-  assert.match(feedVideoPositionStore, /actorLock\(actorId\)\.withLock/);
-  assert.match(feedVideoPositionStore, /positions\.remove\(mediaId\)[\s\S]*?positions\[mediaId\] = positionMs/);
+  assert.match(durableMediaPositionStore, /actorLock\(actorId\)\.withLock/);
+  assert.match(durableMediaPositionStore, /positions\.remove\(mediaId\)[\s\S]*?positions\[mediaId\] = positionMs/);
   assert.match(androidFeedScreen, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
   assert.match(androidFeedScreen, /LaunchedEffect\(player, isActive, initialPositionMs\)/);
   assert.match(webFeedMedia, /isBecomingCurrent = isCurrent && !wasCurrent/);
@@ -374,7 +395,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   );
   assert.match(
     officialHost,
-    /slots\.mediaViewer\(post\)[\s\S]*?mediaPost = null[\s\S]*?mediaReturnReadMorePost\?\.let \{ readMorePost = it \}[\s\S]*?mediaReturnReadMorePost = null/,
+    /slots\.mediaViewer\([\s\S]*?post,[\s\S]*?videoPositions\[it\][\s\S]*?updateVideoPosition\(post, positionMs\)[\s\S]*?mediaPost = null[\s\S]*?mediaReturnReadMorePost\?\.let \{ readMorePost = it \}[\s\S]*?mediaReturnReadMorePost = null/,
   );
 });
 

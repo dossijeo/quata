@@ -10,6 +10,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
@@ -93,6 +96,7 @@ internal fun iosOfficialPlatformSlots(
             exportFailed = strings.mediaExportFailed,
             initialPositionMs = initialPositionMs,
             onPositionChanged = onPositionChanged,
+            exposeE2eStateSemantics = exposeE2eStateSemantics,
             dismiss = dismiss,
         )
     },
@@ -138,6 +142,7 @@ private fun IosOfficialNativeViewer(
     exportFailed: String,
     initialPositionMs: Long,
     onPositionChanged: (Long) -> Unit,
+    exposeE2eStateSemantics: Boolean,
     dismiss: () -> Unit,
 ) {
     val url = post.mediaUrl ?: return
@@ -190,6 +195,14 @@ private fun IosOfficialNativeViewer(
                         message = playbackFailed,
                         retryLabel = retryLabel,
                         onRetry = surface::retry,
+                    )
+                }
+                if (exposeE2eStateSemantics && post.mediaType == OfficialMediaType.Video) {
+                    Box(
+                        Modifier
+                            .size(1.dp)
+                            .testTag(OfficialVideoPositionTestTag)
+                            .semantics { stateDescription = snapshot.positionMs.toString() },
                     )
                 }
             }

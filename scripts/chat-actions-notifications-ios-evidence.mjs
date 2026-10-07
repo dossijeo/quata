@@ -70,6 +70,7 @@ const postDetailOnly = options.postDetailOnly;
 const postDetailFeedVideo = options.postDetailFeedVideo;
 const feedVideoPositionLifecycle = options.feedVideoPositionLifecycle;
 const postDetailOfficialVideo = options.postDetailOfficialVideo;
+const officialVideoPositionLifecycle = options.officialVideoPositionLifecycle;
 const profileEntryOnly = options.profileEntryOnly;
 const profileEntryErrorDeepOnly = options.profileEntryErrorDeepOnly;
 const conversationsOnly = options.conversationsOnly;
@@ -578,6 +579,7 @@ export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOffici
 export QUATA_IOS_CHAT_POST_DETAIL_UI_E2E=${postDetailOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO=${postDetailOfficialVideo ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE=${feedVideoPositionLifecycle ? "1" : "0"}
+export QUATA_IOS_CHAT_OFFICIAL_VIDEO_POSITION_LIFECYCLE=${officialVideoPositionLifecycle ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_ERROR_DEEP_UI_E2E=${profileEntryErrorDeepOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
@@ -704,6 +706,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         feedOfficialCommentsSelectorStatesOnly,
         postDetailOnly,
         feedVideoPositionLifecycle,
+        officialVideoPositionLifecycle,
         profileEntryOnly,
         profileEntryErrorDeepOnly,
         conversationsOnly,
@@ -814,6 +817,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : postDetailOnly
         ? feedVideoPositionLifecycle
           ? "ios_xctest_feed_video_position_restored_after_process_relaunch_verified"
+          : officialVideoPositionLifecycle
+          ? "ios_xctest_official_video_position_restored_after_process_relaunch_verified"
           : postDetailOfficialVideo
           ? "ios_xctest_official_detail_native_video_playback_and_panel_return_verified"
           : "ios_xctest_feed_and_official_post_detail_common_chrome_and_back_verified"
@@ -953,6 +958,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     if (postDetailOnly) {
       report.steps.push(feedVideoPositionLifecycle
         ? "feed_video_position_restored_after_ios_process_relaunch"
+        : officialVideoPositionLifecycle
+        ? "official_video_position_restored_after_ios_process_relaunch"
         : postDetailOfficialVideo
         ? "official_detail_native_video_playback_and_panel_return_verified"
         : "feed_and_official_post_detail_common_chrome_and_back_verified");
@@ -1603,6 +1610,7 @@ function parseArgs(argv) {
     postDetailFeedVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_FEED_VIDEO === "1",
     feedVideoPositionLifecycle: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_VIDEO_POSITION_LIFECYCLE === "1",
     postDetailOfficialVideo: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_POST_DETAIL_OFFICIAL_VIDEO === "1",
+    officialVideoPositionLifecycle: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_OFFICIAL_VIDEO_POSITION_LIFECYCLE === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     profileEntryErrorDeepOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ERROR_DEEP_ONLY === "1",
     conversationsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_ONLY === "1",
@@ -1748,6 +1756,16 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/post-detail-official-video-evidence");
       result.remoteLogDir = "build/reports/ios/post-detail-official-video";
       result.remoteResultBundleDir = "build/reports/ios/post-detail-official-video/xcresults";
+      continue;
+    }
+    if (key === "--official-video-position-lifecycle") {
+      result.postDetailOnly = true;
+      result.postDetailOfficialVideo = true;
+      result.officialVideoPositionLifecycle = true;
+      result.output = resolve("build-reports/ios/official-video-position-lifecycle-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/official-video-position-lifecycle-evidence");
+      result.remoteLogDir = "build/reports/ios/official-video-position-lifecycle";
+      result.remoteResultBundleDir = "build/reports/ios/official-video-position-lifecycle/xcresults";
       continue;
     }
     if (key === "--profile-entry-only") {
@@ -2945,7 +2963,7 @@ async function prepareFeedOfficialCommentsFixture(fixture, runtimeConfig) {
     withDatabase,
     withMedia: postDetailOnly,
     withFeedVideo: postDetailFeedVideo || feedVideoPositionLifecycle,
-    withOfficialVideo: postDetailOfficialVideo,
+    withOfficialVideo: postDetailOfficialVideo || officialVideoPositionLifecycle,
     config: runtimeConfig,
     storageRequest,
     cleanup: state.cleanupRegistry,
@@ -3455,6 +3473,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.feedOfficialCommentsTranslationOnly) return { method: "testFeedAndOfficialCommentsTranslateFangAndReturnToSamePanel", log: "feed-official-comments-translation.log" };
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.feedVideoPositionLifecycle) return { method: "testFeedVideoPositionRestoresAfterProcessRelaunch", log: "feed-video-position-lifecycle.log" };
+  if (mode.officialVideoPositionLifecycle) return { method: "testOfficialVideoPositionRestoresAfterProcessRelaunch", log: "official-video-position-lifecycle.log" };
   if (mode.postDetailOnly) return { method: "testFeedAndOfficialPostDetailsUseSharedChromeAndBack", log: "post-detail.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
   if (mode.profileEntryErrorDeepOnly) return { method: "testProfileEntryLoadErrorRetryAndNestedReturnToChat", log: "profile-entry-error-deep.log" };

@@ -80,6 +80,7 @@ import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
 import com.quata.feature.feed.presentation.FeedVideoPlayPauseTestTag
 import com.quata.feature.feed.presentation.FeedVideoTimelineTestTag
 import com.quata.feature.feed.presentation.FeedVideoTimeTestTag
+import com.quata.feature.official.presentation.OfficialVideoPositionTestTag
 import com.quata.feature.notifications.presentation.NotificationItemTestTagPrefix
 import com.quata.feature.notifications.presentation.NotificationsLoadingTestTag
 import com.quata.feature.notifications.presentation.NotificationsRootTestTag
@@ -230,6 +231,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "feed-video-position-seed", "feed-video-position-restore" ->
                 !postId.isNullOrBlank() && !actorProfileId.isNullOrBlank()
+            "official-video-position-seed", "official-video-position-restore" ->
+                !officialPostId.isNullOrBlank() && !actorProfileId.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "profile-entry-error-deep" -> listOf(chatUrl, peerProbe, profileId, actorProfileId).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
@@ -355,6 +358,21 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "FLOW-FEED-VIDEO-POSITION-ANDROID-001")
+                    .put("status", "passed")
+                    .put("phase", if (stage.endsWith("restore")) "restore_after_force_stop" else "seed_before_force_stop")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "official-video-position-seed" || stage == "official-video-position-restore") {
+            runOfficialVideoPositionLifecycleStage(
+                officialPostId = officialPostId.orEmpty(),
+                actorProfileId = actorProfileId.orEmpty(),
+                restore = stage == "official-video-position-restore",
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-OFFICIAL-VIDEO-POSITION-ANDROID-001")
                     .put("status", "passed")
                     .put("phase", if (stage.endsWith("restore")) "restore_after_force_stop" else "seed_before_force_stop")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
@@ -812,11 +830,48 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
+    private fun runOfficialVideoPositionLifecycleStage(officialPostId: String, actorProfileId: String, restore: Boolean) {
+        val persistedBefore = persistedVideoPositionSeconds("quata.official.video_positions.v1.$actorProfileId")
+        if (restore) {
+            assertTrue(
+                "The durable Official-video checkpoint must survive the process stop before rendering; observed=$persistedBefore.",
+                persistedBefore.any { it >= 2 },
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#official-${Uri.encode(officialPostId)}")).use {
+            waitForTag("official.detail.chrome", "Official video position detail", 45_000)
+            clickMergedTagWithAction("official.media.open")
+            waitForTag("fullscreen-media.title", "Official video position fullscreen", 20_000)
+            waitForTag(OfficialVideoPositionTestTag, "Official video position semantics", 20_000)
+            if (restore) {
+                compose.waitUntil(10_000) { officialVideoPositionMs() > 0L }
+                val firstObserved = officialVideoPositionMs()
+                val minimumRestored = (persistedBefore.maxOrNull()?.times(1_000L) ?: 0L) - 1_500L
+                assertTrue(
+                    "Official video must seek to the durable checkpoint before fresh playback can reach it; persisted=$persistedBefore observedMs=$firstObserved.",
+                    firstObserved >= minimumRestored,
+                )
+                saveScreenshot("android-official-video-position-restored-after-force-stop")
+            } else {
+                compose.waitUntil(20_000) { officialVideoPositionMs() >= 2_000L }
+                val persisted = persistedVideoPositionSeconds("quata.official.video_positions.v1.$actorProfileId")
+                assertTrue(
+                    "The Official video position must be durably checkpointed before the process stop; observed=$persisted.",
+                    persisted.any { it >= 2 },
+                )
+                saveScreenshot("android-official-video-position-seeded-before-force-stop")
+            }
+        }
+    }
+
     private fun persistedFeedVideoPositionSeconds(actorProfileId: String): List<Int> =
+        persistedVideoPositionSeconds("quata.feed.video_positions.v1.$actorProfileId")
+
+    private fun persistedVideoPositionSeconds(storageKey: String): List<Int> =
         targetContext.getSharedPreferences("quata_platform", Context.MODE_PRIVATE)
             .all
             .asSequence()
-            .filter { (key, _) -> key == "quata.feed.video_positions.v1.$actorProfileId" }
+            .filter { (key, _) -> key == storageKey }
             .flatMap { (_, value) ->
                 val entries = runCatching { JSONObject(value as String).getJSONArray("entries") }.getOrNull()
                     ?: return@flatMap emptySequence()
@@ -825,6 +880,15 @@ class ChatActionsNotificationsInstrumentedTest {
                 }
             }
             .toList()
+
+    private fun officialVideoPositionMs(): Long = runCatching {
+        compose.onNodeWithTag(OfficialVideoPositionTestTag, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.StateDescription)
+            ?.toLongOrNull()
+            ?: 0L
+    }.getOrDefault(0L)
 
     private fun feedVideoControlShowsPause(): Boolean = runCatching {
         feedVideoNode(FeedVideoPlayPauseTestTag)

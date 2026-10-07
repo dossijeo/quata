@@ -149,6 +149,7 @@ const val OfficialFeedRootTestTag = "official-feed-common-root"
 const val OfficialFeedStateTestTagPrefix = "official-feed-common-state"
 const val OfficialFeedErrorMessageTestTag = "official-feed-error-message"
 const val OfficialFeedRetryTestTag = "official-feed-retry"
+const val OfficialVideoPositionTestTag = "official.video.position"
 const val OfficialVideoPositionStoragePrefix = "quata.official.video_positions.v1."
 
 internal fun officialVideoPositionMediaId(postId: String, videoUrl: String): String =
