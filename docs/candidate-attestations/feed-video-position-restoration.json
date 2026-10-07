@@ -4,12 +4,12 @@
     "OVR-MEDIA-FEED-VIDEO-POSITION"
   ],
   "status": "passed",
-  "productSha": "7dc1d7a7319d61a4c6dfbddbf9a0cb3857af61e4",
+  "productSha": "9510b42d2299ea05e98c1435adde906a106df7e0",
   "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "7dc1d7a7319d61a4c6dfbddbf9a0cb3857af61e4",
+      "sha": "9510b42d2299ea05e98c1435adde906a106df7e0",
       "report": "docs/candidate-attestations/evidence/feed-video-position-restoration-web-7dc1d7a7.json",
       "reportSha256": "90fc86098636964ed0a665949c259929131828cd2850401db7d498073cc7dcca",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "7dc1d7a7319d61a4c6dfbddbf9a0cb3857af61e4",
+      "sha": "9510b42d2299ea05e98c1435adde906a106df7e0",
       "report": "docs/candidate-attestations/evidence/feed-video-position-restoration-android-d18dab3e.json",
       "reportSha256": "1d5bb81f9c7117fabfdd4eacdd5aa8325e4887caecb1168673e3a312414ea54b",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "7dc1d7a7319d61a4c6dfbddbf9a0cb3857af61e4",
+      "sha": "9510b42d2299ea05e98c1435adde906a106df7e0",
       "report": "docs/candidate-attestations/evidence/feed-video-position-restoration-ios-d18dab3e.json",
       "reportSha256": "bb815f9ea85fd93201cde25e356b65ad300657d018774ba5ff15a8b40c56ea1a",
       "reportStatus": "passed",
@@ -88,7 +88,7 @@
     "Playback callbacks persist nonnegative checkpoints through an actor store transaction and reload the latest snapshot before each bounded write. Native hosts serialize within the process; Web additionally uses the browser lock manager around the shared localStorage map so separate tabs cannot overwrite each other. Writes remain suppressed until movement reaches one second.",
     "Web/Wasm seeded the checkpoint from the fullscreen viewer and restored 3000 ms exactly after a full document reload. Android seeded from fullscreen, force-stopped the process and restored a nonzero checkpoint. iOS seeded from fullscreen, backgrounded the app to commit its normal lifecycle checkpoint, terminated it, relaunched the process and restored a nonzero checkpoint in Simulator.",
     "The iOS startup What's New surface is dismissed through its existing semantic control before opening the exact temporary Feed video. Earlier failed attempts remain in unversioned local history and distinguish the overlay obstruction and an unreliable play-pause accessibility-state assumption from the accepted lifecycle proof.",
-    "The Web focal report was renewed from clean exact Product SHA 7dc1d7a7 after adding cross-tab serialization. The Android and iOS lifecycle reports remain byte-identified at d18dab3e because their preference adapters do not implement the Web-only atomic boundary; affected shared tests and Android compilation were repeated without claiming a new native execution. The iOS run used a dedicated Mac checkout after deleting only generated build outputs and obsolete dedicated Gradle caches to recover disk space; earlier checkout-mismatch, missing-build and disk-exhaustion pilots remain recorded in local raw evidence history.",
+    "The Web focal report was renewed from clean exact runtime SHA 7dc1d7a7 after adding cross-tab serialization. Product SHA 9510b42d adds only a browser gate that holds the same Web Lock and proves both updates remain pending until release; no runtime source changed, so the E2E was not repeated solely for this test-only head change. The Android and iOS lifecycle reports remain byte-identified at d18dab3e because their preference adapters do not implement the Web-only atomic boundary; affected shared tests and Android compilation were repeated without claiming a new native execution. The iOS run used a dedicated Mac checkout after deleting only generated build outputs and obsolete dedicated Gradle caches to recover disk space; earlier checkout-mismatch, missing-build and disk-exhaustion pilots remain recorded in local raw evidence history.",
     "The temporary MP4, posts, conversations, messages and Storage objects were removed after every backend-backed run with all recorded residue counts at zero.",
     "This closure covers Feed video position from the fullscreen viewer through Web document reload and Android/iOS process relaunch, including concurrent Feed/fullscreen host writes. It does not claim prolonged background playback, exhaustive codec or transport behavior, Official video checkpoints or other media producers.",
     "Raw reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed projections contain only SHA binding, required steps, measured positions where applicable and zero-residue cleanup counts."
