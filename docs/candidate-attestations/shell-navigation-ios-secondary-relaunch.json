@@ -4,12 +4,12 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "1105b860c7eacc7a0f6616688fb6ea5570db5e24",
-  "certification": "focal-ios-process-relaunch-seven-secondary-routes-complete-capability-hash-rebound-independent-final-review-complete-final-CI-pending",
+  "productSha": "824959289f40115a41508aa388db1bb837c018bd",
+  "certification": "focal-ios-process-relaunch-seven-secondary-routes-complete-capability-hash-rebound-independent-final-review-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "1105b860c7eacc7a0f6616688fb6ea5570db5e24",
+      "sha": "824959289f40115a41508aa388db1bb837c018bd",
       "report": "docs/candidate-attestations/evidence/shell-navigation-ios-secondary-completion-ee37800d.json",
       "reportSha256": "8bebe3ba8e3e919610a81d3c062975a38e979911e189a39a6c7bae09f131d8d0",
       "reportStatus": "passed",
@@ -53,8 +53,8 @@
     "Official Editor restores only after a fresh repository-backed official-role resolution. Non-official, stale, superseded and logout paths clear or reject the pending intent.",
     "The process test displayed each of What's New, Composer and Official Editor, terminated the app and launched a new process without replaying the route argument; all three route hosts restored.",
     "The first focused XCTest attempt exhausted the Mac volume while copying a framework before any selected test ran. Only generated outputs from inactive exact-SHA checkouts were removed; the unchanged exact Product SHA then passed all four selected tests.",
-    "Range-diff proves both runtime/test commits patch-equivalent after recomposition onto the frozen SCR-FEED head. Product SHA 1105b860 preserves all nine changed product and test blobs byte-for-byte from the clean execution head ee37800d and updates only the reviewed capability hashes for the two changed iOS composition sources, so the platform matrix was not repeated solely for commit identity.",
-    "Independent review of exact head 6ce9e4ef1e223461cb9a5a648316a9a327c0032f returned GO with no P0-P3 findings after verifying runtime/test blob identity, all seven capability hashes, evidence integrity and the stated scope boundaries.",
+    "Range-diff proves both runtime/test commits patch-equivalent after recomposition onto the integrated SCR-FEED squash. Product SHA 82495928 preserves all nine changed product and test blobs byte-for-byte from the clean execution head ee37800d and updates only the reviewed capability hashes for the two changed iOS composition sources, so the platform matrix was not repeated solely for commit identity.",
+    "The previous exact-head review remains preserved as historical review evidence. The recomposed exact head requires a fresh independent review before promotion.",
     "This closes restoration for the seven named secondary route names. It does not claim arbitrary nested backstacks, nested identifiers, scroll position, media position, drafts or internal widget state.",
     "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]
