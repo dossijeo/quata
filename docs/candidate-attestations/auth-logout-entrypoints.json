@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "OVR-UGC-TERMS"
+  ],
+  "status": "passed",
+  "productSha": "8089c2114812ab7ab6fb945b7e5eb4f8b36d5772",
+  "certification": "remaining-logout-entrypoints-local-complete-independent-review-approved-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "8089c2114812ab7ab6fb945b7e5eb4f8b36d5772",
+      "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-web-79379d5f.json",
+      "reportSha256": "2c424773a5c07c24738128b10c248121481d101e791c01aac20a46b452e7c8c2",
+      "reportStatus": "passed",
+      "reportGitHead": "79379d5f86cef7a4f80766f22673220865493481",
+      "requireReportArtifact": true,
+      "requireCleanupState": "restored",
+      "requiredSteps": [
+        "terms_acceptance_snapshot_registered_before_remote_mutation",
+        "authorized_profile_authenticated_without_logging_credentials",
+        "common_ugc_terms_dialog_blocks_authenticated_web_shell_until_acceptance",
+        "ugc_terms_logout_control_activated",
+        "owned_session_cleared",
+        "public_feed_visible",
+        "reload_remained_anonymous",
+        "no_terms_acceptance_created"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-ugc-acceptance-snapshot-restored"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "8089c2114812ab7ab6fb945b7e5eb4f8b36d5772",
+      "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-android-79379d5f.json",
+      "reportSha256": "7331cc36b78da568e4226354de83fcf6af08a1fa0261ab916ac0bbc1818664fe",
+      "reportStatus": "passed",
+      "reportGitHead": "79379d5f86cef7a4f80766f22673220865493481",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "remote_acceptance_snapshotted_and_removed",
+        "common_product_gate_logout_activated",
+        "production_auth_repository_invoked",
+        "owned_session_cleared",
+        "no_terms_acceptance_created"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-ugc-acceptance-snapshot-restored"
+      }
+    },
+    "iosUgc": {
+      "status": "passed",
+      "sha": "8089c2114812ab7ab6fb945b7e5eb4f8b36d5772",
+      "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-ios-ugc-831d0798.json",
+      "reportSha256": "5d710dd1934ddbd1a900bba64bfe9f46e6c8d74b6ba35a155cd29ddda1bdbc37",
+      "reportStatus": "passed",
+      "reportGitHead": "831d0798862969665cd78c2274e73d5d450dbc95",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "remote_acceptance_snapshotted_and_removed",
+        "mac_checkout_exact_and_clean",
+        "ios_signed_simulator_build_succeeded",
+        "product_gate_logout_activated",
+        "owned_session_cleared",
+        "public_feed_visible",
+        "relaunch_remained_anonymous",
+        "no_terms_acceptance_created"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "exact-ugc-acceptance-snapshot-restored"
+      }
+    },
+    "iosSettings": {
+      "status": "passed",
+      "sha": "8089c2114812ab7ab6fb945b7e5eb4f8b36d5772",
+      "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-ios-settings-9d2ac044.json",
+      "reportSha256": "0c37c0464c3dda6aa6b9016ee8088abeabf85e2c3017483e428a112933ff71cd",
+      "reportStatus": "passed",
+      "reportGitHead": "9d2ac04484ee13ff1192fe0a6c63ba688e094d4a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+        "mac_checkout_sha_matches_local_candidate",
+        "mac_checkout_clean",
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_authenticated_settings_logout_control_activated",
+        "ios_public_feed_visible_after_logout",
+        "ios_keychain_session_absent_after_relaunch",
+        "ios_exact_seeded_auth_session_absent_after_single_ui_logout",
+        "ios_exact_seeded_refresh_chain_has_zero_active_tokens"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-credentials-removed-runtime-config-restored-receipt-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/ugc-terms-web-evidence.mjs scripts/ugc-terms-android-remote-evidence.mjs scripts/ugc-terms-ios-remote-evidence.mjs scripts/account-postflight-ios-evidence.mjs",
+    "bash -n scripts/run-ios-ugc-terms-remote-ui-test.sh scripts/run-ios-account-postflight-ui-test.sh",
+    "node --test scripts/auth-logout-entrypoints-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-logout-entrypoints.json --head HEAD --json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "8089c2114812ab7ab6fb945b7e5eb4f8b36d5772",
+    "reviewHead": "9891a24abca8cdeef5a45f5ddb9848d2b9a5975f",
+    "blockingFindings": []
+  },
+  "notes": [
+    "This focal unit certifies the remaining visible logout affordances: the common UGC terms gate on Android, Web/Wasm and iOS, plus iOS Settings. Existing exact Profile logout evidence remains authoritative for the full Android shell, native route retirement and relaunch lifecycle.",
+    "Web clicked the real common UGC logout control, cleared the owned browser session, reached public Feed, remained anonymous after reload and restored the exact pre-existing UGC acceptance state without creating a new acceptance.",
+    "Android mounted the real common UGC gate, activated its product logout control and proved invocation of the production auth repository plus local session removal. This compositional gate is paired with the already-certified full Profile logout lifecycle; it does not claim a second full-shell run.",
+    "iOS UGC used the real authenticated app and common prompt. Logout cleared the Keychain-backed session, exposed the exact public transition, reached public Feed after natural relaunch, remained anonymous and restored the owned UGC acceptance snapshot.",
+    "iOS Settings navigated from authenticated Feed through the real secondary route menu, activated settings-logout once, reached the public transition and Feed after relaunch, proved Keychain absence, verified that the exact seeded backend Auth session no longer existed and that its refresh chain had zero active tokens, then removed credentials, runtime configuration and the local receipt.",
+    "Web and Android reports remain bound to 79379d5f and the iOS UGC report to 831d0798. Later commits changed only the iOS logout tests and coordinators needed for the Settings lane; they did not change Web, Android or product runtime. Per the documented two-lane rule those unaffected E2E lanes were not repeated solely for a SHA advance.",
+    "Failed pilots remain preserved locally: Web canvas click interception and reload reseeding; Android emulator loss and the bounded full-shell prompt timeout; iOS Mac disk exhaustion, an over-strong immediate Feed assertion, a wrong SOS locator, a route-menu attempt from Profile where that menu is intentionally absent, and one transient Simulator Mach termination.",
+    "No credential, token, connection string, backend row, new inventory identifier, product behavior or CI workflow is included in this unit. Remote Google OAuth acceptance remains separately bounded by console access and is not claimed here.",
+    "Independent implementation review returned GO without P0-P3 findings on the patch-equivalent HEAD e68600ea. Final reconciliation review returned GO without P0-P3 findings on the patch-equivalent HEAD 5149d8d5 after BOARD and INVENTORY were updated. Both confirmed authentic product controls and session owners in all four lanes, exact backend revocation only for iOS Settings, correct report-head custody, matching hashes, restored UGC snapshots, removed temporary credentials/runtime/receipt, 5/5 focal contracts, syntax, validator and diff-check.",
+    "Product SHA 8089c211 replays the exact reviewed logout-entrypoint patch over frozen candidate #565; the stable patch-id is unchanged, historical reportGitHead values remain authoritative and no platform E2E was repeated solely for ancestry.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

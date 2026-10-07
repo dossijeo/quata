@@ -1,0 +1,67 @@
+{
+  "check": "AUTH-LOGOUT-ENTRYPOINTS-WEB-001",
+  "mode": "logout",
+  "status": "passed",
+  "startedAt": "2026-10-07T05:38:27.566Z",
+  "git": {
+    "head": "79379d5f86cef7a4f80766f22673220865493481",
+    "branch": "codex/auth-logout-entrypoints",
+    "originMain": "4e1963d486ec694152889f71c408dbd30f240161"
+  },
+  "steps": [
+    "terms_acceptance_snapshot_registered_before_remote_mutation",
+    "authorized_profile_authenticated_without_logging_credentials",
+    "common_ugc_terms_dialog_blocks_authenticated_web_shell_until_acceptance",
+    "ugc_terms_logout_control_activated",
+    "owned_session_cleared",
+    "public_feed_visible",
+    "reload_remained_anonymous",
+    "no_terms_acceptance_created"
+  ],
+  "network": [
+    {
+      "method": "POST",
+      "status": 200,
+      "path": "/rest/v1/rpc/quata_chat_get_inbox_page"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "path": "/rest/v1/rpc/quata_chat_mark_messages_state"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "path": "/rest/v1/rpc/quata_has_accepted_ugc_terms"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "path": "/rest/v1/rpc/quata_community_feed_page"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "path": "/rest/v1/rpc/quata_community_feed_page"
+    }
+  ],
+  "evidence": {
+    "required": "local-evidence/web-ugc-terms-required.png",
+    "logout": "local-evidence/web-ugc-terms-logout-public-feed.png",
+    "relaunch": "local-evidence/web-ugc-terms-logout-reload-public-feed.png"
+  },
+  "cleanup": {
+    "state": "restored",
+    "originalAcceptancePresent": true,
+    "temporaryAcceptanceRemoved": false
+  },
+  "sourceRevision": "79379d5f86cef7a4f80766f22673220865493481",
+  "product": {
+    "gateObserved": true,
+    "logoutActivatedThroughProductUi": true,
+    "sessionCleared": true,
+    "publicFeedVisible": true,
+    "reloadAnonymous": true
+  },
+  "finishedAt": "2026-10-07T05:38:55.608Z"
+}

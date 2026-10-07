@@ -1,0 +1,34 @@
+{
+  "check": "AUTH-LOGOUT-ENTRYPOINTS-IOS-001",
+  "mode": "logout",
+  "status": "passed",
+  "startedAt": "2026-10-07T08:46:29.571Z",
+  "git": {
+    "head": "831d0798862969665cd78c2274e73d5d450dbc95",
+    "branch": "codex/auth-logout-entrypoints",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "remote_acceptance_snapshotted_and_removed",
+    "mac_checkout_exact_and_clean",
+    "ios_signed_simulator_build_succeeded",
+    "product_gate_logout_activated",
+    "owned_session_cleared",
+    "public_feed_visible",
+    "relaunch_remained_anonymous",
+    "no_terms_acceptance_created"
+  ],
+  "cleanup": {
+    "attempted": true,
+    "restored": true
+  },
+  "product": {
+    "commonGateObserved": true,
+    "logoutActivatedThroughProductUi": true,
+    "sessionCleared": true,
+    "publicTransitionVisible": true,
+    "relaunchPublicFeedVisible": true,
+    "relaunchAnonymous": true
+  },
+  "finishedAt": "2026-10-07T08:51:26.157Z"
+}

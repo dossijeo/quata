@@ -8,14 +8,15 @@ import { tmpdir } from "node:os";
 import { chromium } from "playwright-core";
 import pg from "pg";
 
-const CHECK = "UGC-TERMS-WEB-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 
 const options = parseArgs(process.argv.slice(2));
+const CHECK = options.mode === "logout" ? "AUTH-LOGOUT-ENTRYPOINTS-WEB-001" : "UGC-TERMS-WEB-REAL-001";
 const report = {
   check: CHECK,
+  mode: options.mode,
   status: "failed",
   startedAt: new Date().toISOString(),
   git: gitMetadata(),
@@ -77,43 +78,64 @@ try {
   report.evidence.required = await screenshot(page, options.evidenceDir, "web-ugc-terms-required");
   report.steps.push("common_ugc_terms_dialog_blocks_authenticated_web_shell_until_acceptance");
 
-  await openLegalDocument(page, "childsafety", "Normas");
-  report.evidence.childSafety = await screenshot(page, options.evidenceDir, "web-ugc-terms-child-safety-document");
-  await closeDocumentViewer(page);
-  await openLegalDocument(page, "privacy", "Privacidad");
-  report.evidence.privacy = await screenshot(page, options.evidenceDir, "web-ugc-terms-privacy-document");
-  await closeDocumentViewer(page);
-  report.steps.push("ugc_terms_common_legal_links_open_real_web_document_viewer");
+  if (options.mode === "logout") {
+    await logoutFromTermsGate(page);
+    await waitForAnonymousFeed(page);
+    report.evidence.logout = await screenshot(page, options.evidenceDir, "web-ugc-terms-logout-public-feed");
+    report.steps.push("ugc_terms_logout_control_activated", "owned_session_cleared", "public_feed_visible");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+    await waitForAnonymousFeed(page);
+    report.evidence.relaunch = await screenshot(page, options.evidenceDir, "web-ugc-terms-logout-reload-public-feed");
+    const unexpected = await readTermsAcceptance(config, session.profileId, termsVersion);
+    if (unexpected) throw new Error("ugc_terms_logout_unexpected_acceptance");
+    report.steps.push("reload_remained_anonymous", "no_terms_acceptance_created");
+    report.product = {
+      gateObserved: true,
+      logoutActivatedThroughProductUi: true,
+      sessionCleared: true,
+      publicFeedVisible: true,
+      reloadAnonymous: true,
+    };
+  } else {
+    await openLegalDocument(page, "childsafety", "Normas");
+    report.evidence.childSafety = await screenshot(page, options.evidenceDir, "web-ugc-terms-child-safety-document");
+    await closeDocumentViewer(page);
+    await openLegalDocument(page, "privacy", "Privacidad");
+    report.evidence.privacy = await screenshot(page, options.evidenceDir, "web-ugc-terms-privacy-document");
+    await closeDocumentViewer(page);
+    report.steps.push("ugc_terms_common_legal_links_open_real_web_document_viewer");
 
-  await acceptTerms(page);
-  await page.waitForFunction(() =>
-    document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted",
-    null,
-    { timeout: 30_000 },
-  );
-  report.evidence.accepted = await screenshot(page, options.evidenceDir, "web-ugc-terms-accepted-shell");
-  report.steps.push("ugc_terms_acceptance_invoked_real_gateway_and_unblocked_shell");
+    await acceptTerms(page);
+    await page.waitForFunction(() =>
+      document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted",
+      null,
+      { timeout: 30_000 },
+    );
+    report.evidence.accepted = await screenshot(page, options.evidenceDir, "web-ugc-terms-accepted-shell");
+    report.steps.push("ugc_terms_acceptance_invoked_real_gateway_and_unblocked_shell");
 
-  const acceptedRow = await readTermsAcceptance(config, session.profileId, termsVersion);
-  if (!acceptedRow) throw new Error("terms_acceptance_row_missing_after_accept");
-  report.steps.push("supabase_terms_acceptance_row_created_by_product_rpc");
+    const acceptedRow = await readTermsAcceptance(config, session.profileId, termsVersion);
+    if (!acceptedRow) throw new Error("terms_acceptance_row_missing_after_accept");
+    report.steps.push("supabase_terms_acceptance_row_created_by_product_rpc");
 
-  acceptedContext = await browser.newContext({
-    locale: "es-ES",
-    viewport: { width: 430, height: 930 },
-    deviceScaleFactor: 1,
-  });
-  await installSession(acceptedContext, session);
-  acceptedPage = await acceptedContext.newPage();
-  await acceptedPage.goto(`${server.origin}/?quata-auth-e2e=1#feed`, { waitUntil: "domcontentloaded" });
-  await acceptedPage.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
-  await acceptedPage.waitForFunction(() =>
-    document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted",
-    null,
-    { timeout: 45_000 },
-  );
-  report.evidence.remoteAccepted = await screenshot(acceptedPage, options.evidenceDir, "web-ugc-terms-remote-accepted");
-  report.steps.push("fresh_web_context_reads_remote_acceptance_without_reprompt");
+    acceptedContext = await browser.newContext({
+      locale: "es-ES",
+      viewport: { width: 430, height: 930 },
+      deviceScaleFactor: 1,
+    });
+    await installSession(acceptedContext, session);
+    acceptedPage = await acceptedContext.newPage();
+    await acceptedPage.goto(`${server.origin}/?quata-auth-e2e=1#feed`, { waitUntil: "domcontentloaded" });
+    await acceptedPage.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+    await acceptedPage.waitForFunction(() =>
+      document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted",
+      null,
+      { timeout: 45_000 },
+    );
+    report.evidence.remoteAccepted = await screenshot(acceptedPage, options.evidenceDir, "web-ugc-terms-remote-accepted");
+    report.steps.push("fresh_web_context_reads_remote_acceptance_without_reprompt");
+  }
 
   if (faults.length) throw Object.assign(new Error("browser_runtime_faults"), { safeDiagnostic: [...new Set(faults)] });
 
@@ -159,11 +181,12 @@ function parseArgs(args) {
     chrome: process.env.QUATA_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/ugc-terms-evidence.json"),
     evidenceDir: resolve("build-reports/web/ugc-terms-evidence"),
+    mode: "accept",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--dist", "--chrome", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
     index += 1;
@@ -171,7 +194,9 @@ function parseArgs(args) {
     if (key === "--chrome") parsed.chrome = resolve(value);
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
+    if (key === "--mode") parsed.mode = value;
   }
+  if (!["accept", "logout"].includes(parsed.mode)) throw new Error("invalid_mode");
   return parsed;
 }
 
@@ -351,15 +376,18 @@ async function verifyRestored(config, currentFixture) {
 
 async function installSession(contextToInstall, session) {
   await contextToInstall.addInitScript((state) => {
-    localStorage.setItem("quata_web_access_token", state.accessToken);
-    localStorage.setItem("quata_web_refresh_token", state.refreshToken);
-    localStorage.setItem("quata_web_session_token", state.webSessionToken);
-    localStorage.setItem("quata_web_user_id", state.profileId);
-    localStorage.setItem("quata_web_expires_at", String(state.expiresAt));
-    localStorage.setItem("web.auth.session_ready", "true");
-    localStorage.setItem("web.push.consent.v1", "disabled");
-    if (state.displayName) localStorage.setItem("quata_web_display_name", state.displayName);
-    for (const key of Object.keys(localStorage)) if (key.startsWith("ugc_terms:")) localStorage.removeItem(key);
+    if (sessionStorage.getItem("quata.auth.e2e.seeded") !== "1") {
+      localStorage.setItem("quata_web_access_token", state.accessToken);
+      localStorage.setItem("quata_web_refresh_token", state.refreshToken);
+      localStorage.setItem("quata_web_session_token", state.webSessionToken);
+      localStorage.setItem("quata_web_user_id", state.profileId);
+      localStorage.setItem("quata_web_expires_at", String(state.expiresAt));
+      localStorage.setItem("web.auth.session_ready", "true");
+      localStorage.setItem("web.push.consent.v1", "disabled");
+      if (state.displayName) localStorage.setItem("quata_web_display_name", state.displayName);
+      for (const key of Object.keys(localStorage)) if (key.startsWith("ugc_terms:")) localStorage.removeItem(key);
+      sessionStorage.setItem("quata.auth.e2e.seeded", "1");
+    }
     sessionStorage.setItem("quata.auth.e2e", "1");
   }, session);
 }
@@ -427,6 +455,32 @@ async function acceptTerms(page) {
     if (bridge?.version !== 1) throw new Error("ugc_terms_bridge_missing");
     return bridge.accept();
   });
+}
+
+async function logoutFromTermsGate(pageToUse) {
+  const button = pageToUse.getByRole("button", { name: /Cerrar sesi[oó]n|Log out|D[eé]connexion/i }).first();
+  if (!(await button.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    throw new Error("ugc_terms_logout_control_not_visible");
+  }
+  // Compose/Wasm exposes the real semantics node as a DOM button while its canvas owns pointer
+  // hit-testing. Dispatch through that visible accessibility node instead of guessing coordinates.
+  await button.click({ timeout: 5_000, force: true });
+}
+
+async function waitForAnonymousFeed(pageToUse) {
+  await pageToUse.waitForFunction(() => {
+    const authKeys = [
+      "quata_web_access_token",
+      "quata_web_refresh_token",
+      "quata_web_session_token",
+      "quata_web_user_id",
+      "web.auth.session_ready",
+    ];
+    const cleared = authKeys.every((key) => localStorage.getItem(key) === null);
+    const route = document.documentElement.getAttribute("data-quata-shell-route");
+    const gate = document.documentElement.getAttribute("data-quata-ugc-terms-state");
+    return cleared && (route === "feed" || location.hash === "#feed" || location.hash === "#") && gate !== "required";
+  }, null, { timeout: 30_000 });
 }
 
 async function screenshot(page, dir, name) {

@@ -1,0 +1,29 @@
+{
+  "check": "AUTH-LOGOUT-ENTRYPOINTS-ANDROID-001",
+  "mode": "logout",
+  "status": "passed",
+  "startedAt": "2026-10-07T05:39:05.168Z",
+  "git": {
+    "head": "79379d5f86cef7a4f80766f22673220865493481",
+    "branch": "codex/auth-logout-entrypoints",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "remote_acceptance_snapshotted_and_removed",
+    "common_product_gate_logout_activated",
+    "production_auth_repository_invoked",
+    "owned_session_cleared",
+    "no_terms_acceptance_created"
+  ],
+  "cleanup": {
+    "attempted": true,
+    "restored": true
+  },
+  "product": {
+    "commonGateObserved": true,
+    "logoutActivatedThroughProductUi": true,
+    "productionAuthRepositoryInvoked": true,
+    "sessionCleared": true
+  },
+  "finishedAt": "2026-10-07T05:40:39.665Z"
+}

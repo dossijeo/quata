@@ -10,7 +10,8 @@ import { pinnedTlsClientConfig } from "./postgres-pinned-tls.mjs";
 const { Client } = pg;
 
 const RAW_ARGS = process.argv.slice(2);
-const LOGOUT_MODE = RAW_ARGS.includes("--logout");
+const SETTINGS_LOGOUT_MODE = RAW_ARGS.includes("--settings-logout");
+const LOGOUT_MODE = RAW_ARGS.includes("--logout") || SETTINGS_LOGOUT_MODE;
 const VERIFY_BACKEND_REVOCATION = RAW_ARGS.includes("--verify-backend-revocation");
 const lifecycleIndex = RAW_ARGS.indexOf("--lifecycle-action");
 const LIFECYCLE_ACTION = lifecycleIndex >= 0 ? RAW_ARGS[lifecycleIndex + 1] : "";
@@ -21,6 +22,7 @@ const LIFECYCLE_MODE = Boolean(LIFECYCLE_ACTION);
 if (LOGOUT_MODE && LIFECYCLE_MODE) throw new Error("conflicting_account_postflight_modes");
 if (VERIFY_BACKEND_REVOCATION && !LOGOUT_MODE) throw new Error("backend_revocation_requires_logout_mode");
 const CHECK = LIFECYCLE_MODE ? `ACCOUNT-LIFECYCLE-IOS-${LIFECYCLE_ACTION.toUpperCase()}-REAL-001`
+  : SETTINGS_LOGOUT_MODE ? "AUTH-LOGOUT-ENTRYPOINTS-IOS-SETTINGS-001"
   : LOGOUT_MODE ? "AUTH-LOGOUT-IOS-REAL-001" : "ACCOUNT-POSTFLIGHT-IOS-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 
@@ -96,7 +98,9 @@ scripts/build-ios-intel-simulator-signed.sh
     report.steps.push("ios_public_feed_visible_after_account_lifecycle_action");
     report.steps.push("ios_keychain_session_absent_after_lifecycle_relaunch");
   } else if (LOGOUT_MODE) {
-    report.steps.push("ios_authenticated_profile_logout_control_activated");
+    report.steps.push(SETTINGS_LOGOUT_MODE
+      ? "ios_authenticated_settings_logout_control_activated"
+      : "ios_authenticated_profile_logout_control_activated");
     report.steps.push("ios_public_feed_visible_after_logout");
     report.steps.push("ios_keychain_session_absent_after_relaunch");
     if (VERIFY_BACKEND_REVOCATION) {
@@ -171,6 +175,7 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
       VERIFY_BACKEND_REVOCATION ? `${remoteLogoutReceiptDir}/session.json` : "",
     )}
     export QUATA_IOS_AUTH_LOGOUT_UI_E2E=${shellQuote(LOGOUT_MODE ? "1" : "0")}
+    export QUATA_IOS_SETTINGS_LOGOUT_UI_E2E=${shellQuote(SETTINGS_LOGOUT_MODE ? "1" : "0")}
     export QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E=${shellQuote(LIFECYCLE_MODE ? "1" : "0")}
     export QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION=${shellQuote(LIFECYCLE_ACTION)}
     export QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
@@ -178,6 +183,7 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
     bash scripts/run-ios-account-postflight-ui-test.sh
 `);
     return { source: LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}`
+      : SETTINGS_LOGOUT_MODE ? "settings-logout-postflight"
       : LOGOUT_MODE ? "auth-logout-postflight" : "account-postflight", outcome: "success", status: "passed",
       remoteLogDir: options.remoteLogDir, productControlActivations: LIFECYCLE_MODE ? 1 : undefined };
   } catch (error) {
@@ -192,10 +198,13 @@ function parseArgs(args) {
     derivedDataPath: process.env.QUATA_IOS_DERIVED_DATA_PATH?.trim() || "build/ios-intel-simulator-signed-derived-data",
     remoteLogDir: process.env.QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR?.trim() || (LIFECYCLE_MODE
       ? `build/reports/ios/ACCOUNT-LIFECYCLE-${LIFECYCLE_ACTION}-ui`
+      : SETTINGS_LOGOUT_MODE ? "build/reports/ios/AUTH-LOGOUT-SETTINGS-ui"
       : LOGOUT_MODE ? "build/reports/ios/AUTH-LOGOUT-ui" : "build/reports/ios/ACCOUNT-POSTFLIGHT-ui"),
     output: join("build-reports", "ios", LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence.json`
+      : SETTINGS_LOGOUT_MODE ? "auth-logout-settings-evidence.json"
       : LOGOUT_MODE ? "auth-login-logout-evidence.json" : "account-postflight-evidence.json"),
     evidenceDir: join("build-reports", "ios", LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence`
+      : SETTINGS_LOGOUT_MODE ? "auth-logout-settings-evidence"
       : LOGOUT_MODE ? "auth-login-logout-evidence" : "account-postflight-evidence"),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
@@ -206,6 +215,7 @@ function parseArgs(args) {
     const key = args[index];
     const value = args[index + 1];
     if (key === "--logout") continue;
+    if (key === "--settings-logout") continue;
     if (key === "--verify-backend-revocation") continue;
     if (key === "--lifecycle-action") {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
