@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN"
+  ],
+  "status": "passed",
+  "productSha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+  "certification": "global-multidevice-logout-production-and-three-platform-acceptance-complete-independent-review-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
+      "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
+      "reportStatus": "passed",
+      "reportGitHead": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_two_owned_auth_sessions_created",
+        "web_global_logout_confirmation_activated_once",
+        "web_local_session_absent_after_reload",
+        "web_both_owned_auth_sessions_revoked_remotely",
+        "web_both_owned_refresh_tokens_rejected",
+        "web_all_actor_device_endpoints_retired"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "all-owned-sessions-and-device-endpoints-retired"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
+      "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
+      "reportStatus": "passed",
+      "reportGitHead": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_two_owned_auth_sessions_created",
+        "android_global_logout_confirmation_activated_once",
+        "android_public_feed_visible_after_relaunch",
+        "android_both_owned_auth_sessions_revoked_remotely",
+        "android_both_owned_refresh_tokens_rejected",
+        "android_all_actor_device_endpoints_retired"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "all-owned-sessions-and-device-endpoints-retired"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
+      "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
+      "reportStatus": "passed",
+      "reportGitHead": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_two_owned_auth_sessions_created",
+        "ios_global_logout_confirmation_activated_once",
+        "ios_public_feed_visible_after_global_logout",
+        "ios_keychain_session_absent_after_global_logout_relaunch",
+        "ios_both_owned_auth_sessions_revoked_remotely",
+        "ios_both_owned_refresh_tokens_rejected",
+        "ios_all_actor_device_endpoints_retired"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "all-owned-sessions-and-device-endpoints-retired-temporary-inputs-removed"
+      }
+    },
+    "database": {
+      "status": "passed",
+      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
+      "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
+      "reportStatus": "passed",
+      "reportGitHead": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "encrypted_full_logical_backup_created",
+        "focal_restore_drill_passed",
+        "selective_release_snapshot_and_dry_run_passed",
+        "auth_global_logout_migration_committed_transactionally",
+        "database_release_postflight_passed",
+        "edge_function_deployed_with_jwt_verification"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "committed-release-with-owned-fixtures-retired-and-zero-residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/auth-global-logout-contract.test.mjs (8/8 on exact evidence head)",
+    "scripts/run-auth-global-logout-postgres-test.ps1",
+    "scripts/test-selective-db-release-executor.ps1",
+    "scripts/restore-db-logical-backup-drill.ps1 -AffectedTablesOnly",
+    "scripts/run-db-release-safety.ps1 snapshot and postflight for 20261007090000",
+    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for the exact package",
+    "Web real browser, Android instrumented and iOS SimulatorSigned global logout evidence",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-global-logout.json --head HEAD --json"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+    "reviewHead": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+    "blockingFindings": []
+  },
+  "notes": [
+    "A separately confirmed Logout everywhere action now retires every owned push token, Web Push subscription and Web client session before globally revoking Supabase Auth sessions.",
+    "The RPC is service-role-only and actor binding comes from the validated bearer token in the deployed Edge Function; clients cannot select another account.",
+    "Migration 20261007090000 was applied from an authorized selective package after a fresh encrypted full backup and focal restore drill. The database postflight and exact catalog postconditions passed.",
+    "Web, Android and iOS each created two owned sessions, activated the real product confirmation once, returned to the public product surface, rejected both refresh tokens and observed zero active actor device endpoints.",
+    "The iOS lane used SimulatorSigned and proves product interaction, local Keychain teardown and backend revocation without requiring a physical device or APNs delivery.",
+    "Failed pilots are retained in the sanitized evidence: Chrome screenshot timeout, Web evidence reload reseeding, one overloaded Android emulator, Mac disk exhaustion and one iOS build compiled before transient public runtime configuration.",
+    "No secret, token, connection string, database project fingerprint, private path or raw actor identifier is versioned."
+  ]
+}
