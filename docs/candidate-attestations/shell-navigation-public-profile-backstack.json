@@ -4,13 +4,13 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "342b3760b6c16fdb70920f7cf3d7e761e234711b",
+  "productSha": "39462e3d81cbc299f7948460aaf83abe076976db",
   "certification": "local-affected-runtime-capability-hash-and-profile-entry-contract-aligned-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "PUBLIC_PROFILE_NESTED_BACKSTACK_RESTORATION",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "342b3760b6c16fdb70920f7cf3d7e761e234711b",
+      "sha": "39462e3d81cbc299f7948460aaf83abe076976db",
       "report": "docs/candidate-attestations/evidence/shell-navigation-public-profile-backstack-afc071c5.json",
       "reportSha256": "028aa03e3fe78c7e9ce616e00f19b797d306ab8acdabbbc6ad6cb49a21432dc3",
       "reportStatus": "passed-local-candidate",
@@ -46,8 +46,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "5889b23b3089c6f5ddcb086a0d15fb8623b3f5de",
-    "reviewedProductSha": "342b3760b6c16fdb70920f7cf3d7e761e234711b",
+    "reviewedSha": "761ef5846451ee6a6db3f01fa12d2b544a1a2672",
+    "reviewedProductSha": "39462e3d81cbc299f7948460aaf83abe076976db",
     "blockingFindings": [],
     "resolvedFindings": [
       "Android failed-child Back now closes the public profile through the product model and restores the retained parent.",
@@ -60,7 +60,7 @@
     "Android uses SavedStateHandle, Web uses sessionStorage and iOS uses UserDefaults with exact actor and origin matching. Android and iOS distinguish concrete Chat conversation identifiers.",
     "The historical ea566b85 evidence remains preserved but is superseded: independent review found an Android failed-child Back misbinding, an iOS conversation-origin collapse and an overbroad duplicate-history assertion.",
     "The corrected Product SHA passed the affected Android and Wasm tests plus Swift parse, iosX64 framework link, unsigned Intel Simulator host build and two exact iOS XCTest methods. Broader unchanged matrices were not repeated solely for the new SHA.",
-    "The eight runtime/test commits are patch-equivalent after recomposition onto the reviewed deep-link Retry head; the superseded attestation commit is retained only as historical evidence. Product SHA 342b3760 preserves the affected runtime and platform-test blobs from the clean execution head afc071c5 except for the reviewed Android startup-origin repair and its regression test, updates 17 reviewed capability-hash references for the changed composition sources, and aligns the profile-entry evidence contract with the durable Web profileRoute snapshot model; accumulated board and inventory prose was reconciled without weakening either unit.",
+    "The eight runtime/test commits are patch-equivalent after recomposition onto the reviewed deep-link Retry head; the superseded attestation commit is retained only as historical evidence. Product SHA 39462e3d preserves the affected runtime and platform-test blobs from the clean execution head afc071c5 except for the reviewed Android startup-origin repair and its regression test, updates 17 reviewed capability-hash references for the changed composition sources, and aligns the profile-entry evidence contract with the durable Web profileRoute snapshot model; accumulated board and inventory prose was reconciled without weakening either unit.",
     "The current Product SHA additionally passed the Android focal JVM suite after proving that an unresolved startup origin preserves the saved nested route until Navigation publishes the exact conversation origin.",
     "This closes the nested public member-profile back stack only. Scroll, drafts, editor state, media position and unrelated secondary back stacks remain separately bounded.",
     "No backend fixture, credential, push delivery or remote mutation was used."
