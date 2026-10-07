@@ -917,9 +917,9 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun seekOfficialVideoToMiddle() {
         device.click(device.displayWidth / 2, device.displayHeight / 2)
         val timeline = device.wait(
-            Until.findObject(By.res(targetContext.packageName, "exo_progress")),
-            5_000,
-        ) ?: device.wait(Until.findObject(By.clazz("android.widget.SeekBar")), 2_000)
+            Until.findObject(By.clazz("android.widget.SeekBar")),
+            2_000,
+        )
         check(timeline != null) { "Official video native timeline was not exposed." }
         val bounds = timeline.visibleBounds
         val targetX = bounds.left + (bounds.width() * 0.6f).roundToInt()
