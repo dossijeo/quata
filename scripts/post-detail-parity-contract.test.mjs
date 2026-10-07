@@ -236,7 +236,8 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /--feed-video/);
   assert.match(webEvidence, /withFeedVideo: options\.feedVideo/);
   assert.match(webEvidence, /feed\.post\.video\.fullscreen\.open/);
-  assert.match(webEvidence, /feed_video_position_persisted_and_restored_after_document_reload/);
+  assert.match(webEvidence, /feed_fullscreen_video_position_persisted_and_restored_after_document_reload/);
+  assert.match(webEvidence, /page\.locator\("video"\)\.last\(\)/);
   assert.match(webEvidence, /quata\.feed\.video_positions\.v1\./);
   assert.match(webEvidence, /await page\.reload\(\{ waitUntil: "domcontentloaded", timeout: 60_000 \}\)/);
   assert.match(webEvidence, /if \(!options\.feedVideo\) await verifyOfficialDetail/);
@@ -247,6 +248,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(androidEvidence, /am", "force-stop", "com\.quata/);
   assert.match(androidEvidence, /feed-video-position-restore/);
   assert.match(androidUiTest, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(androidUiTest, /feedVideoNode\(FeedVideoTimelineTestTag\)\.performTouchInput/);
   assert.match(androidUiTest, /FeedVideoTimelineTestTag/);
   assert.match(androidUiTest, /performTouchInput \{ click\(center\) \}/);
   assert.match(androidUiTest, /compose\.waitUntil\(10_000\) \{ feedVideoControlShowsPause\(\) \}/);
@@ -260,6 +262,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(iosUiWrapper, /QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE/);
   assert.match(iosUiWrapper, /feed-video-position-lifecycle\.log/);
   assert.match(iosUiTest, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(iosUiTest, /visibleFullscreenControl\("feed\.video\.timeline"/);
   assert.match(iosUiTest, /func testFeedVideoPositionRestoresAfterProcessRelaunch\(\) throws/);
   assert.match(iosUiTest, /app\.terminate\(\)/);
   assert.match(iosUiTest, /ios-feed-video-position-restored-after-relaunch/);

@@ -2313,10 +2313,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
 
-        openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
-        let timeline = waitForVisibleIdentifier("feed.video.timeline", in: app, context: "Feed video timeline")
-        let time = waitForVisibleIdentifier("feed.video.time", in: app, context: "Feed video time")
-        _ = waitForVisibleIdentifier("feed.video.play-pause", in: app, context: "Feed video playback state")
+          openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
+          tapVisibleIdentifier(
+              "feed.post.video.fullscreen.open.\(feedPostId)",
+              in: app,
+              context: "Feed video fullscreen open"
+          )
+          _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "Feed video fullscreen")
+          func visibleFullscreenControl(_ identifier: String, context: String) -> XCUIElement {
+              let candidates = app.descendants(matching: .any)
+                  .matching(identifier: identifier)
+                  .allElementsBoundByIndex
+              if let visible = candidates.first(where: { $0.exists && $0.isHittable }) {
+                  return visible
+              }
+              return waitForVisibleIdentifier(identifier, in: app, context: context)
+          }
+          let timeline = visibleFullscreenControl("feed.video.timeline", context: "Feed fullscreen video timeline")
+          let time = visibleFullscreenControl("feed.video.time", context: "Feed fullscreen video time")
+          _ = visibleFullscreenControl("feed.video.play-pause", context: "Feed fullscreen video playback state")
         let durationDeadline = Date().addingTimeInterval(20)
         while Date() < durationDeadline, !time.label.contains("0:06") {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))

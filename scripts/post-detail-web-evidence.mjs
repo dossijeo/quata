@@ -165,9 +165,13 @@ async function verifyFeedDetail(page, origin, state) {
 }
 
 async function verifyFeedVideoPositionSurvivesReload(page, state) {
+  const fullscreenAnchor = `feed.post.video.fullscreen.open.${state.feed.postId}`;
+  await clickAnchor(page, fullscreenAnchor);
+  await waitForAnchor(page, "fullscreen-media.title");
   await page.waitForFunction(() => {
     const root = document.getElementById("quata-root");
-    const video = root?.shadowRoot?.querySelector("video") ?? root?.querySelector("video");
+    const videos = [...(root?.shadowRoot?.querySelectorAll("video") ?? root?.querySelectorAll("video") ?? [])];
+    const video = videos.at(-1);
     return Boolean(video && Number.isFinite(video.duration) && video.duration > 4);
   }, null, { timeout: 20_000 }).catch(async () => {
     const mediaState = await page.evaluate(() => {
@@ -186,7 +190,7 @@ async function verifyFeedVideoPositionSurvivesReload(page, state) {
     report.diagnostics = { ...(report.diagnostics ?? {}), feedVideoMediaState: mediaState };
     throw new Error("feed_video_metadata_not_ready_for_reload_probe");
   });
-  const seededPositionSeconds = await page.locator("video").first().evaluate((video) => {
+  const seededPositionSeconds = await page.locator("video").last().evaluate((video) => {
     const target = Math.min(8, Math.max(3, video.duration * 0.4));
     video.currentTime = target;
     video.dispatchEvent(new Event("timeupdate"));
@@ -232,7 +236,7 @@ async function verifyFeedVideoPositionSurvivesReload(page, state) {
     persistedPositionMs,
     restoredPositionMs,
   };
-  report.steps.push("feed_video_position_persisted_and_restored_after_document_reload");
+  report.steps.push("feed_fullscreen_video_position_persisted_and_restored_after_document_reload");
 }
 
 async function verifyOfficialDetail(page, origin, state) {

@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsEnabled
@@ -30,6 +31,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
@@ -777,7 +779,7 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag(FeedVideoTimeTestTag, "feed video time", 45_000)
             if (restore) {
                 compose.waitUntil(10_000) { feedVideoControlShowsPause() }
-                compose.onNodeWithTag(FeedVideoPlayPauseTestTag, useUnmergedTree = true).performClick()
+                feedVideoNode(FeedVideoPlayPauseTestTag).performClick()
                 compose.waitUntil(5_000) { feedVideoPositionSeconds() >= 2 }
                 compose.waitUntil(20_000) { feedVideoDurationSeconds() >= 5 }
                 assertTrue(
@@ -786,12 +788,16 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 saveScreenshot("android-feed-video-position-restored-after-force-stop")
             } else {
+                compose.onNodeWithContentDescription(
+                    "feed.post.video.fullscreen.open.$feedPostId",
+                    useUnmergedTree = true,
+                ).assertHasClickAction().performClick()
+                waitForTag("fullscreen-media.title", "feed video fullscreen", 20_000)
                 compose.waitUntil(20_000) { feedVideoDurationSeconds() >= 5 }
-                compose.onNodeWithTag(FeedVideoTimelineTestTag, useUnmergedTree = true)
-                    .performTouchInput { click(center) }
+                feedVideoNode(FeedVideoTimelineTestTag).performTouchInput { click(center) }
                 compose.waitUntil(2_000) { feedVideoPositionSeconds() in 2..3 }
                 compose.waitUntil(10_000) { feedVideoControlShowsPause() }
-                compose.onNodeWithTag(FeedVideoPlayPauseTestTag, useUnmergedTree = true).performClick()
+                feedVideoNode(FeedVideoPlayPauseTestTag).performClick()
                 SystemClock.sleep(1_500)
                 assertTrue(
                     "Feed video seed position must remain near the midpoint.",
@@ -821,7 +827,7 @@ class ChatActionsNotificationsInstrumentedTest {
             .toList()
 
     private fun feedVideoControlShowsPause(): Boolean = runCatching {
-        compose.onNodeWithTag(FeedVideoPlayPauseTestTag, useUnmergedTree = true)
+        feedVideoNode(FeedVideoPlayPauseTestTag)
             .fetchSemanticsNode()
             .config
             .getOrNull(SemanticsProperties.StateDescription) == "playing"
@@ -832,12 +838,25 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun feedVideoDurationSeconds(): Int = feedVideoTimeParts().second
 
     private fun feedVideoTimeParts(): Pair<Int, Int> {
+        val text = feedVideoNode(FeedVideoTimeTestTag)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.Text)
+            .orEmpty()
+            .joinToString("|") { it.text }
         val match = Regex("""(\d+):(\d{2})\s*/\s*(\d+):(\d{2})""")
-            .find(semanticsText(FeedVideoTimeTestTag))
+            .find(text)
             ?: return 0 to 0
         fun seconds(minutesGroup: Int, secondsGroup: Int): Int =
             match.groupValues[minutesGroup].toInt() * 60 + match.groupValues[secondsGroup].toInt()
         return seconds(1, 2) to seconds(3, 4)
+    }
+
+    private fun feedVideoNode(tag: String): SemanticsNodeInteraction {
+        val nodes = compose.onAllNodesWithTag(tag, useUnmergedTree = true)
+        val lastIndex = nodes.fetchSemanticsNodes().lastIndex
+        assertTrue("Expected at least one Feed video control for $tag.", lastIndex >= 0)
+        return nodes[lastIndex]
     }
 
     private suspend fun runTranslationStage(markerProbe: String) {
