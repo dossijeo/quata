@@ -460,6 +460,21 @@ private fun ReelVideo(
         }
     }
 
+    // The actor-scoped checkpoint is loaded asynchronously after the first composition. Adopt
+    // that late value without changing the user's current play/pause intent. Subsequent progress
+    // callbacks are already within the synchronization tolerance and therefore do not reseek.
+    LaunchedEffect(player, isActive, initialPositionMs) {
+        if (isActive && shouldSynchronizeFeedVideoPosition(
+                currentPositionMs = player.currentPosition,
+                sharedPositionMs = initialPositionMs,
+                isBecomingActive = true,
+            )
+        ) {
+            player.seekTo(initialPositionMs)
+            positionMs = initialPositionMs
+        }
+    }
+
     LaunchedEffect(player, isMuted) {
         player.setFeedAudioEnabled(!isMuted)
         player.volume = if (isMuted) 0f else 1f
@@ -617,6 +632,7 @@ private fun ReelVideo(
         onSeek = { targetMs ->
             player.seekTo(targetMs)
             positionMs = targetMs
+            onPositionChanged(targetMs)
         },
         onEnded = {
             player.seekTo(0)

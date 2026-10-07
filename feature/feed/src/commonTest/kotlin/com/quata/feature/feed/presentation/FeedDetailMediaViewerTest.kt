@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -218,6 +219,9 @@ class FeedDetailMediaViewerTest {
                         stateHolder = MediaStateHolder(post),
                         slots = FeedScreenPlatformSlots(
                             media = { _, active, initialPositionMs, onPositionChanged, _, _ ->
+                                if (initialPositionMs == 0L) {
+                                    LaunchedEffect(Unit) { onPositionChanged(0L) }
+                                }
                                 if (active) {
                                     Column {
                                         Text("position-$initialPositionMs", Modifier.testTag("durable-video-position"))

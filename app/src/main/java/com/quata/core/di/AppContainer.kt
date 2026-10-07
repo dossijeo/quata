@@ -142,6 +142,9 @@ class AppContainer(context: Context) {
         location = locationService,
         permissions = permissionService,
     )
+    // Playback checkpoints must be on disk before Android may kill the process. Keep the
+    // confirmed-write policy scoped to this durable lifecycle state.
+    val feedVideoPositionPreferences = AndroidPreferenceStore(appContext, commitWrites = true)
 
     val imagePickerManager = ImagePickerManager()
     val cameraCaptureManager = CameraCaptureManager()

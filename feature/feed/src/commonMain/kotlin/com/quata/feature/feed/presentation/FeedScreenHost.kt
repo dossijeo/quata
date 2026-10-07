@@ -45,11 +45,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.sample
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
@@ -108,6 +105,7 @@ import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.components.insertAtSelection
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
+import kotlin.math.abs
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorGateway
@@ -244,7 +242,7 @@ data class FeedScreenPlatformSlots(
  * It owns the common ViewModel lifetime, paging, focus/reset restoration and every Feed
  * mutation. Hosts only provide native media/avatar/share/message adapters and navigation.
  */
-@OptIn(ExperimentalFoundationApi::class, kotlin.time.ExperimentalTime::class, kotlinx.coroutines.FlowPreview::class)
+@OptIn(ExperimentalFoundationApi::class, kotlin.time.ExperimentalTime::class)
 @Composable
 fun FeedScreenHost(
     padding: PaddingValues,
@@ -309,6 +307,7 @@ fun FeedScreenHost(
     val layoutDirection = LocalLayoutDirection.current
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
     val videoPositions = remember(videoPositionStore, effectiveCurrentUserId) { mutableStateMapOf<String, Long>() }
+    val persistedVideoPositions = remember(videoPositionStore, effectiveCurrentUserId) { mutableStateMapOf<String, Long>() }
     var videoPositionsRestored by remember(videoPositionStore, effectiveCurrentUserId) {
         mutableStateOf(videoPositionStore == null)
     }
@@ -316,19 +315,12 @@ fun FeedScreenHost(
         val store = videoPositionStore ?: return@LaunchedEffect
         val restored = store.restore(effectiveCurrentUserId)
         restored.forEach { (mediaId, positionMs) ->
-            if (mediaId !in videoPositions) videoPositions[mediaId] = positionMs
+            if (mediaId !in videoPositions) {
+                videoPositions[mediaId] = positionMs
+                persistedVideoPositions[mediaId] = positionMs
+            }
         }
         videoPositionsRestored = true
-    }
-    LaunchedEffect(videoPositionStore, effectiveCurrentUserId, videoPositionsRestored) {
-        val store = videoPositionStore ?: return@LaunchedEffect
-        if (!videoPositionsRestored) return@LaunchedEffect
-        snapshotFlow { videoPositions.toMap() }
-            .drop(1)
-            // Browser timeupdate can fire several times per second. Sampling persists active
-            // playback continuously instead of waiting for a quiet period that may never occur.
-            .sample(1_000L)
-            .collect { positions -> store.persist(effectiveCurrentUserId, positions) }
     }
     val canParticipate = effectiveCurrentUserId != null
     val pendingAuthenticationContinuation by (
@@ -628,15 +620,36 @@ fun FeedScreenHost(
                             hasImage = post.imageUrl != null,
                             hasText = post.text.parsePostShortcodeContent().cleanText.isNotBlank(),
                             video = {
-                                slots.media(
-                                    this,
-                                    post,
-                                    isCurrent && mediaPostId == null,
-                                    post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
-                                    { position -> post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] = position } },
-                                    isFeedMuted,
-                                    { isFeedMuted = it },
-                                )
+                                // Native renderers retain their player by media URL. Recreate that renderer once
+                                // durable positions finish loading so its one-time initial seek receives the restored
+                                // value instead of the empty pre-restore snapshot.
+                                key(videoPositionsRestored) {
+                                    slots.media(
+                                        this,
+                                        post,
+                                        isCurrent && mediaPostId == null,
+                                        post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
+                                        { position ->
+                                            if (videoPositionsRestored) {
+                                                post.videoUrl?.let { url ->
+                                                    val mediaId = feedVideoPositionMediaId(post.id, url)
+                                                    val normalized = position.coerceAtLeast(0L)
+                                                    videoPositions[mediaId] = normalized
+                                                    val lastPersisted = persistedVideoPositions[mediaId]
+                                                    if (lastPersisted == null || abs(normalized - lastPersisted) >= 1_000L) {
+                                                        persistedVideoPositions[mediaId] = normalized
+                                                        videoPositionStore?.let { store ->
+                                                            val snapshot = videoPositions.toMap()
+                                                            scope.launch { store.persist(effectiveCurrentUserId, snapshot) }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        isFeedMuted,
+                                        { isFeedMuted = it },
+                                    )
+                                }
                                 if (activeFocusedPostId == post.id && mediaPostId == null) {
                                     CompactIconButton(
                                         onClick = { mediaPostId = post.id },
