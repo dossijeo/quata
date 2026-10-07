@@ -5,12 +5,12 @@
     "OVR-UGC-TERMS"
   ],
   "status": "passed",
-  "productSha": "34a2e04f29bb3cc919463a78c2801f78723e9b81",
-  "certification": "remaining-logout-entrypoints-local-complete-independent-review-approved-final-CI-pending",
+  "productSha": "0bc2060b20ad12fd1ac8a1bf6fffdaae683f38dc",
+  "certification": "remaining-logout-entrypoints-local-complete-independent-review-pending-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "34a2e04f29bb3cc919463a78c2801f78723e9b81",
+      "sha": "0bc2060b20ad12fd1ac8a1bf6fffdaae683f38dc",
       "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-web-79379d5f.json",
       "reportSha256": "2c424773a5c07c24738128b10c248121481d101e791c01aac20a46b452e7c8c2",
       "reportStatus": "passed",
@@ -34,7 +34,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "34a2e04f29bb3cc919463a78c2801f78723e9b81",
+      "sha": "0bc2060b20ad12fd1ac8a1bf6fffdaae683f38dc",
       "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-android-79379d5f.json",
       "reportSha256": "7331cc36b78da568e4226354de83fcf6af08a1fa0261ab916ac0bbc1818664fe",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "iosUgc": {
       "status": "passed",
-      "sha": "34a2e04f29bb3cc919463a78c2801f78723e9b81",
+      "sha": "0bc2060b20ad12fd1ac8a1bf6fffdaae683f38dc",
       "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-ios-ugc-831d0798.json",
       "reportSha256": "5d710dd1934ddbd1a900bba64bfe9f46e6c8d74b6ba35a155cd29ddda1bdbc37",
       "reportStatus": "passed",
@@ -79,7 +79,7 @@
     },
     "iosSettings": {
       "status": "passed",
-      "sha": "34a2e04f29bb3cc919463a78c2801f78723e9b81",
+      "sha": "0bc2060b20ad12fd1ac8a1bf6fffdaae683f38dc",
       "report": "docs/candidate-attestations/evidence/auth-logout-entrypoints-ios-settings-9d2ac044.json",
       "reportSha256": "0c37c0464c3dda6aa6b9016ee8088abeabf85e2c3017483e428a112933ff71cd",
       "reportStatus": "passed",
@@ -112,9 +112,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-logout-entrypoints.json --head HEAD --json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "5149d8d52ba9fab2c0ce85da0901b7ef2b4961f9",
-    "reviewHead": "5149d8d52ba9fab2c0ce85da0901b7ef2b4961f9",
+    "status": "pending",
+    "reviewedSha": "fab9133a7f00d3473de394d11a0496f4251fe880",
+    "reviewHead": "fab9133a7f00d3473de394d11a0496f4251fe880",
     "blockingFindings": []
   },
   "notes": [
@@ -127,6 +127,7 @@
     "Failed pilots remain preserved locally: Web canvas click interception and reload reseeding; Android emulator loss and the bounded full-shell prompt timeout; iOS Mac disk exhaustion, an over-strong immediate Feed assertion, a wrong SOS locator, a route-menu attempt from Profile where that menu is intentionally absent, and one transient Simulator Mach termination.",
     "No credential, token, connection string, backend row, inventory item, product behavior or CI workflow is included in this unit. Remote Google OAuth acceptance remains separately bounded by console access and is not claimed here.",
     "Independent implementation review returned GO without P0-P3 findings on the patch-equivalent HEAD e68600ea. Final reconciliation review returned GO without P0-P3 findings on the patch-equivalent HEAD 5149d8d5 after BOARD and INVENTORY were updated. Both confirmed authentic product controls and session owners in all four lanes, exact backend revocation only for iOS Settings, correct report-head custody, matching hashes, restored UGC snapshots, removed temporary credentials/runtime/receipt, 5/5 focal contracts, syntax, validator and diff-check.",
+    "Product SHA 0bc2060b replays the exact reviewed logout-entrypoint patch over frozen candidate #565; the stable patch-id is unchanged, historical reportGitHead values remain authoritative and no platform E2E was repeated solely for ancestry.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates the affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
