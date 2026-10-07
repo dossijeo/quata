@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-DEEP-LINKS"
+  ],
+  "status": "passed",
+  "productSha": "52427adb0d8ecba20d62d83c2ec57544a7227c20",
+  "certification": "focal-native-chat-read-retry-android-web-ios-complete-independent-review-complete-final-CI-pending",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "52427adb0d8ecba20d62d83c2ec57544a7227c20",
+      "report": "docs/candidate-attestations/evidence/deep-link-native-retry-ios-e310eaa8.json",
+      "reportSha256": "75d2109d5a0c7aefb20a6fe0cc5aa25fe6ada4a6e740cb23fae3139920dfbc75",
+      "reportStatus": "passed",
+      "reportGitHead": "e310eaa8dad0f38b3e545a0300f1ec806b9f636f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "exact_product_sha_built_for_ios_x86_64_simulator",
+        "local_fail_once_chat_read_fixture_armed",
+        "native_deep_link_failure_visible",
+        "native_retry_clicked",
+        "exact_conversation_recovered",
+        "failure_removed_after_recovery",
+        "back_to_chat_list_surface"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/deep-link-retry-evidence-contract.test.mjs scripts/ios-shell-layout-contract.test.mjs",
+    "./gradlew :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.DocumentRetryEvidenceChatRepositoryTest",
+    "./gradlew :app:compileDebugAndroidTestKotlin",
+    "xcodebuild build for SimulatorSigned x86_64 on the exact Product SHA",
+    "xcodebuild test -only-testing:QuataIosUITests/QuataIosExternalChatLinkUITests/testLocalDeepLinkReadFailureRetryRecoversExactConversation"
+  ],
+  "notes": [
+    "The Android and Web runtime reports remain bound to their original clean heads. Range-diff confirms that recomposition preserved their reviewed patches, and the affected Web repository test plus Android instrumentation compilation passed on this Product SHA; their historical runtime results are not relabeled as exact-head executions.",
+    "The exact executable/test head e310eaa8dad0f38b3e545a0300f1ec806b9f636f passed the iOS Simulator UI test 1/1 with zero failures and zero skipped tests. It returned to the Chats list, as asserted by the empty iOS chat host after Back. Range-diff proves all thirteen unit commits patch-equivalent after recomposition onto the reviewed iOS-secondary head. Product SHA 52427adb preserves the runtime, test, workflow and evidence blobs from the reviewed e3a164a0 composition; runtime was therefore not repeated solely for commit identity.",
+    "The earlier Metal diagnostic remains preserved. The accepted run used the validated Hyper-V raster Skiko environment and therefore separates the historical renderer limitation from product behavior.",
+    "The fixture is local and fail-closed. It uses no credentials, backend or remote mutation and does not claim Universal Links, APNs, push delivery, real backend availability or unrelated lifecycle behavior.",
+    "Independent exact-head review returned GO with no P0-P3 findings and confirmed patch equivalence, byte-equivalent runtime/test/workflow/evidence blobs, report integrity and the stated acceptance boundaries.",
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
+  ]
+}
