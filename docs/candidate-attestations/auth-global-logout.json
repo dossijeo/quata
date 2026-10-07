@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
-  "certification": "global-multidevice-logout-production-and-three-platform-acceptance-complete-independent-review-pending",
+  "certification": "global-multidevice-logout-production-and-three-platform-acceptance-complete-independent-review-GO",
   "evidence": {
     "web": {
       "status": "passed",
@@ -111,9 +111,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-global-logout.json --head HEAD --json"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": "bd5c6b26936c18fb9a47911800d47dd4c8b8314a",
-    "reviewHead": "bd5c6b26936c18fb9a47911800d47dd4c8b8314a",
+    "status": "GO",
+    "reviewedSha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
+    "reviewHead": "357c35ad44a9befbde24f367f4cb1101e3c33c5a",
     "blockingFindings": []
   },
   "notes": [
