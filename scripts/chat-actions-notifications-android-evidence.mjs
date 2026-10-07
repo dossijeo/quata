@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -1124,7 +1124,7 @@ async function adbRunAsCat(remotePath, localPath) {
   await writeFile(localPath, Buffer.concat(chunks));
 }
 
-async function collectAvailableDeviceEvidence(destination) {
+async function collectAvailableDeviceEvidence(destination, requestedFiles = null) {
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   const copied = [];
@@ -1140,7 +1140,7 @@ async function collectAvailableDeviceEvidence(destination) {
     .split(/\r?\n/)
     .map((entry) => entry.trim())
     .filter((entry) => /^(android-|ios-|web-).*\.(png|txt|json)$/.test(entry));
-  const files = Array.from(new Set([...evidenceFiles, ...discoveredFiles]));
+  const files = requestedFiles ?? Array.from(new Set([...evidenceFiles, ...discoveredFiles]));
   for (const file of files) {
     try {
       const localFile = join(destination, file);
@@ -1955,7 +1955,13 @@ try {
       report.diagnostics = { androidInstrumentationTail: instrumentationOutput.split(/\r?\n/).slice(-80).join("\n") };
       throw new Error("android_instrumentation_semantic_failure:deep-link-retry-local");
     }
-    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    const requiredEvidenceFiles = [
+      "android-deep-link-read-failure-before-retry.png",
+      "android-deep-link-read-retry-recovered.png",
+      "android-deep-link-read-retry-return.png",
+      "android-chat-actions-notifications-evidence.json",
+    ];
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir, requiredEvidenceFiles);
     const productReportPath = join(evidenceDir, "android-chat-actions-notifications-evidence.json");
     const productReport = JSON.parse(await readFile(productReportPath, "utf8"));
     if (
@@ -1966,17 +1972,10 @@ try {
     ) {
       throw new Error("android_deep_link_retry_product_report_invalid");
     }
-    const requiredEvidenceFiles = [
-      "android-deep-link-read-failure-before-retry.png",
-      "android-deep-link-read-retry-recovered.png",
-      "android-deep-link-read-retry-return.png",
-      "android-chat-actions-notifications-evidence.json",
-    ];
     for (const file of requiredEvidenceFiles) {
       if (!copiedEvidenceFiles.includes(file)) throw new Error(`android_deep_link_retry_evidence_missing:${file}`);
     }
     report.check = "FLOW-DEEP-LINKS-ANDROID-RETRY-001";
-    report.status = "passed";
     report.steps.push(
       "local_fail_once_chat_read_fixture_armed",
       "native_deep_link_failure_visible",
@@ -1990,6 +1989,7 @@ try {
       backend: "not_used",
     };
     report.evidence = { directory: resolve(evidenceDir), files: requiredEvidenceFiles };
+    report.status = "passed";
     throw new EvidenceCompleted();
   }
   const config = await publicBackendConfig();
@@ -3386,6 +3386,7 @@ try {
   ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
+    report.status = "failed";
     report.error = safeFailure(error);
     report.diagnostics = {
       ...(report.diagnostics ?? {}),

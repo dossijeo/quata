@@ -40,6 +40,8 @@ test("native retry fixtures remain fail-closed behind platform-specific exact op
   assert.match(androidRunner, /quataDeepLinkRetryLocalOptIn", "I_ACCEPT_ANDROID_DEEP_LINK_RETRY_LOCAL_FIXTURE/);
   assert.match(androidRunner, /android_deep_link_retry_product_report_invalid/);
   assert.match(androidRunner, /"compile", "-m", "speed", "-f", "com\.quata"/);
+  assert.match(androidRunner, /collectAvailableDeviceEvidence\(evidenceDir, requiredEvidenceFiles\)/);
+  assert.match(androidRunner, /report\.status = "failed";\s+report\.error = safeFailure\(error\)/);
   assert.match(androidRunner, /android-deep-link-read-retry-recovered\.png/);
   assert.match(iosRuntime, /I_ACCEPT_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE/);
   assert.match(iosApp, /case "deep-link-retry-local"/);
