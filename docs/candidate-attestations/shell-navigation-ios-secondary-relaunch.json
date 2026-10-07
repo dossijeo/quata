@@ -1,34 +1,34 @@
 {
-  "version": 1,
+  "version": 2,
   "units": [
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
-  "certification": "focal-ios-process-relaunch-safe-secondary-routes-complete-independent-review-complete-final-CI-pending",
+  "productSha": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
+  "certification": "focal-ios-process-relaunch-seven-secondary-routes-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
-      "report": "docs/candidate-attestations/evidence/shell-navigation-ios-secondary-relaunch-f8cf0795.json",
-      "reportSha256": "1cf5a3cc6703509a4f65ef2440ab8adf7943255e0e6710935af37be134803064",
+      "sha": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-ios-secondary-completion-ee37800d.json",
+      "reportSha256": "8bebe3ba8e3e919610a81d3c062975a38e979911e189a39a6c7bae09f131d8d0",
       "reportStatus": "passed",
-      "reportGitHead": "7f6688eb50f3488af479581798fbb9a5c379b0c1",
+      "reportGitHead": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "four_safe_secondary_routes_restored_across_router_recreation",
-        "transient_editor_cleared_secondary_restoration_state",
-        "transient_editor_relaunch_fell_back_to_last_primary_root",
-        "settings_became_visible_before_application_termination",
-        "new_application_process_launched_without_route_argument",
-        "settings_restored_in_new_application_process",
-        "temporary_feed_fallback_absent_after_secondary_restore",
-        "private_settings_intent_preserved_behind_public_feed_until_authentication",
-        "public_about_not_replaced_by_public_feed_install",
-        "safe_secondary_route_preserved_during_authenticated_dependency_upgrade",
-        "primary_route_session_upgrade_and_logout_regressions_passed",
-        "user_selected_route_won_during_authenticated_dependency_upgrade"
+        "five_public_secondary_routes_restored_across_router_recreation",
+        "whats_new_restored_after_application_termination_without_route_replay",
+        "composer_waited_for_authenticated_upgrade_before_restoration",
+        "composer_restored_after_application_termination_without_route_replay",
+        "closing_composer_cleared_its_restoration_intent",
+        "official_editor_fell_back_to_official_until_fresh_role_resolution",
+        "official_editor_restored_only_after_fresh_official_role_resolution",
+        "non_official_role_rejected_and_cleared_editor_restoration",
+        "superseding_root_or_detail_selection_rejected_stale_editor_resolution",
+        "logout_rejected_and_cleared_editor_restoration",
+        "official_editor_restored_after_application_termination_without_route_replay",
+        "route_snapshot_contained_no_draft_actor_or_nested_identifier"
       ],
       "cleanup": {
         "verified": true,
@@ -38,20 +38,23 @@
   },
   "preflight": [
     "git diff --check",
-    "node --test scripts/ios-shell-layout-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/ios-build-workflow-contract.test.mjs scripts/ios-public-runtime-contract.test.mjs",
-    "xcodebuild ... focused safe-secondary router and application-process relaunch tests",
-    "xcodebuild test-without-building ... primary-route, session-upgrade and logout regressions"
+    "node --test scripts/ios-shell-layout-contract.test.mjs",
+    ":feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialFeedViewModelInitialUserTest",
+    "swiftc -frontend -parse affected Swift sources",
+    "scripts/build-ios-intel-simulator.sh on exact Product SHA",
+    "three focused QuataFeedFrameworkTests on exact Product SHA",
+    "QuataIosHostUITests.testWhatsNewComposerAndOfficialEditorSurviveApplicationTerminationWithoutRouteReplay on exact Product SHA"
   ],
   "notes": [
-    "Only non-sensitive route names are persisted. Conversation IDs, post IDs, profile IDs, actor data, drafts and internal feature state are not stored by this change.",
-    "Notifications, Settings, About and Release History survive router recreation. A separate UI test terminated the app after Settings was visible and launched a new process without replaying a route argument; Settings was restored and the temporary Feed fallback was absent.",
-    "The production startup order is covered explicitly: private Settings remains pending behind the anonymous Feed until authentication, while public About remains visible when public Feed installs; both survive the authenticated dependency upgrade.",
-    "Composer, Official editor and What's New remain transient. Entering a transient route clears the safe-secondary value, and recreation falls back to the last primary root.",
-    "The existing primary-root process-relaunch test and focused session-upgrade and logout regressions pass against the same build.",
-    "Independent review first found that the production startup order could replace a restored public secondary route. The accepted Product SHA preserves private Settings behind the anonymous Feed, preserves public About when Feed installs, and retains both through the authenticated dependency upgrade; re-review returned GO with no P0-P3 findings.",
-    "This closes iOS process-relaunch restoration for the four safe secondary destinations. It does not claim nested identifiers, scroll position, drafts or internal widget state.",
-    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff.",
-    "After merging main, the affected iOS XCFramework was rebuilt and the integrated Product SHA passed six focused router tests plus the primary-root and safe-secondary application termination/relaunch UI tests.",
-    "After the CI contract exposed an incomplete mainline merge, the frozen follow-up Product SHA passed four exact router tests: user navigation wins during dependency replacement, and Settings, About and Communities restoration remain intact."
+    "The historical report shell-navigation-ios-secondary-relaunch-f8cf0795.json remains immutable evidence for the original four-route closure and its then-deliberate transient-route behavior; this version supersedes that policy for the three newly safe route names.",
+    "Only non-sensitive route names are persisted. Conversation IDs, post IDs, profile IDs, actor data, drafts, attachments and internal feature state are not stored by this change.",
+    "Notifications, Settings, What's New, About and Release History restore as public secondary destinations.",
+    "Composer restores only after an authenticated dependency upgrade and closing it clears the restoration intent. Its draft and actor state remain owned by their existing stores and are not added to the route snapshot.",
+    "Official Editor restores only after a fresh repository-backed official-role resolution. Non-official, stale, superseded and logout paths clear or reject the pending intent.",
+    "The process test displayed each of What's New, Composer and Official Editor, terminated the app and launched a new process without replaying the route argument; all three route hosts restored.",
+    "The first focused XCTest attempt exhausted the Mac volume while copying a framework before any selected test ran. Only generated outputs from inactive exact-SHA checkouts were removed; the unchanged exact Product SHA then passed all four selected tests.",
+    "Independent product review returned GO with no P0-P3 findings before this attestation update. Exact final-head review remains required after the documentation commit.",
+    "This closes restoration for the seven named secondary route names. It does not claim arbitrary nested backstacks, nested identifiers, scroll position, media position, drafts or internal widget state.",
+    "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]
 }
