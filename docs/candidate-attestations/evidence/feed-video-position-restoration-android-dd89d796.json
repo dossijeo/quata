@@ -1,0 +1,43 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "768a08b6e338a6d331506fa792390fcc19ec63a8",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "post_detail_feed_official_fixture_prepared",
+    "android_feed_video_process_force_stopped_after_durable_position_seed",
+    "feed_video_position_restored_after_android_force_stop"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0,
+        "storage_objects": 0
+      }
+    },
+    "feedOfficialComments": {
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  }
+}
