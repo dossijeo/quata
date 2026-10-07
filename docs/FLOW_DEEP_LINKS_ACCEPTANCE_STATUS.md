@@ -932,7 +932,8 @@ el nodo Compose etiquetado.
 La variante iOS pasó después en el Product SHA exacto `e310eaa8` usando el entorno
 Skiko raster validado para la VM Hyper-V. El XCTest focal abrió el fallo nativo,
 pulsó el control Retry real, observó la conversación y mensaje exactos, comprobó
-la retirada del fallo y volvió a Feed. Resultado: 1/1, sin omitidos ni backend.
+la retirada del fallo y volvió a la lista de Chats. Resultado: 1/1, sin omitidos
+ni backend.
 El diagnóstico Metal anterior se conserva como intento bloqueado del runtime
 stock; no era un fallo de Retry ni del producto. El workflow final sigue exigiendo
 que la suite global encuentre este XCTest exacto, lo marque `passed` y rechace
