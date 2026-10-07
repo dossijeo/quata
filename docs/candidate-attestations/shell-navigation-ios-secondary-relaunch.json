@@ -4,12 +4,12 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
+  "productSha": "f478bee3a0062929171bdeff6858df745e4ea6fa",
   "certification": "focal-ios-process-relaunch-seven-secondary-routes-complete-independent-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
+      "sha": "f478bee3a0062929171bdeff6858df745e4ea6fa",
       "report": "docs/candidate-attestations/evidence/shell-navigation-ios-secondary-completion-ee37800d.json",
       "reportSha256": "8bebe3ba8e3e919610a81d3c062975a38e979911e189a39a6c7bae09f131d8d0",
       "reportStatus": "passed",
@@ -41,9 +41,9 @@
     "node --test scripts/ios-shell-layout-contract.test.mjs",
     ":feature:official:wasmJsBrowserTest --tests com.quata.feature.official.presentation.OfficialFeedViewModelInitialUserTest",
     "swiftc -frontend -parse affected Swift sources",
-    "scripts/build-ios-intel-simulator.sh on exact Product SHA",
-    "three focused QuataFeedFrameworkTests on exact Product SHA",
-    "QuataIosHostUITests.testWhatsNewComposerAndOfficialEditorSurviveApplicationTerminationWithoutRouteReplay on exact Product SHA"
+    "scripts/build-ios-intel-simulator.sh on clean reportGitHead ee37800da0ebab755fdd3bef163389d42d65b3dd",
+    "three focused QuataFeedFrameworkTests on clean reportGitHead ee37800da0ebab755fdd3bef163389d42d65b3dd",
+    "QuataIosHostUITests.testWhatsNewComposerAndOfficialEditorSurviveApplicationTerminationWithoutRouteReplay on clean reportGitHead ee37800da0ebab755fdd3bef163389d42d65b3dd"
   ],
   "notes": [
     "The historical report shell-navigation-ios-secondary-relaunch-f8cf0795.json remains immutable evidence for the original four-route closure and its then-deliberate transient-route behavior; this version supersedes that policy for the three newly safe route names.",
@@ -53,7 +53,8 @@
     "Official Editor restores only after a fresh repository-backed official-role resolution. Non-official, stale, superseded and logout paths clear or reject the pending intent.",
     "The process test displayed each of What's New, Composer and Official Editor, terminated the app and launched a new process without replaying the route argument; all three route hosts restored.",
     "The first focused XCTest attempt exhausted the Mac volume while copying a framework before any selected test ran. Only generated outputs from inactive exact-SHA checkouts were removed; the unchanged exact Product SHA then passed all four selected tests.",
-    "Independent product review returned GO with no P0-P3 findings before this attestation update. Exact final-head review remains required after the documentation commit.",
+    "Range-diff proves both unit commits patch-equivalent after recomposition onto the frozen SCR-FEED head. Product SHA f478bee3 preserves all nine changed product and test blobs byte-for-byte from the clean execution head ee37800d, so the platform matrix was not repeated solely for commit identity.",
+    "Independent review of the recomposed Product SHA and attestation returned GO with no P0-P3 findings; it confirmed patch and blob equivalence, evidence integrity and the stated scope boundaries.",
     "This closes restoration for the seven named secondary route names. It does not claim arbitrary nested backstacks, nested identifiers, scroll position, media position, drafts or internal widget state.",
     "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]
