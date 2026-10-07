@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,6 +46,7 @@ import com.quata.core.navigation.AuthenticationContinuationKind
 import com.quata.core.navigation.PendingAuthenticationContinuation
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.DurableMediaPositionStore
 import com.quata.core.platform.MediaFileExportDescriptor
 import com.quata.core.platform.mediaFileExportDescriptorOrNull
 import com.quata.core.platform.SharePayload
@@ -71,6 +73,7 @@ import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.official.domain.calculateOfficialPostRanking
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /** Localized copy and platform-visible feedback for the shared Official product surface. */
 class OfficialFeedScreenStrings(
@@ -146,6 +149,10 @@ const val OfficialFeedRootTestTag = "official-feed-common-root"
 const val OfficialFeedStateTestTagPrefix = "official-feed-common-state"
 const val OfficialFeedErrorMessageTestTag = "official-feed-error-message"
 const val OfficialFeedRetryTestTag = "official-feed-retry"
+const val OfficialVideoPositionStoragePrefix = "quata.official.video_positions.v1."
+
+internal fun officialVideoPositionMediaId(postId: String, videoUrl: String): String =
+    "$postId\u001f${videoUrl.trim()}"
 
 fun officialMediaFileExportDescriptor(post: OfficialPostItem): MediaFileExportDescriptor? {
     val mediaType = post.mediaType ?: return null
@@ -184,7 +191,7 @@ class OfficialFeedScreenPlatformSlots(
     val avatar: @Composable (OfficialPostItem, Modifier) -> Unit,
     val media: @Composable (OfficialPostItem, Modifier, () -> Unit) -> Unit,
     val article: @Composable (OfficialPostItem, Modifier) -> Unit,
-    val mediaViewer: @Composable (OfficialPostItem, () -> Unit) -> Unit,
+    val mediaViewer: @Composable (OfficialPostItem, Long, (Long) -> Unit, () -> Unit) -> Unit,
     val openUrl: (String) -> Unit,
     val share: suspend (SharePayload) -> PlatformResult<Unit>,
     val message: (String) -> Unit,
@@ -251,6 +258,7 @@ fun OfficialFeedScreenHost(
     stateHolder: OfficialFeedStateHolder? = null,
     slots: OfficialFeedScreenPlatformSlots,
     currentUserId: String?,
+    videoPositionStore: DurableMediaPositionStore? = null,
     initialCurrentUser: User? = null,
     focusedPostId: String?,
     strings: OfficialFeedScreenStrings,
@@ -297,6 +305,35 @@ fun OfficialFeedScreenHost(
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
     val layoutDirection = LocalLayoutDirection.current
     val effectiveUserId = currentUserId ?: state.currentUser?.id
+    val videoPositions = remember(videoPositionStore, effectiveUserId) { mutableStateMapOf<String, Long>() }
+    val persistedVideoPositions = remember(videoPositionStore, effectiveUserId) { mutableStateMapOf<String, Long>() }
+    var videoPositionsRestored by remember(videoPositionStore, effectiveUserId) {
+        mutableStateOf(videoPositionStore == null)
+    }
+    LaunchedEffect(videoPositionStore, effectiveUserId) {
+        val store = videoPositionStore ?: return@LaunchedEffect
+        store.restore(effectiveUserId).forEach { (mediaId, positionMs) ->
+            if (mediaId !in videoPositions) {
+                videoPositions[mediaId] = positionMs
+                persistedVideoPositions[mediaId] = positionMs
+            }
+        }
+        videoPositionsRestored = true
+    }
+    fun updateVideoPosition(post: OfficialPostItem, positionMs: Long) {
+        if (!videoPositionsRestored || post.mediaType != OfficialMediaType.Video) return
+        val url = post.mediaUrl ?: return
+        val mediaId = officialVideoPositionMediaId(post.id, url)
+        val normalized = positionMs.coerceAtLeast(0L)
+        videoPositions[mediaId] = normalized
+        val lastPersisted = persistedVideoPositions[mediaId]
+        if (lastPersisted == null || abs(normalized - lastPersisted) >= 1_000L) {
+            persistedVideoPositions[mediaId] = normalized
+            videoPositionStore?.let { store ->
+                scope.launch { store.persistPosition(effectiveUserId, mediaId, normalized) }
+            }
+        }
+    }
     val pendingAuthenticationContinuation by (
         authenticationContinuationCoordinator?.pending
             ?: remember { kotlinx.coroutines.flow.MutableStateFlow<PendingAuthenticationContinuation?>(null) }
@@ -764,10 +801,19 @@ fun OfficialFeedScreenHost(
     // Native media viewers are deliberately injected at the platform seam; this host only owns selection.
     mediaPost?.let { id ->
         state.posts.firstOrNull { it.id == id }?.let { post ->
-            slots.mediaViewer(post) {
-                mediaPost = null
-                mediaReturnReadMorePost?.let { readMorePost = it }
-                mediaReturnReadMorePost = null
+            val mediaId = post.mediaUrl?.takeIf { post.mediaType == OfficialMediaType.Video }?.let {
+                officialVideoPositionMediaId(post.id, it)
+            }
+            key(videoPositionsRestored) {
+                slots.mediaViewer(
+                    post,
+                    mediaId?.let { videoPositions[it] } ?: 0L,
+                    { positionMs -> updateVideoPosition(post, positionMs) },
+                ) {
+                    mediaPost = null
+                    mediaReturnReadMorePost?.let { readMorePost = it }
+                    mediaReturnReadMorePost = null
+                }
             }
         }
     }

@@ -996,6 +996,7 @@ private fun QuataWebApp(
                             WebOfficialHost(
                                 repository = officialRepository,
                                 shareService = platformServices.share,
+                                preferences = platformServices.preferences,
                                 officialPostId = navigation.officialPostId,
                                 currentUserId = currentUserId,
                                 canCreateOfficialPost = currentUserIsOfficial,

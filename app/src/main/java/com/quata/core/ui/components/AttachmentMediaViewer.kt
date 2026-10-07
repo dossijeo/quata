@@ -60,6 +60,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -471,10 +472,17 @@ fun AttachmentViewerDialog(
 fun AttachmentFullscreenMediaContent(
     attachment: AttachmentPreview,
     modifier: Modifier = Modifier,
+    initialVideoPositionMs: Long = 0L,
+    onVideoPositionChanged: (Long) -> Unit = {},
 ) {
     when {
         attachment.isImage -> ZoomableImage(attachment, modifier)
-        attachment.isVideo -> FullscreenVideoPlayer(attachment.uri, modifier)
+        attachment.isVideo -> FullscreenVideoPlayer(
+            videoUri = attachment.uri,
+            modifier = modifier,
+            initialPositionMs = initialVideoPositionMs,
+            onPositionChanged = onVideoPositionChanged,
+        )
         else -> AttachmentThumbnail(attachment, modifier)
     }
 }
@@ -546,28 +554,41 @@ private fun ZoomableImage(attachment: AttachmentPreview, modifier: Modifier = Mo
 }
 
 @Composable
-private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifier) {
+private fun FullscreenVideoPlayer(
+    videoUri: String,
+    modifier: Modifier = Modifier,
+    initialPositionMs: Long = 0L,
+    onPositionChanged: (Long) -> Unit = {},
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var playbackRotation by remember(videoUri) { mutableStateOf(0) }
     var isLoading by remember(videoUri) { mutableStateOf(true) }
     var isPlaying by remember(videoUri) { mutableStateOf(false) }
     var hasPlaybackError by remember(videoUri) { mutableStateOf(false) }
+    val latestOnPositionChanged by rememberUpdatedState(onPositionChanged)
     LaunchedEffect(videoUri) {
         playbackRotation = withContext(Dispatchers.IO) {
             readQuataVideoRotation(context, Uri.parse(videoUri))
         }
     }
-    val player = remember(videoUri) {
+    val player = remember(videoUri, initialPositionMs) {
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(QuataMediaCache.videoMediaSourceFactory(context))
             .build()
             .apply {
                 setMediaItem(MediaItem.fromUri(videoUri))
+                if (initialPositionMs > 0L) seekTo(initialPositionMs)
                 repeatMode = Player.REPEAT_MODE_OFF
                 prepare()
                 playWhenReady = true
             }
+    }
+    LaunchedEffect(player) {
+        while (true) {
+            delay(250L)
+            latestOnPositionChanged(player.currentPosition.coerceAtLeast(0L))
+        }
     }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -592,6 +613,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
         }
         player.addListener(listener)
         onDispose {
+            latestOnPositionChanged(player.currentPosition.coerceAtLeast(0L))
             player.removeListener(listener)
             player.stop()
             player.clearMediaItems()

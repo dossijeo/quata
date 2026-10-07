@@ -80,7 +80,7 @@ internal fun iosOfficialPlatformSlots(
     },
     media = { post, modifier, open -> IosOfficialMedia(post, open, modifier) },
     article = { post, modifier -> QuataRichTextRenderer(post.contentHtml, modifier, post.contentPlain) },
-    mediaViewer = { post, dismiss ->
+    mediaViewer = { post, initialPositionMs, onPositionChanged, dismiss ->
         val strings = defaultOfficialFeedScreenStrings(preferredLanguageTag)
         IosOfficialNativeViewer(
             post = post,
@@ -91,6 +91,8 @@ internal fun iosOfficialPlatformSlots(
             downloadLabel = strings.downloadMedia,
             shareFileLabel = strings.shareMediaFile,
             exportFailed = strings.mediaExportFailed,
+            initialPositionMs = initialPositionMs,
+            onPositionChanged = onPositionChanged,
             dismiss = dismiss,
         )
     },
@@ -134,6 +136,8 @@ private fun IosOfficialNativeViewer(
     downloadLabel: String,
     shareFileLabel: String,
     exportFailed: String,
+    initialPositionMs: Long,
+    onPositionChanged: (Long) -> Unit,
     dismiss: () -> Unit,
 ) {
     val url = post.mediaUrl ?: return
@@ -142,12 +146,23 @@ private fun IosOfficialNativeViewer(
     }
     val surface = remember(url) { factory?.create(url, post.mediaType == OfficialMediaType.Video) }
     var snapshot by remember(surface) { mutableStateOf(IosOfficialMediaViewerSnapshot()) }
-    androidx.compose.runtime.DisposableEffect(surface) { onDispose { surface?.dispose() } }
+    androidx.compose.runtime.DisposableEffect(surface, post.mediaType) {
+        onDispose {
+            if (post.mediaType == OfficialMediaType.Video) {
+                surface?.snapshot()?.positionMs?.let(onPositionChanged)
+            }
+            surface?.dispose()
+        }
+    }
     LaunchedEffect(surface) { if (surface == null) dismiss() }
     LaunchedEffect(surface) {
         val activeSurface = surface ?: return@LaunchedEffect
+        if (post.mediaType == OfficialMediaType.Video && initialPositionMs > 0L) {
+            activeSurface.seekTo(initialPositionMs)
+        }
         while (true) {
             snapshot = activeSurface.snapshot()
+            if (post.mediaType == OfficialMediaType.Video) onPositionChanged(snapshot.positionMs)
             delay(250)
         }
     }

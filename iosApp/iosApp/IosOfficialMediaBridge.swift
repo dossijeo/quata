@@ -28,6 +28,7 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
     private var looping = false
     private var isLoading = true
     private var reportedError: String?
+    private var pendingPositionMs: Int64 = 0
 
     init(url: URL?, video: Bool) {
         sourceURL = url
@@ -67,8 +68,15 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
         return IosOfficialMediaViewerSnapshot(
             isPlaying: player?.timeControlStatus == .playing,
             isLoading: isLoading,
-            error: reportedError
+            error: reportedError,
+            positionMs: currentPositionMs
         )
+    }
+
+    func seekTo(positionMs: Int64) {
+        pendingPositionMs = max(0, positionMs)
+        guard let player else { return }
+        player.seek(to: CMTime(value: pendingPositionMs, timescale: 1_000))
     }
 
     func retry() {
@@ -132,6 +140,9 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
         root.playerLayer = layer
         self.player = player
         playerLayer = layer
+        if pendingPositionMs > 0 {
+            player.seek(to: CMTime(value: pendingPositionMs, timescale: 1_000))
+        }
         timeControlObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -168,6 +179,13 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
         root.playerLayer = nil
         playerLayer = nil
         player = nil
+    }
+
+    private var currentPositionMs: Int64 {
+        guard let player else { return pendingPositionMs }
+        let seconds = CMTimeGetSeconds(player.currentTime())
+        guard seconds.isFinite, seconds >= 0 else { return pendingPositionMs }
+        return Int64(seconds * 1_000)
     }
 
     @objc private func loop() { guard let player, !looping else { return }; looping = true; player.seek(to: .zero) { [weak self] _ in player.play(); self?.looping = false } }

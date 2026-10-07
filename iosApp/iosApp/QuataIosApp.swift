@@ -1456,6 +1456,7 @@ private final class IosAppCompositionRoot {
                         officialPostId: postId,
                         shareService: shareService,
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
+                        preferences: self.platformServices.services.preferences,
                         currentUserId: nil,
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onAuthenticationContinuationRequired: { [weak self] continuation in
@@ -1485,6 +1486,7 @@ private final class IosAppCompositionRoot {
                     officialPostId: postId,
                     shareService: shareService,
                     mediaViewerFactory: IosOfficialMediaBridge.shared,
+                    preferences: self.platformServices.services.preferences,
                     currentUserId: nil,
                     initialCurrentUser: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,
