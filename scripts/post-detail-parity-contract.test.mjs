@@ -246,8 +246,9 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(feedVideoPositionStore, /updateStringAtomically\(key\)/);
   assert.match(browserPreferenceStore, /navigator\?\.locks/);
   assert.match(browserPreferenceStore, /locks\.request\('quata\.preference\.' \+ key/);
-  assert.match(browserPreferenceStoreTest, /separateBrowserStoresSerializeConcurrentUpdates/);
-  assert.match(feedVideoPositionStoreTest, /separateBrowserTabsSerializeConcurrentActorMapUpdates/);
+  assert.match(browserPreferenceStoreTest, /updatesWaitForTheSharedBrowserLockAndPreserveBothValues/);
+  assert.match(browserPreferenceStoreTest, /updates must remain pending behind the held lock/);
+  assert.match(feedVideoPositionStoreTest, /separateAtomicStoresSerializeConcurrentActorMapUpdates/);
   assert.match(webEvidence, /await page\.reload\(\{ waitUntil: "domcontentloaded", timeout: 60_000 \}\)/);
   assert.match(webEvidence, /if \(!options\.feedVideo\) await verifyOfficialDetail/);
   assert.match(androidEvidence, /--post-detail-feed-video/);

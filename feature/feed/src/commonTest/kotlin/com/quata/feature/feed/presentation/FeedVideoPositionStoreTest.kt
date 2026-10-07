@@ -77,7 +77,7 @@ class FeedVideoPositionStoreTest {
     }
 
     @Test
-    fun separateBrowserTabsSerializeConcurrentActorMapUpdates() = runTest {
+    fun separateAtomicStoresSerializeConcurrentActorMapUpdates() = runTest {
         val backend = AtomicMemoryBackend()
         val first = FeedVideoPositionStore(AtomicMemoryPreferenceStore(backend))
         val second = FeedVideoPositionStore(AtomicMemoryPreferenceStore(backend))
