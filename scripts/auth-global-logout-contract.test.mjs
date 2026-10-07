@@ -19,6 +19,8 @@ test("shared Profile exposes a separately confirmed global logout action", async
   assert.match(web, /onLogoutEverywhere = \{[\s\S]*?completeLogout\(global = true\)/);
   assert.match(ios, /onLogoutEverywhere: \{ \[weak self\] in self\?\.authenticatedHost\.performLogoutEverywhere\(\) \}/);
   assert.match(ios, /logoutHandler\.logoutEverywhere\([\s\S]*?onCompleted: completed,[\s\S]*?onFailure:/);
+  assert.match(ios, /reportLogoutFailure\(global: true\)/);
+  assert.match(ios, /func retryFailedLogout\(\)[\s\S]*?performLogoutEverywhere\(\)[\s\S]*?performLogout\(\)/);
 });
 
 test("all transports keep explicit local scope and route global logout through the retirement endpoint", async () => {
@@ -53,7 +55,7 @@ test("Web keeps local server retirement ordered and leaves a failed global actio
   assert.ok(push >= 0 && auth > push && browser > auth && clear > browser);
   assert.match(lifecycle, /val webSessionFailure = if \(global\) null else/);
   assert.match(lifecycle, /if \(global && authFailure != null\) return Result\.failure\(authFailure\)/);
-  assert.match(lifecycle, /val failure = webSessionFailure \?: authFailure \?: browserFailure/);
+  assert.match(lifecycle, /browserFailure\.takeUnless \{ global \}/);
 });
 
 test("focal platform tests distinguish local Auth logout from global device retirement", async () => {
@@ -65,6 +67,7 @@ test("focal platform tests distinguish local Auth logout from global device reti
   for (const testSource of [androidTest, webTest, iosTest]) assert.match(testSource, /logout\?scope=local/);
   for (const testSource of [androidTest, webTest, iosTest]) assert.match(testSource, /quata-auth-global-logout/);
   assert.match(webTest, /assertNull\(preferences\.getString\(WebAuthStorage\.AccessToken\)\)/);
+  assert.match(webTest, /browserCleanupFailureAfterGlobalRetirementStillCompletesLocalTeardown/);
   assert.match(iosTest, /recording\.logoutEverywhere\(\)/);
 });
 
@@ -141,6 +144,7 @@ test("iOS acceptance seeds two sessions and confirms the shared global action", 
   assert.match(ui, /tapIdentifier\("profile\.management\.logout-everywhere"[\s\S]*?tapIdentifier\("profile\.management\.confirm"/);
   assert.match(shell, /QUATA_IOS_AUTH_GLOBAL_LOGOUT_UI_E2E/);
   assert.match(shell, /testSeedTwoAuthenticatedSessionsForGlobalLogout/);
+  assert.match(shell, /run_and_require "\$seed" "\$seed_method"/);
   assert.match(runner, /verifyGlobalBackendRevocation\(\)/);
   assert.match(runner, /auth-global-logout-remote-verification\.py/);
 });

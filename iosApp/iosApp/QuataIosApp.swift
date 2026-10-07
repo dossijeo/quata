@@ -2251,7 +2251,7 @@ private final class IosAppCompositionRoot {
                     onCompleted: completed,
                     onFailure: { [weak self] in
                         self?.notificationReplyRuntime?.resumeAfterSessionValidation()
-                        self?.authenticatedHost.reportLogoutFailure()
+                        self?.authenticatedHost.reportLogoutFailure(global: true)
                     },
                 )
             },
@@ -2807,6 +2807,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var logoutEverywhereAction: ((@escaping () -> Void) -> Void)?
+    private var failedLogoutWasGlobal = false
     private var sosAction: (() -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var onAuthenticationContinuationAbandoned: (() -> Void)?
@@ -3951,6 +3952,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// network, Keychain or a confirmation alert.
     func performLogout() {
         guard let logoutAction, !isLoggingOut else { return }
+        failedLogoutWasGlobal = false
         isLoggingOut = true
         logoutAction { [weak self] in
             DispatchQueue.main.async {
@@ -3961,6 +3963,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func performLogoutEverywhere() {
         guard let logoutEverywhereAction, !isLoggingOut else { return }
+        failedLogoutWasGlobal = false
         isLoggingOut = true
         logoutEverywhereAction { [weak self] in
             DispatchQueue.main.async {
@@ -3977,9 +3980,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         finishLogout()
     }
 
-    func reportLogoutFailure() {
+    func reportLogoutFailure(global: Bool = false) {
         guard isLoggingOut else { return }
         isLoggingOut = false
+        failedLogoutWasGlobal = global
         let alert = UIAlertController(
             title: NSLocalizedString("ios_logout_failed_title", value: "No se ha cerrado la sesión", comment: ""),
             message: NSLocalizedString("ios_logout_failed_message", value: "Comprueba tu conexión y vuelve a intentarlo.", comment: ""),
@@ -3988,17 +3992,29 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         alert.addAction(UIAlertAction(
             title: NSLocalizedString("common_retry", value: "Reintentar", comment: ""),
             style: .default,
-        ) { [weak self] _ in self?.performLogout() })
+        ) { [weak self] _ in self?.retryFailedLogout() })
         alert.addAction(UIAlertAction(
             title: NSLocalizedString("common_cancel", value: "Cancelar", comment: ""),
             style: .cancel,
-        ))
+        ) { [weak self] _ in self?.failedLogoutWasGlobal = false })
         present(alert, animated: true)
+    }
+
+    /// Internal for XCTest: retry must preserve the scope of the operation that failed.
+    func retryFailedLogout() {
+        let retryEverywhere = failedLogoutWasGlobal
+        failedLogoutWasGlobal = false
+        if retryEverywhere {
+            performLogoutEverywhere()
+        } else {
+            performLogout()
+        }
     }
 
     private func finishLogout() {
         guard isLoggingOut else { return }
         isLoggingOut = false
+        failedLogoutWasGlobal = false
         let completion = onLoggedOut
         // A private route may hold a live Compose controller/repository. Remove every factory
         // before asking the composition root to reinstall the anonymous public Feed.

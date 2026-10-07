@@ -110,8 +110,10 @@ run_and_require() {
 
 if [[ "$QUATA_IOS_AUTH_GLOBAL_LOGOUT_UI_E2E" == "1" ]]; then
   seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedTwoAuthenticatedSessionsForGlobalLogout'
+  seed_method='testSeedTwoAuthenticatedSessionsForGlobalLogout'
 else
   seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
+  seed_method='testSeedAuthenticatedSessionForVisualGates'
 fi
 if [[ "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" == "1" ]]; then
   ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedAccountLifecycleExecutesFromProductUI'
@@ -131,7 +133,7 @@ else
   ui='QuataIosUITests/QuataIosAuthenticatedAccountPostflightUITests/testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions'
   ui_method='testAuthenticatedAccountRootNavigatesAndCancelsLifecycleActions'
 fi
-run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/seed.log"
+run_and_require "$seed" "$seed_method" "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/seed.log"
 run_and_require "$ui" "$ui_method" "$QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR/ui.log"
 if [[ "$QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E" == "1" ]]; then
   echo "IOS_ACCOUNT_LIFECYCLE_UI_GATE_PASSED:$QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION" >&2

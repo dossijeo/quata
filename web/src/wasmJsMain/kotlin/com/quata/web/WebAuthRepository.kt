@@ -312,7 +312,10 @@ class WebAuthRepository(
                 BrowserChatComposerAttachmentExecutionLock(),
             ).clearActor(it)
         }
-        val failure = webSessionFailure ?: authFailure ?: browserFailure
+        // A successful global endpoint already retired every Auth session and device endpoint.
+        // Browser push cleanup is still attempted, but it cannot turn that irreversible success
+        // into a retryable failure that leaves the shell on a private route.
+        val failure = webSessionFailure ?: authFailure ?: browserFailure.takeUnless { global }
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
 

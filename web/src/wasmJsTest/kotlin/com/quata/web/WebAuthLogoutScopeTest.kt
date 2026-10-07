@@ -79,6 +79,24 @@ class WebAuthLogoutScopeTest {
         }
     }
 
+    @Test
+    fun browserCleanupFailureAfterGlobalRetirementStillCompletesLocalTeardown() = runTest {
+        val preferences = SessionPreferences()
+        installLogoutFetch()
+        try {
+            val result = WebAuthRepository(configuration, preferences).logoutWithBrowserUnsubscribe(
+                global = true,
+                browserUnsubscribe = { Result.failure(IllegalStateException("synthetic_unsubscribe_failure")) },
+            )
+
+            assertTrue(result.isSuccess)
+            assertNull(preferences.getString(WebAuthStorage.AccessToken))
+            assertNull(preferences.getString(WebAuthStorage.RefreshToken))
+        } finally {
+            restoreLogoutFetch()
+        }
+    }
+
     private class SessionPreferences : PreferenceStore {
         private val values = mutableMapOf(
             WebAuthStorage.AccessToken to "access-token",
