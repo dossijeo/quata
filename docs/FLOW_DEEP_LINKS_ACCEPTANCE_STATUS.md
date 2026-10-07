@@ -929,19 +929,17 @@ aceptado usa el botón accesible real generado por Compose, coteja remitente y
 contenido en su nodo accesible, y conserva capturas antes y después. Android usa
 el nodo Compose etiquetado.
 
-La variante iOS compila y el XCTest focal inicia la aplicación exacta, pero la
-VM macOS no expone un dispositivo Metal. El proceso termina al crear
-`androidx.compose.ui.window.MetalView`, antes de montar el host Chat; el backtrace
-exacto alcanza `MetalView.uikit.kt:51` y `MTLCreateSystemDefaultDevice()` no puede
-proporcionar el renderizador que Compose iOS requiere. Reiniciar CoreSimulator,
-arrancar Simulator en la sesión gráfica y repetir el test no cambió el resultado.
-No se atribuye este fallo a Retry ni al producto. El workflow final exige ahora
-que la suite global ejecute ese XCTest exacto, encuentre su identidad en el log,
-lo marque `passed` y rechace `skipped` o `disabled`. Esa alternativa todavía no
-se ha ejecutado sobre la candidata remota; por tanto, iOS continúa sin aceptación.
+La variante iOS pasó después en el Product SHA exacto `e310eaa8` usando el entorno
+Skiko raster validado para la VM Hyper-V. El XCTest focal abrió el fallo nativo,
+pulsó el control Retry real, observó la conversación y mensaje exactos, comprobó
+la retirada del fallo y volvió a Feed. Resultado: 1/1, sin omitidos ni backend.
+El diagnóstico Metal anterior se conserva como intento bloqueado del runtime
+stock; no era un fallo de Retry ni del producto. El workflow final sigue exigiendo
+que la suite global encuentre este XCTest exacto, lo marque `passed` y rechace
+`skipped` o `disabled`.
 
 Esta candidata elimina el límite histórico «Retry nativo no ejecutado» en
-Android y Web. iOS conserva ese límite por la restricción de renderizado anterior.
+Android, Web e iOS Simulator.
 No atribuye disponibilidad al backend, no sustituye los casos reales de destino
 ausente o sesión rechazada y no amplía la aceptación a Universal Links, APNs,
 push ni lifecycle global. Android pasó sobre el head limpio `5397cedc`; Web se
@@ -951,7 +949,9 @@ era Feed. No se repitió Android por ese cambio exclusivo del runner Web. Sus
 reportes saneados y hashes están en
 [`deep-link-native-retry-android-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-android-5397cedc.json)
 y [`deep-link-native-retry-web-a466d115.json`](candidate-attestations/evidence/deep-link-native-retry-web-a466d115.json).
-El fallo conservado de la VM está en
+El fallo conservado del runtime Metal está en
 [`deep-link-native-retry-ios-metal-diagnostic-8768d980.json`](candidate-attestations/evidence/deep-link-native-retry-ios-metal-diagnostic-8768d980.json).
-El manifest final no se emitirá hasta que el XCTest iOS pase en un host con Metal;
-no hay un enlace de atestación aprobado mientras esa plataforma siga pendiente.
+El PASS iOS exacto está en
+[`deep-link-native-retry-ios-e310eaa8.json`](candidate-attestations/evidence/deep-link-native-retry-ios-e310eaa8.json)
+y el manifest focal en
+[`deep-link-native-retry.json`](candidate-attestations/deep-link-native-retry.json).
