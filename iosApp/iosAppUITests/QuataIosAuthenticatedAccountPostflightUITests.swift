@@ -61,6 +61,44 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         print("IOS_AUTH_LOGOUT_UI_GATE_PASSED")
     }
 
+    func testAuthenticatedSettingsLogoutReturnsToPublicFeedAndClearsRestoredSession() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_SETTINGS_LOGOUT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Settings logout postflight is opt-in.")
+        }
+        continueAfterFailure = false
+
+        let app = launchAuthenticatedApp()
+        tapIdentifier("quata-ios-authenticated-route-menu", in: app, context: "open authenticated route menu")
+        tapFirstButton(labels: ["Ajustes", "Settings"], in: app, context: "open Settings from the authenticated route menu")
+        assertVisible("quata-ios-settings-host", in: app, context: "authenticated Settings host")
+        tapIdentifier("settings-logout", in: app, context: "activate the Settings logout control")
+        let publicTransition = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ OR label == %@",
+                "feed.root",
+                "Quata iOS is preparing the public Feed"
+            ))
+            .firstMatch
+        XCTAssertTrue(
+            publicTransition.waitForExistence(timeout: 60),
+            "Settings logout must return to the public Feed or its public loading state."
+        )
+        assertPrivateProfileAbsent(in: app, context: "after Settings logout")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-settings-logout-public-feed")
+
+        app.terminate()
+        let relaunched = XCUIApplication()
+        disableQuiescenceWait(for: relaunched)
+        relaunched.launchArguments += [
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
+            "-quata-ui-test-reset-primary-route",
+        ]
+        relaunched.launch()
+        assertVisible("feed.root", in: relaunched, context: "public Feed after Settings logout relaunch", timeout: 25)
+        assertPrivateProfileAbsent(in: relaunched, context: "after Settings logout relaunch")
+        print("IOS_SETTINGS_LOGOUT_UI_GATE_PASSED")
+    }
+
     func testAuthenticatedAccountLifecycleExecutesFromProductUI() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E"] == "1" else {

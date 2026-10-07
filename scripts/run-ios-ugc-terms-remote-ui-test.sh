@@ -6,6 +6,11 @@ set -euo pipefail
 : "${QUATA_IOS_UGC_TERMS_PROFILE_ID:?Set the authenticated profile id.}"
 : "${QUATA_IOS_UGC_TERMS_UI_LOG_DIR:=build/reports/ios/UGC-TERMS-remote-ui}"
 : "${QUATA_IOS_UGC_TERMS_UI_TIMEOUT_SECONDS:=300}"
+: "${QUATA_IOS_UGC_TERMS_MODE:=accept}"
+[[ "$QUATA_IOS_UGC_TERMS_MODE" == "accept" || "$QUATA_IOS_UGC_TERMS_MODE" == "logout" ]] || {
+  echo "QUATA_IOS_UGC_TERMS_MODE must be accept or logout" >&2
+  exit 2
+}
 
 watchdog="scripts/run-ios-command-watchdog.py"
 xctestrun="$(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' ! -name '*-quata-patched.xctestrun' -type f -print -quit)"
@@ -15,9 +20,9 @@ patched="$(dirname "$xctestrun")/$(basename "$xctestrun" .xctestrun)-quata-ugc-t
 cp "$xctestrun" "$patched"
 xctestrun="$patched"
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_UGC_TERMS_MODE" <<'PY'
 import plistlib, sys
-path, credentials = sys.argv[1:]
+path, credentials, mode = sys.argv[1:]
 with open(path, 'rb') as f: data = plistlib.load(f)
 matched=set()
 def patch(target, hint=''):
@@ -26,7 +31,8 @@ def patch(target, hint=''):
     if 'QuataIosTests' in name:
         env['QUATA_IOS_AUTH_E2E_FILE']=credentials; matched.add('seed')
     if 'QuataIosUITests' in name:
-        env['QUATA_IOS_UGC_TERMS_REMOTE_E2E']='1'
+        env['QUATA_IOS_UGC_TERMS_REMOTE_E2E']='1' if mode == 'accept' else '0'
+        env['QUATA_IOS_UGC_TERMS_LOGOUT_E2E']='1' if mode == 'logout' else '0'
         env['QUATA_IOS_UGC_TERMS_PROFILE_ID'] = __import__('os').environ['QUATA_IOS_UGC_TERMS_PROFILE_ID']
         matched.add('ui')
 for config in data.get('TestConfigurations',[]):
@@ -48,6 +54,12 @@ run_one() {
 
 run_one 'QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates' \
   testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_UGC_TERMS_UI_LOG_DIR/seed.log"
-run_one 'QuataIosUITests/QuataIosUgcTermsRemoteUITests/testAuthenticatedUserAcceptsTermsThroughProductGate' \
-  testAuthenticatedUserAcceptsTermsThroughProductGate "$QUATA_IOS_UGC_TERMS_UI_LOG_DIR/ui.log"
-echo IOS_UGC_TERMS_REMOTE_UI_GATE_PASSED >&2
+if [[ "$QUATA_IOS_UGC_TERMS_MODE" == "logout" ]]; then
+  run_one 'QuataIosUITests/QuataIosUgcTermsRemoteUITests/testAuthenticatedUserLogsOutThroughProductGate' \
+    testAuthenticatedUserLogsOutThroughProductGate "$QUATA_IOS_UGC_TERMS_UI_LOG_DIR/ui.log"
+  echo IOS_UGC_TERMS_LOGOUT_UI_GATE_PASSED >&2
+else
+  run_one 'QuataIosUITests/QuataIosUgcTermsRemoteUITests/testAuthenticatedUserAcceptsTermsThroughProductGate' \
+    testAuthenticatedUserAcceptsTermsThroughProductGate "$QUATA_IOS_UGC_TERMS_UI_LOG_DIR/ui.log"
+  echo IOS_UGC_TERMS_REMOTE_UI_GATE_PASSED >&2
+fi

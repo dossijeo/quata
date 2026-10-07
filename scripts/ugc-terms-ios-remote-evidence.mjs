@@ -18,8 +18,10 @@ const options = {
   remoteLogDir: process.env.QUATA_IOS_UGC_TERMS_UI_LOG_DIR?.trim() || "build/reports/ios/UGC-TERMS-remote-ui",
   output: resolve(process.env.QUATA_IOS_UGC_TERMS_REPORT || "build-reports/ios/ugc-terms-remote-evidence.json"),
 };
+const mode = process.argv.includes("--logout") ? "logout" : (process.env.QUATA_UGC_TERMS_IOS_MODE?.trim() || "accept");
+if (!new Set(["accept", "logout"]).has(mode)) throw new Error("invalid_environment:QUATA_UGC_TERMS_IOS_MODE");
 if (!options.simulator) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
-const report = { check: "UGC-TERMS-IOS-REMOTE-001", status: "failed", startedAt: new Date().toISOString(), git: await gitMetadata(), steps: [], cleanup: { attempted: false, restored: false } };
+const report = { check: mode === "logout" ? "AUTH-LOGOUT-ENTRYPOINTS-IOS-001" : "UGC-TERMS-IOS-REMOTE-001", mode, status: "failed", startedAt: new Date().toISOString(), git: await gitMetadata(), steps: [], cleanup: { attempted: false, restored: false } };
 let client, fixture, localCredentials, remoteCredentials, runtimeBackup;
 let sensitiveCleanupFailed = false;
 
@@ -53,12 +55,20 @@ export QUATA_IOS_DERIVED_DATA_PATH=${quote(options.derivedData)}
 export QUATA_IOS_SIMULATOR_UDID=${quote(options.simulator)}
 export QUATA_IOS_UGC_TERMS_PROFILE_ID=${quote(session.userId)}
 export QUATA_IOS_UGC_TERMS_UI_LOG_DIR=${quote(options.remoteLogDir)}
+export QUATA_IOS_UGC_TERMS_MODE=${quote(mode)}
 bash scripts/run-ios-ugc-terms-remote-ui-test.sh
 `);
-  const remote = await waitForAcceptance(client, session.userId);
-  if (!remote) throw new Error("ios_ugc_terms_remote_persist_timeout");
-  report.product = { commonGateObserved: true, acceptedThroughProductUi: true, productionGatewayPersisted: true };
-  report.steps.push("product_gate_accepted", "production_gateway_persisted", "remote_row_verified");
+  if (mode === "accept") {
+    const remote = await waitForAcceptance(client, session.userId);
+    if (!remote) throw new Error("ios_ugc_terms_remote_persist_timeout");
+    report.product = { commonGateObserved: true, acceptedThroughProductUi: true, productionGatewayPersisted: true };
+    report.steps.push("product_gate_accepted", "production_gateway_persisted", "remote_row_verified");
+  } else {
+    const remote = await readAcceptance(client, session.userId);
+    if (remote) throw new Error("ios_ugc_terms_logout_unexpected_acceptance");
+    report.product = { commonGateObserved: true, logoutActivatedThroughProductUi: true, sessionCleared: true, publicTransitionVisible: true, relaunchPublicFeedVisible: true, relaunchAnonymous: true };
+    report.steps.push("product_gate_logout_activated", "owned_session_cleared", "public_feed_visible", "relaunch_remained_anonymous", "no_terms_acceptance_created");
+  }
   report.status = "passed";
 } catch (error) {
   report.error = { name: error?.name || "Error", message: redact(error?.message || String(error)).slice(-1600) };

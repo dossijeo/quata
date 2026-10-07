@@ -5,14 +5,16 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import pg from "pg";
 
-const CHECK = "UGC-TERMS-ANDROID-REMOTE-001";
+const mode = process.argv.includes("--logout") ? "logout" : (process.env.QUATA_UGC_TERMS_ANDROID_MODE?.trim() || "accept");
+if (!new Set(["accept", "logout"]).has(mode)) throw new Error("invalid_environment:QUATA_UGC_TERMS_ANDROID_MODE");
+const CHECK = mode === "logout" ? "AUTH-LOGOUT-ENTRYPOINTS-ANDROID-001" : "UGC-TERMS-ANDROID-REMOTE-001";
 const VERSION = "2026-07";
 const CREDENTIALS_FILE = process.env.QUATA_UGC_TERMS_CREDENTIALS_FILE?.trim() || "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const DB_URL_FILE = process.env.QUATA_SUPABASE_DB_URL_FILE?.trim() || "C:/Users/PC/.quata-supabase-db-url.txt";
 const DB_CA_FILE = process.env.QUATA_SUPABASE_DB_CA_FILE?.trim() || "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const output = resolve(process.env.QUATA_UGC_TERMS_ANDROID_REPORT || "build-reports/android/ugc-terms-remote-evidence.json");
 const evidenceDir = resolve(process.env.QUATA_UGC_TERMS_ANDROID_EVIDENCE_DIR || "build-reports/android/ugc-terms-remote-evidence");
-const report = { check: CHECK, status: "failed", startedAt: new Date().toISOString(), git: await gitMetadata(), steps: [], cleanup: { attempted: false, restored: false } };
+const report = { check: CHECK, mode, status: "failed", startedAt: new Date().toISOString(), git: await gitMetadata(), steps: [], cleanup: { attempted: false, restored: false } };
 const adb = process.env.ADB?.trim() || "adb";
 let client;
 let fixture;
@@ -41,12 +43,18 @@ try {
   await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
   await runWithInput(adb, ["shell", "run-as", "com.quata", "dd", "of=files/ugc-terms-credentials.json", "bs=4096"], await readFile(localCredentials));
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", "files/ugc-terms-remote-evidence"]);
+  await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", "files/account-postflight-evidence"]);
 
+  const selectedClass = mode === "logout"
+    ? "com.quata.core.moderation.UgcTermsRemoteAcceptanceInstrumentedTest#authenticatedUserLogsOutThroughCommonProductGate"
+    : "com.quata.core.moderation.UgcTermsRemoteAcceptanceInstrumentedTest#authenticatedUserAcceptsTermsThroughProductGateAndPersistsRemotely";
   const instrumentation = await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.core.moderation.UgcTermsRemoteAcceptanceInstrumentedTest#authenticatedUserAcceptsTermsThroughProductGateAndPersistsRemotely",
+    "-e", "class", selectedClass,
     "-e", "quataUgcTermsCredentialsFile", "app-internal:ugc-terms-credentials.json",
     "-e", "quataUgcTermsRemoteEvidence", "1",
+    "-e", "quataAccountPostflightCredentialsFile", "app-internal:ugc-terms-credentials.json",
+    "-e", "quataUgcTermsLogoutEvidence", mode === "logout" ? "1" : "0",
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   if (!/OK \(1 test\)/.test(instrumentation) || /FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentation)) {
@@ -54,13 +62,28 @@ try {
   }
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  const deviceEvidence = await runBuffer(adb, ["exec-out", "run-as", "com.quata", "cat", "files/ugc-terms-remote-evidence/android-ugc-terms-remote-evidence.json"]);
-  await writeFile(join(evidenceDir, "android-ugc-terms-remote-evidence.json"), deviceEvidence);
+  const deviceReportPath = mode === "logout"
+    ? "files/ugc-terms-remote-evidence/android-ugc-terms-logout-evidence.json"
+    : "files/ugc-terms-remote-evidence/android-ugc-terms-remote-evidence.json";
+  const deviceReportName = mode === "logout"
+    ? "android-ugc-terms-logout-evidence.json"
+    : "android-ugc-terms-remote-evidence.json";
+  const deviceEvidence = await runBuffer(adb, ["exec-out", "run-as", "com.quata", "cat", deviceReportPath]);
+  await writeFile(join(evidenceDir, deviceReportName), deviceEvidence);
   const productReport = JSON.parse(deviceEvidence.toString("utf8"));
   const remote = await readAcceptance(client, session.userId);
-  if (productReport.status !== "passed" || productReport.remotePersisted !== true || !remote) throw new Error("ugc_terms_android_remote_assertion_failed");
-  report.steps.push("product_gate_accepted", "production_gateway_persisted", "remote_row_verified");
-  report.product = { gateObserved: true, acceptedThroughProductUi: true, remotePersisted: true };
+  if (mode === "accept") {
+    if (productReport.status !== "passed" || productReport.remotePersisted !== true || !remote) throw new Error("ugc_terms_android_remote_assertion_failed");
+    report.steps.push("product_gate_accepted", "production_gateway_persisted", "remote_row_verified");
+    report.product = { gateObserved: true, acceptedThroughProductUi: true, remotePersisted: true };
+  } else {
+    if (productReport.status !== "passed" || productReport.sessionCleared !== true ||
+        productReport.productionAuthRepositoryInvoked !== true || productReport.productControlActivations !== 1 || remote) {
+      throw new Error("ugc_terms_android_logout_assertion_failed");
+    }
+    report.steps.push("common_product_gate_logout_activated", "production_auth_repository_invoked", "owned_session_cleared", "no_terms_acceptance_created");
+    report.product = { commonGateObserved: true, logoutActivatedThroughProductUi: true, productionAuthRepositoryInvoked: true, sessionCleared: true };
+  }
   report.status = "passed";
 } catch (error) {
   report.error = { name: error?.name || "Error", message: redact(error?.message || String(error)).slice(-1200) };

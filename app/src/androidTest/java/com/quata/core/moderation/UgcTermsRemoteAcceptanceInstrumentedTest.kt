@@ -15,8 +15,13 @@ import com.quata.core.localization.QuataLanguage
 import com.quata.core.ui.components.QuataUgcTermsAcceptTestTag
 import com.quata.core.ui.components.QuataUgcTermsDialogTestTag
 import com.quata.core.ui.components.QuataUgcTermsGateContent
+import com.quata.core.ui.components.QuataUgcTermsLogoutTestTag
 import com.quata.core.ui.components.quataUgcTermsStrings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertFalse
@@ -26,6 +31,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
 class UgcTermsRemoteAcceptanceInstrumentedTest {
@@ -112,6 +119,55 @@ class UgcTermsRemoteAcceptanceInstrumentedTest {
         assertTrue("android_ugc_terms_remote_persisted", remotePersisted)
     }
 
+    @Test
+    fun authenticatedUserLogsOutThroughCommonProductGate() = runBlocking {
+        val credentialsFile = optionalArgument("quataUgcTermsCredentialsFile")
+        assumeTrue(
+            "AUTH-LOGOUT-ENTRYPOINTS-ANDROID-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataUgcTermsLogoutEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val session = requireNotNull(app.container.sessionManager.currentSession())
+        assertTrue("android_ugc_terms_logout_real_session_missing", session.isSupabaseAuthenticated())
+        UgcTermsAcceptanceStore(targetContext).clearUser(session.userId)
+
+        val activations = AtomicInteger(0)
+        val logoutResult = AtomicReference<Result<Unit>?>(null)
+        val logoutScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        compose.setContent {
+            QuataTheme {
+                QuataUgcTermsGateContent(
+                    profileId = session.userId,
+                    gateway = app.container.moderationRepository,
+                    strings = quataUgcTermsStrings(QuataLanguage.Spanish),
+                    onAcceptedStateChanged = {},
+                    onLogout = {
+                        activations.incrementAndGet()
+                        logoutScope.launch { logoutResult.set(runCatching { app.container.authRepository.logout() }) }
+                    },
+                    legalLinks = {},
+                )
+            }
+        }
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag(QuataUgcTermsLogoutTestTag, useUnmergedTree = true).fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.onNodeWithTag(QuataUgcTermsLogoutTestTag, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .performClick()
+        compose.waitUntil(30_000) { logoutResult.get() != null }
+        logoutResult.get()?.getOrThrow()
+        compose.waitUntil(10_000) { app.container.sessionManager.currentSession() == null }
+        assertTrue("android_ugc_terms_logout_session_not_cleared", app.container.sessionManager.currentSession() == null)
+        assertTrue("android_ugc_terms_logout_auth_state_not_cleared", app.container.sessionManager.authState.value is com.quata.core.session.AuthState.LoggedOut)
+        assertTrue("android_ugc_terms_logout_activated_more_than_once", activations.get() == 1)
+        writeLogoutReport(session.userId, activations.get())
+    }
+
     private fun writeReport(profileId: String, gateObserved: Boolean, gateDismissed: Boolean, remotePersisted: Boolean) {
         File(evidenceDir(), "android-ugc-terms-remote-evidence.json").writeText(
             JSONObject()
@@ -122,6 +178,21 @@ class UgcTermsRemoteAcceptanceInstrumentedTest {
                 .put("gateObserved", gateObserved)
                 .put("acceptedThroughProductUi", gateDismissed)
                 .put("remotePersisted", remotePersisted)
+                .toString(2) + "\n",
+        )
+    }
+
+    private fun writeLogoutReport(profileId: String, activations: Int) {
+        File(evidenceDir(), "android-ugc-terms-logout-evidence.json").writeText(
+            JSONObject()
+                .put("check", "AUTH-LOGOUT-ENTRYPOINTS-ANDROID-001")
+                .put("status", "passed")
+                .put("profileIdSha256", java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(profileId.toByteArray()).joinToString("") { "%02x".format(it) })
+                .put("entrypoint", "common_ugc_terms_gate")
+                .put("productControlActivations", activations)
+                .put("productionAuthRepositoryInvoked", true)
+                .put("sessionCleared", true)
                 .toString(2) + "\n",
         )
     }
