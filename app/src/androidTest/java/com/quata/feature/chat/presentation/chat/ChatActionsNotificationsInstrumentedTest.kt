@@ -841,6 +841,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#official-${Uri.encode(officialPostId)}")).use {
             waitForTag("official.detail.chrome", "Official video position detail", 45_000)
+            waitForTag("official.media.open", "Official video position media", 45_000)
             clickMergedTagWithAction("official.media.open")
             waitForTag("fullscreen-media.title", "Official video position fullscreen", 20_000)
             ensureOfficialVideoPlaying()
