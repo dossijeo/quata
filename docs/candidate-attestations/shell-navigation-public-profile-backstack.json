@@ -14,7 +14,7 @@
       "report": "docs/candidate-attestations/evidence/shell-navigation-public-profile-backstack-afc071c5.json",
       "reportSha256": "028aa03e3fe78c7e9ce616e00f19b797d306ab8acdabbbc6ad6cb49a21432dc3",
       "reportStatus": "passed-local-candidate",
-      "reportGitHead": "1725b6c42683c3f239fdf3e4c07483ecd60eb24e",
+      "reportGitHead": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
