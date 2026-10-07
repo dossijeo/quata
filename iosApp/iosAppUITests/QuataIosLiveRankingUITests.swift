@@ -29,6 +29,52 @@ final class QuataIosLiveRankingUITests: XCTestCase {
         )
     }
 
+    func testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget() {
+        executionTimeAllowance = 180
+        let app = XCUIApplication()
+        app.launchEnvironment["QUATA_IOS_AUTH_UI_E2E"] = "1"
+        app.launchArguments += [
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES",
+            "-quata-ui-test-fixture", "live-ranking-official",
+            "-quata-live-ranking-fail-first-page",
+        ]
+        app.launch()
+
+        let root = element("official-feed-common-root", in: app)
+        XCTAssertTrue(root.waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(element("official-feed-common-state.created.none.count.50", in: app).waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Official initial pager remains intact"].exists, app.debugDescription)
+        let pager = app.scrollViews.firstMatch
+        XCTAssertTrue(pager.waitForExistence(timeout: 5), app.debugDescription)
+
+        let olderError = element("official-older-posts-error", in: app)
+        for _ in 0..<48 {
+            if olderError.exists { break }
+            advancePager(pager)
+        }
+        XCTAssertTrue(olderError.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(element("official-feed-common-state.created.none.count.50", in: app).exists, app.debugDescription)
+        XCTAssertFalse(app.staticTexts["Official remote ranking target loaded exactly"].exists)
+        attachScreenshot(app, name: "ios-official-pagination-preserved-error")
+
+        let retry = element("official-older-posts-retry", in: app)
+        XCTAssertTrue(retry.waitForExistence(timeout: 5), app.debugDescription)
+        retry.tap()
+        XCTAssertTrue(element("official-feed-common-state.created.none.count.100", in: app).waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertFalse(olderError.exists)
+
+        let target = app.staticTexts["Official remote ranking target loaded exactly"]
+        for _ in 0..<15 {
+            if target.exists { break }
+            advancePager(pager)
+        }
+        XCTAssertTrue(target.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(target.isHittable, app.debugDescription)
+        XCTAssertTrue(root.exists)
+        attachScreenshot(app, name: "ios-official-pagination-deep-target")
+    }
+
     private func runRemoteRankingScenario(
         fixture: String,
         rootIdentifier: String,
@@ -81,6 +127,17 @@ final class QuataIosLiveRankingUITests: XCTestCase {
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func advancePager(_ pager: XCUIElement) {
+        let start = pager.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.86))
+        let end = pager.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: end,
+            withVelocity: .fast,
+            thenHoldForDuration: 0
+        )
     }
 
     private func attachScreenshot(_ app: XCUIApplication, name: String) {

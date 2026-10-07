@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "unit": "SCR-OFFICIAL-NATIVE-DEEP-PAGINATION",
+  "status": "passed",
+  "productSha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
+  "noBackendMutation": true,
+  "android": {
+    "status": "passed",
+    "executionBaseSha": "cacaeb0deb58b6f73e93ff380e05f69db38205dc",
+    "executionWorkingTreeDirty": true,
+    "device": "QuataLivePr336Api35(AVD), API 35",
+    "test": "com.quata.feature.official.presentation.OfficialDeepPaginationInstrumentedTest.nativePagerPreservesFirstPageRetriesAndReachesDeepTarget",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "junitSha256": "cef06c05ce314327946193847acf58f84c9b436c0756df580415877780bb2a51",
+    "testSourceSha256": "49d2c35906b6fac57716fb228b85c1ac210cffec502cf2559016f537ef140a32",
+    "productTestSourceSha256": "49d2c35906b6fac57716fb228b85c1ac210cffec502cf2559016f537ef140a32",
+    "assertions": [
+      "the real OfficialFeedScreenHost and OfficialFeedViewModel mount the existing 101-post fixture",
+      "native pager navigation reaches the old-page boundary",
+      "the forced page failure preserves exactly 50 posts and exposes the real older-page error",
+      "the real retry control performs one retry and exposes exactly 100 posts",
+      "continued native navigation reaches the exact stable-identity target"
+    ]
+  },
+  "ios": {
+    "status": "passed",
+    "executionBaseSha": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
+    "executionWorkingTreeDirty": false,
+    "productCheckoutAfterExecution": "a319d4dbc66ea1f957ff15b1aa46685050955fa5",
+    "device": "iPhone 16 Pro Simulator, iOS 26.5, x86_64",
+    "simulatorUdid": "0506CC31-D3CF-401D-B275-444BEE5F69B6",
+    "configuration": "SimulatorSigned",
+    "test": "QuataIosLiveRankingUITests.testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget",
+    "tests": 1,
+    "failures": 0,
+    "expectedFailures": 0,
+    "skipped": 0,
+    "durationSeconds": 165.698,
+    "defaultTestExecutionTimeAllowanceSeconds": 90,
+    "maximumTestExecutionTimeAllowanceSeconds": 180,
+    "requestedTestExecutionTimeAllowanceSeconds": 180,
+    "xcodebuildLogSha256": "219606017320ab8c4aba3c8ee2707cab9b76f97fb6ad83b7bf9c6b4de02d0163",
+    "xcresultSummarySha256": "e26633e7337e50078cb2d9173434028abd46111c8662b6ebe331dabe4d0a5af0",
+    "testSourceSha256": "b9acde65e673bc7c682dd50bd7231ec08e901e780519d047d5a36309d5666d40",
+    "productTestSourceSha256": "b9acde65e673bc7c682dd50bd7231ec08e901e780519d047d5a36309d5666d40",
+    "assertions": [
+      "the shared Official root starts with the first 50 posts and the original marker",
+      "bounds-relative native drags traverse the real VerticalPager until the forced old-page failure",
+      "the visible failure preserves the 50-post state and does not expose the deep target",
+      "the real retry control clears the error and publishes the 100-post state",
+      "continued native drags expose the exact deep target while the product root remains mounted"
+    ]
+  },
+  "failedPilotsRetained": [
+    "swipes synthesized on the common root advanced too inconsistently to reach the prefetch boundary",
+    "fast and default swipeUp on the discovered ScrollView remained bounded but also stopped before the boundary",
+    "the accepted helper uses the observed ScrollView bounds and a normalized native drag; it does not call the ViewModel or repository directly"
+  ],
+  "provenance": {
+    "affectedSourcesMatchProductSha": true,
+    "finalTrackedCheckoutClean": true,
+    "reasonAndroidEvidenceWasNotRepeated": "The commits after the Android run change only iOS UI-test timing, contracts and documentation. The Android test source has the exact byte hash stored above."
+  },
+  "cleanup": {
+    "backendResidue": "not_applicable_no_backend_mutation",
+    "fixtureResidue": "process_local_only",
+    "verified": true
+  }
+}

@@ -7,14 +7,16 @@ import { verifyLiveRankingAndroidResults } from './verify-live-ranking-android-r
 
 const feedClass = 'com.quata.feature.feed.presentation.FeedRemoteRankingInstrumentedTest';
 const officialClass = 'com.quata.feature.official.presentation.OfficialRemoteRankingInstrumentedTest';
+const officialPaginationClass = 'com.quata.feature.official.presentation.OfficialDeepPaginationInstrumentedTest';
 const method = 'remoteSecondPageFailsClosedRetriesAndOpensExactTarget';
+const paginationMethod = 'nativePagerPreservesFirstPageRetriesAndReachesDeepTarget';
 
 function report(cases) {
   return `<?xml version="1.0" encoding="UTF-8"?><testsuite tests="${cases.length}" failures="0" errors="0" skipped="0">${cases.join('')}</testsuite>`;
 }
 
-function passed(className) {
-  return `<testcase classname="${className}" name="${method}" time="1.0"/>`;
+function passed(className, testName = method) {
+  return `<testcase classname="${className}" name="${testName}" time="1.0"/>`;
 }
 
 async function fixture(cases) {
@@ -23,15 +25,19 @@ async function fixture(cases) {
   return root;
 }
 
-test('accepts exactly the two passing native Ranking cases', async (t) => {
-  const root = await fixture([passed(feedClass), passed(officialClass)]);
+test('accepts exactly the three passing native Ranking and pagination cases', async (t) => {
+  const root = await fixture([
+    passed(feedClass),
+    passed(officialClass),
+    passed(officialPaginationClass, paginationMethod),
+  ]);
   t.after(() => rm(root, { recursive: true, force: true }));
   const result = await verifyLiveRankingAndroidResults(root);
-  assert.equal(result.passed, 2);
+  assert.equal(result.passed, 3);
 });
 
 test('fails closed when a required native Ranking case is absent', async (t) => {
-  const root = await fixture([passed(feedClass)]);
+  const root = await fixture([passed(feedClass), passed(officialClass)]);
   t.after(() => rm(root, { recursive: true, force: true }));
   await assert.rejects(verifyLiveRankingAndroidResults(root), /live_ranking_android_missing/);
 });
@@ -39,14 +45,20 @@ test('fails closed when a required native Ranking case is absent', async (t) => 
 test('fails closed when a required native Ranking case is skipped', async (t) => {
   const root = await fixture([
     passed(feedClass),
-    `<testcase classname="${officialClass}" name="${method}"><skipped/></testcase>`,
+    passed(officialClass),
+    `<testcase classname="${officialPaginationClass}" name="${paginationMethod}"><skipped/></testcase>`,
   ]);
   t.after(() => rm(root, { recursive: true, force: true }));
   await assert.rejects(verifyLiveRankingAndroidResults(root), /live_ranking_android_not_passed/);
 });
 
 test('fails closed when a required native Ranking case is duplicated', async (t) => {
-  const root = await fixture([passed(feedClass), passed(feedClass), passed(officialClass)]);
+  const root = await fixture([
+    passed(feedClass),
+    passed(feedClass),
+    passed(officialClass),
+    passed(officialPaginationClass, paginationMethod),
+  ]);
   t.after(() => rm(root, { recursive: true, force: true }));
   await assert.rejects(verifyLiveRankingAndroidResults(root), /live_ranking_android_duplicate/);
 });

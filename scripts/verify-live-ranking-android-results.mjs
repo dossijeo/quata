@@ -11,6 +11,10 @@ const expectedCases = new Map([
     'com.quata.feature.official.presentation.OfficialRemoteRankingInstrumentedTest',
     'remoteSecondPageFailsClosedRetriesAndOpensExactTarget',
   ],
+  [
+    'com.quata.feature.official.presentation.OfficialDeepPaginationInstrumentedTest',
+    'nativePagerPreservesFirstPageRetriesAndReachesDeepTarget',
+  ],
 ]);
 
 async function xmlFiles(root) {

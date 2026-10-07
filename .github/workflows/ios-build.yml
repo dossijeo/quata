@@ -600,7 +600,8 @@ jobs:
             test
           for test_name in \
             testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget \
-            testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget; do
+            testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget \
+            testOfficialNativePagerPreservesFirstPageRetriesAndReachesDeepTarget; do
             if ! grep -F "QuataIosLiveRankingUITests $test_name" build/reports/ios/xcodebuild-live-ranking-tests.log \
               | grep -F "passed" >/dev/null; then
               echo "::error::Live Ranking focal XCTest $test_name did not report a passed semantic execution"
