@@ -1,0 +1,36 @@
+{
+  "check": "AUTH-LOGOUT-IOS-BACKEND-REVOCATION-001",
+  "status": "passed",
+  "sourceReportSha256": "2d6276fe4b44bc36d725431607de628b6d85d4a16ee9ba88a8bbd2dae49909fc",
+  "git": {
+    "head": "e0fc81dacb35841079da3646614d14ee3fc69918",
+    "branch": "codex/auth-login-residual",
+    "workingTreeDirty": false
+  },
+  "mac": {
+    "head": "e0fc81dacb35841079da3646614d14ee3fc69918",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_authenticated_profile_logout_control_activated",
+    "ios_public_feed_visible_after_logout",
+    "ios_keychain_session_absent_after_relaunch",
+    "ios_exact_seeded_auth_session_absent_after_single_ui_logout",
+    "ios_exact_seeded_refresh_chain_has_zero_active_tokens"
+  ],
+  "backendRevocation": {
+    "verified": true,
+    "sessionExists": false,
+    "activeRefreshTokens": 0,
+    "sessionReceiptSha256": "4a80c732f1d13446e399de2a9ce6972d2d8b43b472fdfd5604afe074876488e9"
+  },
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true,
+    "logoutSessionReceiptRemoved": true
+  }
+}

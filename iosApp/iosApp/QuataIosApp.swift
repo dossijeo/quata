@@ -696,10 +696,10 @@ private final class IosAppCompositionRoot {
     private func uiTestFixtureRootViewControllerIfRequested() -> UIViewController? {
         let arguments = ProcessInfo.processInfo.arguments
         let environment = ProcessInfo.processInfo.environment
-        guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture") else { return nil }
         if arguments.contains("-quata-ui-test-reset-primary-route") {
             IosAuthenticatedHostRouter.clearPersistedPrimaryRouteForTesting()
         }
+        guard let fixtureIndex = arguments.firstIndex(of: "-quata-ui-test-fixture") else { return nil }
 
         let fixtureRoot = UIViewController()
         guard arguments.indices.contains(fixtureIndex + 1) else {

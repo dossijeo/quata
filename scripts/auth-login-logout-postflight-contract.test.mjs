@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import pg from "pg";
+import { pinnedTlsClientConfig } from "./postgres-pinned-tls.mjs";
+
+const { Client } = pg;
 
 const android = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfilePostflightInstrumentedTest.kt", import.meta.url), "utf8");
 const ios = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedAccountPostflightUITests.swift", import.meta.url), "utf8");
@@ -10,6 +14,8 @@ const iosShell = await readFile(new URL("./run-ios-account-postflight-ui-test.sh
 const androidNavigation = await readFile(new URL("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt", import.meta.url), "utf8");
 const iosAuthRepository = await readFile(new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/data/IosAuthRepository.kt", import.meta.url), "utf8");
 const iosLogoutOrdering = await readFile(new URL("../feature/auth/src/iosTest/kotlin/com/quata/feature/auth/data/IosAuthLogoutOrderingTest.kt", import.meta.url), "utf8");
+const iosSeeder = await readFile(new URL("../iosApp/iosAppTests/QuataIosAuthenticatedSessionSeederTests.swift", import.meta.url), "utf8");
+const iosHost = await readFile(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 
 test("Android logout postflight uses the real product control and proves durable local retirement", () => {
   assert.match(android, /fun authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession\(\)/);
@@ -47,8 +53,44 @@ test("platform runners select the logout methods and fail closed on missing exec
   assert.match(iosShell, /check-ios-xctest-executed\.py/);
 });
 
+test("iOS single-gesture logout binds the seeded Auth session to fail-closed backend verification", () => {
+  assert.match(iosSeeder, /QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE/);
+  assert.match(iosSeeder, /let storedSession = interactiveSession\.restoredSession\(\)/);
+  assert.match(iosSeeder, /let accessToken = session\.accessToken[\s\S]*jwtSessionId\(accessToken\)/);
+  assert.match(iosSeeder, /\["session_id": sessionId, "auth_user_id": authUserId\]/);
+  assert.match(iosSeeder, /\.posixPermissions: 0o600/);
+  assert.doesNotMatch(iosSeeder, /refreshToken|"access_token"|"refresh_token"/);
+  assert.match(iosShell, /logout_mode == '1' and logout_receipt/);
+  assert.match(iosRunner, /--verify-backend-revocation/);
+  assert.match(iosRunner, /exists\(select 1 from auth\.sessions where id=\$1::uuid and user_id=\$2::uuid\)/);
+  assert.match(iosRunner, /count\(\*\) filter\(where revoked is not true\)::int as active_refresh_tokens/);
+  assert.match(iosRunner, /row\?\.session_exists !== false \|\| row\?\.active_refresh_tokens !== 0/);
+  assert.match(iosRunner, /pinnedTlsClientConfig/);
+  assert.match(iosRunner, /ios_exact_seeded_auth_session_absent_after_single_ui_logout/);
+  assert.match(iosRunner, /ios_exact_seeded_refresh_chain_has_zero_active_tokens/);
+  assert.match(iosRunner, /rm", "-rf", remoteLogoutReceiptDir/);
+  assert.match(iosRunner, /logoutSessionReceiptRemoved/);
+});
+
+test("iOS backend evidence removes every URL TLS override before pg resolves the pinned CA", () => {
+  for (const override of ["ssl=0", "ssl=no-verify", "ssl=true", "sslmode=require", "sslrootcert=system"]) {
+    const config = pinnedTlsClientConfig(
+      `postgresql://user:password@localhost/database?${override}`,
+      "focal-test-ca",
+    );
+    assert.equal(new URL(config.connectionString).search, "");
+    const client = new Client(config);
+    assert.deepEqual(client.connectionParameters.ssl, {
+      ca: "focal-test-ca",
+      rejectUnauthorized: true,
+    });
+  }
+});
+
 test("iOS logout postflight activates Profile logout and rejects restored private state", () => {
   assert.match(ios, /func testAuthenticatedLogoutReturnsToPublicFeedAndClearsRestoredSession\(\)/);
+  assert.match(ios, /launchArguments \+= \[[\s\S]*-quata-ui-test-reset-primary-route/);
+  assert.match(iosHost, /arguments\.contains\("-quata-ui-test-reset-primary-route"\)[\s\S]*clearPersistedPrimaryRouteForTesting\(\)[\s\S]*guard let fixtureIndex/);
   assert.match(ios, /tapIdentifier\("profile\.logout"[\s\S]*assertVisible\("feed\.root"/);
   assert.match(ios, /assertPrivateProfileAbsent[\s\S]*relaunch[\s\S]*feed\.root[\s\S]*assertPrivateProfileAbsent/);
   assert.match(ios, /request Account while anonymous[\s\S]*quata-ios-auth-required-dialog/);

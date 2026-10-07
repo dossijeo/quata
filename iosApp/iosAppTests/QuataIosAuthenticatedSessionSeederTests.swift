@@ -21,26 +21,43 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
         let runtimeBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(
             configuration: feedConfiguration,
         )
+        let interactiveSession = runtimeBootstrap.authSessionForInteractiveLogin()
         let repository = IosAuthRepositoryKt.createIosAuthRepository(
             configuration: IosPublicRuntimeConfiguration.authConfiguration(from: feedConfiguration),
-            session: runtimeBootstrap.authSessionForInteractiveLogin(),
+            session: interactiveSession,
         )
         let completed = expectation(description: "one production login completion")
         var completionCount = 0
+        let receiptPath = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE"]
+        let receiptRequested = receiptPath?.isEmpty == false
+        var receiptWritten = false
 
         repository.login(
             countryCode: credentials.countryCode,
             phone: credentials.localPhone,
             password: credentials.password,
-        ) { session, error in
+        ) { result, error in
             completionCount += 1
             XCTAssertNil(error, "The production login completion must not return an error.")
-            XCTAssertNotNil(session, "The production login completion must return an authenticated session.")
+            XCTAssertNotNil(result, "The production login completion must return an authenticated session.")
+            if receiptRequested,
+               let receiptPath,
+               let storedSession = interactiveSession.restoredSession() {
+                do {
+                    try writeLogoutSessionReceipt(session: storedSession, path: receiptPath)
+                    receiptWritten = true
+                } catch {
+                    // Keep the callback non-throwing and fail below without rendering private state.
+                }
+            }
             completed.fulfill()
         }
 
         wait(for: [completed], timeout: 30)
         XCTAssertEqual(completionCount, 1, "The seeder must issue exactly one login completion.")
+        if receiptRequested {
+            XCTAssertTrue(receiptWritten, "The production login must write the private logout receipt.")
+        }
         XCTAssertTrue(runtimeBootstrap.hasRestoredSession(), "The production runtime must restore the saved Keychain session.")
     }
 
@@ -69,6 +86,34 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
         XCTAssertNil(session.restoredSession(), "Visual-gate cleanup must remove the Keychain session.")
         XCTAssertFalse(runtimeBootstrap.hasRestoredSession(), "The production runtime must return to anonymous state.")
     }
+}
+
+private func writeLogoutSessionReceipt(session: AuthSession, path: String) throws {
+    guard let authUserId = session.authUserId,
+          UUID(uuidString: authUserId) != nil,
+          let accessToken = session.accessToken,
+          let sessionId = jwtSessionId(accessToken),
+          UUID(uuidString: sessionId) != nil else {
+        throw AuthSeederConfigurationError.invalidSessionReceipt
+    }
+    let data = try JSONSerialization.data(
+        withJSONObject: ["session_id": sessionId, "auth_user_id": authUserId],
+        options: [.sortedKeys],
+    )
+    let url = URL(fileURLWithPath: path)
+    try data.write(to: url, options: Data.WritingOptions.atomic)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+}
+
+private func jwtSessionId(_ token: String) -> String? {
+    let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+    guard parts.count == 3 else { return nil }
+    var encoded = String(parts[1]).replacingOccurrences(of: "-", with: "+")
+        .replacingOccurrences(of: "_", with: "/")
+    encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+    guard let data = Data(base64Encoded: encoded),
+          let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+    return payload["session_id"] as? String
 }
 
 private struct AuthSeederCredentials: Decodable {
@@ -116,12 +161,14 @@ private enum AuthSeederConfigurationError: LocalizedError {
     case invalidCredentials
     case invalidCountryCode
     case unsupportedCountryCode
+    case invalidSessionReceipt
 
     var errorDescription: String? {
         switch self {
         case .invalidCredentials: return "The auth seeder file has an invalid credential shape."
         case .invalidCountryCode: return "The auth seeder country code does not match the E.164 phone."
         case .unsupportedCountryCode: return "The current iOS seeder requires Equatorial Guinea country code 240."
+        case .invalidSessionReceipt: return "The seeded session cannot produce a private logout receipt."
         }
     }
 }
