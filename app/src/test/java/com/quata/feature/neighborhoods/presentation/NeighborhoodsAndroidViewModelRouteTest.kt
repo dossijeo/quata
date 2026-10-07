@@ -7,6 +7,35 @@ import org.junit.Test
 
 class NeighborhoodsAndroidViewModelRouteTest {
     @Test
+    fun unresolvedOriginPreservesRouteUntilNavigationRestoresItsExactOrigin() {
+        val conversationOrigin = "chat/{conversationId}:6:chat-a"
+        val state = SavedStateHandle(
+            mapOf(
+                "quata.profile.route.ids" to arrayListOf("parent", "child"),
+                "quata.profile.route.actor" to "actor-a",
+                "quata.profile.route.origin" to conversationOrigin,
+            ),
+        )
+
+        assertEquals(
+            emptyList<String>(),
+            NeighborhoodsAndroidViewModel.restoredProfileRoute(state, "actor-a", null),
+        )
+        assertEquals(
+            arrayListOf("parent", "child"),
+            state.get<ArrayList<String>>("quata.profile.route.ids"),
+        )
+        assertEquals(
+            listOf("parent", "child"),
+            NeighborhoodsAndroidViewModel.restoredProfileRoute(
+                state,
+                "actor-a",
+                conversationOrigin,
+            ),
+        )
+    }
+
+    @Test
     fun restoresOnlyForTheExactActorAndOrigin() {
         val state = SavedStateHandle(
             mapOf(

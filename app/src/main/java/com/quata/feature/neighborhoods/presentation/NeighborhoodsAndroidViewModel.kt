@@ -14,7 +14,7 @@ class NeighborhoodsAndroidViewModel(
     repository: NeighborhoodRepository,
     private val savedStateHandle: SavedStateHandle,
     initialActorId: String?,
-    initialOriginRoute: String,
+    initialOriginRoute: String?,
 ) : ViewModel(), NeighborhoodsScreenModel {
     private var actorId = initialActorId
     private var originRoute = initialOriginRoute
@@ -53,6 +53,13 @@ class NeighborhoodsAndroidViewModel(
     }
     fun bindOrigin(nextOriginRoute: String) {
         if (originRoute == nextOriginRoute) return
+        if (originRoute == null) {
+            originRoute = nextOriginRoute
+            delegate.restoreProfileRoute(
+                restoredProfileRoute(savedStateHandle, actorId, nextOriginRoute),
+            )
+            return
+        }
         delegate.clearUserProfile()
         originRoute = nextOriginRoute
         savedStateHandle[PROFILE_ROUTE_ORIGIN_KEY] = nextOriginRoute
@@ -75,13 +82,14 @@ class NeighborhoodsAndroidViewModel(
     override fun onCleared() = close()
 
     private fun persistProfileRoute(route: List<String>) {
+        val resolvedOrigin = originRoute ?: return
         if (route.isEmpty()) {
             savedStateHandle.remove<ArrayList<String>>(PROFILE_ROUTE_KEY)
         } else {
             savedStateHandle[PROFILE_ROUTE_KEY] = ArrayList(route)
         }
         savedStateHandle[PROFILE_ROUTE_ACTOR_KEY] = actorId
-        savedStateHandle[PROFILE_ROUTE_ORIGIN_KEY] = originRoute
+        savedStateHandle[PROFILE_ROUTE_ORIGIN_KEY] = resolvedOrigin
     }
 
     companion object {
@@ -92,8 +100,9 @@ class NeighborhoodsAndroidViewModel(
         internal fun restoredProfileRoute(
             savedStateHandle: SavedStateHandle,
             actorId: String?,
-            originRoute: String,
+            originRoute: String?,
         ): List<String> {
+            if (originRoute == null) return emptyList()
             if (
                 savedStateHandle.get<String>(PROFILE_ROUTE_ACTOR_KEY) == actorId &&
                 savedStateHandle.get<String>(PROFILE_ROUTE_ORIGIN_KEY) == originRoute
@@ -109,7 +118,7 @@ class NeighborhoodsAndroidViewModel(
         fun factory(
             repository: NeighborhoodRepository,
             actorId: String?,
-            originRoute: String = "communities",
+            originRoute: String? = "communities",
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T =
