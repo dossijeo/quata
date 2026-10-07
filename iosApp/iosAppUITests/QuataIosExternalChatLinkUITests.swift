@@ -3,6 +3,48 @@ import Darwin
 
 /// Observes a coordinator-delivered URL. No launch, activation, login or URL delivery.
 final class QuataIosExternalChatLinkUITests: XCTestCase {
+    func testLocalDeepLinkReadFailureRetryRecoversExactConversation() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-quata-ui-test-fixture", "deep-link-retry-local"]
+        app.launchEnvironment["QUATA_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE_OPT_IN"] =
+            "I_ACCEPT_IOS_DOCUMENT_RETRY_LOCAL_FIXTURE"
+        app.launchEnvironment["QUATA_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE_OPT_IN"] =
+            "I_ACCEPT_IOS_DEEP_LINK_RETRY_LOCAL_FIXTURE"
+        app.launch()
+
+        let host = app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch
+        let failure = app.descendants(matching: .any).matching(identifier: "chat.read.failure").firstMatch
+        let retry = app.descendants(matching: .any).matching(identifier: "chat.read.retry").firstMatch
+        XCTAssertTrue(host.waitForExistence(timeout: 15))
+        XCTAssertEqual(host.value as? String, "chat:local:document-retry")
+        XCTAssertTrue(failure.waitForExistence(timeout: 10))
+        XCTAssertTrue(retry.waitForExistence(timeout: 5) && retry.isHittable)
+
+        let failed = XCTAttachment(screenshot: app.screenshot())
+        failed.name = "deep-link-read-failure-before-retry"
+        failed.lifetime = .keepAlways
+        add(failed)
+        retry.tap()
+
+        let message = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.local-document-retry-message").firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 15))
+        XCTAssertFalse(failure.exists)
+        XCTAssertEqual(host.value as? String, "chat:local:document-retry")
+        let recovered = XCTAttachment(screenshot: app.screenshot())
+        recovered.name = "deep-link-read-retry-recovered"
+        recovered.lifetime = .keepAlways
+        add(recovered)
+
+        let back = app.descendants(matching: .any).matching(identifier: "chat.back").firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 5) && back.isHittable)
+        back.tap()
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            host.exists && ((host.value as? String) ?? "").isEmpty && !message.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 10), .completed)
+    }
+
     /// Real anonymous product flow; the coordinator delivers the URL after READY.
     /// No login submission, session injection or coordinate-based interaction.
     func testAnonymousExternalChatOpensLoginAndCancelsToFeed() throws {

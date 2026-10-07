@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "environment_blocked",
+  "runtimeHead": "4e8c817e241a84dc68c0118c1c1f7af31c4c7885",
+  "candidateHead": "8768d98023687e673f3783eacc8c99553060112c",
+  "test": "QuataIosExternalChatLinkUITests.testLocalDeepLinkReadFailureRetryRecoversExactConversation",
+  "attempts": 2,
+  "buildStatus": "passed",
+  "productHostMounted": false,
+  "diagnosis": {
+    "firstProductFrame": "androidx.compose.ui.window.MetalView.<init> (MetalView.uikit.kt:51)",
+    "systemObservation": "com.apple.metal.simulator bootstrap lookup failed",
+    "conclusion": "The virtualized macOS host exposed no Metal device required by Compose iOS; Retry was not reached."
+  },
+  "remediationTried": [
+    "CoreSimulator service restart",
+    "simulator shutdown and boot",
+    "Simulator GUI launch",
+    "exact focal XCTest rerun",
+    "LLDB exact backtrace"
+  ],
+  "sourceReportSha256": "2e404a0f2577eb6f280041d2a74575a667f15deeceeb081ee7b0e597725cb8d1",
+  "acceptance": "not_accepted"
+}

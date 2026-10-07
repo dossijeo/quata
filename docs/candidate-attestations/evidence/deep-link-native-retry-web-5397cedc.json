@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "check": "FLOW-DEEP-LINKS-WEB-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "5397cedc61b6533d7ff4cbef0abd7afe4f5fd4c6",
+    "workingTreeDirty": false
+  },
+  "fixture": {
+    "conversationId": "local:document-retry",
+    "messageId": "local-document-retry-message",
+    "returnRoute": "feed",
+    "backend": "not_used"
+  },
+  "steps": [
+    "deep_link_failure_visible",
+    "native_retry_clicked",
+    "exact_conversation_recovered",
+    "back_to_chats"
+  ],
+  "cleanup": {
+    "state": "completed"
+  },
+  "artifacts": {
+    "sourceReportSha256": "894dbd26075e47eaaf632435ed8348d67a5165cce58ba8025a64a7c337813595",
+    "failurePngSha256": "5a253834b0fffdf97b002b567a6a0fbefdf1f66a01435c05f45bef6c48ace2e1",
+    "recoveredPngSha256": "aba9811cb24b9f5b3efbaac2a4cc7171aed8cc3cb039db2e80bb1a4b8eea94e4"
+  },
+  "scope": "Local fail-once product fixture; real Compose accessibility button; no credentials, backend or remote mutation.",
+  "supersededBy": "deep-link-native-retry-web-a466d115.json",
+  "supersessionReason": "The older runner labeled every successful return as back_to_chats even when the observed returnRoute was feed. The replacement preserves the observed route and uses back_to_previous_surface."
+}

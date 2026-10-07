@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -87,6 +87,7 @@ const muteNegativeOnly = process.argv.includes("--mute-negative-only");
 const notificationInboxPropagationOnly = process.argv.includes("--notification-inbox-propagation-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const documentActionsOnly = process.argv.includes("--document-actions-only");
+const deepLinkRetryLocalOnly = process.argv.includes("--deep-link-retry-local-only");
 const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
 const composerEmojiOnly = process.argv.includes("--composer-emoji-only");
 const groupSosOnly = process.argv.includes("--group-sos-only");
@@ -271,6 +272,9 @@ const evidenceFiles = [
   "android-chat-document-download-complete.png",
   "android-chat-document-share-sheet.png",
   "android-chat-document-share-return.png",
+  "android-deep-link-read-failure-before-retry.png",
+  "android-deep-link-read-retry-recovered.png",
+  "android-deep-link-read-retry-return.png",
   "android-chat-audio-recording-active.png",
   "android-chat-audio-recording-pending-attachment.png",
   "android-chat-audio-recording-ready-to-send.png",
@@ -363,6 +367,11 @@ function parseArgs(argv) {
     if (key === "--document-actions-only") {
       result.output = join("build-reports", "android", "document-viewer-actions-evidence.json");
       result.evidenceDir = join("build-reports", "android", "document-viewer-actions-evidence");
+      continue;
+    }
+    if (key === "--deep-link-retry-local-only") {
+      result.output = join("build-reports", "android", "deep-link-retry-local-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "deep-link-retry-local-evidence");
       continue;
     }
     if (key === "--attachment-picker-only") {
@@ -1115,7 +1124,7 @@ async function adbRunAsCat(remotePath, localPath) {
   await writeFile(localPath, Buffer.concat(chunks));
 }
 
-async function collectAvailableDeviceEvidence(destination) {
+async function collectAvailableDeviceEvidence(destination, requestedFiles = null) {
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   const copied = [];
@@ -1131,7 +1140,7 @@ async function collectAvailableDeviceEvidence(destination) {
     .split(/\r?\n/)
     .map((entry) => entry.trim())
     .filter((entry) => /^(android-|ios-|web-).*\.(png|txt|json)$/.test(entry));
-  const files = Array.from(new Set([...evidenceFiles, ...discoveredFiles]));
+  const files = requestedFiles ?? Array.from(new Set([...evidenceFiles, ...discoveredFiles]));
   for (const file of files) {
     try {
       const localFile = join(destination, file);
@@ -1918,6 +1927,71 @@ const localCredentials = join("build-reports", "android", `chat-actions-notifica
 const evidenceDir = options.evidenceDir;
 const releaseAndroidEvidenceLock = await acquireAndroidEvidenceLock();
 try {
+  if (deepLinkRetryLocalOnly) {
+    const gradle = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
+    await run(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--console=plain"], {
+      env: {
+        ...process.env,
+        JAVA_HOME: process.env.JAVA_HOME || "C:\\Program Files\\Android\\Android Studio\\jbr",
+        ANDROID_HOME: process.env.ANDROID_HOME || `${process.env.LOCALAPPDATA}\\Android\\Sdk`,
+        ANDROID_SDK_ROOT: process.env.ANDROID_SDK_ROOT || `${process.env.LOCALAPPDATA}\\Android\\Sdk`,
+      },
+    });
+    await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
+    await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+    await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "-f", "com.quata"]);
+    report.steps.push("android_debug_package_precompiled_before_deep_link_retry_instrumentation");
+    await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
+    await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
+    const instrumentationOutput = await runCapture(adbCommand, [
+      "shell", "am", "instrument", "-w", "-r",
+      "-e", "class", "com.quata.feature.chat.presentation.chat.ChatActionsNotificationsInstrumentedTest#composerReplyEditActionsAndFavoriteUseSharedChatUi",
+      "-e", "quataChatActionsStage", "deep-link-retry-local",
+      "-e", "quataDocumentRetryLocalOptIn", "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE",
+      "-e", "quataDeepLinkRetryLocalOptIn", "I_ACCEPT_ANDROID_DEEP_LINK_RETRY_LOCAL_FIXTURE",
+      "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+    ]);
+    if (!/OK \(1 test\)/.test(instrumentationOutput) || /FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
+      report.diagnostics = { androidInstrumentationTail: instrumentationOutput.split(/\r?\n/).slice(-80).join("\n") };
+      throw new Error("android_instrumentation_semantic_failure:deep-link-retry-local");
+    }
+    const requiredEvidenceFiles = [
+      "android-deep-link-read-failure-before-retry.png",
+      "android-deep-link-read-retry-recovered.png",
+      "android-deep-link-read-retry-return.png",
+      "android-chat-actions-notifications-evidence.json",
+    ];
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir, requiredEvidenceFiles);
+    const productReportPath = join(evidenceDir, "android-chat-actions-notifications-evidence.json");
+    const productReport = JSON.parse(await readFile(productReportPath, "utf8"));
+    if (
+      productReport.check !== "FLOW-DEEP-LINKS-ANDROID-RETRY-001" ||
+      productReport.status !== "passed" ||
+      productReport.fixture !== "fail_once_local_chat_read" ||
+      productReport.backend !== "not_used"
+    ) {
+      throw new Error("android_deep_link_retry_product_report_invalid");
+    }
+    for (const file of requiredEvidenceFiles) {
+      if (!copiedEvidenceFiles.includes(file)) throw new Error(`android_deep_link_retry_evidence_missing:${file}`);
+    }
+    report.check = "FLOW-DEEP-LINKS-ANDROID-RETRY-001";
+    report.steps.push(
+      "local_fail_once_chat_read_fixture_armed",
+      "native_deep_link_failure_visible",
+      "native_retry_clicked",
+      "exact_conversation_recovered",
+      "back_to_previous_surface",
+    );
+    report.fixture = {
+      conversationId: "local:document-retry",
+      messageId: "local-document-retry-message",
+      backend: "not_used",
+    };
+    report.evidence = { directory: resolve(evidenceDir), files: requiredEvidenceFiles };
+    report.status = "passed";
+    throw new EvidenceCompleted();
+  }
   const config = await publicBackendConfig();
   if (!config.nativeFacadeDeviceUrl && !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) {
     throw new Error("invalid_public_supabase_url");
@@ -3312,6 +3386,7 @@ try {
   ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
+    report.status = "failed";
     report.error = safeFailure(error);
     report.diagnostics = {
       ...(report.diagnostics ?? {}),

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "check": "FLOW-DEEP-LINKS-WEB-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "a466d11580c4c7c87b521f0915c3988150fe7554",
+    "workingTreeDirty": false
+  },
+  "fixture": {
+    "conversationId": "local:document-retry",
+    "messageId": "local-document-retry-message",
+    "returnRoute": "feed",
+    "backend": "not_used"
+  },
+  "steps": [
+    "deep_link_failure_visible",
+    "native_retry_clicked",
+    "exact_conversation_recovered",
+    "back_to_previous_surface"
+  ],
+  "cleanup": {
+    "state": "completed"
+  },
+  "artifacts": {
+    "sourceReportSha256": "f0027c628c1d97dd7abaaf583e60e5585804c0a6aa5c6b985b29512e068399ca",
+    "failurePngSha256": "5a253834b0fffdf97b002b567a6a0fbefdf1f66a01435c05f45bef6c48ace2e1",
+    "recoveredPngSha256": "aba9811cb24b9f5b3efbaac2a4cc7171aed8cc3cb039db2e80bb1a4b8eea94e4"
+  },
+  "scope": "Local fail-once product fixture; real Compose accessibility button; no credentials, backend or remote mutation."
+}

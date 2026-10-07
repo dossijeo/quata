@@ -23,6 +23,12 @@ import kotlinx.coroutines.flow.flowOf
  * remote repository; it never performs fetch, authentication or a database mutation.
  */
 internal fun webChatE2eFixtureOrNull(): ChatRepository? {
+    webDeepLinkRetryEvidenceReferenceOrNull()?.let { reference ->
+        return DocumentRetryEvidenceChatRepository(
+            attachmentReference = reference,
+            failFirstMessageObservation = true,
+        )
+    }
     webDocumentRetryEvidenceReferenceOrNull()?.let { reference ->
         return DocumentRetryEvidenceChatRepository(reference)
     }
@@ -43,6 +49,16 @@ private external fun isWebChatE2eFixtureEnabled(): Boolean
   return local && optedIn ? new URL('/legal/privacy_es.docx', location.href).href : null;
 }""")
 private external fun webDocumentRetryEvidenceReferenceOrNull(): String?
+
+@JsFun("""() => {
+  const location = globalThis.location;
+  const local = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+  const query = new URLSearchParams(location?.search || '');
+  const optedIn = query.get('quata-chat-document-retry-e2e') === '1' &&
+    query.get('quata-chat-deep-link-retry-e2e') === '1';
+  return local && optedIn ? new URL('/legal/privacy_es.docx', location.href).href : null;
+}""")
+private external fun webDeepLinkRetryEvidenceReferenceOrNull(): String?
 
 private class WebChatE2eFixture : ChatRepository {
     private companion object {

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "check": "FLOW-DEEP-LINKS-IOS-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "e310eaa8dad0f38b3e545a0300f1ec806b9f636f",
+    "workingTreeDirty": false
+  },
+  "fixture": {
+    "conversationId": "local:document-retry",
+    "messageId": "local-document-retry-message",
+    "backend": "not_used"
+  },
+  "steps": [
+    "exact_product_sha_built_for_ios_x86_64_simulator",
+    "local_fail_once_chat_read_fixture_armed",
+    "native_deep_link_failure_visible",
+    "native_retry_clicked",
+    "exact_conversation_recovered",
+    "failure_removed_after_recovery",
+    "back_to_chat_list_surface"
+  ],
+  "build": {
+    "host": "gabriel@192.168.1.109",
+    "macOS": "26.5.2",
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "architecture": "x86_64",
+    "configuration": "SimulatorSigned",
+    "resultBundle": "build/reports/ios/deep-link-native-retry-e310-build.xcresult",
+    "result": "passed"
+  },
+  "xctest": {
+    "resultBundle": "build/reports/ios/deep-link-native-retry-e310-ui.xcresult",
+    "test": "QuataIosExternalChatLinkUITests.testLocalDeepLinkReadFailureRetryRecoversExactConversation",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 78.379,
+    "simulator": {
+      "name": "Quata-SOS-Candidate-85f98524",
+      "model": "iPhone 16 Pro",
+      "os": "iOS 26.5 (23F77)",
+      "architecture": "x86_64",
+      "udid": "0506CC31-D3CF-401D-B275-444BEE5F69B6"
+    }
+  },
+  "attempts": [
+    {
+      "result": "environment_blocked",
+      "productSha": "8768d980b5849d06cc016a3626fc223cc0d06b68",
+      "reason": "The earlier stock Skiko runtime could not create a Metal device in the virtualized macOS host and terminated before mounting Chat.",
+      "preservedReport": "docs/candidate-attestations/evidence/deep-link-native-retry-ios-metal-diagnostic-8768d980.json"
+    },
+    {
+      "result": "passed",
+      "productSha": "e310eaa8dad0f38b3e545a0300f1ec806b9f636f",
+      "reason": "The validated Hyper-V raster Skiko environment rendered the unchanged product flow and executed the exact focal XCTest."
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false,
+    "generatedXcodeProjectRemoved": true,
+    "macCheckoutClean": true
+  },
+  "scope": "Local fail-once product fixture and real iOS Simulator UI interaction; no credentials, backend or remote mutation. This closes only the native Chat read-failure Retry gap and does not claim Universal Links, APNs, push delivery or unrelated lifecycle behavior."
+}

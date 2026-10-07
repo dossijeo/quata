@@ -912,3 +912,47 @@ El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back m
 ## Rechazo caliente de sesión nativa — candidata local del 30 de septiembre de 2026
 
 Cierre focal local en Android e iOS Simulator: el mismo proceso recibió el enlace después del vencimiento criptográfico y del rechazo previo de Auth; la renovación terminal HTTP 400 retiró la sesión exacta, mostró la barrera pública y la cancelación dejó Feed sin abrir el Chat. Android conserva `failed_cleanup_pending` en su informe original y una recuperación exacta separada; iOS terminó PASS y limpio sobre `4a2d54f97c20d54ffcd189b3cfc191548c10ad71`. Los seis NO-GO iOS previos siguen preservados. [Plan y causal completa](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#rechazo-caliente-de-sesión-nativa--candidata-local-del-30-de-septiembre-de-2026) · [atestación](candidate-attestations/evidence/native-session-hot-rejection-20260930.json). Permanecen fuera la traza HTTP de paquete, APNs, dispositivo físico/distribución y rutas no incluidas.
+
+## Retry nativo del destino Chat — candidata local del 7 de octubre de 2026
+
+Android y Web ejecutan el mismo control `Retry` del host Chat después de una
+lectura inicial fallida. La fixture local requiere el opt-in exacto de cada host,
+no usa credenciales ni backend y mantiene el fallo aunque Compose vuelva a
+suscribirse durante el montaje. Sólo el gesto real habilita la siguiente
+observación. Después se exige la conversación `local:document-retry`, el mensaje
+único `local-document-retry-message`, retirada del fallo y salida por Back.
+
+La evidencia Web conserva los dos intentos anteriores: el primero detectó que
+los `testTag` no se exportan como `aria-label` en Compose Web; el segundo confirmó
+la recuperación visual, pero falló al buscar el texto como nodo DOM. El ensayo
+aceptado usa el botón accesible real generado por Compose, coteja remitente y
+contenido en su nodo accesible, y conserva capturas antes y después. Android usa
+el nodo Compose etiquetado.
+
+La variante iOS pasó después en el Product SHA exacto `e310eaa8` usando el entorno
+Skiko raster validado para la VM Hyper-V. El XCTest focal abrió el fallo nativo,
+pulsó el control Retry real, observó la conversación y mensaje exactos, comprobó
+la retirada del fallo y volvió a la lista de Chats. Resultado: 1/1, sin omitidos
+ni backend.
+El diagnóstico Metal anterior se conserva como intento bloqueado del runtime
+stock; no era un fallo de Retry ni del producto. El workflow final sigue exigiendo
+que la suite global encuentre este XCTest exacto, lo marque `passed` y rechace
+`skipped` o `disabled`.
+
+Esta candidata elimina el límite histórico «Retry nativo no ejecutado» en
+Android, Web e iOS Simulator.
+No atribuye disponibilidad al backend, no sustituye los casos reales de destino
+ausente o sesión rechazada y no amplía la aceptación a Universal Links, APNs,
+push ni lifecycle global. Android pasó sobre el head limpio `5397cedc`; Web se
+repitió sobre `a466d11580c4c7c87b521f0915c3988150fe7554` después de corregir sólo
+la etiqueta del paso de vuelta para que no dijera Chats cuando la ruta observada
+era Feed. No se repitió Android por ese cambio exclusivo del runner Web. Sus
+reportes saneados y hashes están en
+[`deep-link-native-retry-android-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-android-5397cedc.json)
+y [`deep-link-native-retry-web-a466d115.json`](candidate-attestations/evidence/deep-link-native-retry-web-a466d115.json).
+El fallo conservado del runtime Metal está en
+[`deep-link-native-retry-ios-metal-diagnostic-8768d980.json`](candidate-attestations/evidence/deep-link-native-retry-ios-metal-diagnostic-8768d980.json).
+El PASS iOS exacto está en
+[`deep-link-native-retry-ios-e310eaa8.json`](candidate-attestations/evidence/deep-link-native-retry-ios-e310eaa8.json)
+y el manifest focal en
+[`deep-link-native-retry.json`](candidate-attestations/deep-link-native-retry.json).

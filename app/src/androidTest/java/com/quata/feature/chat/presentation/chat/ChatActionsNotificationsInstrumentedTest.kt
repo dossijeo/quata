@@ -209,6 +209,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val conversationGroupCreateQuery = optionalArgument("quataConversationGroupCreateQuery")
         val conversationGroupCreateTitle = optionalArgument("quataConversationGroupCreateTitle")
         val documentRetryLocalOptIn = optionalArgument("quataDocumentRetryLocalOptIn")
+        val deepLinkRetryLocalOptIn = optionalArgument("quataDeepLinkRetryLocalOptIn")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
@@ -236,6 +237,9 @@ class ChatActionsNotificationsInstrumentedTest {
             "document-actions" -> listOf(chatUrl, documentProbe, documentName, documentMessageId).all { !it.isNullOrBlank() }
             "document-retry-local" ->
                 documentRetryLocalOptIn == "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE"
+            "deep-link-retry-local" ->
+                documentRetryLocalOptIn == "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE" &&
+                    deepLinkRetryLocalOptIn == "I_ACCEPT_ANDROID_DEEP_LINK_RETRY_LOCAL_FIXTURE"
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -258,6 +262,29 @@ class ChatActionsNotificationsInstrumentedTest {
                         .put("check", "FLOW-DOCUMENT-VIEWER-ANDROID-LOCAL-001")
                         .put("status", "passed")
                         .put("fixture", "immutable_local_document_message")
+                        .put("backend", "not_used")
+                        .put("evidenceDirectory", evidenceDir().absolutePath),
+                )
+            } finally {
+                clearLocalDocumentRetryFixture()
+            }
+            return@runBlocking
+        }
+        if (stage == "deep-link-retry-local") {
+            assumeTrue(
+                "The local Android deep-link retry fixture requires both exact opt-ins.",
+                hasRequiredStageArguments,
+            )
+            suppressStartupPrompts()
+            grantOptionalNotificationPermission()
+            configureLocalDocumentRetryFixture(deepLinkRetry = true)
+            try {
+                runLocalDeepLinkRetryStage()
+                writeReport(
+                    JSONObject()
+                        .put("check", "FLOW-DEEP-LINKS-ANDROID-RETRY-001")
+                        .put("status", "passed")
+                        .put("fixture", "fail_once_local_chat_read")
                         .put("backend", "not_used")
                         .put("evidenceDirectory", evidenceDir().absolutePath),
                 )
@@ -1948,6 +1975,27 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
+    private fun runLocalDeepLinkRetryStage() {
+        val chatUrl = quataChatUrl(DocumentRetryEvidenceConversationId)
+        withShellLaunchedChat(chatUrl) {
+            compose.onNodeWithTag("chat.read.failure", useUnmergedTree = true)
+                .assertExists("The exact deep-link route must expose its first read failure.")
+            compose.onNodeWithTag("chat.read.retry", useUnmergedTree = true)
+                .assertExists("The failed native route must expose Retry.")
+            saveScreenshot("android-deep-link-read-failure-before-retry")
+            compose.onNodeWithTag("chat.read.retry", useUnmergedTree = true).performClick()
+            waitForDocumentAttachment(
+                DocumentRetryEvidenceDocumentName,
+                "deep-link read after retry",
+                messageId = DocumentRetryEvidenceMessageId,
+            )
+            compose.onNodeWithTag("chat.read.failure", useUnmergedTree = true).assertDoesNotExist()
+            saveScreenshot("android-deep-link-read-retry-recovered")
+            device.pressBack()
+            saveScreenshot("android-deep-link-read-retry-return")
+        }
+    }
+
     private fun configureDocumentOpenFailure() {
         val committed = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
             .edit()
@@ -1960,19 +2008,27 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("The document open failure fixture must be committed before the first open.", committed)
     }
 
-    private fun configureLocalDocumentRetryFixture() {
+    private fun configureLocalDocumentRetryFixture(deepLinkRetry: Boolean = false) {
         val committed = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
             .edit()
             .putString("documentRetryLocal.optIn", "I_ACCEPT_ANDROID_DOCUMENT_RETRY_LOCAL_FIXTURE")
+            .apply {
+                if (deepLinkRetry) {
+                    putString("deepLinkRetryLocal.optIn", "I_ACCEPT_ANDROID_DEEP_LINK_RETRY_LOCAL_FIXTURE")
+                }
+            }
             .commit()
         assertTrue("The local document retry fixture opt-in must be committed.", committed)
-        configureDocumentOpenFailure()
+        if (!deepLinkRetry) configureDocumentOpenFailure()
     }
 
     private fun clearLocalDocumentRetryFixture() {
         clearDocumentOpenFailure()
         val preferences = targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
-        val committed = preferences.edit().remove("documentRetryLocal.optIn").commit()
+        val committed = preferences.edit()
+            .remove("documentRetryLocal.optIn")
+            .remove("deepLinkRetryLocal.optIn")
+            .commit()
         assertTrue("The local document retry fixture opt-in cleanup must be committed.", committed)
         assertFalse(
             "The local document retry fixture opt-in must be absent after cleanup.",
