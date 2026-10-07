@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "bd866ba6086f7158ec57f3a3b2b51987d176b8f3",
-  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-pending",
+  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "COMMUNITIES_DIRECTORY_EXHAUSTIVE_PAGINATION_AND_REALTIME_INVALIDATION",
   "evidence": {
     "crossPlatform": {
@@ -68,15 +68,15 @@
     "git diff --check",
     "node --test scripts/community-directory-realtime-contract.test.mjs",
     "node scripts/capability-matrix-contract.mjs",
-    "npm run test:ci-fast-contracts (820 passed)",
+    "npm run test:ci-fast-contracts (848 passed)",
     ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.data.ChatRealtimeGatewayContractTest :feature:chat:compileKotlinIosX64 :app:compileDebugKotlin :web:compileKotlinWasmJs --no-daemon --console=plain",
     "focal pagination and refresh Gradle matrix: Web/Wasm browser tests, Android unit/compile, Web compile and iOS x64 compile",
     "production owned fixture insert/remove plus pre-existing journal recovery",
     "production publication SQL audit after reconnect"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "61cb1d75151646f65323a5bd87a758df1d7a1ee1",
     "reviewedProductSha": "bd866ba6086f7158ec57f3a3b2b51987d176b8f3",
     "blockingFindings": [],
     "scopeLimit": "The exact-head independent review verified the recomposed public/authenticated production Realtime receipt and its deliberately narrow delivery claim. Final CI remains separate."
