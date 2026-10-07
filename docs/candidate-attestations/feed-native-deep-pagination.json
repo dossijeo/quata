@@ -4,13 +4,13 @@
     "SCR-FEED"
   ],
   "status": "passed",
-  "productSha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
+  "productSha": "89acec92059ea56697dc10f911034e13c6d0c261",
   "certification": "focused-native-deep-pagination-recovery-complete-final-ci-pending",
   "evidenceKind": "FOCUSED_NATIVE_DEEP_PAGINATION_RECOVERY",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
+      "sha": "89acec92059ea56697dc10f911034e13c6d0c261",
       "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
       "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
+      "sha": "89acec92059ea56697dc10f911034e13c6d0c261",
       "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
       "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
+      "sha": "89acec92059ea56697dc10f911034e13c6d0c261",
       "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
       "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
       "reportStatus": "passed",
@@ -76,20 +76,20 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/feed-native-deep-pagination.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "e2fe5511c53a41f12f98ef8c1e67e83d48009717",
-    "reviewedProductSha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewedProductSha": "89acec92059ea56697dc10f911034e13c6d0c261",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2: board and inventory now reserve 101 posts, 50/50/1 and exact-cursor retry for the common Web/Wasm proof; native Android/iOS claims are limited to retained 50, visible retry, state 100 and the exact stable target."
     ],
-    "scopeLimit": "The independent review covers the recomposed SCR-FEED deep-pagination unit and the shared four-case native runner. Final CI remains separate."
+    "scopeLimit": "Independent review is pending for the exact recomposed SCR-FEED head on merged main."
   },
   "notes": [
     "The common pager loads 101 unique posts as 50, 50 and 1, preserves the first page after the older-page failure and retries the exact failed cursor only after the explicit action.",
     "Android and iOS use the product Feed host. Each focal run observes retained content, visible failure, the retry control and the exact deep target after recovery.",
     "The accepted iOS gesture is normalized inside feed.root. It does not use a screen-fixed coordinate; failed accessibility swipe pilots remain unversioned diagnostics and are not positive evidence.",
-    "The accepted Android and iOS executions remain anchored to the clean reportGitHead 235a0c47. Recomposition onto Product SHA 1894c4b4 preserves every Feed workflow, runtime, focal test, runner and verifier blob byte-for-byte relative to the previously reviewed 99e21630 composition while combining the candidate-final Official pager in shared runners. Affected contracts are rerun, and platform matrices are not repeated solely for the new commit identity.",
+    "The accepted Android and iOS executions remain anchored to the clean reportGitHead 235a0c47. Range-diff proves the seven Feed commits patch-equivalent after recomposition onto merged Official main; Product SHA 89acec92 preserves every Feed workflow, runtime, focal test, runner and verifier blob from the reviewed 1894c4b4 composition. Affected contracts are rerun, and platform matrices are not repeated solely for the new commit identity.",
     "No backend mutation, production data, credential, inventory outside SCR-FEED or unrelated native matrix was touched.",
     "The separate Ranking panel, media, detail, comments, profile entry, mutations and global visual or operational acceptance keep their existing owners and limits."
   ]
