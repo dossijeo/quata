@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -842,10 +843,8 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag("official.detail.chrome", "Official video position detail", 45_000)
             clickMergedTagWithAction("official.media.open")
             waitForTag("fullscreen-media.title", "Official video position fullscreen", 20_000)
-            waitForTag(OfficialVideoPositionTestTag, "Official video position semantics", 20_000)
             if (restore) {
-                compose.waitUntil(10_000) { officialVideoPositionMs() > 0L }
-                val firstObserved = officialVideoPositionMs()
+                val firstObserved = waitForOfficialVideoPosition(timeoutMillis = 10_000) { it > 0L }
                 val minimumRestored = (persistedBefore.maxOrNull()?.times(1_000L) ?: 0L) - 1_500L
                 assertTrue(
                     "Official video must seek to the durable checkpoint before fresh playback can reach it; persisted=$persistedBefore observedMs=$firstObserved.",
@@ -853,7 +852,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 saveScreenshot("android-official-video-position-restored-after-force-stop")
             } else {
-                compose.waitUntil(20_000) { officialVideoPositionMs() >= 2_000L }
+                waitForOfficialVideoPosition(timeoutMillis = 20_000) { it >= 2_000L }
                 val persisted = persistedVideoPositionSeconds("quata.official.video_positions.v1.$actorProfileId")
                 assertTrue(
                     "The Official video position must be durably checkpointed before the process stop; observed=$persisted.",
@@ -881,14 +880,33 @@ class ChatActionsNotificationsInstrumentedTest {
             }
             .toList()
 
-    private fun officialVideoPositionMs(): Long = runCatching {
-        compose.onNodeWithTag(OfficialVideoPositionTestTag, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .config
-            .getOrNull(SemanticsProperties.StateDescription)
-            ?.toLongOrNull()
-            ?: 0L
-    }.getOrDefault(0L)
+    private fun waitForOfficialVideoPosition(timeoutMillis: Long, predicate: (Long) -> Boolean): Long {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        var observed = 0L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            observed = officialVideoPositionMsFromAccessibility()
+            if (predicate(observed)) return observed
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Official video position accessibility probe timed out; observed=$observed")
+    }
+
+    private fun officialVideoPositionMsFromAccessibility(): Long {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return 0L
+        val pending = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            if (node.contentDescription?.toString() == OfficialVideoPositionTestTag) {
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    node.stateDescription?.toString()?.toLongOrNull() ?: 0L
+                } else {
+                    0L
+                }
+            }
+            repeat(node.childCount) { index -> node.getChild(index)?.let(pending::addLast) }
+        }
+        return 0L
+    }
 
     private fun feedVideoControlShowsPause(): Boolean = runCatching {
         feedVideoNode(FeedVideoPlayPauseTestTag)

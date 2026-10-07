@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -280,7 +281,10 @@ private fun OfficialMediaViewerDialog(
                     Modifier
                         .size(1.dp)
                         .testTag(OfficialVideoPositionTestTag)
-                        .semantics { stateDescription = observedPositionMs.toString() },
+                        .semantics {
+                            contentDescription = OfficialVideoPositionTestTag
+                            stateDescription = observedPositionMs.toString()
+                        },
                 )
             }
         }
