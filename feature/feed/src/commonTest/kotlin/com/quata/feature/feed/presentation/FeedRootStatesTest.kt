@@ -117,14 +117,52 @@ class FeedRootStatesTest {
         onAllNodesWithTag(FeedStatusMessageTestTag).assertCountEquals(0)
         onAllNodesWithTag(FeedStatusRetryTestTag).assertCountEquals(0)
     }
+
+    @Test
+    fun olderPageFailureKeepsThePagerVisibleAndRetriesOnlyFromItsOwnControl() = runComposeUiTest {
+        val post = Post(
+            id = "feed-page-retry-post",
+            author = User("feed-page-author", "feed-page@example.invalid", "Feed Page"),
+            text = "feed-page-remains-visible",
+            createdAt = "2026-10-06T00:00:00Z",
+        )
+        val holder = RootStateHolder(
+            FeedUiState(
+                isLoading = false,
+                posts = listOf(post),
+                hasMoreOlderPosts = true,
+                olderPageError = "forced older page failure",
+            ),
+        )
+        setContent {
+            QuataTheme {
+                FeedScreenHost(
+                    padding = PaddingValues(),
+                    repository = rootRepository(listOf(post)),
+                    stateHolder = holder,
+                    slots = rootSlots(),
+                )
+            }
+        }
+
+        onNodeWithText("feed-page-remains-visible").assertIsDisplayed()
+        onNodeWithTag(FeedOlderPostsErrorTestTag).assertIsDisplayed()
+        onNodeWithTag(FeedOlderPostsRetryTestTag).assertIsDisplayed().performClick()
+        runOnIdle {
+            assertEquals(1, holder.olderPageRetries)
+            assertEquals(0, holder.refreshes)
+        }
+    }
 }
 
 private class RootStateHolder(initial: FeedUiState) : FeedStateHolder {
     val state = MutableStateFlow(initial)
     var refreshes = 0
+    var olderPageRetries = 0
     override val uiState = state
     override fun onEvent(event: FeedUiEvent) {
         if (event == FeedUiEvent.Refresh) refreshes += 1
+        if (event == FeedUiEvent.RetryOlderPage) olderPageRetries += 1
     }
 }
 

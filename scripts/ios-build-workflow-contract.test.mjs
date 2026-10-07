@@ -283,6 +283,7 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the native live Ranking UI tests must run as a bounded focal class',
   );
   for (const testName of [
+    'testFeedNativePagerFailsClosedRetriesAndReachesDeepTarget',
     'testFeedRemoteRankingFailsClosedRetriesAndOpensExactTarget',
     'testOfficialRemoteRankingFailsClosedRetriesAndOpensExactTarget',
   ]) {

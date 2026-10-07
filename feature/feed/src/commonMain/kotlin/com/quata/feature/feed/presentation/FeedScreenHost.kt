@@ -581,7 +581,7 @@ fun FeedScreenHost(
             FeedReelPagerContent(
                 pagerState = pagerState,
                 posts = visiblePosts,
-                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts,
+                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts && state.olderPageError == null,
                 isLoadingOlder = state.isLoadingOlder,
                 onPostDisplayed = { visible, next ->
                     if (hasAppliedRetainedPost) retainedPostId = visible.id
@@ -711,6 +711,15 @@ fun FeedScreenHost(
                 refreshContentDescription = "Actualizar",
                 modifier = Modifier.align(Alignment.TopCenter),
             )
+            if (state.isLoadingOlder) FeedOlderPostsLoadingContent(Modifier.align(Alignment.BottomCenter))
+            state.olderPageError?.let { failure ->
+                FeedOlderPostsFailureContent(
+                    message = failure.takeUnless { it == FeedOlderPageLoadFailed } ?: strings.loadingError,
+                    retryLabel = strings.retry,
+                    onRetry = { viewModel.onEvent(FeedUiEvent.RetryOlderPage) },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
             }
         }
             if (slots.showComposeMessage) SnackbarHost(

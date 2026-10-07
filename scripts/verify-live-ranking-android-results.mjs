@@ -8,6 +8,10 @@ const expectedCases = new Map([
     'remoteSecondPageFailsClosedRetriesAndOpensExactTarget',
   ],
   [
+    'com.quata.feature.feed.presentation.FeedDeepPaginationInstrumentedTest',
+    'nativePagerPreservesFirstPageRetriesAndReachesDeepTarget',
+  ],
+  [
     'com.quata.feature.official.presentation.OfficialRemoteRankingInstrumentedTest',
     'remoteSecondPageFailsClosedRetriesAndOpensExactTarget',
   ],

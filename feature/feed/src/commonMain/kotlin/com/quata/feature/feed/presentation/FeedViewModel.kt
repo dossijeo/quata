@@ -52,6 +52,7 @@ class FeedViewModel(
         when (event) {
             FeedUiEvent.Refresh -> refresh()
             FeedUiEvent.LoadOlderPage -> loadOlderPage()
+            FeedUiEvent.RetryOlderPage -> loadOlderPage()
             FeedUiEvent.LoadCompleteRanking -> loadCompleteRanking()
             is FeedUiEvent.FocusPost -> focusPost(event.postId)
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
@@ -107,7 +108,8 @@ class FeedViewModel(
             _uiState.update { state -> state.copy(
                 isLoading = !hasPosts,
                 isRefreshing = hasPosts,
-                error = null
+                error = null,
+                olderPageError = null,
             ) }
             repository.refreshFeed()
                 .onSuccess { posts ->
@@ -122,7 +124,8 @@ class FeedViewModel(
                         isLoadingOlder = false,
                         hasMoreOlderPosts = hasMoreOlderPosts,
                         posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
-                        error = null
+                        error = null,
+                        olderPageError = null,
                     ) }
                 }
                 .onFailure { error ->
@@ -141,13 +144,13 @@ class FeedViewModel(
         if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
         val lastPost = state.posts.lastOrNull()
         if (lastPost == null || lastPost.createdAt.isBlank() || lastPost.id.isBlank()) {
-            _uiState.update { it.copy(hasMoreOlderPosts = false) }
+            _uiState.update { it.copy(hasMoreOlderPosts = false, olderPageError = null) }
             return
         }
         val cursor = FeedCursor(lastPost.createdAt, lastPost.id)
 
         loadOlderJob = scope.launch {
-            _uiState.update { state -> state.copy(isLoadingOlder = true, error = null) }
+            _uiState.update { state -> state.copy(isLoadingOlder = true, olderPageError = null) }
             repository.loadOlderFeedPage(cursor = cursor, limit = FeedPageSize)
                 .onSuccess { posts ->
                     val mergedPosts = feedStore.appendOlder(posts)
@@ -157,13 +160,13 @@ class FeedViewModel(
                         isLoadingOlder = false,
                         hasMoreOlderPosts = hasMoreOlderPosts,
                         posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
-                        error = null
+                        olderPageError = null,
                     ) }
                 }
                 .onFailure { error ->
                     _uiState.update { state -> state.copy(
                         isLoadingOlder = false,
-                        error = error.message ?: state.error
+                        olderPageError = error.message ?: FeedOlderPageLoadFailed,
                     ) }
                 }
         }
@@ -415,6 +418,8 @@ class FeedViewModel(
         const val FeedPageSize = 50
     }
 }
+
+internal const val FeedOlderPageLoadFailed = "feed_older_page_load_failed"
 
 internal fun Post.withLocalPendingCommentsFrom(existing: Post?): Post {
     val pending = existing?.comments.orEmpty()
