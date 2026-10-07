@@ -261,29 +261,34 @@ async function verifyOfficialDetail(page, origin, state) {
   const articleVisibleInAccessibility = await visibleText(page, state.official.article, 2_000);
   const linkVisibleInAccessibility = await visibleText(page, state.official.linkUrl, 2_000);
   report.evidence.officialPanel = await screenshot(page, "web-post-detail-official-panel");
-  const mediaPopupPromise = page.waitForEvent("popup", { timeout: 10_000 });
-  await clickAnchor(page, "official.detail.media");
-  const mediaPopup = await mediaPopupPromise.catch(() => null);
-  if (!mediaPopup) throw new Error("official_detail_media_browser_viewer_missing");
-  await mediaPopup.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
-  if (mediaPopup.url() !== state.official.mediaUrl) throw new Error("official_detail_media_browser_viewer_url_mismatch");
-  report.evidence.officialMediaUrlSha256 = sha256(mediaPopup.url());
   if (state.official.mediaType === "video") {
-    const video = mediaPopup.locator("video").first();
+    await clickAnchor(page, "official.detail.media");
+    await waitForAnchor(page, "fullscreen-media.title");
+    const video = page.locator("video").last();
     await video.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {
       throw new Error("official_detail_video_element_missing");
     });
-    const paused = await video.evaluate((element) => element.paused);
-    if (paused) await video.click();
-    await mediaPopup.waitForFunction(() => {
-      const element = document.querySelector("video");
-      return Boolean(element && !element.paused && element.currentTime > 0.15);
+    await page.waitForFunction(() => {
+      const root = document.getElementById("quata-root");
+      const videos = [...(root?.shadowRoot?.querySelectorAll("video") ?? root?.querySelectorAll("video") ?? [])];
+      const element = videos.at(-1);
+      return Boolean(element && Number.isFinite(element.duration) && element.duration > 0 && element.currentTime > 0.15);
     }, null, { timeout: 15_000 }).catch(() => {
       throw new Error("official_detail_video_playback_not_observed");
     });
+    report.evidence.officialMediaUrlSha256 = sha256(state.official.mediaUrl);
     report.steps.push("official_detail_video_native_browser_playback_observed");
+    await clickAnchor(page, "fullscreen-media.close");
+  } else {
+    const mediaPopupPromise = page.waitForEvent("popup", { timeout: 10_000 });
+    await clickAnchor(page, "official.detail.media");
+    const mediaPopup = await mediaPopupPromise.catch(() => null);
+    if (!mediaPopup) throw new Error("official_detail_media_browser_viewer_missing");
+    await mediaPopup.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+    if (mediaPopup.url() !== state.official.mediaUrl) throw new Error("official_detail_media_browser_viewer_url_mismatch");
+    report.evidence.officialMediaUrlSha256 = sha256(mediaPopup.url());
+    await mediaPopup.close();
   }
-  await mediaPopup.close();
   await waitForAnchor(page, "official.detail.panel");
   report.steps.push("official_detail_media_browser_viewer_opened_and_returned_to_panel");
   await clickAnchor(page, "official.detail.profile");

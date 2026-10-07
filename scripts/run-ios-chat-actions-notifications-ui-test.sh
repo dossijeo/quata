@@ -258,6 +258,8 @@ def patch_target(target, hint=''):
     name = f"{hint} {target.get('TestTargetName', '')} {target.get('BlueprintName', '')}"
     env = target.setdefault('EnvironmentVariables', {})
     for key in [
+        'QUATA_SUPABASE_URL',
+        'QUATA_SUPABASE_PUBLISHABLE_KEY',
         'QUATA_IOS_NATIVE_FACADE_AUTHORIZATION',
         'QUATA_IOS_NATIVE_FACADE_URL',
         'QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY',

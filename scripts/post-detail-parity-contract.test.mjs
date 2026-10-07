@@ -304,7 +304,11 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(iosEvidence, /--official-video-position-lifecycle/);
   assert.match(iosEvidence, /withOfficialVideo: postDetailOfficialVideo \|\| officialVideoPositionLifecycle/);
   assert.match(iosEvidence, /testOfficialVideoPositionRestoresAfterProcessRelaunch/);
+  assert.match(iosEvidence, /export QUATA_SUPABASE_URL=\$\{shellQuote\(config\.baseUrl\)\}/);
+  assert.match(iosEvidence, /export QUATA_SUPABASE_PUBLISHABLE_KEY=\$\{shellQuote\(config\.key\)\}/);
   assert.match(iosUiWrapper, /QUATA_IOS_CHAT_OFFICIAL_VIDEO_POSITION_LIFECYCLE/);
+  assert.match(iosUiWrapper, /'QUATA_SUPABASE_URL'/);
+  assert.match(iosUiWrapper, /'QUATA_SUPABASE_PUBLISHABLE_KEY'/);
   assert.match(iosUiWrapper, /official-video-position-lifecycle\.log/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO/);
   assert.match(iosUiTest, /func testOfficialVideoPositionRestoresAfterProcessRelaunch\(\) throws/);
