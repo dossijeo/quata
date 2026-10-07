@@ -9,7 +9,7 @@
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "sha": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "sha": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -53,7 +53,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "sha": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -76,7 +76,7 @@
     },
     "database": {
       "status": "passed",
-      "sha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+      "sha": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
