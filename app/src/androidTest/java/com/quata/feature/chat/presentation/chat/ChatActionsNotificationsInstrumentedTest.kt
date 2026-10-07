@@ -843,6 +843,7 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag("official.detail.chrome", "Official video position detail", 45_000)
             clickMergedTagWithAction("official.media.open")
             waitForTag("fullscreen-media.title", "Official video position fullscreen", 20_000)
+            ensureOfficialVideoPlaying()
             if (restore) {
                 val firstObserved = waitForOfficialVideoPosition(timeoutMillis = 10_000) { it > 0L }
                 val minimumRestored = (persistedBefore.maxOrNull()?.times(1_000L) ?: 0L) - 1_500L
@@ -893,6 +894,39 @@ class ChatActionsNotificationsInstrumentedTest {
         throw AssertionError("Official video position accessibility probe timed out; observed=$observed")
     }
 
+    private fun ensureOfficialVideoPlaying() {
+        val initialState = waitForAccessibilityState("fullscreen-media.video", 10_000) {
+            it == "playing" || it == "paused" || it == "failed"
+        }
+        check(initialState != "failed") { "Official video entered the failed playback state." }
+        if (initialState == "playing") return
+        device.click(device.displayWidth / 2, device.displayHeight / 2)
+        val play = device.wait(
+            Until.findObject(By.desc(Pattern.compile("(?i).*(play|reproducir).*"))),
+            5_000,
+        )
+        check(play != null) { "Official video native play control was not exposed while paused." }
+        play.click()
+        check(waitForAccessibilityState("fullscreen-media.video", 10_000) { it == "playing" } == "playing") {
+            "Official video did not enter the playing state after the native play action."
+        }
+    }
+
+    private fun waitForAccessibilityState(
+        probe: String,
+        timeoutMillis: Long,
+        predicate: (String) -> Boolean,
+    ): String? {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        var observed: String? = null
+        while (SystemClock.elapsedRealtime() < deadline) {
+            observed = accessibilityStateDescription(probe)
+            if (observed != null && predicate(observed)) return observed
+            SystemClock.sleep(100)
+        }
+        return observed
+    }
+
     private fun waitForPersistedVideoPosition(
         storageKey: String,
         timeoutMillis: Long,
@@ -909,23 +943,27 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun officialVideoPositionMsFromAccessibility(): Long {
-        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return 0L
+        return accessibilityStateDescription(OfficialVideoPositionTestTag)?.toLongOrNull() ?: 0L
+    }
+
+    private fun accessibilityStateDescription(probe: String): String? {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return null
         val pending = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
         while (pending.isNotEmpty()) {
             val node = pending.removeFirst()
-            val matchesProbe = node.contentDescription?.toString()?.contains(OfficialVideoPositionTestTag) == true ||
-                node.viewIdResourceName == OfficialVideoPositionTestTag ||
-                node.viewIdResourceName?.endsWith("/$OfficialVideoPositionTestTag") == true
+            val matchesProbe = node.contentDescription?.toString()?.contains(probe) == true ||
+                node.viewIdResourceName == probe ||
+                node.viewIdResourceName?.endsWith("/$probe") == true
             if (matchesProbe) {
                 return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    node.stateDescription?.toString()?.toLongOrNull() ?: 0L
+                    node.stateDescription?.toString()
                 } else {
-                    0L
+                    null
                 }
             }
             repeat(node.childCount) { index -> node.getChild(index)?.let(pending::addLast) }
         }
-        return 0L
+        return null
     }
 
     private fun feedVideoControlShowsPause(): Boolean = runCatching {
