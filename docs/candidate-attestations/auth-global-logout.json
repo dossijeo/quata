@@ -4,7 +4,7 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+  "productSha": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
   "certification": "global-multidevice-logout-production-and-three-platform-acceptance-complete-independent-review-pending",
   "evidence": {
     "web": {
@@ -112,8 +112,8 @@
   ],
   "review": {
     "status": "pending",
-    "reviewedSha": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
-    "reviewHead": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+    "reviewedSha": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
+    "reviewHead": "120191b23a33791b1f2f1ba5fe6ac09cebc36316",
     "blockingFindings": []
   },
   "notes": [
