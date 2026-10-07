@@ -234,6 +234,10 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /--feed-video/);
   assert.match(webEvidence, /withFeedVideo: options\.feedVideo/);
   assert.match(webEvidence, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(webEvidence, /feed_video_position_persisted_and_restored_after_document_reload/);
+  assert.match(webEvidence, /quata\.feed\.video_positions\.v1\./);
+  assert.match(webEvidence, /await page\.reload\(\{ waitUntil: "domcontentloaded", timeout: 60_000 \}\)/);
+  assert.match(webEvidence, /if \(!options\.feedVideo\) await verifyOfficialDetail/);
   assert.match(androidEvidence, /--post-detail-feed-video/);
   assert.match(androidEvidence, /withFeedVideo: postDetailFeedVideo/);
   assert.match(androidUiTest, /feed\.post\.video\.fullscreen\.open/);
@@ -299,8 +303,11 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
     /video = \{[\s\S]*?slots\.media\([\s\S]*?activeFocusedPostId == post\.id && mediaPostId == null[\s\S]*?onClick = \{ mediaPostId = post\.id \}/,
   );
   assert.match(feedHost, /contentDescription = "\$FeedPostVideoFullscreenOpenTestTagPrefix\.\$\{post\.id\}"/);
-  assert.match(feedHost, /post\.videoUrl\?\.let \{ videoPositions\[it\] \} \?: 0L/);
-  assert.match(feedHost, /\{ position -> post\.videoUrl\?\.let \{ videoPositions\[it\] = position \} \}/);
+  assert.match(feedHost, /videoPositionStore: FeedVideoPositionStore\? = null/);
+  assert.match(feedHost, /store\.restore\(effectiveCurrentUserId\)/);
+  assert.match(feedHost, /snapshotFlow \{ videoPositions\.toMap\(\) \}/);
+  assert.match(feedHost, /store\.persist\(effectiveCurrentUserId, positions\)/);
+  assert.match(feedHost, /videoPositions\[feedVideoPositionMediaId\(post\.id, it\)\]/);
   assert.match(androidFeedScreen, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
   assert.match(webFeedMedia, /isBecomingCurrent = isCurrent && !wasCurrent/);
   assert.match(webFeedMedia, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
