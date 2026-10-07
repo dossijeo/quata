@@ -76,10 +76,13 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/feed-native-deep-pagination.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "e2fe5511c53a41f12f98ef8c1e67e83d48009717",
     "reviewedProductSha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
     "blockingFindings": [],
+    "resolvedFindings": [
+      "P2: board and inventory now reserve 101 posts, 50/50/1 and exact-cursor retry for the common Web/Wasm proof; native Android/iOS claims are limited to retained 50, visible retry, state 100 and the exact stable target."
+    ],
     "scopeLimit": "The independent review covers the recomposed SCR-FEED deep-pagination unit and the shared four-case native runner. Final CI remains separate."
   },
   "notes": [
