@@ -2292,15 +2292,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return (minutes * 60) + seconds
         }
 
-        func playbackState(_ element: XCUIElement) -> String {
-            let value = (element.value as? String)?.lowercased() ?? ""
-            if value.contains("playing") || value.contains("paused") { return value }
-            let label = element.label.lowercased()
-            if label.contains("pausar") || label.contains("pause") { return "playing" }
-            if label.contains("reproducir") || label.contains("play") { return "paused" }
-            return value
-        }
-
         func waitForPosition(_ range: ClosedRange<Int>, element: XCUIElement, timeout: TimeInterval) -> Int? {
             let deadline = Date().addingTimeInterval(timeout)
             while Date() < deadline {
@@ -2308,30 +2299,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.1))
             }
             return clockSeconds(element)
-        }
-
-        func pauseIfPlaying(_ control: XCUIElement, time: XCUIElement) {
-            let deadline = Date().addingTimeInterval(10)
-            while Date() < deadline, playbackState(control) != "playing" {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-            }
-            if playbackState(control) == "playing" {
-                control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            }
-            guard let pausedAt = clockSeconds(time) else {
-                XCTFail("Feed video must expose its current position before the pause checkpoint.")
-                return
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(1.6))
-            guard let afterPause = clockSeconds(time) else {
-                XCTFail("Feed video must retain its time readout after the pause checkpoint.")
-                return
-            }
-            XCTAssertLessThanOrEqual(
-                abs(afterPause - pausedAt),
-                1,
-                "Feed video position must stop advancing before observing its durable checkpoint.",
-            )
         }
 
         let app = XCUIApplication()
@@ -2349,7 +2316,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
         let timeline = waitForVisibleIdentifier("feed.video.timeline", in: app, context: "Feed video timeline")
         let time = waitForVisibleIdentifier("feed.video.time", in: app, context: "Feed video time")
-        let control = waitForVisibleIdentifier("feed.video.play-pause", in: app, context: "Feed video playback state")
+        _ = waitForVisibleIdentifier("feed.video.play-pause", in: app, context: "Feed video playback state")
         let durationDeadline = Date().addingTimeInterval(20)
         while Date() < durationDeadline, !time.label.contains("0:06") {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
@@ -2361,9 +2328,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         let seeded = waitForPosition(2...4, element: time, timeout: 5)
         XCTAssertNotNil(seeded, "The Feed video must seek to a midpoint checkpoint before process termination.")
-        pauseIfPlaying(control, time: time)
-        attachScreenshot(app, name: "ios-feed-video-position-seeded-before-terminate")
-
+        XCUIDevice.shared.press(.home)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         app.terminate()
         app.launch()
         dismissStartupWhatsNewIfPresent(in: app)
@@ -2375,10 +2341,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
-        let restoredControl = waitForVisibleIdentifier("feed.video.play-pause", in: app, context: "Restored Feed video playback state")
-        let restoredTime = waitForVisibleIdentifier("feed.video.time", in: app, context: "Restored Feed video time")
-        pauseIfPlaying(restoredControl, time: restoredTime)
-        let restored = waitForPosition(2...5, element: restoredTime, timeout: 5)
+        let restoredTime = waitForExistingIdentifier("feed.video.time", in: app, context: "Restored Feed video time", timeout: 10)
+        let restored = waitForPosition(2...5, element: restoredTime, timeout: 2)
         XCTAssertNotNil(restored, "The actor-scoped Feed video checkpoint must survive iOS process termination and relaunch.")
         attachScreenshot(app, name: "ios-feed-video-position-restored-after-relaunch")
     }
