@@ -1,0 +1,123 @@
+{
+  "check": "FLOW-SHELL-NAV-IOS-SECONDARY-PROCESS-RELAUNCH-002",
+  "status": "passed",
+  "candidateProductSha": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
+  "git": {
+    "head": "ee37800da0ebab755fdd3bef163389d42d65b3dd",
+    "workingTreeDirty": false
+  },
+  "restoredPublicSecondaryRoutes": [
+    "notifications",
+    "settings",
+    "whats-new",
+    "about",
+    "release-history"
+  ],
+  "restoredGatedSecondaryRoutes": [
+    {
+      "route": "composer",
+      "gate": "authenticated session",
+      "persistedState": "route name only"
+    },
+    {
+      "route": "official-editor",
+      "gate": "fresh repository-backed official-role resolution",
+      "persistedState": "route name only"
+    }
+  ],
+  "steps": [
+    "five_public_secondary_routes_restored_across_router_recreation",
+    "whats_new_restored_after_application_termination_without_route_replay",
+    "composer_waited_for_authenticated_upgrade_before_restoration",
+    "composer_restored_after_application_termination_without_route_replay",
+    "closing_composer_cleared_its_restoration_intent",
+    "official_editor_fell_back_to_official_until_fresh_role_resolution",
+    "official_editor_restored_only_after_fresh_official_role_resolution",
+    "non_official_role_rejected_and_cleared_editor_restoration",
+    "superseding_root_or_detail_selection_rejected_stale_editor_resolution",
+    "logout_rejected_and_cleared_editor_restoration",
+    "official_editor_restored_after_application_termination_without_route_replay",
+    "route_snapshot_contained_no_draft_actor_or_nested_identifier"
+  ],
+  "build": {
+    "host": "gabriel@192.168.1.109",
+    "macOS": "26.5.2",
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "architecture": "x86_64",
+    "configuration": "SimulatorSigned",
+    "resultBundle": "build/reports/ios/ios-secondary-route-ee37800d-build.xcresult",
+    "result": "passed"
+  },
+  "xctest": {
+    "simulator": {
+      "name": "Quata-SOS-Candidate-85f98524",
+      "model": "iPhone 16 Pro",
+      "os": "iOS 26.5 (23F77)",
+      "architecture": "x86_64",
+      "udid": "0506CC31-D3CF-401D-B275-444BEE5F69B6"
+    },
+    "framework": {
+      "resultBundle": "build/reports/ios/ios-secondary-route-ee37800d-framework-tests.xcresult",
+      "selectedTests": 3,
+      "passed": 3,
+      "failures": 0,
+      "tests": [
+        "QuataFeedFrameworkTests.testPublicSecondaryRoutesSurviveRouterRecreation",
+        "QuataFeedFrameworkTests.testComposerRestorationWaitsForAuthenticationAndClearsAfterClose",
+        "QuataFeedFrameworkTests.testRestoredOfficialEditorRequiresFreshRoleAndRejectsStaleResolution"
+      ]
+    },
+    "processRelaunch": {
+      "resultBundle": "build/reports/ios/ios-secondary-route-ee37800d-ui-tests.xcresult",
+      "selectedTests": 1,
+      "passed": 1,
+      "failures": 0,
+      "tests": [
+        "QuataIosHostUITests.testWhatsNewComposerAndOfficialEditorSurviveApplicationTerminationWithoutRouteReplay"
+      ],
+      "applicationLaunches": 6,
+      "applicationTerminations": 6,
+      "routeReplayOnSecondLaunch": false
+    }
+  },
+  "preflight": {
+    "iosShellLayoutContract": {
+      "passed": 8,
+      "failed": 0
+    },
+    "officialRoleRefreshFocusedWasm": "passed",
+    "swiftParser": "passed",
+    "gitDiffCheck": "passed",
+    "independentProductReview": "GO without P0-P3 findings"
+  },
+  "attempts": [
+    {
+      "result": "infrastructure_failure",
+      "stage": "focused XCTest build",
+      "reason": "macOS volume ran out of space while copying QuataShared.framework; no selected test executed",
+      "resolution": "removed generated build outputs from inactive exact-SHA checkouts only"
+    },
+    {
+      "result": "passed",
+      "stage": "focused framework and process-relaunch XCTest",
+      "selectedTests": 4,
+      "failures": 0
+    }
+  ],
+  "cleanup": {
+    "state": "complete",
+    "remoteMutation": false,
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "generatedXcodeProjectRemoved": true,
+    "macCheckoutClean": true,
+    "fixtureStorageContainsOnlyRouteNames": true
+  },
+  "limits": [
+    "This focal evidence proves restoration of the seven named iOS secondary route names; it does not claim arbitrary secondary backstacks.",
+    "Composer restoration does not persist draft content, actor identity, attachments or internal editor state.",
+    "Official Editor restoration does not persist role eligibility and remains blocked until a fresh repository-backed role resolution succeeds.",
+    "Nested identifiers, scroll position, media position and internal widget state remain outside this unit."
+  ]
+}

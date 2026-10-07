@@ -7,11 +7,15 @@ import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,6 +24,47 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OfficialFeedViewModelInitialUserTest {
+    @Test
+    fun staleCurrentUserRefreshCannotOverrideLatestRoleResolution() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val first = CompletableDeferred<Result<User?>>()
+        val second = CompletableDeferred<Result<User?>>()
+        var calls = 0
+        val verifiedOfficial = User(
+            id = "verified-official",
+            email = "verified@example.test",
+            displayName = "Verified Official",
+            isOfficial = true,
+        )
+        val repository = object : OfficialRepository by FailingCurrentUserRepository {
+            override suspend fun refreshCurrentUser(): Result<User?> {
+                calls += 1
+                val response = if (calls == 1) first else second
+                return withContext(NonCancellable) { response.await() }
+            }
+        }
+        val viewModel = OfficialFeedViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+        try {
+            viewModel.refreshCurrentUser()
+            runCurrent()
+            viewModel.refreshCurrentUser()
+            runCurrent()
+
+            second.complete(Result.success(verifiedOfficial))
+            runCurrent()
+            assertTrue(viewModel.uiState.value.isCurrentUserRoleResolved)
+            assertEquals(verifiedOfficial, viewModel.uiState.value.currentUser)
+
+            first.complete(Result.failure(IllegalStateException("stale offline response")))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isCurrentUserRoleResolved)
+            assertEquals(verifiedOfficial, viewModel.uiState.value.currentUser)
+        } finally { viewModel.close() }
+    }
+
     @Test
     fun thrownFailureAndCancellationReleaseFocusedLookupForRetry() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -113,10 +158,37 @@ class OfficialFeedViewModelInitialUserTest {
             dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
             initialCurrentUser = official,
         )
+        assertFalse(viewModel.uiState.value.isCurrentUserRoleResolved)
         viewModel.refreshCurrentUser()
         advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.currentUser?.isOfficial == true)
+        assertTrue(viewModel.uiState.value.isCurrentUserRoleResolved)
+    }
+
+    @Test
+    fun refreshedCurrentUserResolvesOfficialCapabilityFromRepository() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val verifiedOfficial = User(
+            id = "verified-official",
+            email = "verified@example.test",
+            displayName = "Verified Official",
+            isOfficial = true,
+        )
+        val repository = object : OfficialRepository by FailingCurrentUserRepository {
+            override suspend fun refreshCurrentUser(): Result<User?> = Result.success(verifiedOfficial)
+        }
+        val viewModel = OfficialFeedViewModel(
+            repository = repository,
+            dispatchers = AppDispatchers(default = dispatcher, main = dispatcher, io = dispatcher),
+        )
+
+        assertFalse(viewModel.uiState.value.isCurrentUserRoleResolved)
+        viewModel.refreshCurrentUser()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isCurrentUserRoleResolved)
+        assertEquals(verifiedOfficial, viewModel.uiState.value.currentUser)
     }
 
     private object FailingCurrentUserRepository : OfficialRepository {

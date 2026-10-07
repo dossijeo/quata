@@ -97,6 +97,7 @@ class IosOfficialHostDependencies(
     val authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     val onOpenUserProfile: (String) -> Unit = {},
     val onCreateOfficialPost: () -> Unit = {},
+    val onCurrentUserRoleResolved: (Boolean) -> Unit = {},
     val onBackFromFocusedPost: (() -> Unit)? = null,
     val onFocusedPostChanged: (String) -> Unit = {},
     val profileOpeningState: IosMemberProfileOpeningState,
@@ -119,6 +120,7 @@ fun createIosOfficialHostDependencies(
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onCreateOfficialPost: () -> Unit = {},
+    onCurrentUserRoleResolved: (Boolean) -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
     canCreateOfficialPost: Boolean = false,
@@ -135,6 +137,7 @@ fun createIosOfficialHostDependencies(
     onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
     authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onCreateOfficialPost = onCreateOfficialPost,
+    onCurrentUserRoleResolved = onCurrentUserRoleResolved,
     onBackFromFocusedPost = onBackFromFocusedPost,
     onFocusedPostChanged = onFocusedPostChanged,
     canCreateOfficialPost = canCreateOfficialPost,
@@ -185,6 +188,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
+    onCurrentUserRoleResolved: (Boolean) -> Unit = {},
     onBackFromFocusedPost: (() -> Unit)? = null,
     onFocusedPostChanged: (String) -> Unit = {},
     canCreateOfficialPost: Boolean = false,
@@ -206,6 +210,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     onFocusedPostChanged = onFocusedPostChanged,
     canCreateOfficialPost = canCreateOfficialPost,
     onCreateOfficialPost = onCreateOfficialPost,
+    onCurrentUserRoleResolved = onCurrentUserRoleResolved,
     profileOpeningState = profileOpeningState,
 )
 
@@ -230,6 +235,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 authenticationContinuationCoordinator = dependencies.authenticationContinuationCoordinator,
                 onOpenUserProfile = dependencies.onOpenUserProfile,
                 onCreateOfficialPost = dependencies.onCreateOfficialPost,
+                onCurrentUserRoleResolved = dependencies.onCurrentUserRoleResolved,
                 onBackFromFocusedPost = dependencies.onBackFromFocusedPost,
                 onFocusedPostChanged = dependencies.onFocusedPostChanged,
                 slots = iosOfficialPlatformSlots(

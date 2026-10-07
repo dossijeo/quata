@@ -766,6 +766,34 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testWhatsNewComposerAndOfficialEditorSurviveApplicationTerminationWithoutRouteReplay() {
+        for scenario in [
+            (route: "whats-new", host: "quata-ios-whats-new-host"),
+            (route: "composer", host: "quata-ios-composer-host"),
+            (route: "official-editor", host: "quata-ios-official-editor-host"),
+        ] {
+            let firstLaunch = fixtureApp("shell-layout", shellRoute: scenario.route)
+            firstLaunch.launch()
+            XCTAssertTrue(
+                firstLaunch.descendants(matching: .any)
+                    .matching(identifier: scenario.host)
+                    .firstMatch.waitForExistence(timeout: 10),
+                "The first process must display \(scenario.route) before termination."
+            )
+            firstLaunch.terminate()
+
+            let relaunched = fixtureApp("shell-layout", resetPrimaryRoute: false)
+            relaunched.launch()
+            XCTAssertTrue(
+                relaunched.descendants(matching: .any)
+                    .matching(identifier: scenario.host)
+                    .firstMatch.waitForExistence(timeout: 10),
+                "A new process must restore \(scenario.route) without route injection."
+            )
+            relaunched.terminate()
+        }
+    }
+
     func testAuthenticatedShellContainsSecondaryRouteLayoutVariants() {
         assertAuthenticatedShellContainsRouteLayoutVariants([
             ("communities", "quata-ios-communities-host", true),

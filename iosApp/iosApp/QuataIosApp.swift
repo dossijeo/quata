@@ -1375,6 +1375,11 @@ private final class IosAppCompositionRoot {
                         authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
+                        onCurrentUserRoleResolved: { [weak self] isOfficial in
+                            self?.authenticatedHost.resolvePendingOfficialEditorEligibility(
+                                isOfficial: isOfficial.boolValue
+                            )
+                        },
                         onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
                         onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markOfficialDetailChanged(postId: postId) },
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
@@ -1401,6 +1406,7 @@ private final class IosAppCompositionRoot {
                     },
                     authenticationContinuationCoordinator: self.authenticationContinuationCoordinator,
                     onCreateOfficialPost: onCreateOfficialPost,
+                    onCurrentUserRoleResolved: { _ in },
                     onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
                     onFocusedPostChanged: { [weak self] postId in self?.authenticatedHost.markOfficialDetailChanged(postId: postId) },
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
@@ -2959,6 +2965,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
         if !hadPendingRoute, routeToRestoreAfterAuthenticationUpgrade == nil {
             showFeed(postId: nil)
+        } else if pendingRoute == .officialEditor {
+            showPersistedPrimaryFallbackForPendingOfficialEditorIfPossible()
         } else if pendingRoute != nil, let feedController = feedFactory?(nil) {
             // A Chat/Official route can legitimately wait for its own real repository. Keep that
             // pending identifier while returning the authenticated user to the real Feed surface.
@@ -3429,6 +3437,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func installOfficialFactory(_ factory: @escaping (String?) -> UIViewController) {
         officialFactory = factory
+        showPersistedPrimaryFallbackForPendingOfficialEditorIfPossible()
         renderPendingRouteIfPossible()
     }
 
@@ -3551,6 +3560,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func markOfficialDetailClosed() {
         if case .official = visibleRoute {
+            invalidatePendingOfficialEditorRestoration()
             routeSelectionRevision &+= 1
             visibleRoute = .official(postId: nil)
             persistVisiblePrimaryRouteIfUncontested()
@@ -3559,6 +3569,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func markOfficialDetailChanged(postId: String) {
         if case .official = visibleRoute {
+            invalidatePendingOfficialEditorRestoration()
             routeSelectionRevision &+= 1
             visibleRoute = .official(postId: postId)
             persistVisiblePrimaryRouteIfUncontested()
@@ -3571,10 +3582,30 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// source enables them. The common Official surface calls this only after its repository has
     /// refreshed the profile and confirmed `currentUser.isOfficial`.
     func showOfficialEditorFromVerifiedOfficialSurface() {
-        guard let controller = officialEditorFactory?() else { return }
-        routeSelectionRevision &+= 1
+        isOfficialEditorEligible = true
+        route(.officialEditor)
+    }
+
+    /// A restored editor intent is consumed only after the authenticated Official repository has
+    /// resolved the current actor. Stale results cannot navigate because any user selection or
+    /// logout replaces/clears the pending editor before this callback arrives.
+    func resolvePendingOfficialEditorEligibility(isOfficial: Bool) {
+        guard !isLoggingOut, pendingRoute == .officialEditor else { return }
+        isOfficialEditorEligible = isOfficial
+        if isOfficial {
+            renderPendingRouteIfPossible()
+            return
+        }
         pendingRoute = nil
-        showRouteController(controller, route: .officialEditor)
+        routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
+        showPersistedPrimaryRouteIfPossible()
+    }
+
+    private func invalidatePendingOfficialEditorRestoration() {
+        guard pendingRoute == .officialEditor else { return }
+        pendingRoute = nil
+        isOfficialEditorEligible = false
+        routeSelectionDefaults.removeObject(forKey: Self.persistedSecondaryRouteKey)
     }
 
     func showNotifications() { route(.notifications) }
@@ -3885,6 +3916,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         showRouteController(controller, route: route)
     }
 
+    private func showPersistedPrimaryFallbackForPendingOfficialEditorIfPossible() {
+        guard pendingRoute == .officialEditor else { return }
+        showPersistedPrimaryRouteIfPossible()
+    }
+
+    private func showPersistedPrimaryRouteIfPossible() {
+        guard let route = Self.primaryRoute(
+            storedValue: routeSelectionDefaults.string(forKey: Self.persistedPrimaryRouteKey)
+        ), let controller = controller(for: route) else { return }
+        showRouteController(controller, route: route)
+    }
+
     private func renderPendingRouteIfPossible() {
         guard let pendingRoute else { return }
         guard !pendingRoute.isAuthenticationRequired || hasAuthenticatedSession else { return }
@@ -4083,8 +4126,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private static func persistedSecondaryRoute(for route: PendingRoute) -> String? {
         switch route {
+        case .officialEditor: return "official-editor"
         case .notifications: return "notifications"
+        case .composer: return "composer"
         case .settings: return "settings"
+        case .whatsNew: return "whats-new"
         case .about: return "about"
         case .releaseHistory: return "release-history"
         default: return nil
@@ -4093,8 +4139,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private static func restorableSecondaryRoute(storedValue: String?) -> PendingRoute? {
         switch storedValue {
+        case "official-editor": return .officialEditor
         case "notifications": return .notifications
+        case "composer": return .composer
         case "settings": return .settings
+        case "whats-new": return .whatsNew
         case "about": return .about
         case "release-history": return .releaseHistory
         default: return nil

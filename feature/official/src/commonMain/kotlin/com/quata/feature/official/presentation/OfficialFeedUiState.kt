@@ -15,6 +15,7 @@ data class OfficialFeedUiState(
     val rankingError: String? = null,
     val focusedPostLoads: Map<String, OfficialFocusedPostLoad> = emptyMap(),
     val currentUser: User? = null,
+    val isCurrentUserRoleResolved: Boolean = false,
     val isPublishing: Boolean = false,
     val error: String? = null,
     val commentErrorsByPostId: Map<String, String> = emptyMap(),
