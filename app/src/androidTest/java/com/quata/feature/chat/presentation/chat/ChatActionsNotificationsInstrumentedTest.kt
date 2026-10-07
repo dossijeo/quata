@@ -852,8 +852,10 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 saveScreenshot("android-official-video-position-restored-after-force-stop")
             } else {
-                waitForOfficialVideoPosition(timeoutMillis = 20_000) { it >= 2_000L }
-                val persisted = persistedVideoPositionSeconds("quata.official.video_positions.v1.$actorProfileId")
+                val persisted = waitForPersistedVideoPosition(
+                    storageKey = "quata.official.video_positions.v1.$actorProfileId",
+                    timeoutMillis = 20_000,
+                ) { positions -> positions.any { it >= 2 } }
                 assertTrue(
                     "The Official video position must be durably checkpointed before the process stop; observed=$persisted.",
                     persisted.any { it >= 2 },
@@ -891,12 +893,30 @@ class ChatActionsNotificationsInstrumentedTest {
         throw AssertionError("Official video position accessibility probe timed out; observed=$observed")
     }
 
+    private fun waitForPersistedVideoPosition(
+        storageKey: String,
+        timeoutMillis: Long,
+        predicate: (List<Int>) -> Boolean,
+    ): List<Int> {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        var observed = emptyList<Int>()
+        while (SystemClock.elapsedRealtime() < deadline) {
+            observed = persistedVideoPositionSeconds(storageKey)
+            if (predicate(observed)) return observed
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Official video persisted position probe timed out; observed=$observed")
+    }
+
     private fun officialVideoPositionMsFromAccessibility(): Long {
         val root = instrumentation.uiAutomation.rootInActiveWindow ?: return 0L
         val pending = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
         while (pending.isNotEmpty()) {
             val node = pending.removeFirst()
-            if (node.contentDescription?.toString() == OfficialVideoPositionTestTag) {
+            val matchesProbe = node.contentDescription?.toString()?.contains(OfficialVideoPositionTestTag) == true ||
+                node.viewIdResourceName == OfficialVideoPositionTestTag ||
+                node.viewIdResourceName?.endsWith("/$OfficialVideoPositionTestTag") == true
+            if (matchesProbe) {
                 return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     node.stateDescription?.toString()?.toLongOrNull() ?: 0L
                 } else {
