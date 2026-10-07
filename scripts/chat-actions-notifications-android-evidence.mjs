@@ -1939,6 +1939,8 @@ try {
     });
     await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
     await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+    await run(adbCommand, ["shell", "cmd", "package", "compile", "-m", "speed", "-f", "com.quata"]);
+    report.steps.push("android_debug_package_precompiled_before_deep_link_retry_instrumentation");
     await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
     await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
     const instrumentationOutput = await runCapture(adbCommand, [
