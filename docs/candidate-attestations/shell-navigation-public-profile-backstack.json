@@ -4,13 +4,13 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+  "productSha": "c124b99405d6549f5036cb56c8b216a49f6ac58b",
   "certification": "local-affected-runtime-and-independent-head-review-complete-final-CI-pending",
   "evidenceKind": "PUBLIC_PROFILE_NESTED_BACKSTACK_RESTORATION",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+      "sha": "c124b99405d6549f5036cb56c8b216a49f6ac58b",
       "report": "docs/candidate-attestations/evidence/shell-navigation-public-profile-backstack-afc071c5.json",
       "reportSha256": "028aa03e3fe78c7e9ce616e00f19b797d306ab8acdabbbc6ad6cb49a21432dc3",
       "reportStatus": "passed-local-candidate",
@@ -45,9 +45,9 @@
     "macOS: xcodebuild selected QuataFeedFrameworkTests on booted iOS 26.5 Intel Simulator with CODE_SIGNING_ALLOWED=NO"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2fa5f7181bb30147515e43f64f6715298c2309b7",
-    "reviewedProductSha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewedProductSha": "c124b99405d6549f5036cb56c8b216a49f6ac58b",
     "blockingFindings": [],
     "resolvedFindings": [
       "Android failed-child Back now closes the public profile through the product model and restores the retained parent.",
@@ -60,6 +60,7 @@
     "Android uses SavedStateHandle, Web uses sessionStorage and iOS uses UserDefaults with exact actor and origin matching. Android and iOS distinguish concrete Chat conversation identifiers.",
     "The historical ea566b85 evidence remains preserved but is superseded: independent review found an Android failed-child Back misbinding, an iOS conversation-origin collapse and an overbroad duplicate-history assertion.",
     "The corrected Product SHA passed the affected Android and Wasm tests plus Swift parse, iosX64 framework link, unsigned Intel Simulator host build and two exact iOS XCTest methods. Broader unchanged matrices were not repeated solely for the new SHA.",
+    "The seven product commits are patch-equivalent after recomposition onto the reviewed deep-link Retry head. Product SHA c124b994 preserves the affected runtime and test blobs from the clean execution head afc071c5; accumulated board and inventory prose was reconciled without weakening either unit.",
     "This closes the nested public member-profile back stack only. Scroll, drafts, editor state, media position and unrelated secondary back stacks remain separately bounded.",
     "No backend fixture, credential, push delivery or remote mutation was used."
   ]
