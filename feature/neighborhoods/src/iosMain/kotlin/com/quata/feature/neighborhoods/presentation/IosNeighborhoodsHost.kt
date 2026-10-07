@@ -187,6 +187,8 @@ class IosCommunityProfileHostDependencies(
     val onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     val authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     val authenticationContinuationOriginRoute: String = "communities",
+    val initialProfileRoute: List<String> = emptyList(),
+    val onProfileRouteChanged: (List<String>) -> Unit = {},
 )
 
 fun createIosCommunityProfileHostDependencies(
@@ -204,6 +206,8 @@ fun createIosCommunityProfileHostDependencies(
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     authenticationContinuationOriginRoute: String = "communities",
+    initialProfileRoute: List<String> = emptyList(),
+    onProfileRouteChanged: (List<String>) -> Unit = {},
 ): IosCommunityProfileHostDependencies = IosCommunityProfileHostDependencies(
     repository = repository,
     profileId = profileId,
@@ -219,18 +223,30 @@ fun createIosCommunityProfileHostDependencies(
     onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
     authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     authenticationContinuationOriginRoute = authenticationContinuationOriginRoute,
+    initialProfileRoute = initialProfileRoute,
+    onProfileRouteChanged = onProfileRouteChanged,
 )
 
 /** UIKit adapter for the same complete public-profile Compose root used by Android and Web. */
 fun QuataCommunityProfileViewController(
     dependencies: IosCommunityProfileHostDependencies,
 ): UIViewController = QuataComposeUIViewController {
-    val viewModel = remember(dependencies.repository) { NeighborhoodsViewModel(dependencies.repository) }
+    val viewModel = remember(dependencies.repository) {
+        NeighborhoodsViewModel(
+            repository = dependencies.repository,
+            initialProfileRoute = dependencies.initialProfileRoute,
+            onProfileRouteChanged = dependencies.onProfileRouteChanged,
+        )
+    }
     val scope = rememberCoroutineScope()
     val state by viewModel.uiState.collectAsState()
     var openingDocument by remember { mutableStateOf(false) }
     var documentFailure by remember { mutableStateOf<DocumentViewerState.Failed?>(null) }
-    LaunchedEffect(dependencies.profileId) { viewModel.openUserProfile(dependencies.profileId) }
+    LaunchedEffect(dependencies.profileId, dependencies.initialProfileRoute) {
+        if (dependencies.initialProfileRoute.isEmpty()) {
+            viewModel.openUserProfile(dependencies.profileId)
+        }
+    }
     DisposableEffect(viewModel) { onDispose { viewModel.close() } }
     QuataTheme {
         val profile = state.selectedProfile ?: dependencies.initialProfile
@@ -241,7 +257,10 @@ fun QuataCommunityProfileViewController(
                 retryLabel = communityProfileStringsForLanguage(dependencies.languageCode).retry,
                 backLabel = communityProfileStringsForLanguage(dependencies.languageCode).back,
                 onRetry = viewModel::retryFailedUserProfile,
-                onBack = dependencies.onClose,
+                onBack = {
+                    val closed = viewModel.closeUserProfile()
+                    if (closed) dependencies.onClose()
+                },
             )
         } else {
             val commentsTranslationGateway = remember(dependencies.languageCode) {

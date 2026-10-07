@@ -8,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.navigation.AuthenticationContinuationIntent
@@ -58,19 +60,38 @@ fun WebNeighborhoodsHost(
     onOpenUserRoute: (String) -> Unit,
     /** Feed author navigation enters the existing shared Community member profile surface. */
     initialMemberProfileId: String? = null,
+    initialProfileRoute: List<String> = emptyList(),
+    onProfileRouteChanged: (List<String>) -> Unit = {},
     requestedCommunityMembers: String? = null,
     onInitialMemberProfileClosed: () -> Unit = {},
     showInitialLoadingSurface: Boolean = true,
     padding: PaddingValues = PaddingValues(),
 ) {
-    val viewModel = remember(repository) { NeighborhoodsViewModel(repository) }
+    val viewModel = remember(repository) {
+        NeighborhoodsViewModel(
+            repository = repository,
+            initialProfileRoute = initialProfileRoute,
+            onProfileRouteChanged = onProfileRouteChanged,
+        )
+    }
     val state by viewModel.uiState.collectAsState()
+    var boundActorId by remember { mutableStateOf(currentUserId) }
 
     DisposableEffect(viewModel) {
         onDispose { viewModel.close() }
     }
-    androidx.compose.runtime.LaunchedEffect(initialMemberProfileId) {
-        initialMemberProfileId?.let(viewModel::openUserProfile)
+    androidx.compose.runtime.LaunchedEffect(currentUserId) {
+        if (boundActorId != currentUserId) {
+            viewModel.clearUserProfile()
+            boundActorId = currentUserId
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(initialMemberProfileId, initialProfileRoute) {
+        if (initialProfileRoute.lastOrNull() == initialMemberProfileId) {
+            viewModel.restoreProfileRoute(initialProfileRoute)
+        } else {
+            initialMemberProfileId?.let(viewModel::openUserProfile)
+        }
     }
 
     val selectedProfile = state.selectedProfile
@@ -101,8 +122,8 @@ fun WebNeighborhoodsHost(
                 backLabel = strings.profile.back,
                 onRetry = viewModel::retryFailedUserProfile,
                 onBack = {
-                    viewModel.dismissUserProfileLoadFailure()
-                    onInitialMemberProfileClosed()
+                    val closed = viewModel.closeUserProfile()
+                    if (closed) onInitialMemberProfileClosed()
                 },
             )
         }

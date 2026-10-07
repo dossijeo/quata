@@ -142,8 +142,11 @@ fun NeighborhoodsScreen(
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
     authenticationContinuationOriginRoute: String = "communities",
-    viewModel: NeighborhoodsAndroidViewModel = viewModel(factory = NeighborhoodsAndroidViewModel.factory(repository))
+    viewModel: NeighborhoodsAndroidViewModel = viewModel(
+        factory = NeighborhoodsAndroidViewModel.factory(repository, currentUserId),
+    )
 ) {
+    LaunchedEffect(currentUserId) { viewModel.bindActor(currentUserId) }
     val context = LocalContext.current
     val resources = LocalResources.current
     NeighborhoodsScreenHost(

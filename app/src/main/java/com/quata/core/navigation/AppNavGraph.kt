@@ -606,11 +606,25 @@ fun AppNavGraph(
             navigateBottomRoute(route)
         }
     }
+    val globalProfileOrigin = when {
+        currentRoute == null -> null
+        currentRoute == AppDestinations.Chat.route && currentConversationId != null ->
+            "${AppDestinations.Chat.route}:${currentConversationId.length}:$currentConversationId"
+        else -> currentRoute
+    }
     val globalProfileViewModel: NeighborhoodsAndroidViewModel = viewModel(
         key = "global_user_profile",
-        factory = NeighborhoodsAndroidViewModel.factory(container.neighborhoodRepository)
+        factory = NeighborhoodsAndroidViewModel.factory(
+            container.neighborhoodRepository,
+            currentUserId,
+            globalProfileOrigin,
+        )
     )
     val globalProfileState by globalProfileViewModel.uiState.collectAsState()
+    LaunchedEffect(currentUserId) { globalProfileViewModel.bindActor(currentUserId) }
+    LaunchedEffect(globalProfileOrigin) {
+        globalProfileOrigin?.let(globalProfileViewModel::bindOrigin)
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     var isAppForeground by remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
@@ -678,7 +692,7 @@ fun AppNavGraph(
 
         val chatDeepLink = incomingLinkValue?.quataChatDeepLinkOrNull()
         if (chatDeepLink != null) {
-            globalProfileViewModel.closeUserProfile()
+            globalProfileViewModel.clearUserProfile()
             feedFocusedPostId = null
             officialFocusedPostId = null
             persistedChatFocusConversationId = null
@@ -694,7 +708,7 @@ fun AppNavGraph(
         if (officialPostId != null) {
             officialFocusedPostId = officialPostId
             feedFocusedPostId = null
-            globalProfileViewModel.closeUserProfile()
+            globalProfileViewModel.clearUserProfile()
             persistedChatFocusConversationId = null
             persistedChatFocusedMessageId = null
             activeChatFocusConversationId = null
@@ -710,7 +724,7 @@ fun AppNavGraph(
         val postId = incomingLinkValue?.quataPostIdOrNull() ?: return@LaunchedEffect
         feedFocusedPostId = postId
         officialFocusedPostId = null
-        globalProfileViewModel.closeUserProfile()
+        globalProfileViewModel.clearUserProfile()
         persistedChatFocusConversationId = null
         persistedChatFocusedMessageId = null
         activeChatFocusConversationId = null
@@ -1172,7 +1186,10 @@ fun AppNavGraph(
                                     withContext(Dispatchers.IO) {
                                         runCatching { container.authRepository.logout() }
                                     }
-                                        .onSuccess { postComposerAuthenticationCoordinator.clear() }
+                                        .onSuccess {
+                                            globalProfileViewModel.clearUserProfile()
+                                            postComposerAuthenticationCoordinator.clear()
+                                        }
                                         .onFailure {
                                             Toast.makeText(appContext, R.string.error_backend_generic, Toast.LENGTH_LONG).show()
                                         }
@@ -1341,7 +1358,7 @@ fun AppNavGraph(
                     retryLabel = stringResource(R.string.common_retry),
                     backLabel = stringResource(R.string.common_back),
                     onRetry = globalProfileViewModel::retryFailedUserProfile,
-                    onBack = globalProfileViewModel::dismissUserProfileLoadFailure,
+                    onBack = { globalProfileViewModel.closeUserProfile() },
                 )
             }
 
@@ -1466,6 +1483,7 @@ fun AppNavGraph(
                         runCatching { container.authRepository.logout() }
                     }
                         .onSuccess {
+                            globalProfileViewModel.clearUserProfile()
                             postComposerAuthenticationCoordinator.clear()
                             ugcTermsAccepted = null
                             if (currentRoute != AppDestinations.Profile.route) navigateToFeed()

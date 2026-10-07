@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "unit": "FLOW-SHELL-NAV",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-10-06",
+  "productSha": "ea566b8563e19de6538c3badec26b1839656b9ef",
+  "git": {
+    "head": "ea566b8563e19de6538c3badec26b1839656b9ef",
+    "workingTreeDirty": false
+  },
+  "scope": "Actor- and origin-scoped restoration of the nested public member-profile route on Android, Web/Wasm and iOS",
+  "steps": [
+    "common_three_level_profile_route_restore_and_back_passed",
+    "failed_restored_child_back_to_parent_passed",
+    "late_route_restore_and_private_conversation_consumption_passed",
+    "android_actor_root_and_exact_conversation_scope_passed",
+    "android_debug_compile_passed",
+    "web_route_storage_browser_tests_passed",
+    "web_wasm_browser_tests_passed",
+    "ios_x64_common_focal_test_passed",
+    "ios_framework_link_passed",
+    "ios_route_store_xctests_passed",
+    "ios_unsigned_simulator_host_test_build_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "SavedStateHandle accepts only the exact actor and root or conversation origin",
+        "a Chat A snapshot is consumed rather than restored over Chat B",
+        "compileDebugKotlin and focal JVM tests passed"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "sessionStorage accepts only the exact actor and origin fragment",
+        "length-prefixed Unicode identifiers round-trip and malformed snapshots fail closed",
+        "wasmJsBrowserTest passed"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "UserDefaults accepts only the exact actor and origin",
+        "common failed-child Back returns to its retained parent",
+        "Intel Simulator framework and focal XCTest host passed without distribution signing"
+      ]
+    }
+  },
+  "assertions": [
+    "only successfully visible profiles are published to persistent storage",
+    "the snapshot contains successful parents followed by the current profile without duplicates",
+    "Back publishes the valid parent before loading it",
+    "a failed restored child keeps the exact target for Retry and returns to its retained parent on Back",
+    "superseded and failed new opens do not add phantom entries",
+    "successful private-conversation navigation consumes the profile route before leaving",
+    "explicit close, incompatible deep link, logout, actor mismatch and origin mismatch clear the snapshot",
+    "Android distinguishes two concrete conversations even though they share one destination pattern"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no backend fixture, credential, push delivery or remote mutation used"
+  },
+  "limitations": [
+    "This closes the durable nested public member-profile route only; scroll, drafts, editor state, media position and unrelated secondary back stacks retain their own units.",
+    "iOS verification uses the authorized Intel Simulator and an unsigned host test build; it makes no App Store, APNs or physical-device claim.",
+    "GitHub final jobs retain clean-runner integrated certification."
+  ],
+  "validationProvenance": {
+    "androidAndWeb": "Affected patches are 7/7 patch-id equivalent to Product SHA 78761dff5b2ebb843cada60807987681a8ae1d0e, and all affected Android/Web blobs are byte-identical; their passed focal evidence is reused.",
+    "ios": "The iOS common focal test, x64 framework link and two selected Xcode Simulator tests were rerun successfully at this exact Product SHA because the integrated base also changed QuataIosApp.swift."
+  }
+}

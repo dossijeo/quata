@@ -327,6 +327,62 @@ final class IosAppearancePreferences {
     }
 }
 
+struct IosMemberProfileRouteSnapshot: Equatable {
+    let actorId: String?
+    let originRoute: String
+    let profileIds: [String]
+}
+
+/// Persists only the common profile stack after Kotlin confirms that its current destination is
+/// visible. The actor and shell origin are part of the snapshot so a restored modal can never
+/// cross an authentication boundary or cover a different primary route.
+final class IosMemberProfileRouteStore {
+    private enum Key {
+        static let actor = "quata_ios_member_profile_route_actor"
+        static let origin = "quata_ios_member_profile_route_origin"
+        static let ids = "quata_ios_member_profile_route_ids"
+        static let anonymousActor = "__quata_anonymous__"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func save(actorId: String?, originRoute: String, profileIds: [String]) {
+        let ids = profileIds.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard ids.count == profileIds.count, !ids.isEmpty, !originRoute.isEmpty else {
+            clear()
+            return
+        }
+        defaults.set(actorId ?? Key.anonymousActor, forKey: Key.actor)
+        defaults.set(originRoute, forKey: Key.origin)
+        defaults.set(ids, forKey: Key.ids)
+    }
+
+    func restore(actorId: String?, originRoute: String) -> IosMemberProfileRouteSnapshot? {
+        guard
+            let storedActor = defaults.string(forKey: Key.actor),
+            let storedOrigin = defaults.string(forKey: Key.origin),
+            let ids = defaults.stringArray(forKey: Key.ids),
+            !ids.isEmpty,
+            storedActor == (actorId ?? Key.anonymousActor),
+            storedOrigin == originRoute
+        else {
+            clear()
+            return nil
+        }
+        return IosMemberProfileRouteSnapshot(actorId: actorId, originRoute: storedOrigin, profileIds: ids)
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: Key.actor)
+        defaults.removeObject(forKey: Key.origin)
+        defaults.removeObject(forKey: Key.ids)
+    }
+}
+
 /// The common profile's modal sheet owns a Compose window above its full-screen UIKit host.
 /// The document service retains this provider; a weak controller avoids retaining the profile.
 private final class IosMemberProfileDocumentPresenter: NSObject, IosViewControllerProvider {
@@ -380,9 +436,11 @@ final class IosAuthenticatedSessionGenerationGuard {
 private final class IosAppCompositionRoot {
     let notificationRecipientGate = NotificationRecipientGate()
     private let appearancePreferences = IosAppearancePreferences()
+    private let memberProfileRouteStore = IosMemberProfileRouteStore()
     /// A Keychain entry is not an authenticated session until launch validation accepts it.
     /// This flag gates every private factory while the public Feed remains available first.
     private var hasValidatedAuthenticatedSession = false
+    private var hasCompletedSessionValidation = false
     private var retiringChatDraftActorId: String?
     private let authenticatedSessionGeneration = IosAuthenticatedSessionGenerationGuard()
     private var hasEvaluatedWhatsNewStartup = false
@@ -627,6 +685,7 @@ private final class IosAppCompositionRoot {
             self?.authenticatedHost.restoreRouteAfterForeground()
             self?.installNotificationsIfAvailable()
             self?.presentPendingExternalShareIfAvailable()
+            self?.restoreMemberProfileRouteIfAvailable()
         }
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
@@ -666,6 +725,7 @@ private final class IosAppCompositionRoot {
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
+        memberProfileRouteStore.clear()
         guard hasValidatedAuthenticatedSession, let runtimeBootstrap else {
             _ = deepLinkDispatcher.handleUrl(url: url.absoluteString)
             return true
@@ -1295,13 +1355,16 @@ private final class IosAppCompositionRoot {
     /// replace it with authenticated dependencies; a failed refresh leaves the public route up.
     private func validateRestoredFeedSessionAsynchronously() {
         guard let runtimeBootstrap else {
+            hasCompletedSessionValidation = true
             notificationRecipientGate.completeValidation(profileId: nil)
+            restoreMemberProfileRouteIfAvailable()
             return
         }
         let restorationGeneration = notificationRecipientGate.generation
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
                 guard let self, self.notificationRecipientGate.generation == restorationGeneration else { return }
+                self.hasCompletedSessionValidation = true
                 IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(
                     validated: validated.boolValue,
                     installAuthenticatedSession: {
@@ -1309,6 +1372,7 @@ private final class IosAppCompositionRoot {
                         self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self.installRestoredFeedSessionIfAvailable()
                         self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        self.restoreMemberProfileRouteIfAvailable()
                         self.evaluateWhatsNewStartupIfAvailable()
                     },
                     deliverPendingDeepLink: {
@@ -1316,6 +1380,9 @@ private final class IosAppCompositionRoot {
                             expectedGeneration: restorationGeneration,
                             profileId: validated.boolValue ? self.renewableAuthSession?.restoredSession()?.userId : nil)
                         self.drainPendingStartupDeepLinkIfNeeded()
+                        if !validated.boolValue {
+                            self.restoreMemberProfileRouteIfAvailable()
+                        }
                     },
                 )
             }
@@ -1709,9 +1776,10 @@ private final class IosAppCompositionRoot {
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(
         profileId: String,
-        initialProfile: CommunityUserProfile? = nil
+        initialProfile: CommunityUserProfile? = nil,
+        restoredRoute: [String]? = nil
     ) {
-        if initialProfile == nil {
+        if initialProfile == nil, restoredRoute == nil {
             guard memberProfileOpeningState.begin(profileId: profileId) else { return }
             guard let memberProfilePreloader else {
                 memberProfileOpeningState.finish(profileId: profileId)
@@ -1733,6 +1801,8 @@ private final class IosAppCompositionRoot {
         }
         let authenticated = hasValidatedAuthenticatedSession
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
+        let actorId = communitiesBootstrap.restoredCurrentUserId()
+        let originRoute = authenticatedHost.authenticationContinuationOriginRoute()
         let profileDocumentPresenter = IosMemberProfileDocumentPresenter()
         let profileDocumentOpener: DocumentOpenService = {
             guard authenticated, let configuration = runtimeConfiguration, let session = renewableAuthSession else {
@@ -1754,13 +1824,14 @@ private final class IosAppCompositionRoot {
         }()
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
+            self.memberProfileRouteStore.clear()
             self.authenticatedHost.dismiss(animated: true)
         }
         let dependencies = IosNeighborhoodsHostKt.createIosCommunityProfileHostDependencies(
             repository: communitiesBootstrap.repository,
             profileId: profileId,
             initialProfile: initialProfile,
-            currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+            currentUserId: actorId,
             languageCode: Locale.current.languageCode ?? "en",
             mediaFactory: IosFeedNativeMediaFactory.shared,
             documentOpener: profileDocumentOpener,
@@ -1768,6 +1839,7 @@ private final class IosAppCompositionRoot {
             onClose: onClose,
             onOpenConversation: { [weak self] conversationId in
                 guard let self else { return }
+                self.memberProfileRouteStore.clear()
                 self.authenticatedHost.dismiss(animated: true) {
                     if self.hasValidatedAuthenticatedSession {
                         self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
@@ -1790,7 +1862,20 @@ private final class IosAppCompositionRoot {
                 }
             },
             authenticationContinuationCoordinator: authenticationContinuationCoordinator,
-            authenticationContinuationOriginRoute: authenticatedHost.authenticationContinuationOriginRoute(),
+            authenticationContinuationOriginRoute: originRoute,
+            initialProfileRoute: restoredRoute ?? [],
+            onProfileRouteChanged: { [weak self] profileIds in
+                guard let self else { return }
+                if profileIds.isEmpty {
+                    self.memberProfileRouteStore.clear()
+                } else {
+                    self.memberProfileRouteStore.save(
+                        actorId: actorId,
+                        originRoute: originRoute,
+                        profileIds: profileIds
+                    )
+                }
+            },
         )
         let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
             dependencies: dependencies
@@ -1798,6 +1883,17 @@ private final class IosAppCompositionRoot {
         profileDocumentPresenter.controller = controller
         controller.modalPresentationStyle = .fullScreen
         authenticatedHost.present(controller, animated: true)
+    }
+
+    private func restoreMemberProfileRouteIfAvailable() {
+        guard hasCompletedSessionValidation, authenticatedHost.presentedViewController == nil else { return }
+        let actorId = hasValidatedAuthenticatedSession
+            ? communitiesRuntimeBootstrap?.restoredCurrentUserId()
+            : nil
+        let originRoute = authenticatedHost.authenticationContinuationOriginRoute()
+        guard let snapshot = memberProfileRouteStore.restore(actorId: actorId, originRoute: originRoute),
+              let profileId = snapshot.profileIds.last else { return }
+        presentAuthenticatedMemberProfile(profileId: profileId, restoredRoute: snapshot.profileIds)
     }
 
     private func presentMemberProfileLoadFailure(profileId: String, message: String?) {
@@ -2154,6 +2250,7 @@ private final class IosAppCompositionRoot {
                 self?.setValidatedAuthenticatedSession(false)
                 self?.authenticationContinuationCoordinator.clearAll()
                 self?.postComposerAuthenticationCoordinator.clear()
+                self?.memberProfileRouteStore.clear()
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()
                 self?.apnsRuntime?.logoutCompleted()
@@ -2183,6 +2280,9 @@ private final class IosAppCompositionRoot {
                         self?.notificationRecipientGate.completeValidation(
                             profileId: self?.renewableAuthSession?.restoredSession()?.userId)
                         self?.authenticatedHost.refreshVisibleRouteAfterAuthentication()
+                        if pendingCommunityProfileId == nil {
+                            self?.restoreMemberProfileRouteIfAvailable()
+                        }
                         if let profileId = pendingCommunityProfileId {
                             DispatchQueue.main.async {
                                 self?.authenticatedHost.dismiss(animated: false) {
@@ -3721,7 +3821,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         switch visibleRoute {
         case .official: return "official"
         case .communities: return "communities"
-        case .chat: return "chat"
+        case let .chat(conversationId, _):
+            guard let conversationId, !conversationId.isEmpty else { return "chat" }
+            return "chat:\(conversationId)"
         default: return "feed"
         }
     }

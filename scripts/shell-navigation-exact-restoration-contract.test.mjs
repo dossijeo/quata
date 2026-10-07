@@ -45,6 +45,21 @@ test("iOS persists and restores the exact Chat conversation and message without 
   assert.match(ios, /JSONDecoder\(\)\.decode\(PersistedChatRoute\.self/);
   assert.match(ios, /persistPrimaryRoute\("feed"\)/);
   assert.match(iosTests, /testExactChatConversationAndFocusedMessageSurviveRouterRecreation/);
+  assert.match(ios, /case let \.chat\(conversationId, _\):[\s\S]*return "chat:\\\(conversationId\)"/);
+  assert.match(iosTests, /testMemberProfileOriginSeparatesExactChatConversations/);
+  assert.match(iosTests, /"chat:sb:conversation-a"/);
+  assert.match(iosTests, /"chat:sb:conversation-b"/);
+});
+
+test("Android failed restored profile Back returns through the retained parent", () => {
+  assert.match(
+    android,
+    /failedProfileUserId[\s\S]*CommunityProfileLoadStateContent\([\s\S]*onBack = \{ globalProfileViewModel\.closeUserProfile\(\) \}/,
+  );
+  assert.doesNotMatch(
+    android,
+    /failedProfileUserId[\s\S]*CommunityProfileLoadStateContent\([\s\S]*onBack = globalProfileViewModel::dismissUserProfileLoadFailure/,
+  );
 });
 
 test("iOS persists exact Feed and Official post routes without storing post content", () => {
