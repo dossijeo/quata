@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "574d1ee1fdc9995e701a95294a946b149d708c0d",
-  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-pending",
+  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "COMMUNITIES_DIRECTORY_EXHAUSTIVE_PAGINATION_AND_REALTIME_INVALIDATION",
   "evidence": {
     "crossPlatform": {
@@ -75,8 +75,8 @@
     "production publication SQL audit after reconnect"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "9cb44ddfa36da445f026823279f48f9f2cf8005c",
     "reviewedProductSha": "574d1ee1fdc9995e701a95294a946b149d708c0d",
     "blockingFindings": [],
     "scopeLimit": "The exact-head independent review verified the recomposed public/authenticated production Realtime receipt and its deliberately narrow delivery claim. Final CI remains separate."
