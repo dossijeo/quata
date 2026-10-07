@@ -7483,7 +7483,7 @@ try {
     if (faults.length) throw new Error("browser_runtime_fault");
     report.status = "passed";
     report.check = "FLOW-DEEP-LINKS-WEB-RETRY-001";
-    report.steps.push("deep_link_failure_visible", "native_retry_clicked", "exact_conversation_recovered", "back_to_chats");
+    report.steps.push("deep_link_failure_visible", "native_retry_clicked", "exact_conversation_recovered", "back_to_previous_surface");
     report.fixture = {
       conversationId: "local:document-retry",
       messageId: "local-document-retry-message",

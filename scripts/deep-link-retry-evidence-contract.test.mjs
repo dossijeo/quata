@@ -64,6 +64,7 @@ test("Web retry is localhost-only and the browser runner clicks the real Compose
   assert.match(runner, /await retry\.evaluate\(\(element\) => element\.click\(\)\)/);
   assert.match(runner, /deep_link_retry_back_failed/);
   assert.match(runner, /current === "feed" \|\| current === "chats"/);
+  assert.match(runner, /"back_to_previous_surface"/);
   assert.match(runner, /FLOW-DEEP-LINKS-WEB-RETRY-001/);
   assert.match(runner, /backend: "not_used"/);
 });
