@@ -162,6 +162,59 @@ class ProfilePostflightInstrumentedTest {
     }
 
     @Test
+    fun authenticatedGlobalLogoutRevokesTwoSessionsAndReturnsToPublicFeed() = runBlocking {
+        val credentialsFile = optionalArgument("quataAccountPostflightCredentialsFile")
+        assumeTrue(
+            "AUTH-GLOBAL-LOGOUT-ANDROID-REAL-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataAuthGlobalLogoutEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val firstSession = requireNotNull(app.container.sessionManager.currentSession())
+        assertTrue("android_auth_global_logout_first_session_missing", firstSession.isSupabaseAuthenticated())
+        val firstClaims = authClaims(firstSession.bearerToken)
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val secondSession = requireNotNull(app.container.sessionManager.currentSession())
+        assertTrue("android_auth_global_logout_second_session_missing", secondSession.isSupabaseAuthenticated())
+        val secondClaims = authClaims(secondSession.bearerToken)
+        assertEquals("android_auth_global_logout_actor_changed", firstClaims.getString("sub"), secondClaims.getString("sub"))
+        assertTrue(
+            "android_auth_global_logout_sessions_not_distinct",
+            firstClaims.getString("session_id") != secondClaims.getString("session_id"),
+        )
+
+        ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            waitFor(ProfileManagementOpenTestTag)
+            tap(ProfileManagementOpenTestTag)
+            waitFor(ProfileLogoutEverywhereOpenTestTag)
+            tap(ProfileLogoutEverywhereOpenTestTag)
+            waitFor(ProfileDangerDialogTestTag)
+            screenshot("android-auth-global-logout-confirmation")
+            writePrivateGlobalLogoutReceipt(
+                authUserId = secondClaims.getString("sub"),
+                authSessionIds = listOf(firstClaims.getString("session_id"), secondClaims.getString("session_id")),
+                refreshTokens = listOf(
+                    requireNotNull(firstSession.refreshToken) { "android_auth_global_logout_first_refresh_token_missing" },
+                    requireNotNull(secondSession.refreshToken) { "android_auth_global_logout_second_refresh_token_missing" },
+                ),
+            )
+            tap(ProfileDangerConfirmTestTag)
+            compose.waitUntil(30_000) { app.container.sessionManager.currentSession() == null }
+            compose.waitUntil(10_000) { app.container.sessionManager.authState.value is AuthState.LoggedOut }
+            waitFor(FeedRootTestTag)
+            waitForGone(ProfileLogoutTestTag)
+            screenshot("android-auth-global-logout-public-feed")
+        }
+        ActivityScenario.launch<MainActivity>(mainIntent("feed")).use {
+            waitFor(FeedRootTestTag)
+            waitForGone(ProfileLogoutTestTag)
+            assertTrue("android_auth_global_logout_session_restored_after_relaunch", app.container.sessionManager.currentSession() == null)
+        }
+        writeGlobalLogoutReport(secondSession.userId, listOf(firstClaims.getString("session_id"), secondClaims.getString("session_id")))
+    }
+
+    @Test
     fun authenticatedAccountLifecycleActionExecutesFromProductUi() = runBlocking {
         val credentialsFile = optionalArgument("quataAccountPostflightCredentialsFile")
         val action = optionalArgument("quataAccountLifecycleAction")
@@ -278,6 +331,22 @@ class ProfilePostflightInstrumentedTest {
         )
     }
 
+    private fun writePrivateGlobalLogoutReceipt(
+        authUserId: String,
+        authSessionIds: List<String>,
+        refreshTokens: List<String>,
+    ) {
+        val directory = File(targetContext.filesDir, "account-postflight-private")
+            .also { check(it.exists() || it.mkdirs()) }
+        File(directory, "android-auth-global-logout-private.json").writeText(
+            JSONObject()
+                .put("authUserId", authUserId)
+                .put("authSessionIds", JSONArray(authSessionIds))
+                .put("refreshTokens", JSONArray(refreshTokens))
+                .toString() + "\n",
+        )
+    }
+
     private fun writeLogoutReport(profileId: String, authSessionId: String, pushToken: String) {
         File(evidenceDir(), "android-auth-logout-evidence.json").writeText(
             JSONObject()
@@ -301,6 +370,40 @@ class ProfilePostflightInstrumentedTest {
                 .toString(2) + "\n",
         )
     }
+
+    private fun writeGlobalLogoutReport(profileId: String, authSessionIds: List<String>) {
+        File(evidenceDir(), "android-auth-global-logout-evidence.json").writeText(
+            JSONObject()
+                .put("check", "AUTH-GLOBAL-LOGOUT-ANDROID-REAL-001")
+                .put("status", "passed")
+                .put("actorProfileIdSha256", sha256(profileId))
+                .put("authSessionIdSha256", JSONArray(authSessionIds.map(::sha256)))
+                .put("steps", JSONArray(listOf(
+                    "two_owned_auth_sessions_created",
+                    "shared_account_management_opened",
+                    "global_logout_confirmation_visible",
+                    "global_logout_confirmed_once",
+                    "local_session_cleared_after_global_success",
+                    "public_feed_visible_after_relaunch",
+                )))
+                .put("sessionCleared", true)
+                .put("screenshots", JSONArray(listOf(
+                    "android-auth-global-logout-confirmation.png",
+                    "android-auth-global-logout-public-feed.png",
+                )))
+                .toString(2) + "\n",
+        )
+    }
+
+    private fun authClaims(bearerToken: String): JSONObject = JSONObject(
+        String(
+            Base64.decode(
+                bearerToken.split('.').getOrNull(1) ?: error("android_auth_logout_jwt_payload_missing"),
+                Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
+            ),
+            Charsets.UTF_8,
+        ),
+    )
 
     private fun writeLifecycleReport(profileId: String, action: String) {
         File(evidenceDir(), "android-account-lifecycle-$action-evidence.json").writeText(

@@ -12,6 +12,7 @@ const { Client } = pg;
 const RAW_ARGS = process.argv.slice(2);
 const SETTINGS_LOGOUT_MODE = RAW_ARGS.includes("--settings-logout");
 const LOGOUT_MODE = RAW_ARGS.includes("--logout") || SETTINGS_LOGOUT_MODE;
+const GLOBAL_LOGOUT_MODE = RAW_ARGS.includes("--global-logout");
 const VERIFY_BACKEND_REVOCATION = RAW_ARGS.includes("--verify-backend-revocation");
 const lifecycleIndex = RAW_ARGS.indexOf("--lifecycle-action");
 const LIFECYCLE_ACTION = lifecycleIndex >= 0 ? RAW_ARGS[lifecycleIndex + 1] : "";
@@ -19,9 +20,12 @@ if (LIFECYCLE_ACTION && !["deactivate", "delete"].includes(LIFECYCLE_ACTION)) {
   throw new Error("invalid_lifecycle_action");
 }
 const LIFECYCLE_MODE = Boolean(LIFECYCLE_ACTION);
-if (LOGOUT_MODE && LIFECYCLE_MODE) throw new Error("conflicting_account_postflight_modes");
+if ((LOGOUT_MODE ? 1 : 0) + (GLOBAL_LOGOUT_MODE ? 1 : 0) + (LIFECYCLE_MODE ? 1 : 0) > 1) {
+  throw new Error("conflicting_account_postflight_modes");
+}
 if (VERIFY_BACKEND_REVOCATION && !LOGOUT_MODE) throw new Error("backend_revocation_requires_logout_mode");
-const CHECK = LIFECYCLE_MODE ? `ACCOUNT-LIFECYCLE-IOS-${LIFECYCLE_ACTION.toUpperCase()}-REAL-001`
+const CHECK = GLOBAL_LOGOUT_MODE ? "AUTH-GLOBAL-LOGOUT-IOS-REAL-001"
+  : LIFECYCLE_MODE ? `ACCOUNT-LIFECYCLE-IOS-${LIFECYCLE_ACTION.toUpperCase()}-REAL-001`
   : SETTINGS_LOGOUT_MODE ? "AUTH-LOGOUT-ENTRYPOINTS-IOS-SETTINGS-001"
   : LOGOUT_MODE ? "AUTH-LOGOUT-IOS-REAL-001" : "ACCOUNT-POSTFLIGHT-IOS-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
@@ -75,7 +79,7 @@ printf '{"head":"%s","workingTreeDirty":%s}\\n' "$head" "$dirty"
   remoteRuntimeBackup = await prepareRemotePublicRuntimeConfig(options);
   report.steps.push("ios_public_runtime_xcconfig_prepared_transiently");
 
-  if (VERIFY_BACKEND_REVOCATION) {
+  if (VERIFY_BACKEND_REVOCATION || GLOBAL_LOGOUT_MODE) {
     remoteLogoutReceiptDir = (await runCapture("ssh", [options.host, "mktemp", "-d", "/tmp/quata-ios-auth-logout-receipt.XXXXXX"])).trim();
     await run("ssh", [options.host, "chmod", "700", remoteLogoutReceiptDir]);
     localLogoutReceiptDir = await mkdirTemp("quata-ios-auth-logout-receipt-");
@@ -93,7 +97,16 @@ scripts/build-ios-intel-simulator-signed.sh
   report.attempts.push(await runAttempt());
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.error ?? "unknown"}`);
-  if (LIFECYCLE_MODE) {
+  if (GLOBAL_LOGOUT_MODE) {
+    report.steps.push("ios_two_owned_auth_sessions_created");
+    report.steps.push("ios_global_logout_confirmation_activated_once");
+    report.steps.push("ios_public_feed_visible_after_global_logout");
+    report.steps.push("ios_keychain_session_absent_after_global_logout_relaunch");
+    report.backendRevocation = await verifyGlobalBackendRevocation();
+    report.steps.push("ios_both_owned_auth_sessions_revoked_remotely");
+    report.steps.push("ios_both_owned_refresh_tokens_rejected");
+    report.steps.push("ios_all_actor_device_endpoints_retired");
+  } else if (LIFECYCLE_MODE) {
     report.steps.push(`ios_account_lifecycle_${LIFECYCLE_ACTION}_product_control_activated_once`);
     report.steps.push("ios_public_feed_visible_after_account_lifecycle_action");
     report.steps.push("ios_keychain_session_absent_after_lifecycle_relaunch");
@@ -174,7 +187,11 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
     export QUATA_IOS_AUTH_LOGOUT_SESSION_RECEIPT_FILE=${shellQuote(
       VERIFY_BACKEND_REVOCATION ? `${remoteLogoutReceiptDir}/session.json` : "",
     )}
+    export QUATA_IOS_AUTH_GLOBAL_LOGOUT_RECEIPT_FILE=${shellQuote(
+      GLOBAL_LOGOUT_MODE ? `${remoteLogoutReceiptDir}/global-session.json` : "",
+    )}
     export QUATA_IOS_AUTH_LOGOUT_UI_E2E=${shellQuote(LOGOUT_MODE ? "1" : "0")}
+    export QUATA_IOS_AUTH_GLOBAL_LOGOUT_UI_E2E=${shellQuote(GLOBAL_LOGOUT_MODE ? "1" : "0")}
     export QUATA_IOS_SETTINGS_LOGOUT_UI_E2E=${shellQuote(SETTINGS_LOGOUT_MODE ? "1" : "0")}
     export QUATA_IOS_ACCOUNT_LIFECYCLE_UI_E2E=${shellQuote(LIFECYCLE_MODE ? "1" : "0")}
     export QUATA_IOS_ACCOUNT_LIFECYCLE_ACTION=${shellQuote(LIFECYCLE_ACTION)}
@@ -182,7 +199,8 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
     export QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_RESULT_BUNDLE_DIR=${shellQuote(`${options.remoteLogDir}/xcresults`)}
     bash scripts/run-ios-account-postflight-ui-test.sh
 `);
-    return { source: LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}`
+    return { source: GLOBAL_LOGOUT_MODE ? "auth-global-logout-postflight"
+      : LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}`
       : SETTINGS_LOGOUT_MODE ? "settings-logout-postflight"
       : LOGOUT_MODE ? "auth-logout-postflight" : "account-postflight", outcome: "success", status: "passed",
       remoteLogDir: options.remoteLogDir, productControlActivations: LIFECYCLE_MODE ? 1 : undefined };
@@ -196,25 +214,31 @@ function parseArgs(args) {
     host: process.env.QUATA_IOS_SSH_HOST?.trim() || "quata-mac",
     project: process.env.QUATA_IOS_MAC_PROJECT?.trim() || "/Users/gabriel/Documents/Projects/quata",
     derivedDataPath: process.env.QUATA_IOS_DERIVED_DATA_PATH?.trim() || "build/ios-intel-simulator-signed-derived-data",
-    remoteLogDir: process.env.QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR?.trim() || (LIFECYCLE_MODE
+    remoteLogDir: process.env.QUATA_IOS_ACCOUNT_POSTFLIGHT_UI_LOG_DIR?.trim() || (GLOBAL_LOGOUT_MODE
+      ? "build/reports/ios/AUTH-GLOBAL-LOGOUT-ui"
+      : LIFECYCLE_MODE
       ? `build/reports/ios/ACCOUNT-LIFECYCLE-${LIFECYCLE_ACTION}-ui`
       : SETTINGS_LOGOUT_MODE ? "build/reports/ios/AUTH-LOGOUT-SETTINGS-ui"
       : LOGOUT_MODE ? "build/reports/ios/AUTH-LOGOUT-ui" : "build/reports/ios/ACCOUNT-POSTFLIGHT-ui"),
-    output: join("build-reports", "ios", LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence.json`
+    output: join("build-reports", "ios", GLOBAL_LOGOUT_MODE ? "auth-global-logout-evidence.json"
+      : LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence.json`
       : SETTINGS_LOGOUT_MODE ? "auth-logout-settings-evidence.json"
       : LOGOUT_MODE ? "auth-login-logout-evidence.json" : "account-postflight-evidence.json"),
-    evidenceDir: join("build-reports", "ios", LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence`
+    evidenceDir: join("build-reports", "ios", GLOBAL_LOGOUT_MODE ? "auth-global-logout-evidence"
+      : LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}-evidence`
       : SETTINGS_LOGOUT_MODE ? "auth-logout-settings-evidence"
       : LOGOUT_MODE ? "auth-login-logout-evidence" : "account-postflight-evidence"),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     dbUrlFile: process.env.QUATA_SUPABASE_DB_URL_FILE?.trim() || "",
     tlsCaFile: process.env.QUATA_SUPABASE_DB_TLS_CA_FILE?.trim() || "",
+    python: process.env.QUATA_PYTHON?.trim() || "python",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
     if (key === "--logout") continue;
+    if (key === "--global-logout") continue;
     if (key === "--settings-logout") continue;
     if (key === "--verify-backend-revocation") continue;
     if (key === "--lifecycle-action") {
@@ -234,17 +258,18 @@ function parseArgs(args) {
       if (key === "--simulator") parsed.simulatorUdid = value;
     } else if (key === "--build-first") {
       parsed.buildFirst = true;
-    } else if (["--db-url-file", "--tls-ca-file"].includes(key)) {
+    } else if (["--db-url-file", "--tls-ca-file", "--python"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
       if (key === "--db-url-file") parsed.dbUrlFile = value;
-      else parsed.tlsCaFile = value;
+      else if (key === "--tls-ca-file") parsed.tlsCaFile = value;
+      else parsed.python = value;
     } else {
       throw new Error(`unknown_argument:${key}`);
     }
   }
   if (!parsed.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
-  if (VERIFY_BACKEND_REVOCATION && (!parsed.dbUrlFile || !parsed.tlsCaFile)) {
+  if ((VERIFY_BACKEND_REVOCATION || GLOBAL_LOGOUT_MODE) && (!parsed.dbUrlFile || !parsed.tlsCaFile)) {
     throw new Error("backend_revocation_private_db_input_required");
   }
   parsed.output = resolve(parsed.output);
@@ -287,6 +312,25 @@ async function verifyBackendRevocation() {
   } finally {
     await client.end();
   }
+}
+
+async function verifyGlobalBackendRevocation() {
+  const remote = `${options.host}:${remoteLogoutReceiptDir}/global-session.json`;
+  const local = join(localLogoutReceiptDir, "global-session.json");
+  await run("scp", [remote, local]);
+  const privateReceipt = await readFile(local);
+  const output = await runCapture(options.python, [
+    "scripts/auth-global-logout-remote-verification.py",
+    "--db-url-file", options.dbUrlFile,
+    "--db-ca-file", options.tlsCaFile,
+  ], { input: privateReceipt });
+  const result = JSON.parse(output);
+  if (result?.status !== "passed" || result.ownedAuthSessionsRevoked !== true ||
+      result.ownedRefreshTokensRevoked !== true || result.allDeviceEndpointsRetired !== true ||
+      result.refreshTokensRejected !== 2) {
+    throw new Error("ios_auth_global_logout_remote_effects_unverified");
+  }
+  return result;
 }
 
 function isUuid(value) {

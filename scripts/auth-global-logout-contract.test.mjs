@@ -105,3 +105,42 @@ test("Web acceptance drives the product confirmation and proves two-session reti
   assert.match(runner, /activeWebPushSubscriptions !== 0/);
   assert.match(runner, /activeWebSessions !== 0/);
 });
+
+test("Android acceptance confirms the shared action and verifies both owned sessions remotely", async () => {
+  const [instrumented, runner, verifier, manifest] = await Promise.all([
+    source("app/src/androidTest/java/com/quata/feature/profile/presentation/ProfilePostflightInstrumentedTest.kt"),
+    source("scripts/account-postflight-android-evidence.mjs"),
+    source("scripts/auth-global-logout-remote-verification.py"),
+    source("package.json"),
+  ]);
+  assert.match(manifest, /"evidence:auth-global-logout-android"[^\n]+--global-logout/);
+  assert.match(instrumented, /authenticatedGlobalLogoutRevokesTwoSessionsAndReturnsToPublicFeed/);
+  assert.match(instrumented, /tap\(ProfileLogoutEverywhereOpenTestTag\)[\s\S]*?tap\(ProfileDangerConfirmTestTag\)/);
+  assert.match(instrumented, /firstClaims\.getString\("session_id"\) != secondClaims\.getString\("session_id"\)/);
+  assert.match(runner, /auth-global-logout-remote-verification\.py/);
+  assert.match(verifier, /from auth\.sessions/);
+  assert.match(verifier, /from auth\.refresh_tokens/);
+  for (const relation of ["push_tokens", "web_push_subscriptions", "web_client_sessions"]) {
+    assert.match(verifier, new RegExp(`from public\\.${relation}`));
+  }
+  assert.match(verifier, /refreshTokensRejected/);
+});
+
+test("iOS acceptance seeds two sessions and confirms the shared global action", async () => {
+  const [seeder, ui, shell, runner, manifest] = await Promise.all([
+    source("iosApp/iosAppTests/QuataIosAuthenticatedSessionSeederTests.swift"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedAccountPostflightUITests.swift"),
+    source("scripts/run-ios-account-postflight-ui-test.sh"),
+    source("scripts/account-postflight-ios-evidence.mjs"),
+    source("package.json"),
+  ]);
+  assert.match(manifest, /"evidence:auth-global-logout-ios"[^\n]+--global-logout/);
+  assert.match(seeder, /testSeedTwoAuthenticatedSessionsForGlobalLogout/);
+  assert.match(seeder, /records\[0\]\.sessionId != records\[1\]\.sessionId/);
+  assert.match(ui, /testAuthenticatedGlobalLogoutConfirmsAndReturnsToPublicFeed/);
+  assert.match(ui, /tapIdentifier\("profile\.management\.logout-everywhere"[\s\S]*?tapIdentifier\("profile\.management\.confirm"/);
+  assert.match(shell, /QUATA_IOS_AUTH_GLOBAL_LOGOUT_UI_E2E/);
+  assert.match(shell, /testSeedTwoAuthenticatedSessionsForGlobalLogout/);
+  assert.match(runner, /verifyGlobalBackendRevocation\(\)/);
+  assert.match(runner, /auth-global-logout-remote-verification\.py/);
+});

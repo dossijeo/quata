@@ -5,12 +5,17 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const LOGOUT_MODE = process.argv.slice(2).includes("--logout");
+const GLOBAL_LOGOUT_MODE = process.argv.slice(2).includes("--global-logout");
 const LIFECYCLE_ACTION = argumentValue(process.argv.slice(2), "--lifecycle-action");
 if (LIFECYCLE_ACTION != null && !["deactivate", "delete"].includes(LIFECYCLE_ACTION)) {
   throw new Error("invalid_lifecycle_action");
 }
 const LIFECYCLE_MODE = LIFECYCLE_ACTION != null;
-const CHECK = LOGOUT_MODE ? "AUTH-LOGOUT-ANDROID-001"
+if ((LOGOUT_MODE ? 1 : 0) + (GLOBAL_LOGOUT_MODE ? 1 : 0) + (LIFECYCLE_MODE ? 1 : 0) > 1) {
+  throw new Error("conflicting_account_postflight_modes");
+}
+const CHECK = GLOBAL_LOGOUT_MODE ? "AUTH-GLOBAL-LOGOUT-ANDROID-REAL-001"
+  : LOGOUT_MODE ? "AUTH-LOGOUT-ANDROID-001"
   : LIFECYCLE_MODE ? "ACCOUNT-LIFECYCLE-ANDROID-REAL-001" : "ACCOUNT-POSTFLIGHT-ANDROID-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -20,6 +25,7 @@ const deviceCredentialsPath = `app-internal:${deviceCredentialsFileName}`;
 const appFilesDir = "files";
 const deviceEvidencePath = `${appFilesDir}/account-postflight-evidence`;
 const devicePrivateLogoutPath = `${appFilesDir}/account-postflight-private/android-auth-logout-private.json`;
+const devicePrivateGlobalLogoutPath = `${appFilesDir}/account-postflight-private/android-auth-global-logout-private.json`;
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -60,7 +66,7 @@ try {
     await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
     checkpoint("test_installed");
   }
-  if (LOGOUT_MODE || LIFECYCLE_MODE) {
+  if (LOGOUT_MODE || GLOBAL_LOGOUT_MODE || LIFECYCLE_MODE) {
     await run(adb, ["shell", "pm", "grant", "com.quata", "android.permission.POST_NOTIFICATIONS"]);
     report.steps.push("android_notification_permission_pregranted_for_logout_evidence");
     checkpoint("notification_permission_granted");
@@ -87,10 +93,12 @@ try {
   checkpoint("credentials_staged");
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
-  const testMethod = LOGOUT_MODE ? "authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession"
+  const testMethod = GLOBAL_LOGOUT_MODE ? "authenticatedGlobalLogoutRevokesTwoSessionsAndReturnsToPublicFeed"
+    : LOGOUT_MODE ? "authenticatedLogoutReturnsToPublicFeedAndClearsOwnedSession"
     : LIFECYCLE_MODE ? "authenticatedAccountLifecycleActionExecutesFromProductUi"
       : "authenticatedAccountRootNavigatesAndCancelsLifecycleActions";
-  const evidenceOptIn = LOGOUT_MODE ? "quataAuthLogoutEvidence"
+  const evidenceOptIn = GLOBAL_LOGOUT_MODE ? "quataAuthGlobalLogoutEvidence"
+    : LOGOUT_MODE ? "quataAuthLogoutEvidence"
     : LIFECYCLE_MODE ? "quataAccountLifecycleEvidence" : "quataAccountPostflightEvidence";
   const instrumentationArgs = [
     "shell", "am", "instrument", "-w", "-r",
@@ -102,7 +110,8 @@ try {
   instrumentationArgs.push("com.quata.test/androidx.test.runner.AndroidJUnitRunner");
   const instrumentationOutput = await runCapture(adb, instrumentationArgs);
   checkpoint("instrumentation_returned");
-  const attempt = { source: LOGOUT_MODE ? "auth-logout-postflight"
+  const attempt = { source: GLOBAL_LOGOUT_MODE ? "auth-global-logout-postflight"
+    : LOGOUT_MODE ? "auth-logout-postflight"
     : LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}` : "profile-account-postflight",
   outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
@@ -119,7 +128,11 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
-  await verifyAndroidPostflight(evidenceDir, { logoutMode: LOGOUT_MODE, lifecycleAction: LIFECYCLE_ACTION });
+  await verifyAndroidPostflight(evidenceDir, {
+    logoutMode: LOGOUT_MODE,
+    globalLogoutMode: GLOBAL_LOGOUT_MODE,
+    lifecycleAction: LIFECYCLE_ACTION,
+  });
   if (LOGOUT_MODE) {
     const privateReceipt = await runBuffer(adb, ["exec-out", "run-as", "com.quata", "cat", devicePrivateLogoutPath]);
     const remoteOutput = await runWithInput(options.python, [
@@ -141,6 +154,29 @@ try {
     );
     report.evidence.remoteReport = remoteReportPath;
     checkpoint("remote_effects_verified");
+  }
+  if (GLOBAL_LOGOUT_MODE) {
+    const privateReceipt = await runBuffer(adb, ["exec-out", "run-as", "com.quata", "cat", devicePrivateGlobalLogoutPath]);
+    const remoteOutput = await runWithInput(options.python, [
+      "scripts/auth-global-logout-remote-verification.py",
+      "--db-url-file", options.dbUrlFile,
+      "--db-ca-file", options.dbCaFile,
+    ], privateReceipt);
+    const remote = JSON.parse(remoteOutput);
+    if (remote?.status !== "passed" || remote.ownedAuthSessionsRevoked !== true ||
+        remote.ownedRefreshTokensRevoked !== true || remote.allDeviceEndpointsRetired !== true ||
+        remote.refreshTokensRejected !== 2) {
+      throw new Error("android_auth_global_logout_remote_effects_unverified");
+    }
+    const remoteReportPath = join(evidenceDir, "android-auth-global-logout-remote.json");
+    await writeFile(remoteReportPath, `${JSON.stringify(remote, null, 2)}\n`);
+    report.steps.push(
+      "both_owned_auth_sessions_revoked_remotely",
+      "both_owned_refresh_tokens_rejected",
+      "all_actor_device_endpoints_retired",
+    );
+    report.evidence.remoteReport = remoteReportPath;
+    checkpoint("global_remote_effects_verified");
   }
   checkpoint("evidence_verified");
   report.evidence.directory = evidenceDir;
@@ -176,7 +212,8 @@ if (report.status !== "passed") {
 }
 
 function parseArgs(args) {
-  const suffix = LOGOUT_MODE ? "auth-login-logout" : LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}` : "account-postflight";
+  const suffix = GLOBAL_LOGOUT_MODE ? "auth-global-logout" : LOGOUT_MODE ? "auth-login-logout"
+    : LIFECYCLE_MODE ? `account-lifecycle-${LIFECYCLE_ACTION}` : "account-postflight";
   const parsed = {
     output: resolve(join("build-reports", "android", `${suffix}-evidence.json`)),
     evidenceDir: resolve(join("build-reports", "android", `${suffix}-evidence`)),
@@ -188,7 +225,7 @@ function parseArgs(args) {
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
-    if (["--logout", "--skip-build"].includes(key)) continue;
+    if (["--logout", "--global-logout", "--skip-build"].includes(key)) continue;
     const value = args[index + 1];
     if (!["--out", "--evidence-dir", "--credentials-file", "--lifecycle-action", "--db-url-file", "--db-ca-file", "--python"].includes(key) || !value || value.startsWith("--")) {
       throw new Error(`invalid_argument:${key}`);
@@ -225,12 +262,20 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-async function verifyAndroidPostflight(evidenceDir, { logoutMode, lifecycleAction }) {
-  const platformReportPath = join(evidenceDir, logoutMode ? "android-auth-logout-evidence.json"
+async function verifyAndroidPostflight(evidenceDir, { logoutMode, globalLogoutMode, lifecycleAction }) {
+  const platformReportPath = join(evidenceDir, globalLogoutMode ? "android-auth-global-logout-evidence.json"
+    : logoutMode ? "android-auth-logout-evidence.json"
     : lifecycleAction ? `android-account-lifecycle-${lifecycleAction}-evidence.json`
       : "android-account-postflight-evidence.json");
   const platformReport = JSON.parse(await readFile(platformReportPath, "utf8"));
-  const expectedSteps = lifecycleAction ? [
+  const expectedSteps = globalLogoutMode ? [
+    "two_owned_auth_sessions_created",
+    "shared_account_management_opened",
+    "global_logout_confirmation_visible",
+    "global_logout_confirmed_once",
+    "local_session_cleared_after_global_success",
+    "public_feed_visible_after_relaunch",
+  ] : lifecycleAction ? [
     "authenticated_owned_synthetic_actor_logged_in",
     "shared_account_management_opened",
     "profile_danger_confirmation_accepted_once",
@@ -252,7 +297,9 @@ async function verifyAndroidPostflight(evidenceDir, { logoutMode, lifecycleActio
     "account_management_returned_to_overview",
   ];
   if (platformReport?.status !== "passed") throw new Error("android_account_postflight_platform_report_failed");
-  if (lifecycleAction) {
+  if (globalLogoutMode) {
+    if (platformReport?.sessionCleared !== true) throw new Error("android_auth_global_logout_session_not_cleared");
+  } else if (lifecycleAction) {
     if (platformReport?.action !== lifecycleAction || platformReport?.sessionCleared !== true ||
         platformReport?.productControlActivations !== 1) throw new Error("android_account_lifecycle_product_result_invalid");
   } else if (logoutMode) {

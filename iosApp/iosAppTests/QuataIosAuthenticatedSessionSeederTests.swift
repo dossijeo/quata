@@ -61,6 +61,43 @@ final class QuataIosAuthenticatedSessionSeederTests: XCTestCase {
         XCTAssertTrue(runtimeBootstrap.hasRestoredSession(), "The production runtime must restore the saved Keychain session.")
     }
 
+    func testSeedTwoAuthenticatedSessionsForGlobalLogout() throws {
+        guard let configurationFile = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_E2E_FILE"],
+              !configurationFile.isEmpty,
+              let receiptPath = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_GLOBAL_LOGOUT_RECEIPT_FILE"],
+              !receiptPath.isEmpty else {
+            throw XCTSkip("Global logout seeding is opt-in and requires a private receipt path.")
+        }
+        let credentials = try AuthSeederCredentials.load(from: configurationFile)
+        guard let feedConfiguration = IosPublicRuntimeConfiguration.feedConfiguration() else {
+            throw XCTSkip("The app host has no valid public runtime configuration.")
+        }
+        let runtimeBootstrap = IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: feedConfiguration)
+        let interactiveSession = runtimeBootstrap.authSessionForInteractiveLogin()
+        let repository = IosAuthRepositoryKt.createIosAuthRepository(
+            configuration: IosPublicRuntimeConfiguration.authConfiguration(from: feedConfiguration),
+            session: interactiveSession,
+        )
+        var sessions: [AuthSession] = []
+        for ordinal in 1...2 {
+            let completed = expectation(description: "production global logout login \(ordinal)")
+            repository.login(
+                countryCode: credentials.countryCode,
+                phone: credentials.localPhone,
+                password: credentials.password,
+            ) { result, error in
+                XCTAssertNil(error, "Global logout seeding login must not return an error.")
+                XCTAssertNotNil(result, "Global logout seeding login must return a session.")
+                if let stored = interactiveSession.restoredSession() { sessions.append(stored) }
+                completed.fulfill()
+            }
+            wait(for: [completed], timeout: 30)
+        }
+        XCTAssertEqual(sessions.count, 2, "Global logout seeding must create two restorable sessions.")
+        try writeGlobalLogoutReceipt(sessions: sessions, path: receiptPath)
+        XCTAssertTrue(runtimeBootstrap.hasRestoredSession(), "The second production session must remain available to the UI test.")
+    }
+
     func testClearAuthenticatedSessionAfterVisualGates() throws {
         guard let feedConfiguration = IosPublicRuntimeConfiguration.feedConfiguration() else {
             throw XCTSkip("The app host has no valid public runtime configuration.")
@@ -98,6 +135,37 @@ private func writeLogoutSessionReceipt(session: AuthSession, path: String) throw
     }
     let data = try JSONSerialization.data(
         withJSONObject: ["session_id": sessionId, "auth_user_id": authUserId],
+        options: [.sortedKeys],
+    )
+    let url = URL(fileURLWithPath: path)
+    try data.write(to: url, options: Data.WritingOptions.atomic)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+}
+
+private func writeGlobalLogoutReceipt(sessions: [AuthSession], path: String) throws {
+    guard sessions.count == 2 else { throw AuthSeederConfigurationError.invalidSessionReceipt }
+    let records = try sessions.map { session -> (authUserId: String, sessionId: String, refreshToken: String) in
+        guard let authUserId = session.authUserId,
+              UUID(uuidString: authUserId) != nil,
+              let accessToken = session.accessToken,
+              let sessionId = jwtSessionId(accessToken),
+              UUID(uuidString: sessionId) != nil,
+              let refreshToken = session.refreshToken,
+              !refreshToken.isEmpty else {
+            throw AuthSeederConfigurationError.invalidSessionReceipt
+        }
+        return (authUserId, sessionId, refreshToken)
+    }
+    guard records[0].authUserId == records[1].authUserId,
+          records[0].sessionId != records[1].sessionId else {
+        throw AuthSeederConfigurationError.invalidSessionReceipt
+    }
+    let data = try JSONSerialization.data(
+        withJSONObject: [
+            "authUserId": records[0].authUserId,
+            "authSessionIds": records.map(\.sessionId),
+            "refreshTokens": records.map(\.refreshToken),
+        ],
         options: [.sortedKeys],
     )
     let url = URL(fileURLWithPath: path)
