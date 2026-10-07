@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "0bc2060b20ad12fd1ac8a1bf6fffdaae683f38dc",
-  "certification": "remaining-logout-entrypoints-local-complete-independent-review-pending-final-CI-pending",
+  "certification": "remaining-logout-entrypoints-local-complete-independent-review-approved-final-CI-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -112,9 +112,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-logout-entrypoints.json --head HEAD --json"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": "fab9133a7f00d3473de394d11a0496f4251fe880",
-    "reviewHead": "fab9133a7f00d3473de394d11a0496f4251fe880",
+    "status": "GO",
+    "reviewedSha": "0566d84d1ad9db518046cd550dbfff8239803343",
+    "reviewHead": "0566d84d1ad9db518046cd550dbfff8239803343",
     "blockingFindings": []
   },
   "notes": [
