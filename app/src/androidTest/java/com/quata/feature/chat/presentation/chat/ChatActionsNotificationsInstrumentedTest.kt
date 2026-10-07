@@ -854,6 +854,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 saveScreenshot("android-official-video-position-restored-after-force-stop")
             } else {
+                seekOfficialVideoToMiddle()
                 val persisted = waitForPersistedVideoPosition(
                     storageKey = "quata.official.video_positions.v1.$actorProfileId",
                     timeoutMillis = 20_000,
@@ -911,6 +912,18 @@ class ChatActionsNotificationsInstrumentedTest {
         check(waitForAccessibilityState("fullscreen-media.video", 10_000) { it == "playing" } == "playing") {
             "Official video did not enter the playing state after the native play action."
         }
+    }
+
+    private fun seekOfficialVideoToMiddle() {
+        device.click(device.displayWidth / 2, device.displayHeight / 2)
+        val timeline = device.wait(
+            Until.findObject(By.res(targetContext.packageName, "exo_progress")),
+            5_000,
+        ) ?: device.wait(Until.findObject(By.clazz("android.widget.SeekBar")), 2_000)
+        check(timeline != null) { "Official video native timeline was not exposed." }
+        val bounds = timeline.visibleBounds
+        val targetX = bounds.left + (bounds.width() * 0.6f).roundToInt()
+        check(device.click(targetX, bounds.centerY())) { "Official video midpoint seek failed." }
     }
 
     private fun waitForAccessibilityState(
