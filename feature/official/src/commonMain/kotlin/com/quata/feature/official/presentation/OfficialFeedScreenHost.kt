@@ -805,7 +805,7 @@ fun OfficialFeedScreenHost(
             val mediaId = post.mediaUrl?.takeIf { post.mediaType == OfficialMediaType.Video }?.let {
                 officialVideoPositionMediaId(post.id, it)
             }
-            key(videoPositionsRestored) {
+            if (videoPositionsRestored) {
                 slots.mediaViewer(
                     post,
                     mediaId?.let { videoPositions[it] } ?: 0L,

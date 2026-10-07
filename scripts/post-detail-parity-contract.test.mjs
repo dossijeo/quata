@@ -397,6 +397,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(feedMediaViewerTest, /FeedPostDetailChromeTestTag/);
 
   assert.match(officialHost, /var mediaReturnReadMorePost by rememberSaveable/);
+  assert.match(officialHost, /if \(videoPositionsRestored\) \{\s*slots\.mediaViewer\(/);
   assert.match(
     officialHost,
     /mediaReturnReadMorePost = post\.id[\s\S]*?readMorePost = null[\s\S]*?mediaPost = post\.id/,
