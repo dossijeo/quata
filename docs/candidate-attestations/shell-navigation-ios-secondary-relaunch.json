@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "1105b860c7eacc7a0f6616688fb6ea5570db5e24",
-  "certification": "focal-ios-process-relaunch-seven-secondary-routes-complete-capability-hash-rebound-independent-final-review-pending",
+  "certification": "focal-ios-process-relaunch-seven-secondary-routes-complete-capability-hash-rebound-independent-final-review-complete-final-CI-pending",
   "evidence": {
     "ios": {
       "status": "passed",
@@ -54,7 +54,7 @@
     "The process test displayed each of What's New, Composer and Official Editor, terminated the app and launched a new process without replaying the route argument; all three route hosts restored.",
     "The first focused XCTest attempt exhausted the Mac volume while copying a framework before any selected test ran. Only generated outputs from inactive exact-SHA checkouts were removed; the unchanged exact Product SHA then passed all four selected tests.",
     "Range-diff proves both runtime/test commits patch-equivalent after recomposition onto the frozen SCR-FEED head. Product SHA 1105b860 preserves all nine changed product and test blobs byte-for-byte from the clean execution head ee37800d and updates only the reviewed capability hashes for the two changed iOS composition sources, so the platform matrix was not repeated solely for commit identity.",
-    "The earlier independent review returned GO with no P0-P3 findings. The exact final head requires renewed independent review after the capability-hash binding.",
+    "Independent review of exact head 6ce9e4ef1e223461cb9a5a648316a9a327c0032f returned GO with no P0-P3 findings after verifying runtime/test blob identity, all seven capability hashes, evidence integrity and the stated scope boundaries.",
     "This closes restoration for the seven named secondary route names. It does not claim arbitrary nested backstacks, nested identifiers, scroll position, media position, drafts or internal widget state.",
     "Any executable or test change after productSha invalidates this evidence. Documentation-only attestation commits remain valid only when scripts/validate-candidate-attestation.mjs accepts the real diff."
   ]
