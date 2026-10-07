@@ -4,12 +4,12 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
-  "certification": "global-multidevice-logout-production-and-three-platform-acceptance-complete-independent-review-GO",
+  "productSha": "aaa0d314001c6b3a5f9f6ceb88227568e7e5c630",
+  "certification": "global-multidevice-logout-production-and-three-platform-acceptance-complete-independent-review-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
+      "sha": "aaa0d314001c6b3a5f9f6ceb88227568e7e5c630",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
+      "sha": "aaa0d314001c6b3a5f9f6ceb88227568e7e5c630",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -53,7 +53,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
+      "sha": "aaa0d314001c6b3a5f9f6ceb88227568e7e5c630",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -76,7 +76,7 @@
     },
     "database": {
       "status": "passed",
-      "sha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
+      "sha": "aaa0d314001c6b3a5f9f6ceb88227568e7e5c630",
       "report": "docs/candidate-attestations/evidence/auth-global-logout-c0f9ab10.json",
       "reportSha256": "cfcfc149294ec6d04dc289ae5beb9347759b4ccc060a72ef8d422d493a520020",
       "reportStatus": "passed",
@@ -111,9 +111,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-global-logout.json --head HEAD --json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "89a80273fcfc7a7f739a5baf93fac37284bd72a0",
-    "reviewHead": "357c35ad44a9befbde24f367f4cb1101e3c33c5a",
+    "status": "pending",
+    "reviewedSha": "0e8a05422615976e1f3b8f9aa2c7f60631497fc1",
+    "reviewHead": "0e8a05422615976e1f3b8f9aa2c7f60631497fc1",
     "blockingFindings": []
   },
   "notes": [
@@ -123,7 +123,7 @@
     "Web, Android and iOS each created two owned sessions, activated the real product confirmation once, returned to the public product surface, rejected both refresh tokens and observed zero active actor device endpoints.",
     "The iOS lane used SimulatorSigned and proves product interaction, local Keychain teardown and backend revocation without requiring a physical device or APNs delivery.",
     "Failed pilots are retained in the sanitized evidence: Chrome screenshot timeout, Web evidence reload reseeding, one overloaded Android emulator, Mac disk exhaustion and one iOS build compiled before transient public runtime configuration.",
-    "Product SHA 89a80273 replays the exact reviewed global-logout patch over the recomposed logout-entrypoint lane; its stable patch-id is unchanged, historical reportGitHead c0f9ab10 remains authoritative and platform E2E was not repeated solely for ancestry.",
+    "Product SHA aaa0d314 replays the exact reviewed global-logout patch over the recomposed logout-entrypoint lane; its stable patch-id is unchanged, historical reportGitHead c0f9ab10 remains authoritative and platform E2E was not repeated solely for ancestry.",
     "No secret, token, connection string, database project fingerprint or raw actor identifier is versioned; the sanitized report contains no private path."
   ]
 }
