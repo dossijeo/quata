@@ -4,13 +4,13 @@
     "SCR-COMMUNITIES"
   ],
   "status": "passed",
-  "productSha": "574d1ee1fdc9995e701a95294a946b149d708c0d",
-  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-complete-final-CI-pending",
+  "productSha": "bd866ba6086f7158ec57f3a3b2b51987d176b8f3",
+  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-pending",
   "evidenceKind": "COMMUNITIES_DIRECTORY_EXHAUSTIVE_PAGINATION_AND_REALTIME_INVALIDATION",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "574d1ee1fdc9995e701a95294a946b149d708c0d",
+      "sha": "bd866ba6086f7158ec57f3a3b2b51987d176b8f3",
       "report": "docs/candidate-attestations/evidence/community-directory-pagination-realtime-87263d44.json",
       "reportSha256": "cdd9bea59fbb1b7601391eca1a22ac2246894be30e82c9e459c8bd5e4cf16092",
       "reportStatus": "passed-with-external-runtime-limitation",
@@ -39,7 +39,7 @@
     },
     "remoteRealtimeRecovery": {
       "status": "passed",
-      "sha": "574d1ee1fdc9995e701a95294a946b149d708c0d",
+      "sha": "bd866ba6086f7158ec57f3a3b2b51987d176b8f3",
       "report": "docs/candidate-attestations/evidence/community-directory-realtime-recovery-0abcc80d.json",
       "reportSha256": "746b40ceeaf582bec529c3ee55e2380c76452cbb1046cc419b5854b5f430fa07",
       "reportStatus": "passed",
@@ -75,9 +75,9 @@
     "production publication SQL audit after reconnect"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "9cb44ddfa36da445f026823279f48f9f2cf8005c",
-    "reviewedProductSha": "574d1ee1fdc9995e701a95294a946b149d708c0d",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewedProductSha": "bd866ba6086f7158ec57f3a3b2b51987d176b8f3",
     "blockingFindings": [],
     "scopeLimit": "The exact-head independent review verified the recomposed public/authenticated production Realtime receipt and its deliberately narrow delivery claim. Final CI remains separate."
   },
@@ -86,7 +86,7 @@
     "Anonymous sockets subscribe only to the four key-only directory publications. community_messages remains authenticated-only because its legacy publication includes body and created_at; anonymous message-driven wall activity converges through the bounded fallback.",
     "A full encrypted logical backup and affected-table restore drill preceded the release. Migration 20261003183000 committed four key-only publications and the direct SQL audit passed again after reconnect.",
     "The evidence trigger creates only its own UUID wall fixture, journals custody before insertion, recovers a prior journal before a new attempt, removes by exact id/slug/name and leaves zero owned rows or journal residue.",
-    "Product SHA 574d1ee1 recomposes the sanitized recovery projection and its narrowed delivery claims over the reviewed nested-profile candidate, while reportGitHead 0abcc80d remains the clean source execution.",
+    "Product SHA bd866ba6 recomposes the sanitized recovery projection and its narrowed delivery claims over the reviewed nested-profile candidate, including the aligned durable Web profile-entry contract, while reportGitHead 0abcc80d remains the clean source execution.",
     "The historical receipt recorded HTTP 402 before socket, session or mutation. A new production run on source head 0abcc80d supersedes that runtime limitation: the public socket and an auth-bridge session socket each observed exactly one event for the same owned community_walls fixture, then the fixture was removed and the session revoked with zero recorded residue.",
     "The first independent review returned NO-GO for fixture/session custody, phase attribution and public message payload scope. Product SHA 87263d44 includes all corrections; the final independent review returned GO with no P0-P3 findings.",
     "The recovery receipt is deliberately narrower than a global Chat or UI claim: it records the public and authenticated subscription sets and proves one production community_walls event on each socket only; platform UI, anonymous community_messages delivery and visual parity remain separate units."
