@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "5415d66d9640537546a5566ff31b2fc1c71cc516",
-  "certification": "local-affected-runtime-capability-hash-and-profile-entry-contract-aligned-independent-final-review-pending",
+  "certification": "local-affected-runtime-capability-hash-and-profile-entry-contract-aligned-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "PUBLIC_PROFILE_NESTED_BACKSTACK_RESTORATION",
   "evidence": {
     "crossPlatform": {
@@ -45,8 +45,8 @@
     "macOS: xcodebuild selected QuataFeedFrameworkTests on booted iOS 26.5 Intel Simulator with CODE_SIGNING_ALLOWED=NO"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "065578b979e4834b28bd782058f42e8c223c0f77",
     "reviewedProductSha": "5415d66d9640537546a5566ff31b2fc1c71cc516",
     "blockingFindings": [],
     "resolvedFindings": [
