@@ -151,6 +151,7 @@ import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.AndroidMediaFileExportService
 import com.quata.core.platform.rememberAndroidMediaFileShareService
 import com.quata.core.text.cleanTextCanvasSeedBody
@@ -193,6 +194,7 @@ fun FeedScreen(
     padding: PaddingValues,
     feedRepository: FeedRepository,
     shareService: ShareService,
+    preferenceStore: PreferenceStore? = null,
     onOpenUserProfile: (String) -> Unit,
     currentUserId: String? = null,
     openingProfileUserId: String? = null,
@@ -227,6 +229,7 @@ fun FeedScreen(
         repository = feedRepository,
         stateHolder = viewModel,
         currentUserId = currentUserId,
+        videoPositionStore = remember(preferenceStore) { preferenceStore?.let(::FeedVideoPositionStore) },
         focusedPostId = focusedPostId,
         feedResetToken = feedResetToken,
         networkReconnectToken = networkReconnectToken,

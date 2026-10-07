@@ -12,6 +12,7 @@ import com.quata.core.language.FangTranslationService
 import com.quata.core.navigation.AuthenticationContinuationIntent
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.BrowserMediaFileExportService
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
@@ -21,6 +22,7 @@ import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.feed.presentation.FeedScreenHost
 import com.quata.feature.feed.presentation.FeedScreenPlatformSlots
+import com.quata.feature.feed.presentation.FeedVideoPositionStore
 import com.quata.feature.feed.presentation.FeedUserPresence
 
 /** Browser route adapter. Product rendering is the common [FeedScreenHost], including details. */
@@ -28,6 +30,7 @@ import com.quata.feature.feed.presentation.FeedUserPresence
 fun WebFeedHost(
     repository: WebFeedRepository,
     shareService: ShareService,
+    preferenceStore: PreferenceStore? = null,
     presence: FeedUserPresence? = null,
     sharedPostId: String? = null,
     currentUserId: String? = null,
@@ -56,6 +59,7 @@ fun WebFeedHost(
         padding = PaddingValues(),
         repository = repository,
         focusedPostId = sharedPostId,
+        videoPositionStore = remember(preferenceStore) { preferenceStore?.let(::FeedVideoPositionStore) },
         isLandscape = windowLayout.isLandscape,
         slots = FeedScreenPlatformSlots(
             media = { post, isCurrent, initialPositionMs, onPositionChanged, isFeedMuted, onFeedMuteChange ->

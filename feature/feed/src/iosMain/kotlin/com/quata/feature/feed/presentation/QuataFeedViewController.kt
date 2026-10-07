@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.quata.core.platform.ShareService
 import com.quata.core.platform.IosMediaFileExportService
+import com.quata.core.platform.IosPreferenceStore
 import com.quata.core.platform.MediaFileExportService
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
@@ -183,10 +184,12 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                 preferredLanguage = quataTranslatorPreferredLanguage(dependencies.preferredLanguageTag),
             )
         }
+        val videoPositionStore = remember { FeedVideoPositionStore(IosPreferenceStore()) }
         FeedScreenHost(
             padding = PaddingValues(),
             repository = dependencies.repository,
             focusedPostId = dependencies.initialPostId,
+            videoPositionStore = videoPositionStore,
             presence = dependencies.presence,
             slots = FeedScreenPlatformSlots(
                 media = { post, isCurrent, initialPositionMs, onPositionChanged, isFeedMuted, onFeedMuteChange ->

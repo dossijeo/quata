@@ -900,6 +900,7 @@ fun AppNavGraph(
                         padding = padding,
                         feedRepository = container.feedRepository,
                         shareService = container.shareService,
+                        preferenceStore = container.platformServices.preferences,
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)
                         },

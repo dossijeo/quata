@@ -42,10 +42,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.sample
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
@@ -240,7 +244,7 @@ data class FeedScreenPlatformSlots(
  * It owns the common ViewModel lifetime, paging, focus/reset restoration and every Feed
  * mutation. Hosts only provide native media/avatar/share/message adapters and navigation.
  */
-@OptIn(ExperimentalFoundationApi::class, kotlin.time.ExperimentalTime::class)
+@OptIn(ExperimentalFoundationApi::class, kotlin.time.ExperimentalTime::class, kotlinx.coroutines.FlowPreview::class)
 @Composable
 fun FeedScreenHost(
     padding: PaddingValues,
@@ -249,6 +253,7 @@ fun FeedScreenHost(
     slots: FeedScreenPlatformSlots,
     presence: FeedUserPresence? = null,
     currentUserId: String? = null,
+    videoPositionStore: FeedVideoPositionStore? = null,
     focusedPostId: String? = null,
     feedResetToken: Int = 0,
     networkReconnectToken: Long = 0L,
@@ -300,10 +305,31 @@ fun FeedScreenHost(
     val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
     val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
     val focusedPostLoad = activeFocusedPostId?.let { state.focusedPostLoads[it] }
-    val videoPositions = remember { mutableMapOf<String, Long>() }
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
     val layoutDirection = LocalLayoutDirection.current
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
+    val videoPositions = remember(videoPositionStore, effectiveCurrentUserId) { mutableStateMapOf<String, Long>() }
+    var videoPositionsRestored by remember(videoPositionStore, effectiveCurrentUserId) {
+        mutableStateOf(videoPositionStore == null)
+    }
+    LaunchedEffect(videoPositionStore, effectiveCurrentUserId) {
+        val store = videoPositionStore ?: return@LaunchedEffect
+        val restored = store.restore(effectiveCurrentUserId)
+        restored.forEach { (mediaId, positionMs) ->
+            if (mediaId !in videoPositions) videoPositions[mediaId] = positionMs
+        }
+        videoPositionsRestored = true
+    }
+    LaunchedEffect(videoPositionStore, effectiveCurrentUserId, videoPositionsRestored) {
+        val store = videoPositionStore ?: return@LaunchedEffect
+        if (!videoPositionsRestored) return@LaunchedEffect
+        snapshotFlow { videoPositions.toMap() }
+            .drop(1)
+            // Browser timeupdate can fire several times per second. Sampling persists active
+            // playback continuously instead of waiting for a quiet period that may never occur.
+            .sample(1_000L)
+            .collect { positions -> store.persist(effectiveCurrentUserId, positions) }
+    }
     val canParticipate = effectiveCurrentUserId != null
     val pendingAuthenticationContinuation by (
         authenticationContinuationCoordinator?.pending
@@ -606,8 +632,8 @@ fun FeedScreenHost(
                                     this,
                                     post,
                                     isCurrent && mediaPostId == null,
-                                    post.videoUrl?.let { videoPositions[it] } ?: 0L,
-                                    { position -> post.videoUrl?.let { videoPositions[it] = position } },
+                                    post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
+                                    { position -> post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] = position } },
                                     isFeedMuted,
                                     { isFeedMuted = it },
                                 )
@@ -762,8 +788,8 @@ fun FeedScreenHost(
                             this,
                             post,
                             true,
-                            post.videoUrl?.let { videoPositions[it] } ?: 0L,
-                            { position -> post.videoUrl?.let { videoPositions[it] = position } },
+                            post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
+                            { position -> post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] = position } },
                             isFeedMuted,
                             { isFeedMuted = it },
                         )

@@ -21,6 +21,7 @@ import com.quata.core.model.User
 import com.quata.core.platform.MediaFileExportAction
 import com.quata.core.platform.MediaFileExportDescriptor
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayCloseTestTag
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayRootTestTag
 import com.quata.core.ui.components.QuataMediaExportDownloadTestTag
@@ -31,6 +32,7 @@ import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -191,6 +193,59 @@ class FeedDetailMediaViewerTest {
         onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
             .assertHasClickAction()
     }
+
+    @Test
+    fun feedVideoRestoresAndPersistsTheActorScopedPositionThroughTheSharedHost() {
+        val post = Post(
+            id = "feed-video-durable",
+            author = User("feed-video-author", "feed-video@example.invalid", "Feed Video"),
+            text = "Feed video durable position",
+            videoUrl = "fixture://feed-video-durable.mp4",
+            createdAt = "2026-10-07T00:00:00Z",
+        )
+        val actorId = "feed-video-actor"
+        val mediaId = feedVideoPositionMediaId(post.id, checkNotNull(post.videoUrl))
+        val preferences = MediaMemoryPreferenceStore()
+        val store = FeedVideoPositionStore(preferences)
+        runTest { store.persist(actorId, mapOf(mediaId to 12_345L)) }
+
+        runComposeUiTest {
+            setContent {
+                QuataTheme {
+                    FeedScreenHost(
+                        padding = PaddingValues(),
+                        repository = mediaRepository(post),
+                        stateHolder = MediaStateHolder(post),
+                        slots = FeedScreenPlatformSlots(
+                            media = { _, active, initialPositionMs, onPositionChanged, _, _ ->
+                                if (active) {
+                                    Column {
+                                        Text("position-$initialPositionMs", Modifier.testTag("durable-video-position"))
+                                        Button(
+                                            onClick = { onPositionChanged(23_456L) },
+                                            modifier = Modifier.testTag("durable-video-advance"),
+                                        ) { Text("advance") }
+                                    }
+                                }
+                            },
+                        ),
+                        currentUserId = actorId,
+                        videoPositionStore = store,
+                        focusedPostId = post.id,
+                        onBackFromFocusedPost = {},
+                        isLandscape = false,
+                    )
+                }
+            }
+
+            onNodeWithTag("durable-video-position").assertTextContains("12345", substring = true)
+            onNodeWithTag("durable-video-advance").performClick()
+            mainClock.advanceTimeBy(1_000L)
+            waitForIdle()
+        }
+
+        runTest { assertEquals(23_456L, store.restore(actorId)[mediaId]) }
+    }
 }
 
 private class MediaStateHolder(post: Post) : FeedStateHolder {
@@ -207,3 +262,10 @@ private fun mediaRepository(post: Post) = ReadOnlyFeedRepository(object : FeedRe
     override suspend fun refreshAuthor(userId: String) = Result.success<User?>(null)
     override suspend fun refreshPost(postId: String) = Result.success(post.takeIf { it.id == postId })
 })
+
+private class MediaMemoryPreferenceStore : PreferenceStore {
+    private val values = mutableMapOf<String, String>()
+    override suspend fun getString(key: String): String? = values[key]
+    override suspend fun putString(key: String, value: String) { values[key] = value }
+    override suspend fun remove(key: String) { values.remove(key) }
+}
