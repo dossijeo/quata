@@ -23,6 +23,7 @@ internal data class WebPushSessionOperations(
     val unsubscribeServer: suspend (WebPushCredentials, String) -> WebPushRegistrationResult,
     val unsubscribeBrowser: suspend () -> Result<Unit>,
     val logout: suspend () -> Result<Unit>,
+    val logoutEverywhere: suspend () -> Result<Unit> = logout,
 )
 
 /**
@@ -69,7 +70,13 @@ class WebPushSessionCoordinator internal constructor(
                 )
             },
             unsubscribeBrowser = ::unsubscribeBrowserPush,
-            logout = { authRepository.logoutWithBrowserUnsubscribe(::unsubscribeBrowserPush) },
+            logout = { authRepository.logoutWithBrowserUnsubscribe(browserUnsubscribe = ::unsubscribeBrowserPush) },
+            logoutEverywhere = {
+                authRepository.logoutWithBrowserUnsubscribe(
+                    global = true,
+                    browserUnsubscribe = ::unsubscribeBrowserPush,
+                )
+            },
         ),
     )
 
@@ -172,6 +179,11 @@ class WebPushSessionCoordinator internal constructor(
     }
 
     suspend fun logoutCurrentSession(): WebPushSessionResult = operations.logout().fold(
+        onSuccess = { WebPushSessionResult.Success },
+        onFailure = { WebPushSessionResult.Failure(it.message ?: "web_push_logout_failed") },
+    )
+
+    suspend fun logoutAllSessions(): WebPushSessionResult = operations.logoutEverywhere().fold(
         onSuccess = { WebPushSessionResult.Success },
         onFailure = { WebPushSessionResult.Failure(it.message ?: "web_push_logout_failed") },
     )

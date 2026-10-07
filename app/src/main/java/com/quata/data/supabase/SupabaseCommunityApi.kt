@@ -19,7 +19,7 @@ class SupabaseCommunityApi(
     suspend fun ensureFreshSession(force: Boolean = false): AuthSession? =
         client.ensureFreshSession(force)
 
-    suspend fun logout(bearerToken: String) = client.logout(bearerToken)
+    suspend fun logout(bearerToken: String, global: Boolean = false) = client.logout(bearerToken, global)
 
     suspend fun getActiveWallsStats(limit: Int = 250): List<CommunityWallStats> = client.getList(
         "community_walls_stats",

@@ -202,7 +202,11 @@ class WebAuthRepository(
     }.onFailure { if (it is CancellationException) throw it }
 
     override suspend fun logout() {
-        logoutWithBrowserUnsubscribe { Result.success(Unit) }
+        logoutWithBrowserUnsubscribe(global = false) { Result.success(Unit) }
+    }
+
+    override suspend fun logoutEverywhere() {
+        logoutWithBrowserUnsubscribe(global = true) { Result.success(Unit) }
     }
 
     /** Restores a complete, non-expired local session without making a network request. */
@@ -285,9 +289,14 @@ class WebAuthRepository(
         }
 
     /** Keeps the server logout, browser unsubscribe and local cleanup in the required order. */
-    suspend fun logoutWithBrowserUnsubscribe(browserUnsubscribe: suspend () -> Result<Unit>): Result<Unit> {
+    suspend fun logoutWithBrowserUnsubscribe(
+        global: Boolean = false,
+        browserUnsubscribe: suspend () -> Result<Unit>,
+    ): Result<Unit> {
         val retiringProfileId = storedProfileIdOrNull()
-        val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()
+        val webSessionFailure = if (global) null else runCatching { notifyServerLogout() }.exceptionOrNull()
+        val authFailure = runCatching { notifySupabaseLogout(global) }.exceptionOrNull()
+        if (global && authFailure != null) return Result.failure(authFailure)
         val browserResult = withTimeoutOrNull(WebBrowserUnsubscribeTimeoutMillis) {
             runCatching { browserUnsubscribe().getOrThrow() }
         } ?: Result.failure(IllegalStateException("web_push_unsubscribe_timeout"))
@@ -303,7 +312,7 @@ class WebAuthRepository(
                 BrowserChatComposerAttachmentExecutionLock(),
             ).clearActor(it)
         }
-        val failure = serverFailure ?: browserFailure
+        val failure = webSessionFailure ?: authFailure ?: browserFailure
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
 
@@ -444,6 +453,17 @@ class WebAuthRepository(
             body = buildJsonObject { put("action", "logout") }.toString(),
             accessToken = credentials.accessToken,
             webSessionToken = credentials.webSessionToken,
+        )
+    }
+
+    private suspend fun notifySupabaseLogout(global: Boolean) {
+        val accessToken = storedSessionOrNull()?.accessToken ?: return
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        webPostJson(
+            endpoint = if (global) configuration.globalLogoutEndpoint() else configuration.supabaseLogoutEndpoint(),
+            apiKey = apiKey,
+            body = "{}",
+            accessToken = accessToken,
         )
     }
 
@@ -662,6 +682,15 @@ private fun String.toWebAuthSession(): AuthSession {
         isOfficial = profile.booleanOrNull("is_official"),
     )
 }
+
+private fun WebRuntimeConfiguration.supabaseLogoutEndpoint(): String {
+    val baseUrl = supabaseUrl?.trim()?.trimEnd('/').orEmpty()
+    check(baseUrl.isNotBlank()) { "supabase_url_missing" }
+    return "$baseUrl/auth/v1/logout?scope=local"
+}
+
+private fun WebRuntimeConfiguration.globalLogoutEndpoint(): String =
+    supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/') + "/functions/v1/quata-auth-global-logout"
 
 private fun String.webSessionToken(): String = Json.parseToJsonElement(this).jsonObject
     .requiredObject("web_session")

@@ -237,7 +237,11 @@ internal class AuthRepositoryImpl(
         sessionManager.clearSession()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun logout() = logoutMutex.withLock {
+    override suspend fun logout() = logout(global = false)
+
+    override suspend fun logoutEverywhere() = logout(global = true)
+
+    private suspend fun logout(global: Boolean) = logoutMutex.withLock {
         val storedSession = sessionManager.currentSession()
         val profileId = storedSession?.userId
         val bearerToken = storedSession?.bearerToken
@@ -262,10 +266,14 @@ internal class AuthRepositoryImpl(
             preparePrivateDataCleanup = { prepareLogoutCleanupJournal(profileId) },
             cancelPrivateDataCleanup = { clearLogoutCleanupJournal() },
             retirePush = {
-                pushTokenManager.unregisterTokenForProfileBeforeLogout(remoteProfileId, remoteBearerToken).getOrThrow()
+                if (!global) {
+                    pushTokenManager.unregisterTokenForProfileBeforeLogout(remoteProfileId, remoteBearerToken).getOrThrow()
+                }
             },
-            revokeAuthSession = { supabaseApi.logout(remoteBearerToken) },
-            restorePush = { pushTokenManager.restoreTokenForProfile(remoteProfileId) },
+            revokeAuthSession = { supabaseApi.logout(remoteBearerToken, global) },
+            restorePush = {
+                if (!global) pushTokenManager.restoreTokenForProfile(remoteProfileId)
+            },
             clearPrivateData = { clearPrivateDataForLogout(profileId) },
             retireLocalSession = {
                 sessionManager.clearSession()

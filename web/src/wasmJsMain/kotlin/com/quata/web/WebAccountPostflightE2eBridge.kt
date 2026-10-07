@@ -7,6 +7,8 @@ internal fun installWebAccountPostflightE2eBridge(
     backToOverview: () -> Unit,
     openDeactivateConfirmation: () -> Unit,
     openDeleteConfirmation: () -> Unit,
+    openLogoutEverywhereConfirmation: () -> Unit,
+    confirmLogoutEverywhere: () -> Unit,
     cancelConfirmation: () -> Unit,
     snapshot: () -> String,
 ): () -> Unit = installAccountPostflightBridgeWhenAllowed(
@@ -14,12 +16,14 @@ internal fun installWebAccountPostflightE2eBridge(
     backToOverview,
     openDeactivateConfirmation,
     openDeleteConfirmation,
+    openLogoutEverywhereConfirmation,
+    confirmLogoutEverywhere,
     cancelConfirmation,
     snapshot,
 )
 
 @JsFun(
-    """(openManagement, backToOverview, openDeactivate, openDelete, cancelConfirmation, snapshot) => {
+    """(openManagement, backToOverview, openDeactivate, openDelete, openLogoutEverywhere, confirmLogoutEverywhere, cancelConfirmation, snapshot) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       if (!local) return () => {};
       const root = globalThis.document?.documentElement;
@@ -44,6 +48,8 @@ internal fun installWebAccountPostflightE2eBridge(
         backToOverview: () => invoke(backToOverview),
         openDeactivateConfirmation: () => invoke(openDeactivate),
         openDeleteConfirmation: () => invoke(openDelete),
+        openLogoutEverywhereConfirmation: () => invoke(openLogoutEverywhere),
+        confirmLogoutEverywhere: () => invoke(confirmLogoutEverywhere),
         cancelConfirmation: () => invoke(cancelConfirmation),
         snapshot: read
       });
@@ -65,6 +71,8 @@ private external fun installAccountPostflightBridgeWhenAllowed(
     backToOverview: () -> Unit,
     openDeactivateConfirmation: () -> Unit,
     openDeleteConfirmation: () -> Unit,
+    openLogoutEverywhereConfirmation: () -> Unit,
+    confirmLogoutEverywhere: () -> Unit,
     cancelConfirmation: () -> Unit,
     snapshot: () -> String,
 ): () -> Unit

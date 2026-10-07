@@ -134,6 +134,12 @@ const approvedReleases = [
       ["20261004113000", "96a05a158a4faaa206c9c3ba7683f9df7a0ecd7b79e84f2b62dc82b98c0dee20"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261007090000", "f7d3f63da639fafb4162b5057195bb7db65bcf9d8cfbc771270023b5005b8756"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -1116,6 +1122,40 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     `)).rows[0]?.count;
     if (openTransitions !== 0) {
       throw new Error("selective_release_account_lifecycle_open_transition_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261007090000")) {
+    const rows = (await client.query(`
+      select p.prosecdef as security_definer,
+             p.provolatile as volatility,
+             p.proconfig as configuration,
+             pg_get_functiondef(p.oid) as definition,
+             has_function_privilege('service_role', p.oid, 'EXECUTE') as service_execute,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon_execute,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute,
+             exists (
+               select 1
+                 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                where acl.grantee=0 and acl.privilege_type='EXECUTE'
+             ) as public_execute
+        from pg_proc p
+        join pg_namespace n on n.oid=p.pronamespace
+       where n.nspname='public'
+         and p.oid=to_regprocedure('public.quata_retire_all_device_endpoints(uuid)')
+    `)).rows;
+    const retirement = rows[0];
+    if (rows.length !== 1 || !retirement.security_definer || retirement.volatility !== "v"
+        || JSON.stringify(retirement.configuration) !== JSON.stringify(["search_path=public"])
+        || !retirement.service_execute || retirement.anon_execute
+        || retirement.authenticated_execute || retirement.public_execute) {
+      throw new Error("selective_release_auth_global_logout_security_postcondition_failed");
+    }
+    const definition = retirement.definition ?? "";
+    if (!/update public\.push_tokens/i.test(definition)
+        || !/update public\.web_push_subscriptions/i.test(definition)
+        || !/update public\.web_client_sessions/i.test(definition)
+        || !/where auth_user_id = p_auth_user_id/i.test(definition)) {
+      throw new Error("selective_release_auth_global_logout_definition_postcondition_failed");
     }
   }
 }

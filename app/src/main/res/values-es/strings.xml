@@ -307,6 +307,8 @@
     <string name="profile_account_management">Gesti&#243;n de cuenta</string>
     <string name="profile_account_management_description">Gestiona la desactivaci&#243;n de tu cuenta y las solicitudes de eliminaci&#243;n de datos.</string>
     <string name="profile_logout">Cerrar sesión</string>
+    <string name="profile_logout_everywhere">Cerrar sesión en todos los dispositivos</string>
+    <string name="profile_logout_everywhere_confirmation">Se cerrará la sesión en todos los dispositivos que usan esta cuenta.</string>
     <string name="profile_loading">Cargando perfil…</string>
     <string name="profile_camera_permission_photo">Necesitamos permiso de c&#225;mara y multimedia para hacer la foto</string>
     <string name="profile_changes_saved">Cambios guardados</string>

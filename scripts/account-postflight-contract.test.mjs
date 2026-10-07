@@ -30,7 +30,8 @@ test("Account root exposes stable common navigation and safe lifecycle anchors",
 test("Account cancellation closes either confirmation without invoking lifecycle callbacks", async () => {
   const host = await source("feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/ProfileScreenHost.kt");
   assert.match(host, /dismissButton = \{[\s\S]*?onClick = \{ confirmation = null \}[\s\S]*?ProfileDangerCancelTestTag/);
-  assert.match(host, /confirmButton = \{[\s\S]*?onDeactivateAccount\(\)[\s\S]*?onDeleteAccountData\(\)/);
+  assert.match(host, /fun confirmDangerousAction\(\)[\s\S]*?onDeactivateAccount\(\)[\s\S]*?onDeleteAccountData\(\)/);
+  assert.match(host, /confirmButton = \{[\s\S]*?onClick = ::confirmDangerousAction/);
   assert.doesNotMatch(host, /ProfileDangerCancelTestTag[\s\S]{0,300}(onDeactivateAccount|onDeleteAccountData)\(\)/);
 });
 

@@ -88,6 +88,7 @@ fun ProfileScreen(
     networkReconnectToken: Long = 0L,
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {},
     onLogout: () -> Unit,
+    onLogoutEverywhere: () -> Unit,
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     documentOpenService: DocumentOpenService,
@@ -132,6 +133,7 @@ fun ProfileScreen(
             themeMode = themeMode,
             onThemeModeChange = onThemeModeChange,
             onLogout = onLogout,
+            onLogoutEverywhere = onLogoutEverywhere,
             onDeactivateAccount = onDeactivateAccount,
             onDeleteAccountData = onDeleteAccountData,
             onLinkGoogleIdentity = onLinkGoogleIdentity,
@@ -317,6 +319,8 @@ private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     cancelGoogleLink = context.getString(R.string.profile_cancel_google_link),
     googleLinked = context.getString(R.string.profile_google_linked),
     googleLinkFailed = context.getString(R.string.profile_google_link_failed),
+    logoutEverywhere = context.getString(R.string.profile_logout_everywhere),
+    logoutEverywhereConfirmation = context.getString(R.string.profile_logout_everywhere_confirmation),
 )
 
 private fun androidDocumentViewerStatusStrings(context: Context) = QuataDocumentViewerStatusStrings(

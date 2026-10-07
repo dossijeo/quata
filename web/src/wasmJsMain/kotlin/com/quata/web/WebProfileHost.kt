@@ -102,6 +102,7 @@ internal fun WebProfileHost(
     onThemeModeChange: (QuataThemeMode) -> Unit,
     isLoggingOut: Boolean = false,
     onLogout: (() -> Unit)? = null,
+    onLogoutEverywhere: (() -> Unit)? = null,
     onDeactivateAccount: () -> Unit = {},
     onDeleteAccountData: () -> Unit = {},
     onLinkGoogleIdentity: (() -> suspend () -> Result<Unit>)? = null,
@@ -125,6 +126,9 @@ internal fun WebProfileHost(
         themeMode = themeMode,
         onThemeModeChange = onThemeModeChange,
         onLogout = { if (!isLoggingOut) onLogout?.invoke() },
+        onLogoutEverywhere = onLogoutEverywhere?.let { callback ->
+            { if (!isLoggingOut) callback() }
+        },
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
         onLinkGoogleIdentity = onLinkGoogleIdentity,
@@ -198,13 +202,15 @@ internal fun WebProfileHost(
                     onDispose { uninstall() }
                 }
             },
-            accountPostflightE2eBridge = { openManagement, backToOverview, openDeactivate, openDelete, cancel, snapshot ->
-                DisposableEffect(openManagement, backToOverview, openDeactivate, openDelete, cancel, snapshot) {
+            accountPostflightE2eBridge = { openManagement, backToOverview, openDeactivate, openDelete, openLogoutEverywhere, confirmLogoutEverywhere, cancel, snapshot ->
+                DisposableEffect(openManagement, backToOverview, openDeactivate, openDelete, openLogoutEverywhere, confirmLogoutEverywhere, cancel, snapshot) {
                     val uninstall = installWebAccountPostflightE2eBridge(
                         openManagement,
                         backToOverview,
                         openDeactivate,
                         openDelete,
+                        openLogoutEverywhere,
+                        confirmLogoutEverywhere,
                         cancel,
                         snapshot,
                     )
@@ -642,4 +648,6 @@ private val WebProfileScreenStrings = ProfileScreenStrings(
     cancelGoogleLink = "Cancelar vinculación con Google",
     googleLinked = "Cuenta de Google vinculada.",
     googleLinkFailed = "No se pudo vincular la cuenta de Google.",
+    logoutEverywhere = "Cerrar sesión en todos los dispositivos",
+    logoutEverywhereConfirmation = "Se cerrará la sesión en todos los dispositivos que usan esta cuenta.",
 )

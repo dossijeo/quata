@@ -6,9 +6,12 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { inflateSync } from "node:zlib";
+import pg from "pg";
+import { pinnedTlsClientConfig } from "./postgres-pinned-tls.mjs";
 
-const CHECK = "ACCOUNT-POSTFLIGHT-WEB-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
+const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
+const DEFAULT_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const STABLE_ACCOUNT_POSTFLIGHT_ANCHORS = Object.freeze([
   "profile.details.open",
   "profile.management.open",
@@ -19,8 +22,10 @@ const STABLE_ACCOUNT_POSTFLIGHT_ANCHORS = Object.freeze([
   "profile.logout",
 ]);
 const { chromium } = loadPlaywrightCore();
+const { Client } = pg;
 
 const options = parseArgs(process.argv.slice(2));
+const CHECK = options.globalLogout ? "AUTH-GLOBAL-LOGOUT-WEB-REAL-001" : "ACCOUNT-POSTFLIGHT-WEB-REAL-001";
 const report = {
   check: CHECK,
   status: "failed",
@@ -34,12 +39,19 @@ const report = {
 
 let server;
 let browser;
+let runtimeBackend;
+const sessionsToCleanup = [];
 
 try {
   const backend = await publicConfig();
+  runtimeBackend = backend;
   const credentials = (await loadCredentials()).a;
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);
   const session = await login(backend, credentials, `ACCOUNT-POSTFLIGHT-web-${randomUUID()}`);
+  const peerSession = options.globalLogout
+    ? await login(backend, credentials, `AUTH-GLOBAL-LOGOUT-peer-${randomUUID()}`)
+    : null;
+  sessionsToCleanup.push(session, ...(peerSession ? [peerSession] : []));
   browser = await chromium.launch({
     executablePath: options.chrome,
     headless: true,
@@ -59,7 +71,9 @@ try {
     sessionStorage.setItem("quata.auth.e2e", "1");
   }, session);
 
-  report.attempts.push(await runAttempt(context, session, backend));
+  report.attempts.push(options.globalLogout
+    ? await runGlobalLogoutAttempt(context, session, peerSession, backend)
+    : await runAttempt(context, session, backend));
   const failed = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failed) throw new Error(`web_attempt_failed:${failed.error ?? "unknown"}`);
   report.evidence.directory = resolve(options.evidenceDir);
@@ -70,6 +84,9 @@ try {
 } finally {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
+  if (runtimeBackend) {
+    await Promise.allSettled(sessionsToCleanup.map((session) => revokeCurrentSession(runtimeBackend, session)));
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -140,6 +157,92 @@ async function runAttempt(context, session, backend) {
     };
   } catch (error) {
     evidence.failure = await screenshot(page, "web-account-postflight-failure").catch(() => null);
+    return {
+      status: "failed",
+      error: safeFailure(error),
+      anchors,
+      evidence,
+      candidates: await semanticCandidates(page).catch(() => []),
+      faults,
+    };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+async function runGlobalLogoutAttempt(context, session, peerSession, backend) {
+  if (!peerSession || session.authUserId !== peerSession.authUserId) {
+    throw new Error("global_logout_two_session_actor_mismatch");
+  }
+  const page = await context.newPage();
+  const anchors = {};
+  const evidence = {};
+  const faults = [];
+  page.on("pageerror", (error) => faults.push(`pageerror:${String(error?.message ?? error).slice(0, 160)}`));
+  page.on("console", (entry) => {
+    if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
+  });
+  try {
+    const before = await auditGlobalLogoutBackend(session.authUserId, [session.authSessionId, peerSession.authSessionId]);
+    if (before.ownedAuthSessions !== 2 || before.activeOwnedRefreshTokens < 2 || before.activeWebSessions < 2) {
+      throw new Error("global_logout_two_session_precondition_missing");
+    }
+    await page.goto(`${server.origin}/?quata-account-postflight-e2e=1&quata-auth-e2e=1#profile`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+    anchors.ugcTerms = await passUgcTermsGate(page);
+    await waitForProfile(page);
+    await waitForPostflightCanvas(page, "Overview");
+    anchors.openManagement = await invokeAccountPostflightBridge(page, "openManagement");
+    await waitForPostflightState(page, "Management", "");
+    anchors.openLogoutEverywhere = await invokeAccountPostflightBridge(page, "openLogoutEverywhereConfirmation");
+    await waitForPostflightState(page, "Management", "LogoutEverywhere");
+    evidence.confirmation = await screenshot(page, "web-auth-global-logout-confirmation");
+    anchors.confirmLogoutEverywhere = await invokeAccountPostflightBridge(page, "confirmLogoutEverywhere");
+    await page.waitForFunction(() =>
+      localStorage.getItem("quata_web_access_token") === null &&
+      localStorage.getItem("quata_web_refresh_token") === null &&
+      localStorage.getItem("quata_web_session_token") === null,
+    null, { timeout: 30_000 });
+    evidence.completed = await screenshot(page, "web-auth-global-logout-completed");
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    const restored = await page.evaluate(() => ({
+      accessToken: localStorage.getItem("quata_web_access_token"),
+      refreshToken: localStorage.getItem("quata_web_refresh_token"),
+      webSessionToken: localStorage.getItem("quata_web_session_token"),
+      userId: localStorage.getItem("quata_web_user_id"),
+    }));
+    if (Object.values(restored).some((value) => value !== null)) {
+      throw new Error("global_logout_local_session_restored_after_reload");
+    }
+    const refreshRejections = await Promise.all([
+      assertRefreshRejected(backend, session.refreshToken),
+      assertRefreshRejected(backend, peerSession.refreshToken),
+    ]);
+    const after = await auditGlobalLogoutBackend(session.authUserId, [session.authSessionId, peerSession.authSessionId]);
+    if (after.ownedAuthSessions !== 0 || after.activeOwnedRefreshTokens !== 0 || after.activePushTokens !== 0
+        || after.activeWebPushSubscriptions !== 0 || after.activeWebSessions !== 0) {
+      throw new Error("global_logout_backend_postcondition_failed");
+    }
+    report.cleanup = {
+      accountLifecycleCallbacksInvoked: false,
+      sessionPreserved: false,
+      allActorSessionsRevoked: true,
+      allDeviceEndpointsRetired: true,
+    };
+    return {
+      status: "passed",
+      anchors,
+      evidence,
+      before,
+      after,
+      refreshRejections,
+      cleanup: report.cleanup,
+      faults: faults.filter((fault) => !/Failed to load resource: the server responded with a status of 4\d\d/.test(fault)),
+    };
+  } catch (error) {
+    evidence.failure = await screenshot(page, "web-auth-global-logout-failure").catch(() => null);
     return {
       status: "failed",
       error: safeFailure(error),
@@ -323,11 +426,21 @@ function parseArgs(args) {
     chrome: process.env.QUATA_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/account-postflight-evidence.json"),
     evidenceDir: resolve("build-reports/web/account-postflight-evidence"),
+    dbUrlFile: DEFAULT_DB_URL_FILE,
+    tlsCaFile: DEFAULT_TLS_CA_FILE,
+    globalLogout: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
+    if (key === "--global-logout") {
+      parsed.globalLogout = true;
+      parsed.output = resolve("build-reports/web/auth-global-logout-evidence.json");
+      parsed.evidenceDir = resolve("build-reports/web/auth-global-logout-evidence");
+      continue;
+    }
     const value = args[index + 1];
-    if (!["--dist", "--chrome", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--db-url-file", "--tls-ca-file"].includes(key)
+        || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
     index += 1;
@@ -335,8 +448,69 @@ function parseArgs(args) {
     if (key === "--chrome") parsed.chrome = resolve(value);
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
+    if (key === "--db-url-file") parsed.dbUrlFile = resolve(value);
+    if (key === "--tls-ca-file") parsed.tlsCaFile = resolve(value);
   }
   return parsed;
+}
+
+async function auditGlobalLogoutBackend(authUserId, authSessionIds) {
+  if (!isUuid(authUserId) || authSessionIds.length !== 2 || authSessionIds.some((id) => !isUuid(id))) {
+    throw new Error("global_logout_backend_identity_invalid");
+  }
+  const client = new Client(pinnedTlsClientConfig(
+    (await readFile(options.dbUrlFile, "utf8")).trim(),
+    await readFile(options.tlsCaFile, "utf8"),
+  ));
+  await client.connect();
+  try {
+    const result = await client.query(`
+      select
+        (select count(*)::int from auth.sessions where user_id=$1::uuid and id=any($2::uuid[])) as owned_auth_sessions,
+        (select count(*) filter(where revoked is not true)::int from auth.refresh_tokens where session_id=any($2::uuid[])) as active_owned_refresh_tokens,
+        (select count(*)::int from public.push_tokens where auth_user_id=$1::uuid and disabled_at is null) as active_push_tokens,
+        (select count(*)::int from public.web_push_subscriptions where auth_user_id=$1::uuid and disabled_at is null) as active_web_push_subscriptions,
+        (select count(*)::int from public.web_client_sessions where auth_user_id=$1::uuid and revoked_at is null) as active_web_sessions
+    `, [authUserId, authSessionIds]);
+    const row = result.rows[0];
+    if (result.rowCount !== 1 || Object.values(row).some((value) => !Number.isSafeInteger(value) || value < 0)) {
+      throw new Error("global_logout_backend_receipt_invalid");
+    }
+    return {
+      ownedAuthSessions: row.owned_auth_sessions,
+      activeOwnedRefreshTokens: row.active_owned_refresh_tokens,
+      activePushTokens: row.active_push_tokens,
+      activeWebPushSubscriptions: row.active_web_push_subscriptions,
+      activeWebSessions: row.active_web_sessions,
+    };
+  } finally {
+    await client.end();
+  }
+}
+
+async function assertRefreshRejected(backend, refreshToken) {
+  const response = await fetch(`${backend.url}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: backend.key, "content-type": "application/json", "x-client-info": "quata-auth-global-logout-evidence" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+    signal: AbortSignal.timeout(30_000),
+  }).catch(() => null);
+  if (!response) throw new Error("global_logout_refresh_rejection_network_failed");
+  if (response.ok) throw new Error("global_logout_refresh_token_still_accepted");
+  return { rejected: true, status: response.status };
+}
+
+async function revokeCurrentSession(backend, session) {
+  if (!session?.accessToken) return;
+  await fetch(`${backend.url}/auth/v1/logout?scope=local`, {
+    method: "POST",
+    headers: { apikey: backend.key, authorization: `Bearer ${session.accessToken}` },
+    signal: AbortSignal.timeout(15_000),
+  });
+}
+
+function isUuid(value) {
+  return typeof value === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 }
 
 async function loadCredentials() {
@@ -385,6 +559,8 @@ async function login(backend, credentials, clientInstanceId) {
   const webSession = payload?.web_session;
   if (typeof session?.access_token !== "string" || typeof session?.refresh_token !== "string") throw new Error("invalid_auth_response");
   if (typeof webSession?.token !== "string" || typeof profile?.id !== "string") throw new Error("invalid_auth_response");
+  const claims = decodeJwtPayload(session.access_token);
+  if (!isUuid(claims.sub) || !isUuid(claims.session_id)) throw new Error("invalid_auth_session_claims");
   return {
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
@@ -393,7 +569,19 @@ async function login(backend, credentials, clientInstanceId) {
     expiresAt: Number(session.expires_at ?? Math.floor(Date.now() / 1000) + Number(session.expires_in ?? 3600)),
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
     clientInstanceId,
+    authUserId: claims.sub,
+    authSessionId: claims.session_id,
   };
+}
+
+function decodeJwtPayload(token) {
+  const encoded = String(token).split(".")[1];
+  if (!encoded) throw new Error("invalid_auth_access_token");
+  try {
+    return JSON.parse(Buffer.from(encoded.replace(/-/g, "+").replace(/_/g, "/"), "base64url").toString("utf8"));
+  } catch {
+    throw new Error("invalid_auth_access_token");
+  }
 }
 
 function localPhone(countryCode, phone) {

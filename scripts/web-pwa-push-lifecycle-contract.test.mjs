@@ -28,14 +28,15 @@ test("incoming PWA shares remain local, one-shot discardable payloads", () => {
 
 test("logout clears credentials after server revocation and browser unsubscribe even on a failure", () => {
   const lifecycle = auth.slice(auth.indexOf("suspend fun logoutWithBrowserUnsubscribe"));
-  const server = lifecycle.indexOf("val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()");
+  const server = lifecycle.indexOf("notifyServerLogout()");
+  const authLogout = lifecycle.indexOf("val authFailure = runCatching { notifySupabaseLogout(global) }.exceptionOrNull()");
   const browserTimeout = lifecycle.indexOf("withTimeoutOrNull(WebBrowserUnsubscribeTimeoutMillis)");
   const cleared = lifecycle.indexOf("WebAuthStorage.clear(preferences)");
-  assert.ok(server >= 0 && browserTimeout > server && cleared > browserTimeout, "logout_lifecycle_order_must_be_server_browser_clear");
+  assert.ok(server >= 0 && authLogout > server && browserTimeout > authLogout && cleared > browserTimeout, "logout_lifecycle_order_must_be_web_session_auth_browser_clear");
   assert.match(lifecycle, /val browserResult = withTimeoutOrNull\(WebBrowserUnsubscribeTimeoutMillis\)[\s\S]*runCatching \{ browserUnsubscribe\(\)\.getOrThrow\(\) \}[\s\S]*Result\.failure\(IllegalStateException\("web_push_unsubscribe_timeout"\)\)/);
   assert.match(lifecycle, /val browserFailure = browserResult\.exceptionOrNull\(\)/);
-  assert.match(lifecycle, /val failure = serverFailure \?: browserFailure/);
-  assert.match(coordinator, /logoutWithBrowserUnsubscribe\(::unsubscribeBrowserPush\)/);
+  assert.match(lifecycle, /val failure = webSessionFailure \?: authFailure \?: browserFailure/);
+  assert.match(coordinator, /logoutWithBrowserUnsubscribe\(browserUnsubscribe = ::unsubscribeBrowserPush\)/);
   assert.match(coordinator, /suspendCancellableCoroutine/);
   assert.match(coordinator, /if \(continuation\.isActive\) continuation\.resume\(Result\.success\(Unit\)\)/);
   assert.match(coordinator, /if \(continuation\.isActive\) continuation\.resume\(Result\.failure\(IllegalStateException\(reason\)\)\)/);

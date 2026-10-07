@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.quata-register]
 verify_jwt = false
+
+[functions.quata-auth-global-logout]
+verify_jwt = true

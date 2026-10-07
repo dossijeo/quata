@@ -382,16 +382,29 @@ private fun QuataWebApp(
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
     }
-    fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
-        feedMemberProfileRoute.close()
-        authenticationContinuationCoordinator.clearAll()
-        postComposerAuthenticationCoordinator.clear()
-        sosCoordinator.cancel()
-        sosFeedback = null
-        privateRouteAccess.invalidateAuthentication()
+    fun completeLogout(
+        global: Boolean = false,
+        onFinished: (WebPushSessionResult) -> Unit = {},
+    ) {
         isLoggingOut = true
         scope.launch {
-            val result = sessionCoordinator.logoutCurrentSession()
+            val result = if (global) {
+                sessionCoordinator.logoutAllSessions()
+            } else {
+                sessionCoordinator.logoutCurrentSession()
+            }
+            if (global && result is WebPushSessionResult.Failure) {
+                platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
+                isLoggingOut = false
+                onFinished(result)
+                return@launch
+            }
+            feedMemberProfileRoute.close()
+            authenticationContinuationCoordinator.clearAll()
+            postComposerAuthenticationCoordinator.clear()
+            sosCoordinator.cancel()
+            sosFeedback = null
+            privateRouteAccess.invalidateAuthentication()
             platformServices.preferences.remove(WebSessionReadyKey)
             platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
             currentUserId = null
@@ -894,6 +907,9 @@ private fun QuataWebApp(
                             isLoggingOut = isLoggingOut,
                             onLogout = {
                                 completeLogout()
+                            },
+                            onLogoutEverywhere = {
+                                completeLogout(global = true)
                             },
                             // Settings owns the verified password-confirmation lifecycle flow.
                             // Cuenta performs its first confirmation, then hands off there.

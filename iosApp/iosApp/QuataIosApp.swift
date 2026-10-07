@@ -1646,6 +1646,7 @@ private final class IosAppCompositionRoot {
             // it is not a substitute route for Profile on iOS.
             let dependencies = profileSosRuntimeBootstrap.profileHostDependencies(
                 onLogout: { [weak self] in self?.authenticatedHost.performLogout() },
+                onLogoutEverywhere: { [weak self] in self?.authenticatedHost.performLogoutEverywhere() },
                 onDeactivateAccount: { [weak self] in
                     self?.presentAccountLifecyclePrompt(action: "deactivate", handler: lifecycleHandler)
                 },
@@ -2242,6 +2243,18 @@ private final class IosAppCompositionRoot {
                     }
                 }
             },
+            logoutEverywhereAction: { [weak self] completed in
+                guard let self else { return }
+                self.prepareChatDraftRetirement()
+                self.notificationReplyRuntime?.sessionEnded()
+                logoutHandler.logoutEverywhere(
+                    onCompleted: completed,
+                    onFailure: { [weak self] in
+                        self?.notificationReplyRuntime?.resumeAfterSessionValidation()
+                        self?.authenticatedHost.reportLogoutFailure()
+                    },
+                )
+            },
             onLoggedOut: { [weak self] in
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
@@ -2793,6 +2806,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
+    private var logoutEverywhereAction: ((@escaping () -> Void) -> Void)?
     private var sosAction: (() -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var onAuthenticationContinuationAbandoned: (() -> Void)?
@@ -3125,9 +3139,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// confirmation UX and replaces authenticated route factories after its completion.
     func installLogoutAction(
         _ action: @escaping (@escaping () -> Void) -> Void,
+        logoutEverywhereAction: ((@escaping () -> Void) -> Void)? = nil,
         onLoggedOut: @escaping () -> Void,
     ) {
         logoutAction = action
+        self.logoutEverywhereAction = logoutEverywhereAction
         self.onLoggedOut = onLoggedOut
     }
 
@@ -3943,6 +3959,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         }
     }
 
+    func performLogoutEverywhere() {
+        guard let logoutEverywhereAction, !isLoggingOut else { return }
+        isLoggingOut = true
+        logoutEverywhereAction { [weak self] in
+            DispatchQueue.main.async {
+                self?.finishLogout()
+            }
+        }
+    }
+
     /// The session owner has already cleared the exact rejected Keychain record. Reuse the
     /// normal local teardown so the pending external route is handled by the public Auth gate.
     func expireAuthenticatedSession() {
@@ -3997,6 +4023,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onAuthenticationContinuationAbandoned?()
         persistPrimaryRoute("feed")
         logoutAction = nil
+        logoutEverywhereAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
         // The public application chrome is deliberately kept mounted while the composition
