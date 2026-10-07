@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "e7f04bdfa5b06eddc3c851b740ff5db35a54408a",
-  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-pending-final-CI-pending",
+  "certification": "remote-realtime-recovery-observed-recomposed-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "COMMUNITIES_DIRECTORY_EXHAUSTIVE_PAGINATION_AND_REALTIME_INVALIDATION",
   "evidence": {
     "crossPlatform": {
@@ -75,11 +75,11 @@
     "production publication SQL audit after reconnect"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": "85959ea97028b26ccf48e0679586a9467a07d156",
+    "status": "GO",
+    "reviewedSha": "d87ea18c135b40a49af9c793779345ded21e2adb",
     "reviewedProductSha": "e7f04bdfa5b06eddc3c851b740ff5db35a54408a",
     "blockingFindings": [],
-    "scopeLimit": "Independent exact-head review is pending for the recomposed attestation; final CI remains separate."
+    "scopeLimit": "The exact-head independent review verified the byte-identical recomposition, preserved evidence custody and narrowed delivery claim with no P0-P3 findings. Final CI remains separate."
   },
   "notes": [
     "Android, Web/Wasm and iOS exhaust directory profiles and active wall statistics with stable id keysets instead of one transport-limited page. The shared refresh policy emits immediately, reacts to Realtime invalidations and polls after 30 seconds as bounded recovery.",
