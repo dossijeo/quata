@@ -43,8 +43,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-native-deep-pagination.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "add1c44488253c46cf59a715d7fe042c63729882",
     "blockingFindings": [],
     "resolvedFindings": [
       "P1: the first reviewed head left the new 155-second XCTest under the CI step's 90-second default allowance. Product SHA 00a32303 requests a focal 180-second allowance, the contract requires it, and the exact test passes with the gate's unchanged default=90 and maximum=180 parameters."
@@ -56,6 +56,6 @@
     "The tests prove native traversal to the prefetch boundary, preservation of the first 50 posts after the forced failure, the visible product retry, publication of 100 posts and arrival at the exact stable-identity target.",
     "The Android run passed 1/1 on API 35. The iOS SimulatorSigned run passed 1/1 on iOS 26.5 x86_64 in 165.698 seconds with no failures or skips, using the gate's exact default/maximum timeout parameters and the test's focal 180-second allowance.",
     "Failed iOS pilots are retained in the evidence report: generic swipe helpers did not reach the boundary reliably. The accepted helper performs a bounds-relative native drag on the discovered ScrollView and leaves product state transitions to the real pager and ViewModel.",
-    "The source execution remains the clean a319d4db Product SHA. Recomposition onto 00a32303 preserves every changed workflow, Android/iOS test, runner and verifier blob byte-for-byte relative to the previously certified 2f232692 composition; documentation retains main's unrelated Auth state. The affected contracts pass, while platform E2E is not repeated solely for the new commit identity. A fresh independent review is required on the exact recomposed head before publication."
+    "The source execution remains the clean a319d4db Product SHA. Recomposition onto 00a32303 preserves every changed workflow, Android/iOS test, runner and verifier blob byte-for-byte relative to the previously certified 2f232692 composition; documentation retains main's unrelated Auth state. The affected contracts pass, while platform E2E is not repeated solely for the new commit identity. Independent review returned GO without P0-P3 on add1c4448."
   ]
 }
