@@ -935,12 +935,20 @@ VM macOS no expone un dispositivo Metal. El proceso termina al crear
 exacto alcanza `MetalView.uikit.kt:51` y `MTLCreateSystemDefaultDevice()` no puede
 proporcionar el renderizador que Compose iOS requiere. Reiniciar CoreSimulator,
 arrancar Simulator en la sesión gráfica y repetir el test no cambió el resultado.
-No se atribuye este fallo a Retry ni al producto, y no existe aceptación iOS de
-esta unidad hasta ejecutarla en un Mac con Metal disponible.
+No se atribuye este fallo a Retry ni al producto. El workflow final exige ahora
+que la suite global ejecute ese XCTest exacto, encuentre su identidad en el log,
+lo marque `passed` y rechace `skipped` o `disabled`. Esa alternativa todavía no
+se ha ejecutado sobre la candidata remota; por tanto, iOS continúa sin aceptación.
 
 Esta candidata elimina el límite histórico «Retry nativo no ejecutado» en
 Android y Web. iOS conserva ese límite por la restricción de renderizado anterior.
 No atribuye disponibilidad al backend, no sustituye los casos reales de destino
 ausente o sesión rechazada y no amplía la aceptación a Universal Links, APNs,
-push ni lifecycle global. La evidencia exacta y sus hashes están en
-[`deep-link-native-retry.json`](candidate-attestations/deep-link-native-retry.json).
+push ni lifecycle global. Android y Web pasaron sobre el head limpio
+`5397cedc61b6533d7ff4cbef0abd7afe4f5fd4c6`; sus reportes saneados y hashes están
+en [`deep-link-native-retry-android-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-android-5397cedc.json)
+y [`deep-link-native-retry-web-5397cedc.json`](candidate-attestations/evidence/deep-link-native-retry-web-5397cedc.json).
+El fallo conservado de la VM está en
+[`deep-link-native-retry-ios-metal-diagnostic-8768d980.json`](candidate-attestations/evidence/deep-link-native-retry-ios-metal-diagnostic-8768d980.json).
+El manifest final no se emitirá hasta que el XCTest iOS pase en un host con Metal;
+no hay un enlace de atestación aprobado mientras esa plataforma siga pendiente.

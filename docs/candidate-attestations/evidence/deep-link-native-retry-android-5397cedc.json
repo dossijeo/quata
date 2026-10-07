@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "check": "FLOW-DEEP-LINKS-ANDROID-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "5397cedc61b6533d7ff4cbef0abd7afe4f5fd4c6",
+    "workingTreeDirty": false
+  },
+  "fixture": {
+    "conversationId": "local:document-retry",
+    "messageId": "local-document-retry-message",
+    "backend": "not_used"
+  },
+  "steps": [
+    "android_debug_package_precompiled_before_deep_link_retry_instrumentation",
+    "local_fail_once_chat_read_fixture_armed",
+    "native_deep_link_failure_visible",
+    "native_retry_clicked",
+    "exact_conversation_recovered",
+    "back_to_previous_surface"
+  ],
+  "cleanup": {
+    "state": "completed"
+  },
+  "artifacts": {
+    "sourceReportSha256": "2f75cc36449501f83dbcce15d24b7bccfc5c27d73bc7023dae4e9269c3f292d7",
+    "productReportSha256": "1bf6925b0d72c87fb74bddf0aa311f3e790c3dd158d28c1cc1bd1746bf026977",
+    "beforeRetryPngSha256": "e4d42ac6f137f38ed67f041861af6c5f0a6db657a6aa12e67067e7e4a648d1aa",
+    "afterRetryPngSha256": "b709ff1d36fb40ddf991cd906bf61f397e86775ba0abb6a3995bec6ee570d758",
+    "afterBackPngSha256": "327a03e10a2edb17aad288b37eb80e6f1343d1ba5367a8a30a8a507757158447"
+  },
+  "scope": "Local fail-once product fixture; no credentials, backend or remote mutation."
+}
