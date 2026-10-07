@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "unit": "FLOW-SHELL-NAV",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-10-07",
+  "productSha": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+  "git": {
+    "head": "afc071c5637ffd63b2532d0de5534d037b5a6df1",
+    "workingTreeDirty": false
+  },
+  "scope": "Actor- and exact-origin-scoped restoration of the nested public member-profile route on Android, Web/Wasm and iOS",
+  "steps": [
+    "common_three_level_profile_route_restore_and_back_passed",
+    "failed_restored_child_back_to_parent_passed",
+    "late_route_restore_and_private_conversation_consumption_passed",
+    "android_failed_child_back_uses_profile_close_and_restores_parent_passed",
+    "android_actor_root_and_exact_conversation_scope_passed",
+    "android_focal_jvm_test_passed",
+    "web_wasm_failed_child_focal_test_passed",
+    "ios_swift_parse_passed",
+    "ios_x64_framework_link_passed",
+    "ios_unsigned_intel_simulator_host_build_passed",
+    "ios_exact_chat_origin_xctests_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "SavedStateHandle accepts only the exact actor and root or conversation origin",
+        "failed restored-child Back invokes closeUserProfile so the retained parent is restored",
+        "NeighborhoodsAndroidViewModelRouteTest passed from a clean affected build"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "sessionStorage accepts only the exact actor and origin fragment",
+        "the failed restored-child focal Wasm browser test passed",
+        "the unchanged prior browser coverage remains applicable to the byte-identical Web runtime"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "UserDefaults accepts only the exact actor and concrete chat conversation origin",
+        "chat:sb:conversation-a and chat:sb:conversation-b remain distinct continuation origins",
+        "Swift parse, x86_64 framework link and unsigned Intel Simulator host build passed",
+        "two selected QuataFeedFrameworkTests passed on the booted iOS 26.5 Simulator"
+      ]
+    }
+  },
+  "assertions": [
+    "only successfully visible profiles are published to persistent storage",
+    "the snapshot does not insert the same immediate transition twice; a non-consecutive revisit remains valid history",
+    "Back publishes the valid parent before loading it",
+    "a failed restored child keeps the exact target for Retry and returns to its retained parent on Back",
+    "superseded and failed new opens do not add phantom entries",
+    "successful private-conversation navigation consumes the profile route before leaving",
+    "explicit close, incompatible deep link, logout, actor mismatch and origin mismatch clear the snapshot",
+    "Android and iOS distinguish two concrete conversations even though they share one destination family"
+  ],
+  "independentReviewCorrections": [
+    "The Android failed-load Back binding now closes the profile through the product model instead of only dismissing the error.",
+    "The iOS continuation origin now includes the concrete conversation identifier instead of collapsing every chat to chat.",
+    "The duplicate-history claim is narrowed to consecutive identical transitions; A to B to A remains valid history."
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no backend fixture, credential, push delivery or remote mutation used"
+  },
+  "limitations": [
+    "This closes the durable nested public member-profile route only; scroll, drafts, editor state, media position and unrelated secondary back stacks retain their own units.",
+    "iOS verification uses the authorized Intel Simulator and an unsigned host test build; it makes no App Store, APNs or physical-device claim.",
+    "GitHub final jobs retain clean-runner integrated certification."
+  ],
+  "validationProvenance": {
+    "android": "The affected JVM test passed with one worker, no build cache, Kotlin incremental compilation disabled and the compiler in-process after stale build outputs were isolated outside the worktree.",
+    "web": "The affected Wasm browser test passed under the same clean, single-worker Gradle policy; unchanged broader browser evidence is not repeated solely for the new SHA.",
+    "ios": "The exact Product SHA was bundled to the macOS VM, parsed by swiftc, linked as an iosX64 framework, built as an unsigned Intel Simulator host and ran the two selected XCTest methods successfully.",
+    "supersedes": "docs/candidate-attestations/evidence/shell-navigation-public-profile-backstack-ea566b85.json remains historical and is superseded for acceptance because independent review found two product defects and one overbroad assertion."
+  }
+}
