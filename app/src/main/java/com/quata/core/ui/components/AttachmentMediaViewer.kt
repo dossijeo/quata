@@ -567,18 +567,19 @@ private fun FullscreenVideoPlayer(
     var isPlaying by remember(videoUri) { mutableStateOf(false) }
     var hasPlaybackError by remember(videoUri) { mutableStateOf(false) }
     val latestOnPositionChanged by rememberUpdatedState(onPositionChanged)
+    val startingPositionMs = remember(videoUri) { initialPositionMs.coerceAtLeast(0L) }
     LaunchedEffect(videoUri) {
         playbackRotation = withContext(Dispatchers.IO) {
             readQuataVideoRotation(context, Uri.parse(videoUri))
         }
     }
-    val player = remember(videoUri, initialPositionMs) {
+    val player = remember(videoUri) {
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(QuataMediaCache.videoMediaSourceFactory(context))
             .build()
             .apply {
                 setMediaItem(MediaItem.fromUri(videoUri))
-                if (initialPositionMs > 0L) seekTo(initialPositionMs)
+                if (startingPositionMs > 0L) seekTo(startingPositionMs)
                 repeatMode = Player.REPEAT_MODE_OFF
                 prepare()
                 playWhenReady = true

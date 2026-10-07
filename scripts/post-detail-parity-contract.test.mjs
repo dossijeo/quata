@@ -301,6 +301,8 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(androidUiTest, /quata\.official\.video_positions\.v1/);
   assert.match(androidAttachmentViewer, /\.testTag\("fullscreen-media\.video"\)/);
   assert.match(androidAttachmentViewer, /isPlaying -> "playing"/);
+  assert.match(androidAttachmentViewer, /val startingPositionMs = remember\(videoUri\)/);
+  assert.doesNotMatch(androidAttachmentViewer, /remember\(videoUri, initialPositionMs\)/);
   assert.match(iosEvidence, /--post-detail-official-video/);
   assert.match(iosEvidence, /withOfficialVideo: postDetailOfficialVideo/);
   assert.match(iosEvidence, /--official-video-position-lifecycle/);
