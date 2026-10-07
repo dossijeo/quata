@@ -4,13 +4,13 @@
     "SCR-FEED"
   ],
   "status": "passed",
-  "productSha": "1894c4b41433d00f92bd70f997fa71c6d7a6db3a",
+  "productSha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
   "certification": "focused-native-deep-pagination-recovery-complete-final-ci-pending",
   "evidenceKind": "FOCUSED_NATIVE_DEEP_PAGINATION_RECOVERY",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "1894c4b41433d00f92bd70f997fa71c6d7a6db3a",
+      "sha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
       "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
       "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "1894c4b41433d00f92bd70f997fa71c6d7a6db3a",
+      "sha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
       "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
       "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "1894c4b41433d00f92bd70f997fa71c6d7a6db3a",
+      "sha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
       "report": "docs/candidate-attestations/evidence/feed-native-deep-pagination-235a0c47.json",
       "reportSha256": "35f7c0abf7c95680164eff3b16173ed1721416c246a71bfae6c0f3c984248b34",
       "reportStatus": "passed",
@@ -78,7 +78,7 @@
   "review": {
     "status": "PENDING",
     "reviewedSha": null,
-    "reviewedProductSha": "1894c4b41433d00f92bd70f997fa71c6d7a6db3a",
+    "reviewedProductSha": "1894c4b41ae94fe443424a7f3573bf56aba63686",
     "blockingFindings": [],
     "scopeLimit": "The independent review covers the recomposed SCR-FEED deep-pagination unit and the shared four-case native runner. Final CI remains separate."
   },
