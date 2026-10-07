@@ -58,6 +58,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -76,6 +77,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,6 +102,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
+import kotlin.math.roundToLong
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -568,6 +573,8 @@ private fun FullscreenVideoPlayer(
     var hasPlaybackError by remember(videoUri) { mutableStateOf(false) }
     val latestOnPositionChanged by rememberUpdatedState(onPositionChanged)
     val startingPositionMs = remember(videoUri) { initialPositionMs.coerceAtLeast(0L) }
+    var playbackPositionMs by remember(videoUri) { mutableLongStateOf(startingPositionMs) }
+    var playbackDurationMs by remember(videoUri) { mutableLongStateOf(0L) }
     LaunchedEffect(videoUri) {
         playbackRotation = withContext(Dispatchers.IO) {
             readQuataVideoRotation(context, Uri.parse(videoUri))
@@ -588,7 +595,9 @@ private fun FullscreenVideoPlayer(
     LaunchedEffect(player) {
         while (true) {
             delay(250L)
-            latestOnPositionChanged(player.currentPosition.coerceAtLeast(0L))
+            playbackPositionMs = player.currentPosition.coerceAtLeast(0L)
+            playbackDurationMs = player.duration.takeIf { it > 0L } ?: playbackDurationMs
+            latestOnPositionChanged(playbackPositionMs)
         }
     }
     DisposableEffect(player) {
@@ -637,6 +646,15 @@ private fun FullscreenVideoPlayer(
             .background(Color.Black)
             .testTag("fullscreen-media.video")
             .semantics {
+                val duration = playbackDurationMs.coerceAtLeast(1L)
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = playbackPositionMs.coerceIn(0L, duration).toFloat(),
+                    range = 0f..duration.toFloat(),
+                )
+                setProgress { target ->
+                    player.seekTo(target.roundToLong().coerceIn(0L, duration))
+                    true
+                }
                 stateDescription = when {
                     hasPlaybackError -> "failed"
                     isLoading -> "loading"

@@ -297,10 +297,13 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(androidUiTest, /StateDescription\) == "playing"/);
   assert.match(androidUiTest, /OfficialVideoPositionTestTag/);
   assert.match(androidUiTest, /officialVideoPositionMsFromAccessibility/);
+  assert.match(androidUiTest, /SemanticsActions\.SetProgress/);
   assert.match(androidUiTest, /rootInActiveWindow/);
   assert.match(androidUiTest, /quata\.official\.video_positions\.v1/);
   assert.match(androidAttachmentViewer, /\.testTag\("fullscreen-media\.video"\)/);
   assert.match(androidAttachmentViewer, /isPlaying -> "playing"/);
+  assert.match(androidAttachmentViewer, /progressBarRangeInfo = ProgressBarRangeInfo/);
+  assert.match(androidAttachmentViewer, /setProgress \{ target ->/);
   assert.match(androidAttachmentViewer, /val startingPositionMs = remember\(videoUri\)/);
   assert.doesNotMatch(androidAttachmentViewer, /remember\(videoUri, initialPositionMs\)/);
   assert.match(iosEvidence, /--post-detail-official-video/);
