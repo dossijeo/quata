@@ -53,7 +53,7 @@
     "evidence:account-postflight-web": "node scripts/account-postflight-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/account-postflight-evidence.json --evidence-dir build-reports/web/account-postflight-evidence",
     "evidence:auth-global-logout-web": "node scripts/account-postflight-web-evidence.mjs --global-logout --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/auth-global-logout-evidence.json --evidence-dir build-reports/web/auth-global-logout-evidence",
     "evidence:auth-global-logout-android": "node scripts/account-postflight-android-evidence.mjs --global-logout --out build-reports/android/auth-global-logout-evidence.json --evidence-dir build-reports/android/auth-global-logout-evidence",
-    "evidence:auth-global-logout-ios": "node scripts/account-postflight-ios-evidence.mjs --global-logout --db-url-file C:/Users/PC/.quata-supabase-db-url.txt --tls-ca-file C:/Users/PC/.quata-supabase-pooler-ca.pem",
+    "evidence:auth-global-logout-ios": "node scripts/account-postflight-ios-evidence.mjs --global-logout",
     "evidence:account-postflight-android": "node scripts/account-postflight-android-evidence.mjs --out build-reports/android/account-postflight-evidence.json --evidence-dir build-reports/android/account-postflight-evidence",
     "evidence:account-postflight-ios": "node scripts/account-postflight-ios-evidence.mjs --out build-reports/ios/account-postflight-evidence.json --evidence-dir build-reports/ios/account-postflight-evidence",
     "test:auth-logout-entrypoints-contract": "node --test scripts/auth-logout-entrypoints-contract.test.mjs scripts/auth-global-logout-contract.test.mjs",

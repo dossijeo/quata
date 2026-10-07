@@ -123,6 +123,6 @@
     "Web, Android and iOS each created two owned sessions, activated the real product confirmation once, returned to the public product surface, rejected both refresh tokens and observed zero active actor device endpoints.",
     "The iOS lane used SimulatorSigned and proves product interaction, local Keychain teardown and backend revocation without requiring a physical device or APNs delivery.",
     "Failed pilots are retained in the sanitized evidence: Chrome screenshot timeout, Web evidence reload reseeding, one overloaded Android emulator, Mac disk exhaustion and one iOS build compiled before transient public runtime configuration.",
-    "No secret, token, connection string, database project fingerprint, private path or raw actor identifier is versioned."
+    "No secret, token, connection string, database project fingerprint or raw actor identifier is versioned; the sanitized report contains no private path."
   ]
 }
