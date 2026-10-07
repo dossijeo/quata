@@ -322,6 +322,22 @@ fun FeedScreenHost(
         }
         videoPositionsRestored = true
     }
+    fun updateVideoPosition(post: Post, position: Long) {
+        if (videoPositionsRestored) {
+            post.videoUrl?.let { url ->
+                val mediaId = feedVideoPositionMediaId(post.id, url)
+                val normalized = position.coerceAtLeast(0L)
+                videoPositions[mediaId] = normalized
+                val lastPersisted = persistedVideoPositions[mediaId]
+                if (lastPersisted == null || abs(normalized - lastPersisted) >= 1_000L) {
+                    persistedVideoPositions[mediaId] = normalized
+                    videoPositionStore?.let { store ->
+                        scope.launch { store.persistPosition(effectiveCurrentUserId, mediaId, normalized) }
+                    }
+                }
+            }
+        }
+    }
     val canParticipate = effectiveCurrentUserId != null
     val pendingAuthenticationContinuation by (
         authenticationContinuationCoordinator?.pending
@@ -629,23 +645,7 @@ fun FeedScreenHost(
                                         post,
                                         isCurrent && mediaPostId == null,
                                         post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
-                                        { position ->
-                                            if (videoPositionsRestored) {
-                                                post.videoUrl?.let { url ->
-                                                    val mediaId = feedVideoPositionMediaId(post.id, url)
-                                                    val normalized = position.coerceAtLeast(0L)
-                                                    videoPositions[mediaId] = normalized
-                                                    val lastPersisted = persistedVideoPositions[mediaId]
-                                                    if (lastPersisted == null || abs(normalized - lastPersisted) >= 1_000L) {
-                                                        persistedVideoPositions[mediaId] = normalized
-                                                        videoPositionStore?.let { store ->
-                                                            val snapshot = videoPositions.toMap()
-                                                            scope.launch { store.persist(effectiveCurrentUserId, snapshot) }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        },
+                                        { position -> updateVideoPosition(post, position) },
                                         isFeedMuted,
                                         { isFeedMuted = it },
                                     )
@@ -802,7 +802,7 @@ fun FeedScreenHost(
                             post,
                             true,
                             post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
-                            { position -> post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] = position } },
+                            { position -> updateVideoPosition(post, position) },
                             isFeedMuted,
                             { isFeedMuted = it },
                         )

@@ -11,6 +11,7 @@ async function source(path) {
 
 const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPostDetailChromeContent.kt");
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
+const feedVideoPositionStore = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStore.kt");
 const feedPlaybackHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelVideoPlaybackHostContent.kt");
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
 const feedTextReader = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/TextOnlyReelContent.kt");
@@ -325,8 +326,11 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(feedHost, /store\.restore\(effectiveCurrentUserId\)/);
   assert.match(feedHost, /if \(videoPositionsRestored\)/);
   assert.match(feedHost, /abs\(normalized - lastPersisted\) >= 1_000L/);
-  assert.match(feedHost, /store\.persist\(effectiveCurrentUserId, snapshot\)/);
+  assert.match(feedHost, /store\.persistPosition\(effectiveCurrentUserId, mediaId, normalized\)/);
+  assert.equal(feedHost.match(/\{ position -> updateVideoPosition\(post, position\) \}/g)?.length, 2);
   assert.match(feedHost, /feedVideoPositionMediaId\(post\.id, url\)/);
+  assert.match(feedVideoPositionStore, /actorLock\(actorId\)\.withLock/);
+  assert.match(feedVideoPositionStore, /positions\.remove\(mediaId\)[\s\S]*?positions\[mediaId\] = positionMs/);
   assert.match(androidFeedScreen, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
   assert.match(androidFeedScreen, /LaunchedEffect\(player, isActive, initialPositionMs\)/);
   assert.match(webFeedMedia, /isBecomingCurrent = isCurrent && !wasCurrent/);
@@ -340,7 +344,8 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?slots\.media\(/);
 
   assert.match(feedMediaViewerTest, /focusedFeedMediaOpensTheSharedViewerAndReturnsToTheSameDetail/);
-  assert.match(feedMediaViewerTest, /focusedFeedVideoUsesAnExplicitFullscreenActionAndPreservesPlaybackPosition/);
+  assert.match(feedMediaViewerTest, /focusedFeedVideoUsesAnExplicitFullscreenActionAndPersistsPlaybackPosition/);
+  assert.match(feedMediaViewerTest, /assertEquals\(2_000L, store\.restore\(actorId\)\[mediaId\]\)/);
   assert.match(feedMediaViewerTest, /FeedPostMediaOpenTestTagPrefix/);
   assert.match(feedMediaViewerTest, /FeedPostVideoFullscreenOpenTestTagPrefix/);
   assert.match(feedMediaViewerTest, /media-slot-paused/);

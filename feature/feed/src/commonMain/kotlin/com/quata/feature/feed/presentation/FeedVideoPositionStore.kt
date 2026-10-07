@@ -1,6 +1,8 @@
 package com.quata.feature.feed.presentation
 
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -24,7 +26,20 @@ class FeedVideoPositionStore(
     private val preferences: PreferenceStore,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
-    suspend fun restore(actorId: String?): Map<String, Long> {
+    suspend fun restore(actorId: String?): Map<String, Long> =
+        actorLock(actorId).withLock { restoreUnlocked(actorId) }
+
+    suspend fun persistPosition(actorId: String?, mediaId: String, positionMs: Long) {
+        if (mediaId.isBlank() || positionMs < 0L) return
+        actorLock(actorId).withLock {
+            val positions = restoreUnlocked(actorId).toMutableMap()
+            positions.remove(mediaId)
+            positions[mediaId] = positionMs
+            writeUnlocked(actorId, positions)
+        }
+    }
+
+    private suspend fun restoreUnlocked(actorId: String?): Map<String, Long> {
         val raw = runCatching { preferences.getString(storageKey(actorId)) }.getOrNull()
             ?: return emptyMap()
         val root = runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull()
@@ -46,7 +61,7 @@ class FeedVideoPositionStore(
             .associate { it.mediaId to it.positionMs }
     }
 
-    suspend fun persist(actorId: String?, positions: Map<String, Long>) {
+    private suspend fun writeUnlocked(actorId: String?, positions: Map<String, Long>) {
         val entries = positions.entries
             .asSequence()
             .filter { it.key.isNotBlank() && it.value >= 0L }
@@ -75,6 +90,18 @@ class FeedVideoPositionStore(
 
     private fun storageKey(actorId: String?): String =
         FeedVideoPositionStoragePrefix + (actorId?.trim()?.takeIf { it.isNotEmpty() } ?: "public")
+
+    private suspend fun actorLock(actorId: String?): Mutex {
+        val key = storageKey(actorId)
+        return lockRegistryGuard.withLock {
+            lockRegistry.getOrPut(preferences) { mutableMapOf() }.getOrPut(key) { Mutex() }
+        }
+    }
+
+    private companion object {
+        val lockRegistryGuard = Mutex()
+        val lockRegistry = mutableMapOf<PreferenceStore, MutableMap<String, Mutex>>()
+    }
 }
 
 internal fun feedVideoPositionMediaId(postId: String, videoUrl: String): String =

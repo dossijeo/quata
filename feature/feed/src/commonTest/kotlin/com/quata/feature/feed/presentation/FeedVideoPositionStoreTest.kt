@@ -12,8 +12,8 @@ class FeedVideoPositionStoreTest {
         val preferences = MemoryPreferenceStore()
         val store = FeedVideoPositionStore(preferences)
 
-        store.persist("actor-a", linkedMapOf("post-a\u001fvideo-a" to 12_345L))
-        store.persist(null, linkedMapOf("post-public\u001fvideo-public" to 2_000L))
+        store.persistPosition("actor-a", "post-a\u001fvideo-a", 12_345L)
+        store.persistPosition(null, "post-public\u001fvideo-public", 2_000L)
 
         assertEquals(mapOf("post-a\u001fvideo-a" to 12_345L), store.restore("actor-a"))
         assertEquals(mapOf("post-public\u001fvideo-public" to 2_000L), store.restore(null))
@@ -27,9 +27,9 @@ class FeedVideoPositionStoreTest {
         preferences.putString("${FeedVideoPositionStoragePrefix}broken", "not-json")
         assertTrue(store.restore("broken").isEmpty())
 
-        val positions = linkedMapOf<String, Long>()
-        repeat(FeedVideoPositionEntryLimit + 5) { index -> positions["media-$index"] = index.toLong() }
-        store.persist("actor", positions)
+        repeat(FeedVideoPositionEntryLimit + 5) { index ->
+            store.persistPosition("actor", "media-$index", index.toLong())
+        }
 
         val restored = store.restore("actor")
         assertEquals(FeedVideoPositionEntryLimit, restored.size)
@@ -51,7 +51,23 @@ class FeedVideoPositionStoreTest {
         })
 
         assertTrue(store.restore("actor").isEmpty())
-        store.persist("actor", mapOf("media" to 1_000L))
+        store.persistPosition("actor", "media", 1_000L)
+    }
+
+    @Test
+    fun separateStoreInstancesPreserveEachOthersActorMediaUpdates() = runTest {
+        val preferences = MemoryPreferenceStore()
+        val first = FeedVideoPositionStore(preferences)
+        val second = FeedVideoPositionStore(preferences)
+
+        first.persistPosition("actor", "media-a", 1_000L)
+        second.persistPosition("actor", "media-b", 2_000L)
+        first.persistPosition("actor", "media-c", 3_000L)
+
+        assertEquals(
+            mapOf("media-a" to 1_000L, "media-b" to 2_000L, "media-c" to 3_000L),
+            second.restore("actor"),
+        )
     }
 
     private class MemoryPreferenceStore : PreferenceStore {

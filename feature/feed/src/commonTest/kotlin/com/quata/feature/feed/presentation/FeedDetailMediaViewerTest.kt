@@ -135,7 +135,7 @@ class FeedDetailMediaViewerTest {
     }
 
     @Test
-    fun focusedFeedVideoUsesAnExplicitFullscreenActionAndPreservesPlaybackPosition() = runComposeUiTest {
+    fun focusedFeedVideoUsesAnExplicitFullscreenActionAndPersistsPlaybackPosition() {
         val post = Post(
             id = "feed-video-detail",
             author = User("feed-video-author", "feed-video@example.invalid", "Feed Video"),
@@ -144,55 +144,65 @@ class FeedDetailMediaViewerTest {
             createdAt = "2026-09-20T00:00:00Z",
         )
         val holder = MediaStateHolder(post)
-        setContent {
-            QuataTheme {
-                FeedScreenHost(
-                    padding = PaddingValues(),
-                    repository = mediaRepository(post),
-                    stateHolder = holder,
-                    slots = FeedScreenPlatformSlots(
-                        media = { mediaPost, active, initialPositionMs, onPositionChanged, _, _ ->
-                            val state = if (active) "active" else "paused"
-                            Column {
-                                Text(
-                                    "media-${mediaPost.id}-$state-$initialPositionMs",
-                                    Modifier.testTag("media-slot-$state"),
-                                )
-                                Button(
-                                    onClick = { onPositionChanged(initialPositionMs + 1_000L) },
-                                    modifier = Modifier.testTag("media-slot-$state-advance"),
-                                ) {
-                                    Text("advance")
+        val actorId = "feed-video-fullscreen-actor"
+        val mediaId = feedVideoPositionMediaId(post.id, checkNotNull(post.videoUrl))
+        val store = FeedVideoPositionStore(MediaMemoryPreferenceStore())
+        runComposeUiTest {
+            setContent {
+                QuataTheme {
+                    FeedScreenHost(
+                        padding = PaddingValues(),
+                        repository = mediaRepository(post),
+                        stateHolder = holder,
+                        slots = FeedScreenPlatformSlots(
+                            media = { mediaPost, active, initialPositionMs, onPositionChanged, _, _ ->
+                                val state = if (active) "active" else "paused"
+                                Column {
+                                    Text(
+                                        "media-${mediaPost.id}-$state-$initialPositionMs",
+                                        Modifier.testTag("media-slot-$state"),
+                                    )
+                                    Button(
+                                        onClick = { onPositionChanged(initialPositionMs + 1_000L) },
+                                        modifier = Modifier.testTag("media-slot-$state-advance"),
+                                    ) {
+                                        Text("advance")
+                                    }
                                 }
-                            }
-                        },
-                    ),
-                    focusedPostId = post.id,
-                    onBackFromFocusedPost = {},
-                    isLandscape = false,
-                )
+                            },
+                        ),
+                        focusedPostId = post.id,
+                        currentUserId = actorId,
+                        videoPositionStore = store,
+                        onBackFromFocusedPost = {},
+                        isLandscape = false,
+                    )
+                }
             }
+
+            onNodeWithTag("media-slot-active").assertTextContains("-0", substring = true)
+            onNodeWithTag("media-slot-active-advance").performClick()
+
+            onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
+                .assertHasClickAction()
+                .performClick()
+
+            onNodeWithTag(QuataFullscreenMediaOverlayRootTestTag).assertIsDisplayed()
+            onNodeWithTag("media-slot-paused").assertTextContains("-1000", substring = true)
+            onNodeWithTag("media-slot-active").assertTextContains("-1000", substring = true)
+            onNodeWithTag("media-slot-active-advance").performClick()
+
+            onNodeWithTag(QuataFullscreenMediaOverlayCloseTestTag).performClick()
+            assertTrue(onAllNodesWithTag(QuataFullscreenMediaOverlayRootTestTag).fetchSemanticsNodes().isEmpty())
+
+            onNodeWithTag(FeedPostDetailChromeTestTag).assertIsDisplayed()
+            onNodeWithTag("media-slot-active").assertTextContains("-2000", substring = true)
+            onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
+                .assertHasClickAction()
         }
-
-        onNodeWithTag("media-slot-active").assertTextContains("-0", substring = true)
-        onNodeWithTag("media-slot-active-advance").performClick()
-
-        onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
-            .assertHasClickAction()
-            .performClick()
-
-        onNodeWithTag(QuataFullscreenMediaOverlayRootTestTag).assertIsDisplayed()
-        onNodeWithTag("media-slot-paused").assertTextContains("-1000", substring = true)
-        onNodeWithTag("media-slot-active").assertTextContains("-1000", substring = true)
-        onNodeWithTag("media-slot-active-advance").performClick()
-
-        onNodeWithTag(QuataFullscreenMediaOverlayCloseTestTag).performClick()
-        assertTrue(onAllNodesWithTag(QuataFullscreenMediaOverlayRootTestTag).fetchSemanticsNodes().isEmpty())
-
-        onNodeWithTag(FeedPostDetailChromeTestTag).assertIsDisplayed()
-        onNodeWithTag("media-slot-active").assertTextContains("-2000", substring = true)
-        onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
-            .assertHasClickAction()
+        runTest {
+            assertEquals(2_000L, store.restore(actorId)[mediaId])
+        }
     }
 
     @Test
@@ -208,7 +218,7 @@ class FeedDetailMediaViewerTest {
         val mediaId = feedVideoPositionMediaId(post.id, checkNotNull(post.videoUrl))
         val preferences = MediaMemoryPreferenceStore()
         val store = FeedVideoPositionStore(preferences)
-        runTest { store.persist(actorId, mapOf(mediaId to 12_345L)) }
+        runTest { store.persistPosition(actorId, mediaId, 12_345L) }
 
         runComposeUiTest {
             setContent {
