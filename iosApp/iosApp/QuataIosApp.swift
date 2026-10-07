@@ -3821,7 +3821,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         switch visibleRoute {
         case .official: return "official"
         case .communities: return "communities"
-        case .chat: return "chat"
+        case let .chat(conversationId, _):
+            guard let conversationId, !conversationId.isEmpty else { return "chat" }
+            return "chat:\(conversationId)"
         default: return "feed"
         }
     }

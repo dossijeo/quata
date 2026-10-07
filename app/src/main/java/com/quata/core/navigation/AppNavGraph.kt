@@ -1359,7 +1359,7 @@ fun AppNavGraph(
                     retryLabel = stringResource(R.string.common_retry),
                     backLabel = stringResource(R.string.common_back),
                     onRetry = globalProfileViewModel::retryFailedUserProfile,
-                    onBack = globalProfileViewModel::dismissUserProfileLoadFailure,
+                    onBack = { globalProfileViewModel.closeUserProfile() },
                 )
             }
 

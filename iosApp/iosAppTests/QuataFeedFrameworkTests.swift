@@ -112,6 +112,19 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(store.restore(actorId: nil, originRoute: "feed"))
     }
 
+    func testMemberProfileOriginSeparatesExactChatConversations() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        router.installFeedFactory { _ in UIViewController() }
+        router.installChatFactory { _, _ in UIViewController() }
+
+        router.showChat(conversationId: "sb:conversation-a", messageId: "message-a")
+        XCTAssertEqual(router.authenticationContinuationOriginRoute(), "chat:sb:conversation-a")
+
+        router.showChat(conversationId: "sb:conversation-b", messageId: "message-b")
+        XCTAssertEqual(router.authenticationContinuationOriginRoute(), "chat:sb:conversation-b")
+    }
+
     private func mountRouter() -> MountedRouter {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.disableStartupSplashForTesting()
