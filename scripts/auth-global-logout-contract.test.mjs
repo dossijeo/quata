@@ -102,6 +102,9 @@ test("Web acceptance drives the product confirmation and proves two-session reti
   assert.match(runner, /openLogoutEverywhereConfirmation/);
   assert.match(runner, /waitForPostflightState\(page, "Management", "LogoutEverywhere"\)/);
   assert.match(runner, /confirmLogoutEverywhere/);
+  assert.match(runner, /sessionStorage\.getItem\("quata\.auth\.e2e\.seeded"\) !== "1"/);
+  assert.match(runner, /sessionStorage\.setItem\("quata\.auth\.e2e\.seeded", "1"\)/);
+  assert.match(runner, /await page\.reload/);
   assert.match(runner, /auth\/v1\/token\?grant_type=refresh_token/);
   assert.match(runner, /ownedAuthSessions !== 0/);
   assert.match(runner, /activePushTokens !== 0/);

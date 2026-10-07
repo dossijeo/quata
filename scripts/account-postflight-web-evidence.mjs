@@ -59,15 +59,18 @@ try {
   });
   const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
   await context.addInitScript((state) => {
-    localStorage.setItem("quata_web_access_token", state.accessToken);
-    localStorage.setItem("quata_web_refresh_token", state.refreshToken);
-    localStorage.setItem("quata_web_session_token", state.webSessionToken);
-    localStorage.setItem("quata_web_user_id", state.userId);
-    localStorage.setItem("quata_web_expires_at", String(state.expiresAt));
-    if (state.displayName) localStorage.setItem("quata_web_display_name", state.displayName);
-    localStorage.setItem("web.auth.session_ready", "true");
-    localStorage.setItem("quata_web_client_instance_id", state.clientInstanceId);
-    localStorage.setItem("quata_account_postflight_e2e_opt_in", "I_ACCEPT_WEB_ACCOUNT_POSTFLIGHT_FIXTURE");
+    if (sessionStorage.getItem("quata.auth.e2e.seeded") !== "1") {
+      localStorage.setItem("quata_web_access_token", state.accessToken);
+      localStorage.setItem("quata_web_refresh_token", state.refreshToken);
+      localStorage.setItem("quata_web_session_token", state.webSessionToken);
+      localStorage.setItem("quata_web_user_id", state.userId);
+      localStorage.setItem("quata_web_expires_at", String(state.expiresAt));
+      if (state.displayName) localStorage.setItem("quata_web_display_name", state.displayName);
+      localStorage.setItem("web.auth.session_ready", "true");
+      localStorage.setItem("quata_web_client_instance_id", state.clientInstanceId);
+      localStorage.setItem("quata_account_postflight_e2e_opt_in", "I_ACCEPT_WEB_ACCOUNT_POSTFLIGHT_FIXTURE");
+      sessionStorage.setItem("quata.auth.e2e.seeded", "1");
+    }
     sessionStorage.setItem("quata.auth.e2e", "1");
   }, session);
 
