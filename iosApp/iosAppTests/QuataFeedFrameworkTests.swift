@@ -818,6 +818,103 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(authenticatedRouteController(in: router) === inbox)
     }
 
+    func testNotificationsChatBackReturnsToNotificationsAfterRouterRecreation() {
+        let suiteName = "QuataFeedFrameworkTests.notifications-chat-return.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let firstRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        firstRouter.disableStartupSplashForTesting()
+        firstRouter.loadViewIfNeeded()
+        firstRouter.installFeedFactory { _ in UIViewController() }
+        firstRouter.installNotificationsFactory { UIViewController() }
+        firstRouter.installChatFactory { _, _ in UIViewController() }
+        firstRouter.showNotifications()
+        firstRouter.showNotificationsChat(
+            conversationId: "sb:notifications/42",
+            messageId: "message 9/á"
+        )
+
+        let restoredRouter = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        restoredRouter.disableStartupSplashForTesting()
+        restoredRouter.loadViewIfNeeded()
+        restoredRouter.installFeedFactory { _ in UIViewController() }
+        let restoredNotifications = UIViewController()
+        restoredRouter.installNotificationsFactory { restoredNotifications }
+        var restoredConversationId: String?
+        var restoredMessageId: String?
+        restoredRouter.installChatFactory { conversationId, messageId in
+            restoredConversationId = conversationId
+            restoredMessageId = messageId
+            return UIViewController()
+        }
+
+        XCTAssertEqual(restoredConversationId, "sb:notifications/42")
+        XCTAssertEqual(restoredMessageId, "message 9/á")
+        restoredRouter.returnFromChat()
+        XCTAssertTrue(authenticatedRouteController(in: restoredRouter) === restoredNotifications)
+    }
+
+    func testNotificationsChatReturnIsBoundToExactConversationAndClearedByReplacement() {
+        let suiteName = "QuataFeedFrameworkTests.notifications-chat-return-mismatch.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let router = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        router.disableStartupSplashForTesting()
+        router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
+        let notifications = UIViewController()
+        let inbox = UIViewController()
+        router.installNotificationsFactory { notifications }
+        router.installChatFactory { conversationId, _ in
+            conversationId == nil ? inbox : UIViewController()
+        }
+        router.showNotificationsChat(conversationId: "sb:notification-source")
+
+        router.showChat(conversationId: "sb:unrelated", messageId: nil)
+        router.returnFromChat()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === inbox)
+        XCTAssertFalse(authenticatedRouteController(in: router) === notifications)
+    }
+
+    func testDismissingNotificationChatAuthenticationClearsTheReturnMarker() {
+        let suiteName = "QuataFeedFrameworkTests.notifications-chat-return-auth-cancel.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let router = IosFeedHostContainerViewController(
+            platformServices: makePlatformServiceComposition(),
+            routeSelectionDefaults: defaults
+        )
+        router.disableStartupSplashForTesting()
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        router.installNotificationsFactory { UIViewController() }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        router.showNotifications()
+        router.showNotificationsChat(conversationId: "sb:notification-auth")
+
+        router.dismissAuthRequiredPrompt()
+        router.installFeedFactory { _ in UIViewController() }
+        let inbox = UIViewController()
+        router.installChatFactory { conversationId, _ in
+            conversationId == nil ? inbox : UIViewController()
+        }
+        router.showChat(conversationId: "sb:notification-auth", messageId: nil)
+        router.returnFromChat()
+
+        XCTAssertTrue(authenticatedRouteController(in: router) === inbox)
+    }
+
     func testAnonymousRouterAllowsNotificationsButLeavesConversationGated() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()

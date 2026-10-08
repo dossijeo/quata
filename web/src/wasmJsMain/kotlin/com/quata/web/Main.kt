@@ -308,6 +308,7 @@ private fun QuataWebApp(
     // Preserve the exact hash that led to the common login screen so a successful web_login
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
+    var pendingAuthenticationReturnFragment by remember { mutableStateOf<String?>(null) }
     val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
     val pendingAuthenticationContinuation by authenticationContinuationCoordinator.pending.collectAsState()
     val postComposerAuthenticationCoordinator = remember { PostComposerAuthenticationContinuationCoordinator() }
@@ -398,8 +399,20 @@ private fun QuataWebApp(
                 profileRoute = feedMemberProfileRoute,
             )
         }
-        navigation.navigate(pendingAuthenticationFragment ?: "")
+        val destination = pendingAuthenticationFragment
+        val returnFragment = pendingAuthenticationReturnFragment
+        val chat = destination?.let { "https://egquata.com/#$it".quataChatDeepLinkOrNull() }
+        if (chat != null && returnFragment != null) {
+            navigation.navigateConversation(
+                conversationId = chat.conversationId,
+                messageId = chat.messageId,
+                returnFragment = returnFragment,
+            )
+        } else {
+            navigation.navigate(destination ?: "")
+        }
         pendingAuthenticationFragment = null
+        pendingAuthenticationReturnFragment = null
     }
     fun completeLogout(
         global: Boolean = false,
@@ -431,6 +444,8 @@ private fun QuataWebApp(
             touchFlowEnabled = false
             ugcTermsAccepted = null
             isSessionReady = false
+            pendingAuthenticationFragment = null
+            pendingAuthenticationReturnFragment = null
             navigation.navigate("")
             isLoggingOut = false
             onFinished(result)
@@ -635,10 +650,12 @@ private fun QuataWebApp(
     fun requestAuthenticationFor(
         fragment: String = navigation.fragment,
         continuation: AuthenticationContinuationIntent? = null,
+        returnFragment: String? = null,
     ) {
         if (continuation == null) authenticationContinuationCoordinator.clearAll()
         else authenticationContinuationCoordinator.request(continuation)
         pendingAuthenticationFragment = fragment
+        pendingAuthenticationReturnFragment = returnFragment
         isAuthRequiredPromptOpen = true
         // A copied private deep link must never leave an anonymous blank viewport or jump
         // straight to Login.  Return the browser to Android's anonymous Feed while showing
@@ -676,6 +693,7 @@ private fun QuataWebApp(
         privateRouteAccess.invalidateAuthentication()
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
+        pendingAuthenticationReturnFragment = null
         authSurfaceCancellationArmed = false
         authenticationContinuationCoordinator.clearAll()
         postComposerAuthenticationCoordinator.cancelAuthentication()
@@ -733,6 +751,7 @@ private fun QuataWebApp(
                 requestAuthenticationFor(navigationState.pendingAuthenticationFragment())
             } else {
                 pendingAuthenticationFragment = null
+                pendingAuthenticationReturnFragment = null
                 isAuthRequiredPromptOpen = false
                 authInitialDestination = AuthProductDestination.Login
                 authenticationContinuationCoordinator.clearAll()
@@ -900,12 +919,17 @@ private fun QuataWebApp(
                         repository = notificationsRepository,
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
-                        onOpenConversation = navigation::navigateConversation,
+                        onOpenConversation = { conversationId ->
+                            navigation.navigateConversation(conversationId, returnFragment = "notifications")
+                        },
                         canMutate = hasAuthenticatedSession || isLocalChatFixture,
                         onAuthenticationRequired = { conversationId ->
                             val effect = anonymousNotificationClickEffect(conversationId)
                             if (effect.navigateFeed) navigation.navigate("")
-                            requestAuthenticationFor(effect.pendingFragment.orEmpty())
+                            requestAuthenticationFor(
+                                fragment = effect.pendingFragment.orEmpty(),
+                                returnFragment = "notifications",
+                            )
                         },
                         onDismissAuthenticationRequired = {
                             val effect = anonymousNotificationSwipeEffect()
@@ -1377,7 +1401,7 @@ internal class WebNavigationController(
         returnFragment: String? = null,
     ) {
         conversationReturn = returnFragment
-            ?.takeIf { it == "communities" }
+            ?.takeIf { it in supportedConversationReturnFragments }
             ?.let { fragment ->
                 writeConversationReturn(conversationId, fragment)
                 ConversationReturn(conversationId, fragment)
@@ -1427,6 +1451,8 @@ internal class WebNavigationController(
 }
 
 private data class ConversationReturn(val conversationId: String, val fragment: String)
+
+private val supportedConversationReturnFragments = setOf("communities", "notifications")
 
 @Composable
 private fun rememberWebNavigation(): WebNavigationController {
@@ -1522,7 +1548,8 @@ private external fun replaceBrowserFragment(fragment: String)
   try {
     const storedConversationId = globalThis.sessionStorage?.getItem('quata.web.chat-return.conversation');
     const storedFragment = globalThis.sessionStorage?.getItem('quata.web.chat-return.fragment');
-    return storedConversationId === conversationId && storedFragment === 'communities' ? storedFragment : null;
+    return storedConversationId === conversationId &&
+      (storedFragment === 'communities' || storedFragment === 'notifications') ? storedFragment : null;
   } catch (_) {
     return null;
   }
@@ -1531,7 +1558,7 @@ private external fun readWebConversationReturn(conversationId: String): String?
 
 @JsFun("""(conversationId, fragment) => {
   try {
-    if (fragment !== 'communities') return;
+    if (fragment !== 'communities' && fragment !== 'notifications') return;
     globalThis.sessionStorage?.setItem('quata.web.chat-return.conversation', conversationId);
     globalThis.sessionStorage?.setItem('quata.web.chat-return.fragment', fragment);
   } catch (_) {}

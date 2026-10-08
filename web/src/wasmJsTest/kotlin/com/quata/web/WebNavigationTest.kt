@@ -1,8 +1,10 @@
 package com.quata.web
 
+import com.quata.core.navigation.quataChatUrl
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class WebNavigationTest {
     @Test
@@ -133,6 +135,75 @@ class WebNavigationTest {
         assertEquals("communities", browserFragment)
         assertNull(storedConversationId)
         assertNull(storedReturnFragment)
+    }
+
+    @Test
+    fun notificationConversationReturnsToNotificationsAfterFullDocumentReload() {
+        var browserFragment = "notifications"
+        var storedConversationId: String? = null
+        var storedReturnFragment: String? = null
+        val readReturn: (String) -> String? = { conversationId ->
+            storedReturnFragment.takeIf { storedConversationId == conversationId }
+        }
+        val writeReturn: (String, String) -> Unit = { conversationId, fragment ->
+            storedConversationId = conversationId
+            storedReturnFragment = fragment
+        }
+        val clearReturn: () -> Unit = {
+            storedConversationId = null
+            storedReturnFragment = null
+        }
+        val firstDocument = WebNavigationController(
+            initialFragment = browserFragment,
+            updateBrowserFragment = { browserFragment = it },
+            readConversationReturn = readReturn,
+            writeConversationReturn = writeReturn,
+            clearConversationReturn = clearReturn,
+        )
+
+        firstDocument.navigateConversation(
+            conversationId = "sb:notifications/42",
+            messageId = "message 9/á",
+            returnFragment = "notifications",
+        )
+
+        val reloadedDocument = WebNavigationController(
+            initialFragment = browserFragment,
+            updateBrowserFragment = { browserFragment = it },
+            readConversationReturn = readReturn,
+            writeConversationReturn = writeReturn,
+            clearConversationReturn = clearReturn,
+        )
+        assertEquals("sb:notifications/42", reloadedDocument.chatConversationId)
+        assertEquals("message 9/á", reloadedDocument.chatMessageId)
+
+        reloadedDocument.navigateBackFromConversation()
+
+        assertRoute("notifications", reloadedDocument.state)
+        assertEquals("notifications", browserFragment)
+        assertNull(storedConversationId)
+        assertNull(storedReturnFragment)
+    }
+
+    @Test
+    fun notificationReturnIsBoundToTheExactConversation() {
+        var browserFragment = "notifications"
+        val storedReturns = mutableMapOf<String, String>()
+        val controller = WebNavigationController(
+            initialFragment = browserFragment,
+            updateBrowserFragment = { browserFragment = it },
+            readConversationReturn = storedReturns::get,
+            writeConversationReturn = storedReturns::set,
+            clearConversationReturn = storedReturns::clear,
+        )
+        controller.navigateConversation("sb:notification-source", returnFragment = "notifications")
+
+        controller.acceptBrowserFragment(quataChatUrl("sb:unrelated").substringAfter('#'))
+        controller.navigateBackFromConversation()
+
+        assertRoute("chat", controller.state)
+        assertEquals("chat", browserFragment)
+        assertTrue(storedReturns.isEmpty())
     }
 
     @Test

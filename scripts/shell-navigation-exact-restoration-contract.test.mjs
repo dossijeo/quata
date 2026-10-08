@@ -3,8 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [android, androidRunner, ios, iosTests, web, webTests, webBrowserRunner] = await Promise.all([
+const [android, androidNotificationTests, androidRunner, ios, iosTests, web, webTests, webBrowserRunner] = await Promise.all([
   source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
+  source("app/src/test/java/com/quata/core/navigation/NotificationChatReturnRouteTest.kt"),
   source("scripts/shell-navigation-android-process-death-evidence.mjs"),
   source("iosApp/iosApp/QuataIosApp.swift"),
   source("iosApp/iosAppTests/QuataFeedFrameworkTests.swift"),
@@ -74,12 +75,13 @@ test("iOS persists exact Feed and Official post routes without storing post cont
   assert.match(iosTests, /testMalformedPersistedPostRouteFailsClosedToTheNormalRoot/);
 });
 
-test("Web keeps an allowlisted Communities return only for the matching exact Chat route", () => {
+test("Web keeps allowlisted Communities and Notifications returns only for the matching exact Chat route", () => {
   assert.match(web, /quata\.web\.chat-return\.conversation/);
   assert.match(web, /quata\.web\.chat-return\.fragment/);
-  assert.match(web, /storedConversationId === conversationId && storedFragment === 'communities'/);
+  assert.match(web, /supportedConversationReturnFragments = setOf\("communities", "notifications"\)/);
+  assert.match(web, /storedConversationId === conversationId &&[\s\S]*storedFragment === 'communities' \|\| storedFragment === 'notifications'/);
   assert.match(web, /returnFragment: String\? = null/);
-  assert.match(web, /takeIf \{ it == "communities" \}/);
+  assert.match(web, /takeIf \{ it in supportedConversationReturnFragments \}/);
   assert.match(web, /clearConversationReturn\(\)/);
   assert.match(webTests, /communityConversationReturnSurvivesAFullDocumentReload/);
   assert.match(webTests, /assertEquals\("message 9", reloadedDocument\.chatMessageId\)/);
@@ -87,4 +89,28 @@ test("Web keeps an allowlisted Communities return only for the matching exact Ch
   assert.match(webBrowserRunner, /assertExactChatFocusSurvivesDocumentReload/);
   assert.match(webBrowserRunner, /exact_chat_focus_reselected_once_after_real_document_reload/);
   assert.match(webBrowserRunner, /newDocument: second\.timeOrigin !== first\.timeOrigin/);
+});
+
+test("Notifications to exact Chat restores its native parent across recreation on every platform", () => {
+  assert.match(android, /persistedChatReturnConversationId by rememberSaveable/);
+  assert.match(android, /persistedChatReturnRoute by rememberSaveable/);
+  assert.match(android, /navigateToChat\(id, returnRoute = AppDestinations\.Notifications\.route\)/);
+  assert.match(android, /notificationChatReturnRoute\([\s\S]*currentConversationId = conversationId/);
+  assert.match(android, /popBackStack\(returnRoute, inclusive = false\)/);
+  assert.match(androidNotificationTests, /returnsNotificationsOnlyForTheExactConversation/);
+  assert.match(androidNotificationTests, /rejectsBlankConversationAndUnrelatedReturnRoutes/);
+
+  assert.match(web, /navigateConversation\(conversationId, returnFragment = "notifications"\)/);
+  assert.match(web, /pendingAuthenticationReturnFragment/);
+  assert.match(web, /pendingAuthenticationFragment = null\s+pendingAuthenticationReturnFragment = null\s+isAuthRequiredPromptOpen = false/);
+  assert.match(webTests, /notificationConversationReturnsToNotificationsAfterFullDocumentReload/);
+  assert.match(webTests, /notificationReturnIsBoundToTheExactConversation/);
+
+  assert.match(ios, /persistedChatReturnKey = "quata\.ios\.shell\.chat-return"/);
+  assert.match(ios, /func showNotificationsChat\(conversationId: String, messageId: String\? = nil\)/);
+  assert.match(ios, /case \.notifications: showNotifications\(\)/);
+  assert.match(ios, /restorableChatReturn\([\s\S]*conversationId == snapshot\.conversationId/);
+  assert.match(iosTests, /testNotificationsChatBackReturnsToNotificationsAfterRouterRecreation/);
+  assert.match(iosTests, /testNotificationsChatReturnIsBoundToExactConversationAndClearedByReplacement/);
+  assert.match(iosTests, /testDismissingNotificationChatAuthenticationClearsTheReturnMarker/);
 });
