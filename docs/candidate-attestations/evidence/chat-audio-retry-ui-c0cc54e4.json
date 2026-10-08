@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+  "executionSha": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+  "git": {
+    "head": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+    "workingTreeDirty": false
+  },
+  "executedAt": "2026-10-08T04:22:05.000Z",
+  "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
+  "steps": [
+    "rendered_audio_player_exposes_failed_state",
+    "visible_retry_control_has_click_action",
+    "retry_click_targets_exact_same_attachment",
+    "retry_click_transitions_player_to_loading",
+    "attachment_identity_remains_rendered_after_retry",
+    "temporary_mac_checkout_removed",
+    "no_backend_or_remote_state_mutated"
+  ],
+  "results": {
+    "contract": {
+      "status": "passed",
+      "command": "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "tests": 44,
+      "failures": 0
+    },
+    "android": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryInstrumentedTest' --no-daemon --console=plain",
+      "device": "QuataLivePr336Api35(AVD) - API 35",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 8.854,
+      "timestamp": "2026-10-08T04:13:33Z",
+      "resultPath": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml",
+      "resultSha256": "6a1691503c37738b29eaddda1eb5a5d9a19014bee906362653930a64ef49b779"
+    },
+    "web": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureRetriesTheSameAttachmentThroughTheVisibleControl --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.006,
+      "timestamp": "2026-10-08T04:08:05.077Z",
+      "resultPath": "feature/chat/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.xml",
+      "resultSha256": "98f6fffc4ef543bc2c088ac6f46370dadf1720043669e9e42061367b6f588566"
+    },
+    "ios": {
+      "status": "passed",
+      "host": "macOS Hyper-V VM",
+      "command": "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureRetriesTheSameAttachmentThroughTheVisibleControl --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 5.253,
+      "timestamp": "2026-10-08T04:21:59.087Z",
+      "resultPath": "feature/chat/build/test-results/iosX64Test/TEST-iosX64Test.com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.xml",
+      "resultSha256": "f28c2b91457e440914058227b0f5a2f30acd9ea6388d3fa7af96bb0fc7231d77"
+    }
+  },
+  "sourceBindings": {
+    "androidTest": {
+      "path": "app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentRetryInstrumentedTest.kt",
+      "gitBlob": "3eadc4ebf7aa94ed45b96ed09210fe75052581a3",
+      "sha256": "06869554dc4d44e28adfa4a574d946768a86811be1ddd94b9cf00a79c4f0bec5"
+    },
+    "commonTest": {
+      "path": "feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentRetryUiTest.kt",
+      "gitBlob": "76e12a87a777dc21a7f2124d4324d104a38310fa",
+      "sha256": "4c2695913c4e351418251ac415375b6aa60b425d24a726439ccb5add758f4cf3"
+    },
+    "contract": {
+      "path": "scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "gitBlob": "f68b3213da1096a9aaae7f74a2534d1bf3071e13",
+      "sha256": "29be8a50eda12150ca4dfd28db2f74b7a5e08f777bbbc1706eb0f07cd20fd2c3"
+    }
+  },
+  "diagnosticHistory": [
+    "The first Android invocation allowed PowerShell to split the -P property at its dot and Gradle interpreted the suffix as a task. The corrected quoted property ran the intended single instrumented test without changing source.",
+    "The common Compose test initially had missing test API imports; compilation exposed and the committed test fixes those imports before any accepted runtime execution."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "rendered-local-state-no-backend",
+    "residueCounts": {
+      "macCheckouts": 0,
+      "backendRows": 0,
+      "storageObjects": 0,
+      "remoteMutations": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "The production shared Compose player renders its failed state and exposes a visible clickable Retry control.",
+      "Activating Retry targets the exact same attachment identity and moves the player into loading on Android, Web/Wasm and iOS x64.",
+      "The rendered attachment identity remains present after Retry while loading begins."
+    ],
+    "doesNotProve": [
+      "A second end-to-end platform transport recovery; that is certified separately by chat-audio-transport-retry.json.",
+      "Physical microphone permission, Bluetooth or audio routing, prolonged background playback, exhaustive outage/proxy/HTTP matrices or audio outside Chat."
+    ]
+  }
+}
