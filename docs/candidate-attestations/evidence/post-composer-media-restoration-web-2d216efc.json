@@ -1,0 +1,37 @@
+{
+  "check": "CREATE-POST-POSTFLIGHT-WEB-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-10-08T18:25:03.451Z",
+  "git": {
+    "head": "2d216efcf32c38f90fbf94b43bde91f2dda0a406",
+    "branch": "codex/post-composer-media-restoration",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "authenticated_feed_entry_visible",
+    "create_post_opened_from_feed_publish_action",
+    "common_create_post_types_visible",
+    "exclusive_text_draft_entered_without_publish",
+    "exact_text_draft_restored_after_document_reload",
+    "restored_draft_explicitly_discarded",
+    "create_post_returned_to_feed_without_publish",
+    "restored_draft_persistent_record_absent_after_reload",
+    "exclusive_blob_image_draft_entered_without_publish",
+    "blob_image_draft_recreated_after_document_reload",
+    "discarded_media_binary_and_envelope_absent_after_reload",
+    "authenticated_session_preserved_without_publish_mutation"
+  ],
+  "evidence": {
+    "opened": "build-reports/web/create-post-postflight-evidence/web-create-post-postflight-opened.png",
+    "beforeReload": "build-reports/web/create-post-postflight-evidence/web-create-post-draft-before-reload.png",
+    "afterReload": "build-reports/web/create-post-postflight-evidence/web-create-post-draft-after-reload.png",
+    "returned": "build-reports/web/create-post-postflight-evidence/web-create-post-postflight-returned.png",
+    "mediaBeforeReload": "build-reports/web/create-post-postflight-evidence/web-create-post-media-draft-before-reload.png",
+    "mediaAfterReload": "build-reports/web/create-post-postflight-evidence/web-create-post-media-draft-after-reload.png"
+  },
+  "cleanup": {
+    "publishRequestsObserved": 0,
+    "sessionPreserved": true
+  },
+  "finishedAt": "2026-10-08T18:25:43.601Z"
+}

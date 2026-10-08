@@ -1,0 +1,21 @@
+{
+  "check": "POST-COMPOSER-MEDIA-RESTORATION-IOS-FOCAL-001",
+  "status": "passed",
+  "git": {
+    "head": "2d216efcf32c38f90fbf94b43bde91f2dda0a406",
+    "branch": "codex/post-composer-media-restoration",
+    "workingTreeDirty": false
+  },
+  "command": "bash gradlew :feature:postcomposer:iosX64Test --stacktrace",
+  "steps": [
+    "ios_x64_affected_suite_passed",
+    "private_cache_copy_and_restore_passed",
+    "persistent_reference_reconciliation_passed",
+    "repeated_picker_path_gets_immutable_replacement"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "test-owned-private-cache-fixtures-removed"
+  },
+  "scope": "Platform cache/reconcile/restore focal tests only; no new iOS media-relaunch UI execution is attributed."
+}
