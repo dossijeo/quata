@@ -64,8 +64,10 @@ try {
     "-e", "quataCreatePostDraftMarker", draftMarker,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
+  const seedAttempt = { source: "draft-seed", outcome: "completed", status: "failed", instrumentationTail: redactedTail(seedOutput) };
+  report.attempts.push(seedAttempt);
   requireInstrumentationSuccess(seedOutput, "draft-seed");
-  report.attempts.push({ source: "draft-seed", outcome: "success", status: "passed", instrumentationTail: redactedTail(seedOutput) });
+  seedAttempt.status = "passed";
   await run(adb, ["shell", "am", "force-stop", "com.quata"]);
   report.steps.push("target_process_force_stopped");
 
@@ -77,9 +79,10 @@ try {
     "-e", "quataCreatePostDraftMarker", draftMarker,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
-  const attempt = { source: "draft-restore", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
+  const attempt = { source: "draft-restore", outcome: "completed", status: "failed", instrumentationTail: redactedTail(instrumentationOutput) };
+  report.attempts.push(attempt);
   requireInstrumentationSuccess(instrumentationOutput, "draft-restore");
-  report.attempts.push({ ...attempt, status: "passed" });
+  attempt.status = "passed";
 
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
