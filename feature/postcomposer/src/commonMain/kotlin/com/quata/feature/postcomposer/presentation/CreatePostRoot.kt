@@ -281,6 +281,15 @@ fun CreatePostRoot(
         durableActorProfileId = actor
         val baseline = viewModel.snapshot(step)
         val baselineMutationRevision = viewModel.draftMutationRevision()
+        if (actor == null) {
+            // Authentication can be restored after the first composition. An unresolved actor is
+            // not evidence of logout and must never rotate away an existing actor-bound draft.
+            // Session owners retire the stored actor explicitly when logout is authoritative.
+            durableDraftActorLease = null
+            durablePersistedSnapshot = baseline
+            durableDraftReady = false
+            return@LaunchedEffect
+        }
         val lease = store.activateActor(actor)
         durableDraftActorLease = lease
         val restoration = if (lease != null && initialStep == null && !resetForActorChange) {
