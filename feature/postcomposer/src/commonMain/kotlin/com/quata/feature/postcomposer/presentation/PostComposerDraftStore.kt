@@ -24,6 +24,7 @@ class PostComposerDraftStore(
                 PostComposerDraftPersistentState(
                     actorProfileId = normalized,
                     generation = current.generation + 1,
+                    revision = current.revision + 1,
                     encodedDraft = null,
                 )
             } else {
@@ -39,6 +40,7 @@ class PostComposerDraftStore(
         return mutateState { current ->
             if (!current.matches(lease)) current to false
             else current.copy(
+                revision = current.revision + 1,
                 encodedDraft = sanitized.takeIf { it.isMeaningful() }
                     ?.let(PostComposerDraftEnvelopeCodec::encode),
             ) to true
@@ -52,31 +54,49 @@ class PostComposerDraftStore(
         val lease = activateActor(actorProfileId) ?: return null
         val state = readStateConsistently()
         if (!state.matches(lease)) return null
+        val restoredRevision = state.revision
         val encodedDraft = state.encodedDraft ?: return null
         val decoded = PostComposerDraftEnvelopeCodec.decode(encodedDraft)
         if (decoded == null) {
             mutateState { current ->
-                if (current.matches(lease)) current.copy(encodedDraft = null) to Unit else current to Unit
+                if (current.matches(lease) && current.revision == restoredRevision) {
+                    current.copy(revision = current.revision + 1, encodedDraft = null) to Unit
+                } else {
+                    current to Unit
+                }
             }
             return null
         }
         val image = decoded.imageUri?.takeIf { mediaReferenceAvailable(it) }
         val video = decoded.videoUri?.takeIf { mediaReferenceAvailable(it) }
         val restored = decoded.copy(imageUri = image, videoUri = video)
-        if (restored != decoded) {
-            mutateState { current ->
-                if (current.matches(lease)) {
-                    current.copy(encodedDraft = PostComposerDraftEnvelopeCodec.encode(restored)) to Unit
+        val finalRevision = if (restored != decoded) {
+            val repair = mutateState { current ->
+                if (current.matches(lease) && current.revision == restoredRevision) {
+                    val next = current.copy(
+                        revision = current.revision + 1,
+                        encodedDraft = PostComposerDraftEnvelopeCodec.encode(restored),
+                    )
+                    next to next.revision
                 } else {
-                    current to Unit
+                    current to null
                 }
             }
+            repair.result.takeIf { repair.committed } ?: return null
+        } else {
+            restoredRevision
         }
-        return PostComposerDraftRestoration(lease, restored)
+        val restoration = PostComposerDraftRestoration(lease, restored, finalRevision)
+        return restoration.takeIf { isCurrent(it) }
     }
 
     suspend fun isCurrent(lease: PostComposerDraftActorLease): Boolean =
         readStateConsistently().matches(lease)
+
+    suspend fun isCurrent(restoration: PostComposerDraftRestoration): Boolean =
+        readStateConsistently().let { state ->
+            state.matches(restoration.actorLease) && state.revision == restoration.revision
+        }
 
     suspend fun clear(actorProfileId: String?): PostComposerDraftActorLease? {
         val actor = actorProfileId.normalizedActorIdOrNull() ?: return null
@@ -84,7 +104,11 @@ class PostComposerDraftStore(
             if (current.actorProfileId != actor) {
                 current to null
             } else {
-                val next = current.copy(generation = current.generation + 1, encodedDraft = null)
+                val next = current.copy(
+                    generation = current.generation + 1,
+                    revision = current.revision + 1,
+                    encodedDraft = null,
+                )
                 next to PostComposerDraftActorLease(actor, next.generation)
             }
         }
@@ -135,6 +159,7 @@ private class PostComposerDraftStateMutation<T>(
 private data class PostComposerDraftPersistentState(
     val actorProfileId: String?,
     val generation: Long,
+    val revision: Long,
     val encodedDraft: String?,
 )
 
@@ -145,6 +170,7 @@ private object PostComposerDraftPersistentStateCodec {
         append(Version)
         appendField(state.actorProfileId)
         appendField(state.generation.toString())
+        appendField(state.revision.toString())
         appendField(state.encodedDraft)
     }
 
@@ -163,12 +189,13 @@ private object PostComposerDraftPersistentStateCodec {
         }
         val actor = next()?.normalizedActorIdOrNull()
         val generation = requireNotNull(next()).toLong().also { require(it >= 0) }
+        val revision = requireNotNull(next()).toLong().also { require(it >= 0) }
         val draft = next()
         require(cursor == raw.length)
-        PostComposerDraftPersistentState(actor, generation, draft)
+        PostComposerDraftPersistentState(actor, generation, revision, draft)
     }.getOrElse { Empty }
 
-    val Empty = PostComposerDraftPersistentState(null, 0, null)
+    val Empty = PostComposerDraftPersistentState(null, 0, 0, null)
 
     private fun StringBuilder.appendField(value: String?) {
         if (value == null) append("-1:")
@@ -184,6 +211,7 @@ class PostComposerDraftActorLease internal constructor(
 class PostComposerDraftRestoration internal constructor(
     val actorLease: PostComposerDraftActorLease,
     val snapshot: PostComposerDraftSnapshot,
+    internal val revision: Long,
 )
 
 private fun PostComposerDraftSnapshot.isMeaningful(): Boolean =

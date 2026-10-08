@@ -286,7 +286,7 @@ fun CreatePostRoot(
         }
         if (
             restoration != null &&
-            store.isCurrent(restoration.actorLease) &&
+            store.isCurrent(restoration) &&
             viewModel.snapshot(step) == baseline
         ) {
             val restored = restoration.snapshot

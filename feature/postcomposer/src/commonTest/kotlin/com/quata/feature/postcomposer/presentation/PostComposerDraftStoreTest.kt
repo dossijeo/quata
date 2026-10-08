@@ -127,12 +127,38 @@ class PostComposerDraftStoreTest {
         }
         validatorStarted.await()
         val actorChange = launch { store.activateActor("actor-b") }
+        actorChange.join()
         allowValidator.complete(Unit)
         val restored = restoration.await()
-        actorChange.join()
 
-        assertFalse(store.isCurrent(requireNotNull(restored).actorLease))
+        assertNull(restored)
         assertNull(store.restore("actor-a") { true })
+    }
+
+    @Test
+    fun delayedMediaRepairCannotOverwriteANewerDraftFromAnotherStore() = runTest {
+        val preferences = AtomicMemoryPreferenceStore()
+        val restoringTab = PostComposerDraftStore(preferences)
+        val writingTab = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(restoringTab.activateActor("actor-a"))
+        assertTrue(restoringTab.save(lease, draft(text = "old", imageUri = "file:///gone.jpg")))
+        val validatorStarted = CompletableDeferred<Unit>()
+        val allowValidator = CompletableDeferred<Unit>()
+
+        val restoration = async {
+            restoringTab.restore("actor-a") {
+                validatorStarted.complete(Unit)
+                allowValidator.await()
+                false
+            }
+        }
+        validatorStarted.await()
+        val writerLease = requireNotNull(writingTab.activateActor("actor-a"))
+        assertTrue(writingTab.save(writerLease, draft(text = "new")))
+        allowValidator.complete(Unit)
+
+        assertNull(restoration.await())
+        assertEquals("new", writingTab.restore("actor-a") { true }?.snapshot?.text)
     }
 
     @Test
