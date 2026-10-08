@@ -1608,18 +1608,21 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
         defer { surface.dispose() }
         let view = surface.nativeView()
+        let playbackAccessibility = try XCTUnwrap(
+            view.subviews.first { $0.accessibilityIdentifier == "fullscreen-media.video" }
+        )
         let player = try XCTUnwrap(
             view.layer.sublayers?.compactMap { $0 as? AVPlayerLayer }.first?.player
         )
 
         let deadline = Date().addingTimeInterval(8)
         while Date() < deadline,
-              !(view.accessibilityValue == "playing" && player.currentTime().seconds > 0.1) {
+              !(playbackAccessibility.accessibilityValue == "playing" && player.currentTime().seconds > 0.1) {
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
 
-        XCTAssertEqual(view.accessibilityIdentifier, "fullscreen-media.video")
-        XCTAssertEqual(view.accessibilityValue, "playing")
+        XCTAssertEqual(playbackAccessibility.accessibilityIdentifier, "fullscreen-media.video")
+        XCTAssertEqual(playbackAccessibility.accessibilityValue, "playing")
         XCTAssertGreaterThan(player.currentTime().seconds, 0.1)
     }
 
