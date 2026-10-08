@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "d6b04653a1c593d345c7443cc27c92512ac9def0",
-  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "certification": "focused-multiplatform-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -86,7 +86,7 @@
     "The iOS native viewer exposes playback status and the opt-in checkpoint as separate accessibility elements; product playback remains owned by AVPlayer and the common overlay.",
     "Earlier iOS attempts are retained in local raw history: one exposed missing public runtime forwarding, one found restoration into an existing Official route, one distinguished a hidden Compose probe from native accessibility, and one demonstrated that passing a nil actor ID prevented authenticated restoration.",
     "The Android report remains byte-identified at 181a66fa because later runtime changes do not affect Android. The Web and iOS reports execute runtime SHA 35c0b047. Product SHA d6b04653 adds only reviewed capability-matrix digests after recomposition; all Official runtime and platform-test blobs remain byte-identical, so no platform matrix was repeated solely for the new SHA.",
-    "The pre-recomposition exact-head review of d32ce6e3 found no P0-P3 findings. All 28 Official commits remain patch-equivalent after inheriting the Feed CI-gate repair; capability semantics, historical runtime custody and Official runtime blobs are unchanged. A new exact-head review is required before publication.",
+    "Independent exact-head review of 5f76f9a7 found no P0-P3 findings. All 28 Official commits remain patch-equivalent after inheriting the Feed CI-gate repair; capability semantics, historical runtime custody and Official runtime blobs are unchanged.",
     "All temporary MP4 objects, posts, conversations and messages were removed; every recorded database and Storage residue count is zero.",
     "This closure covers Official fullscreen video checkpoints across Web document reload and Android/iOS process relaunch. It does not claim prolonged background playback, exhaustive codecs or transport failures, or other media producers."
   ]
