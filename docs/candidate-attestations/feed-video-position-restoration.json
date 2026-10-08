@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "3f3ba2390e483192fc4e026400a4dd2b166d3284",
-  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "certification": "focused-multiplatform-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -95,6 +95,7 @@
     "Raw reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed projections contain only SHA binding, required steps, measured positions where applicable and zero-residue cleanup counts.",
     "Product SHA 3f3ba239 contains the reviewed capability-matrix digests plus the conditional deterministic Node test environment for the Web Lock exclusion gate; all runtime and platform E2E blobs remain those already validated before this test-only correction.",
     "Independent recomposition review returned GO with no P0-P3 findings at head 9a94c2cc9e9c146853972ffccd3b742ce737700e after verifying focal blob equivalence, separation from the integrated global logout delta, the reanchored manifest, evidence hashes, the affected 11/11 contract, attestation validation and diff-check.",
-    "Independent capability-custody review returned GO with no P0-P3 findings at head ab0b7ac80769f70c9262ad26875f2affb9823429 after confirming the 14 digest-only updates, unchanged capability semantics, valid historical report bindings, 22/22 capability checks, attestation validation and diff-check."
+    "Independent capability-custody review returned GO with no P0-P3 findings at head ab0b7ac80769f70c9262ad26875f2affb9823429 after confirming the 14 digest-only updates, unchanged capability semantics, valid historical report bindings, 22/22 capability checks, attestation validation and diff-check.",
+    "Independent CI-repair review returned GO with no P0-P3 findings at head e20e570f44bfff4fd8df935fcf7a3c4f635b0edb after confirming that Browser requires native Web Locks and localStorage, while only the Node runner receives the isolated deterministic fixture."
   ]
 }
