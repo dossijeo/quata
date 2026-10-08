@@ -5,13 +5,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
-  "certification": "attachment-http-boundary-platform-focal-complete-rebase-review-pending",
+  "productSha": "8cbb355173e2e1ccb0f0c9443d33acaf8556a3c4",
+  "certification": "attachment-http-boundary-platform-focal-complete-rebase-review-pending-final-CI-pending",
   "evidenceKind": "CHAT_ATTACHMENT_HTTP_BOUNDARY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
+      "sha": "8cbb355173e2e1ccb0f0c9443d33acaf8556a3c4",
       "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
       "reportSha256": "d284340dbe56fb48c115fa085de42bf3f8443656899e6a49daa1911e85893a4c",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
+      "sha": "8cbb355173e2e1ccb0f0c9443d33acaf8556a3c4",
       "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
       "reportSha256": "d284340dbe56fb48c115fa085de42bf3f8443656899e6a49daa1911e85893a4c",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
+      "sha": "8cbb355173e2e1ccb0f0c9443d33acaf8556a3c4",
       "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
       "reportSha256": "d284340dbe56fb48c115fa085de42bf3f8443656899e6a49daa1911e85893a4c",
       "reportStatus": "passed",
@@ -86,7 +86,7 @@
     "resolvedFindings": [
       "P2 Android cleanup verification from the initial e41823f4 review was resolved in Product SHA 9fff209b and renewed 5/5."
     ],
-    "scopeLimit": "Pending renewed exact-head review after replay over the frozen terminal-matrix candidate."
+    "scopeLimit": "Android proves the production cache downloader over local TLS. Web uses deterministic browser Response fixtures and iOS exercises the production delegate completion decision. OS-level proxy, captive portal and physical network topologies remain external."
   },
   "notes": [
     "Android is the real local-network leg: production OkHttp, TLS socket, auth headers, exact bytes, fail-closed redirect/size/origin behavior and zero private residue.",
@@ -95,6 +95,8 @@
     "The initial independent review of e41823f4 returned NO-GO with one P2: Android teardown could skip or fail cleanup silently after a server-shutdown error. Product SHA 9fff209b fixes that path and the focal Android class passed again 5/5 on the exact clean head.",
     "OS-level proxy, captive portal and physical network topologies remain external and are not inferred from this focal status matrix.",
     "Independent exact-head review of af5a223c returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
-    "The seven-commit HTTP boundary series was replayed over reviewed terminal-matrix head d6c27d305. Relative to executed Product 9fff209b, the new base also carries six inherited custody documents and the unrelated Official accessibility XCTest integrated by #569; every HTTP-owned runtime, platform-test, contract and report blob remains byte-identical. A renewed exact-head review is required after this custody reanchor."
+    "The seven-commit HTTP boundary series was replayed over reviewed terminal-matrix head d6c27d305. Relative to executed Product 9fff209b, the new base also carries six inherited custody documents and the unrelated Official accessibility XCTest integrated by #569; every HTTP-owned runtime, platform-test, contract and report blob remains byte-identical.",
+    "Independent exact-head review of 31c846919 returned GO with no P0-P3 findings after correcting the inherited-delta wording. It confirmed HTTP-owned blob identity, contract 46/46, validator, diff-check and a clean tree. This final documentation-only commit records that review without attributing new platform execution.",
+    "The HTTP boundary product series was replayed over squash 90ab413c3 after verifying tree identity with terminal-matrix candidate d6c27d305. Product SHA 8cbb35517 is patch-equivalent to previously reviewed Product 1aa072755; platform runtime, tests and evidence report blobs remain byte-identical, so no E2E matrix was repeated solely for the new base."
   ]
 }
