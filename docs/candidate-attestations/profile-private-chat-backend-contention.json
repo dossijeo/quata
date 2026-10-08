@@ -4,13 +4,13 @@
     "PROF-PRIVATE-CHAT"
   ],
   "status": "passed",
-  "productSha": "2911d66fab1d3e298da5bce194cef2fe16389f16",
+  "productSha": "f36ed7a379c12dda947cf1d8322bdbc2f86699e3",
   "certification": "production-backend-contention-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "REAL_PRODUCTION_BACKEND_ACTOR_BOUND_SQL_CONTENTION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "2911d66fab1d3e298da5bce194cef2fe16389f16",
+      "sha": "f36ed7a379c12dda947cf1d8322bdbc2f86699e3",
       "report": "docs/candidate-attestations/evidence/profile-private-chat-backend-contention-8bf1d29c.json",
       "reportSha256": "9ccd4bea7c580ed6dba457fc9f3e7ec4edae30250e06c4f641f89dba4d7e138c",
       "reportStatus": "passed",
@@ -36,7 +36,7 @@
   "preflight": [
     "git diff --check",
     "node --check scripts/profile-private-chat-race-backend-evidence.mjs",
-    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs",
+    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs # 4/4",
     "node scripts/profile-private-chat-race-backend-evidence.mjs --out <private-report>"
   ],
   "review": {
@@ -44,7 +44,8 @@
     "reviewedSha": "8fb90a1a83a63fca2e1b8cdbb2dff351558ad173",
     "blockingFindings": [],
     "resolvedFindings": [
-      "Every successfully opened worker connection is registered immediately, all connection attempts settle before a partial failure propagates, and the control connection is registered before worker creation."
+      "Every successfully opened worker connection is registered immediately, all connection attempts settle before a partial failure propagates, and the control connection is registered before worker creation.",
+      "The harness now retains every mutating call promise and awaits Promise.allSettled before cleanup on both success and failure; a deterministic negative keeps one call pending after another rejects and proves cleanup cannot advance early."
     ],
     "scopeLimit": "The production probe exercises the deployed actor-bound SQL function directly. Login, Auth gateway and PostgREST transport remain outside this unit."
   },
@@ -57,6 +58,7 @@
     "Independent exact-head review returned GO with no material P0-P3 after the partial-connection custody fix.",
     "The backend-contention delta was replayed over rendered-race head 809839142 after its exact-head GO review. Product SHA 2ad48e73e is patch-equivalent to previously reviewed Product b43c4f6a5; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base.",
     "Independent exact-head review of 8fb90a1a8 returned GO with no P0-P3 findings. It reproduced syntax, contract 3/3, validator and diff-check, confirmed immediate connection custody plus allSettled cleanup, and found a clean tree; this documentation-only commit records that result.",
-    "The backend-contention delta was replayed over exact-head reviewed rendered-race candidate 6011315f8. Product SHA 2911d66fa is patch-equivalent to previously reviewed Product 2ad48e73e; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base."
+    "The backend-contention delta was replayed over exact-head reviewed rendered-race candidate 6011315f8. Product SHA 2911d66fa is patch-equivalent to previously reviewed Product 2ad48e73e; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base.",
+    "Product SHA f36ed7a37 hardens only failure-path evidence custody after independent review found cleanup could race still-running calls. The historical successful eight-session production result remains authoritative because all calls settled successfully there; the new 4/4 contract adds deterministic negative coverage for the previously untested rejection path."
   ]
 }
