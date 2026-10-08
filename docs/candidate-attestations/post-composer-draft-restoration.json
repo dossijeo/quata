@@ -4,13 +4,13 @@
     "POST-COMPOSER-DRAFT"
   ],
   "status": "passed",
-  "productSha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+  "productSha": "bb456c1a6c07c8d26f5f7c71938f77486f2e47a4",
   "certification": "authenticated-text-draft-restoration-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "POST_COMPOSER_DURABLE_DRAFT_RESTORATION_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+      "sha": "bb456c1a6c07c8d26f5f7c71938f77486f2e47a4",
       "report": "docs/candidate-attestations/evidence/post-composer-draft-restoration-android-e26a9440.json",
       "reportSha256": "0529139dc6c6503d4299653ed1d441a001f48fff5d1686898e501fe300536cf9",
       "reportStatus": "passed",
@@ -34,7 +34,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+      "sha": "bb456c1a6c07c8d26f5f7c71938f77486f2e47a4",
       "report": "docs/candidate-attestations/evidence/post-composer-draft-restoration-web-e26a9440.json",
       "reportSha256": "48169e3316a8a1d6b0a0df7f2c704c99e6f78a3ede1c1a1827bfcbaa4bb30e52",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+      "sha": "bb456c1a6c07c8d26f5f7c71938f77486f2e47a4",
       "report": "docs/candidate-attestations/evidence/post-composer-draft-restoration-ios-bd53354f.json",
       "reportSha256": "1d3e943e29dd6427ca5357e91fd7ffa18f34145cc62f8028de836997df41317d",
       "reportStatus": "passed",
@@ -104,9 +104,9 @@
     "All three evidence runs use a real authenticated profile, invoke no publish callback and make no post mutation. Android and iOS remove transient credential material; Android clears app data after the run.",
     "Independent review of the exact runtime head returned GO with no P0-P3 findings after two repair rounds covering unresolved authentication, failed clear recovery, and stale actor-generation completions.",
     "The iOS evidence ran at bd53354f after a test-only selector and scrolling repair; product runtime remained byte-identical to e26a9440. Android and Web evidence ran directly at e26a9440 and were not repeated for the iOS-only test change.",
-    "Product SHA f9246dc2 replays the reviewed draft-restoration runtime, iOS focal-test repair and inventory binding over the current stacked migration base. The Android/Web reports remain bound to e26a9440 and the iOS report to bd53354f; their runtime and focal test blobs are unchanged, so the platform journeys were not repeated solely for ancestry.",
+    "Product SHA bb456c1a replays the reviewed draft-restoration runtime, iOS focal-test repair and inventory binding over the current stacked migration base, and refreshes only 16 reviewed SHA-256 declarations for the three decisive Web/iOS composition paths changed by this unit. The Android/Web reports remain bound to e26a9440 and the iOS report to bd53354f; their runtime and focal test blobs are unchanged, so the platform journeys were not repeated solely for ancestry.",
     "The versioned report projections preserve outcomes, Git binding and cleanup but replace private host names and absolute checkout paths with stable repository-relative labels.",
     "The unit does not repeat destination, media editor, publication, rollback, hardware or permission matrices owned by existing POST-* attestations.",
-    "The recomposed candidate preserves the reviewed 30-commit delta byte-for-byte over the integrated #577 tree; no platform E2E was repeated solely for ancestry."
+    "The recomposed candidate preserves the reviewed 30-commit functional delta byte-for-byte over the integrated #577 tree. The subsequent capability-matrix correction changes only source-integrity hashes and makes CAPABILITY-DRIFT-001 pass 22/22; no platform E2E was repeated solely for ancestry or metadata repair."
   ]
 }
