@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "9510b42d2299ea05e98c1435adde906a106df7e0",
-  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "certification": "focused-multiplatform-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -91,6 +91,7 @@
     "The Web focal report was renewed from clean exact runtime SHA 7dc1d7a7 after adding cross-tab serialization. Product SHA 9510b42d adds only a browser gate that holds the same Web Lock and proves both updates remain pending until release; no runtime source changed, so the E2E was not repeated solely for this test-only head change. The Android and iOS lifecycle reports remain byte-identified at d18dab3e because their preference adapters do not implement the Web-only atomic boundary; affected shared tests and Android compilation were repeated without claiming a new native execution. The iOS run used a dedicated Mac checkout after deleting only generated build outputs and obsolete dedicated Gradle caches to recover disk space; earlier checkout-mismatch, missing-build and disk-exhaustion pilots remain recorded in local raw evidence history.",
     "The temporary MP4, posts, conversations, messages and Storage objects were removed after every backend-backed run with all recorded residue counts at zero.",
     "This closure covers Feed video position from the fullscreen viewer through Web document reload and Android/iOS process relaunch, including concurrent Feed/fullscreen host writes. It does not claim prolonged background playback, exhaustive codec or transport behavior, Official video checkpoints or other media producers.",
-    "Raw reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed projections contain only SHA binding, required steps, measured positions where applicable and zero-residue cleanup counts."
+    "Raw reports, screenshots, host paths, simulator identifiers and fixture identifiers remain unversioned. The committed projections contain only SHA binding, required steps, measured positions where applicable and zero-residue cleanup counts.",
+    "Independent recomposition review returned GO with no P0-P3 findings at head 9a94c2cc9e9c146853972ffccd3b742ce737700e after verifying focal blob equivalence, separation from the integrated global logout delta, the reanchored manifest, evidence hashes, the affected 11/11 contract, attestation validation and diff-check."
   ]
 }
