@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-PRIVATE-CHAT"
+  ],
+  "status": "passed",
+  "productSha": "1a46c28fbf13ceaadefc1df00d862b9110814fc1",
+  "certification": "rendered-common-compose-single-flight-complete-independent-review-go-final-CI-pending",
+  "evidence": {
+    "commonCompose": {
+      "status": "passed",
+      "sha": "1a46c28fbf13ceaadefc1df00d862b9110814fc1",
+      "report": "docs/candidate-attestations/evidence/profile-private-chat-rendered-race-3b419bff.json",
+      "reportSha256": "16a9a67ec7bd9723b4d7396849a15ee4f5a1902a77cafc8a4705cab9d7157abc",
+      "reportStatus": "passed",
+      "reportGitHead": "3b419bff34f88a5cb388f0fdd1569009854ed52f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "two_distinct_profile_private_chat_controls_rendered_enabled",
+        "first_target_tap_recorded_exactly_once",
+        "initiating_control_disabled_with_progress_identity",
+        "sibling_control_disabled_while_first_open_is_pending",
+        "subsequent_touch_input_on_both_rendered_controls_produced_no_second_open"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.presentation.ProfilePrivateChatRenderedRaceTest --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:neighborhoods:compileAndroidMain --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-private-chat-rendered-race.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "cf014f1e4e904cb78971a894d4357859a9d8ea1b",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The first review found that the fixture guard could hide callbacks from disabled controls. Every invocation is now recorded before the state guard, so either additional rendered touch would fail the exact single-open assertion.",
+      "The first review found that progress identity was claimed but not observed. The common row now exposes a stable target-scoped progress tag and the test requires it only on the initiating peer."
+    ],
+    "scopeLimit": "Hermetic rendered common Compose interaction executed in Web/Wasm; existing native platform and backend race evidence remain separately authoritative."
+  },
+  "notes": [
+    "The rendered common Compose list starts with two independently enabled peer Chat controls. The first touch records one target and immediately disables both the initiating control and its sibling while retaining progress identity on the initiating row.",
+    "Additional real touch input delivered to both disabled rendered controls produces no second callback. This closes the presentation gap left by the existing model-level stale-completion and backend pair-convergence evidence.",
+    "Android, Web/Wasm and iOS consume ProfileUsersListCommon. The new evidence executes that common component in Chrome Headless and compiles its Android consumer; existing platform E2E remains authoritative and was not repeated solely for this test-only addition.",
+    "Backend convergence remains bounded to the separately accepted two-actor same-pair race; broader load and multi-pair concurrency remain outside this presentation-only unit.",
+    "Independent exact-head review of 1e21f0dbc returned GO with no material P0-P3 findings after both prior P2 findings were corrected.",
+    "The five-commit rendered-race series was replayed cleanly over reviewed lifecycle head 87ee3bf04. Its three product runtime/test blobs are byte-identical to executed Product 3b419bff; no platform or backend execution is attributed to this rebase.",
+    "Independent exact-head review of cbd7a9a58 returned GO with no material P0-P3 findings. It confirmed own-blob identity, single callback/progress identity/disabled sibling assertions, focal scope, validator, diff-check and clean tree. This final documentation-only commit records that review without attributing native or backend execution.",
+    "The rendered-race series was replayed over reviewed lifecycle head 09da55e3e. Its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff; inherited changes are outside this presentation-only unit. No native-platform or backend execution is attributed to this rebase.",
+    "Independent exact-head review of 55482967b returned GO with no P0-P3 findings. It confirmed owned-blob identity, historical custody, focal scope, validator, diff-check and a clean tree; this documentation-only commit records that review without attributing native or backend execution.",
+    "The rendered-race delta was replayed over frozen lifecycle candidate e98534edd after its exact-head GO review. Product SHA 851825e2a is patch-equivalent to previously reviewed Product 9e0999d63; its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff. No native-platform or backend execution is attributed to the new base.",
+    "Independent exact-head review of cf014f1e4 returned GO with no P0-P3 findings. It confirmed callback-before-guard observation, exclusive progress identity, both controls disabled, owned-blob identity, validator, diff-check and a clean tree; this documentation-only commit records that result.",
+    "The rendered-race delta was replayed over integrated lifecycle squash 5083d8cf6. Product SHA 1a46c28fb is patch-equivalent to previously reviewed Product 851825e2a; its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff. No native-platform or backend execution is attributed to the new base."
+  ]
+}

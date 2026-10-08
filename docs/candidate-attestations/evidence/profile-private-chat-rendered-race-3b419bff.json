@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "status": "passed",
+  "unit": "PROF-PRIVATE-CHAT",
+  "git": {
+    "head": "3b419bff34f88a5cb388f0fdd1569009854ed52f",
+    "workingTreeDirty": false
+  },
+  "platform": "common-compose-rendered-in-chrome-headless",
+  "commands": [
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.presentation.ProfilePrivateChatRenderedRaceTest --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:neighborhoods:compileAndroidMain --no-daemon --console=plain",
+    "git diff --check"
+  ],
+  "steps": [
+    "two_distinct_profile_private_chat_controls_rendered_enabled",
+    "first_target_tap_recorded_exactly_once",
+    "initiating_control_disabled_with_progress_identity",
+    "sibling_control_disabled_while_first_open_is_pending",
+    "subsequent_touch_input_on_both_rendered_controls_produced_no_second_open"
+  ],
+  "result": {
+    "wasmJsBrowserTest": "passed",
+    "tests": 1,
+    "failures": 0,
+    "androidCommonConsumerCompilation": "passed",
+    "backendMutations": 0
+  },
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_fixtures": 0,
+        "local_fixtures": 0
+      }
+    }
+  },
+  "scope": "Rendered common Compose single-flight behavior for two public-profile private-chat controls. Existing platform hosts consume this exact common component; no platform E2E matrix was repeated for a test-only evidence addition."
+}

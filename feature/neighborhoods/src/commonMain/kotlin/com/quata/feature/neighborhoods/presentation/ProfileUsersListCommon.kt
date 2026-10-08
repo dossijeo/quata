@@ -34,6 +34,7 @@ const val PublicProfileUserListAvatarTestTagPrefix = "public-profile.list.avatar
 const val PublicProfileUserListNameTestTagPrefix = "public-profile.list.name."
 const val PublicProfileUserListFollowActionTestTagPrefix = "public-profile.list.follow."
 const val PublicProfileUserListChatActionTestTagPrefix = "public-profile.list.chat."
+const val PublicProfileUserListChatProgressTestTagPrefix = "public-profile.list.chat.progress."
 
 @Composable
 fun ProfileUsersListCommon(listKind: String, title: String, users: List<NeighborhoodUser>, currentUserId: String?, isOpeningChat: Boolean, openingPrivateChatUserId: String?, openingProfileUserId: String?, followingUserId: String?, strings: NeighborhoodUserRowStrings, back: String, avatar: @Composable (NeighborhoodUser, Boolean, Modifier, () -> Unit) -> Unit, onBack: () -> Unit, onFollow: (NeighborhoodUser) -> Unit, onProfile: (NeighborhoodUser) -> Unit, onChat: (NeighborhoodUser) -> Unit) {
@@ -68,6 +69,7 @@ fun ProfileUsersListCommon(listKind: String, title: String, users: List<Neighbor
                     nameModifier = Modifier.semantics { testTag = PublicProfileUserListNameTestTagPrefix + rowKey },
                     followModifier = Modifier.semantics { testTag = PublicProfileUserListFollowActionTestTagPrefix + rowKey },
                     chatModifier = Modifier.semantics { testTag = PublicProfileUserListChatActionTestTagPrefix + rowKey },
+                    chatProgressModifier = Modifier.semantics { testTag = PublicProfileUserListChatProgressTestTagPrefix + rowKey },
                 )
             }
         }
