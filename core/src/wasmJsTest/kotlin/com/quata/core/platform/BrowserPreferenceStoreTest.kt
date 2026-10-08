@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -15,9 +16,16 @@ import kotlin.test.assertTrue
 class BrowserPreferenceStoreTest {
     private val key = "quata.test.atomic-preference"
 
+    @BeforeTest
+    fun installDeterministicBrowserStorageAndLocks() {
+        browserPreferenceTestInstallEnvironment()
+    }
+
     @AfterTest
     fun cleanup() {
+        browserPreferenceTestReleaseLock(key)
         browserPreferenceTestRemove(key)
+        browserPreferenceTestRestoreEnvironment()
     }
 
     @Test
@@ -49,6 +57,87 @@ class BrowserPreferenceStoreTest {
 
 private fun browserPreferenceLocksAvailable(): Boolean =
     js("typeof globalThis.navigator?.locks?.request === 'function' && !!globalThis.localStorage")
+
+private fun browserPreferenceTestInstallEnvironment(): Unit = js("""(() => {
+    const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const originalNavigator = globalThis.navigator;
+    const locksDescriptor = originalNavigator
+      ? Object.getOwnPropertyDescriptor(originalNavigator, 'locks')
+      : undefined;
+    const values = new Map();
+    const queues = new Map();
+    const storage = {
+      get length() { return values.size; },
+      key(index) { return Array.from(values.keys())[index] ?? null; },
+      getItem(key) { return values.has(String(key)) ? values.get(String(key)) : null; },
+      setItem(key, value) { values.set(String(key), String(value)); },
+      removeItem(key) { values.delete(String(key)); },
+      clear() { values.clear(); },
+    };
+    const locks = {
+      request(name, _options, callback) {
+        const previous = queues.get(name) ?? Promise.resolve();
+        const current = previous.catch(() => undefined).then(() => callback());
+        const settled = current.catch(() => undefined);
+        queues.set(name, settled);
+        settled.finally(() => {
+          if (queues.get(name) === settled) queues.delete(name);
+        });
+        return current;
+      },
+    };
+    const navigator = originalNavigator ?? {};
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: storage,
+    });
+    if (!originalNavigator) {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: navigator,
+      });
+    }
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: locks,
+    });
+    globalThis.__quataPreferenceTestEnvironment = {
+      storageDescriptor,
+      navigatorDescriptor,
+      originalNavigator,
+      locksDescriptor,
+    };
+})()""")
+
+private fun browserPreferenceTestRestoreEnvironment(): Unit = js("""(() => {
+    const environment = globalThis.__quataPreferenceTestEnvironment;
+    delete globalThis.__quataPreferenceTestEnvironment;
+    delete globalThis.__quataPreferenceTestLocks;
+    if (!environment) return;
+    if (environment.storageDescriptor) {
+      Object.defineProperty(globalThis, 'localStorage', environment.storageDescriptor);
+    } else {
+      delete globalThis.localStorage;
+    }
+    if (environment.originalNavigator) {
+      if (environment.locksDescriptor) {
+        Object.defineProperty(environment.originalNavigator, 'locks', environment.locksDescriptor);
+      } else {
+        delete environment.originalNavigator.locks;
+      }
+    } else if (environment.navigatorDescriptor) {
+      Object.defineProperty(globalThis, 'navigator', environment.navigatorDescriptor);
+    } else {
+      delete globalThis.navigator;
+    }
+})()""")
 
 private suspend fun browserPreferenceTestHoldLock(key: String): Unit = suspendCoroutine { continuation ->
     browserPreferenceTestHoldLock(key) { continuation.resume(Unit) }
