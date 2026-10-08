@@ -10,9 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
@@ -151,6 +148,9 @@ private fun IosOfficialNativeViewer(
     }
     val surface = remember(url) { factory?.create(url, post.mediaType == OfficialMediaType.Video) }
     var snapshot by remember(surface) { mutableStateOf(IosOfficialMediaViewerSnapshot()) }
+    LaunchedEffect(surface, exposeE2eStateSemantics) {
+        surface?.setPositionAccessibilityEnabled(exposeE2eStateSemantics)
+    }
     androidx.compose.runtime.DisposableEffect(surface, post.mediaType) {
         onDispose {
             if (post.mediaType == OfficialMediaType.Video) {
@@ -188,15 +188,12 @@ private fun IosOfficialNativeViewer(
                 }
             },
         ) { mediaModifier ->
-            val viewerModifier = if (exposeE2eStateSemantics && post.mediaType == OfficialMediaType.Video) {
-                mediaModifier
-                    .testTag(OfficialVideoPositionTestTag)
-                    .semantics { stateDescription = snapshot.positionMs.toString() }
-            } else {
-                mediaModifier
-            }
-            Box(modifier = viewerModifier) {
-                UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
+            Box(modifier = mediaModifier) {
+                UIKitView(
+                    factory = surface::nativeView,
+                    modifier = Modifier.fillMaxSize(),
+                    properties = UIKitInteropProperties(isNativeAccessibilityEnabled = true),
+                )
                 if (snapshot.error != null) {
                     QuataMediaPlaybackRecoveryContent(
                         message = playbackFailed,

@@ -328,7 +328,9 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(iosUiTest, /"QUATA_SUPABASE_PUBLISHABLE_KEY"/);
   assert.match(iosUiTest, /testOfficialVideoPositionRestoresAfterProcessRelaunch[\s\S]*quata-ios-authenticated-top-chrome/);
   assert.match(iosUiTest, /fullscreen-media\.video/);
-  assert.match(iosOfficialBridge, /root\.accessibilityIdentifier = "fullscreen-media\.video"/);
+  assert.match(iosOfficialBridge, /playbackAccessibility\.accessibilityIdentifier = "fullscreen-media\.video"/);
+  assert.match(iosOfficialBridge, /positionAccessibility\.accessibilityIdentifier = "official\.video\.position"/);
+  assert.match(iosOfficialSlots, /UIKitInteropProperties\(isNativeAccessibilityEnabled = true\)/);
   assert.match(iosOfficialBridge, /case \.playing: "playing"/);
   assert.match(iosFrameworkTests, /testIosOfficialVideoViewerAutoplaysARealLocalFixture/);
   assert.match(officialVideoPositionStoreTest, /officialCheckpointsAreActorScopedAndDoNotReuseFeedStorage/);

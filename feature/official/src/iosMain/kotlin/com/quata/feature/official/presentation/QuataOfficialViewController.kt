@@ -69,6 +69,7 @@ interface IosOfficialMediaViewerSurface {
     fun nativeView(): platform.UIKit.UIView
     fun snapshot(): IosOfficialMediaViewerSnapshot
     fun seekTo(positionMs: Long)
+    fun setPositionAccessibilityEnabled(enabled: Boolean)
     fun retry()
     fun dispose()
 }
