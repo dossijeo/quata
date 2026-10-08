@@ -36,12 +36,18 @@ class BrowserAudioPlayerLifecycleTest {
 @JsFun(
     """() => {
       if (globalThis.__quataAudioLifecycleTest) throw new Error('audio_lifecycle_test_already_installed');
-      const document = globalThis.document;
+      const hadDocument = typeof globalThis.document !== 'undefined';
+      const document = hadDocument ? globalThis.document : new EventTarget();
+      if (!hadDocument) {
+        document.createElement = () => ({ });
+        globalThis.document = document;
+      }
       const originalCreateElement = document.createElement.bind(document);
       const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
       const state = globalThis.__quataAudioLifecycleTest = {
         visibilityState: 'visible',
         pauses: 0,
+        hadDocument,
         originalCreateElement,
         visibilityDescriptor,
       };
@@ -114,6 +120,7 @@ private external fun browserAudioLifecyclePauseCount(): Int
       }
       delete globalThis.__quataAudioLifecycleTest;
       delete globalThis.__quataAudioPlayers;
+      if (!state.hadDocument) delete globalThis.document;
     }""",
 )
 private external fun restoreBrowserAudioLifecycleFixture()
