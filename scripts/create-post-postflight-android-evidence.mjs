@@ -86,6 +86,31 @@ try {
   requireInstrumentationSuccess(instrumentationOutput, "draft-restore");
   attempt.status = "passed";
 
+  const mediaSeedOutput = await runCapture(adb, [
+    "shell", "am", "instrument", "-w", "-r",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#seedAuthenticatedImageDraftForProcessRestart",
+    "-e", "quataCreatePostPostflightCredentialsFile", deviceCredentialsPath,
+    "-e", "quataCreatePostPostflightEvidence", "1",
+    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+  ]);
+  const mediaSeedAttempt = { source: "media-draft-seed", outcome: "completed", status: "failed", instrumentationTail: redactedTail(mediaSeedOutput) };
+  report.attempts.push(mediaSeedAttempt);
+  requireInstrumentationSuccess(mediaSeedOutput, "media-draft-seed");
+  mediaSeedAttempt.status = "passed";
+  await run(adb, ["shell", "am", "force-stop", "com.quata"]);
+  report.steps.push("media_draft_target_process_force_stopped");
+
+  const mediaRestoreOutput = await runCapture(adb, [
+    "shell", "am", "instrument", "-w", "-r",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard",
+    "-e", "quataCreatePostPostflightEvidence", "1",
+    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+  ]);
+  const mediaRestoreAttempt = { source: "media-draft-restore", outcome: "completed", status: "failed", instrumentationTail: redactedTail(mediaRestoreOutput) };
+  report.attempts.push(mediaRestoreAttempt);
+  requireInstrumentationSuccess(mediaRestoreOutput, "media-draft-restore");
+  mediaRestoreAttempt.status = "passed";
+
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
@@ -199,6 +224,27 @@ async function verifyAndroidCreatePostPostflight(evidenceDir) {
   }
   report.steps.push(...expectedSteps);
   report.evidence.platformReport = platformReportPath;
+
+  const mediaReportPath = join(evidenceDir, "android-create-post-media-draft-evidence.json");
+  const mediaReport = JSON.parse(await readFile(mediaReportPath, "utf8"));
+  const expectedMediaSteps = [
+    "exclusive_private_image_draft_entered_without_publish",
+    "target_process_force_stopped",
+    "private_image_binary_present_after_process_restart",
+    "image_draft_preview_restored_after_process_restart",
+    "restored_image_draft_explicitly_discarded",
+    "media_binary_and_envelope_removed_after_discard",
+    "create_post_returned_to_feed_without_publish",
+    "authenticated_session_preserved_after_media_relaunch",
+  ];
+  if (mediaReport?.status !== "passed") throw new Error("android_create_post_media_draft_report_failed");
+  if (mediaReport?.publishCallbacksInvoked !== false) throw new Error("android_create_post_media_draft_publish_callback_invoked");
+  if (mediaReport?.sessionPreserved !== true) throw new Error("android_create_post_media_draft_session_not_preserved");
+  for (const step of expectedMediaSteps) {
+    if (!mediaReport?.steps?.includes(step)) throw new Error(`android_create_post_media_draft_step_missing:${step}`);
+  }
+  report.steps.push(...expectedMediaSteps);
+  report.evidence.mediaPlatformReport = mediaReportPath;
 }
 
 function requireInstrumentationSuccess(output, source) {

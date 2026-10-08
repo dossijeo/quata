@@ -82,10 +82,56 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         print("IOS_CREATE_POST_POSTFLIGHT_UI_GATE_PASSED")
     }
 
-    private func launchAuthenticatedApp() -> XCUIApplication {
+    func testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Create Post media draft restoration is opt-in.")
+        }
+
+        let app = launchAuthenticatedApp(extraEnvironment: [
+            "QUATA_IOS_POST_PUBLISH_MODE": "image-location",
+            "QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN": "I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION",
+            "QUATA_IOS_POST_PUBLISH_LOCATION_LABEL": "Media draft fixture",
+        ])
+        openComposer(in: app)
+        assertVisible("composer-media.selected-image-preview", in: app, context: "image draft before relaunch")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-media-draft-before-relaunch")
+
+        app.terminate()
+        let relaunched = launchAuthenticatedApp()
+        openComposer(in: relaunched)
+        assertVisible("composer-media.selected-image-preview", in: relaunched, context: "restored image draft after relaunch")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-media-draft-after-relaunch")
+
+        tapScrollableIdentifier(
+            "composer-back",
+            inside: "create-post-common-root",
+            in: relaunched,
+            context: "discard restored image draft"
+        )
+        assertVisible("quata-ios-feed-host", in: relaunched, context: "Feed after image draft discard")
+        XCTAssertTrue(
+            relaunched.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.waitForNonExistence(timeout: 12),
+            "Discarding the restored image draft must dismiss the common Create Post root."
+        )
+
+        relaunched.terminate()
+        let afterDiscard = launchAuthenticatedApp()
+        openComposer(in: afterDiscard)
+        assertVisible("composer-type-image", in: afterDiscard, context: "empty composer after image draft discard")
+        XCTAssertFalse(
+            afterDiscard.descendants(matching: .any).matching(identifier: "composer-media.selected-image-preview").firstMatch.exists,
+            "A discarded image draft must not reappear after another app relaunch."
+        )
+        print("IOS_CREATE_POST_MEDIA_DRAFT_RESTORATION_UI_GATE_PASSED")
+    }
+
+    private func launchAuthenticatedApp(extraEnvironment: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         disableQuiescenceWait(for: app)
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        for (key, value) in extraEnvironment {
+            app.launchEnvironment[key] = value
+        }
         app.launch()
         assertVisible("navigation.primary.profile", in: app, context: "restored authenticated shell", timeout: 25)
         dismissStartupWhatsNewIfPresent(in: app)

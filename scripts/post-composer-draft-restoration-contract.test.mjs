@@ -90,6 +90,28 @@ test("Android process-restart evidence scrolls to discard and verifies durable r
   assert.match(runner, /android_app_data_cleared_before_evidence/);
 });
 
+test("native evidence restores a private image draft and proves discard cleanup", async () => {
+  const [androidTest, androidRunner, iosTest, iosRunner, iosWrapper] = await Promise.all([
+    source("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/CreatePostPostflightInstrumentedTest.kt"),
+    source("scripts/create-post-postflight-android-evidence.mjs"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedCreatePostPostflightUITests.swift"),
+    source("scripts/run-ios-create-post-postflight-ui-test.sh"),
+    source("scripts/create-post-postflight-ios-evidence.mjs"),
+  ]);
+  assert.match(androidTest, /seedAuthenticatedImageDraftForProcessRestart[\s\S]*?grantOptionalLocationPermission\(\)[\s\S]*?mainIntent\(fixture\.absolutePath\)[\s\S]*?ComposerSelectedImagePreviewTestTag[\s\S]*?waitForPersistedImageDraft/);
+  assert.match(androidTest, /mainIntent\(mediaFixturePath: String\? = null\)[\s\S]*?POST_PUBLISH_EVIDENCE_IMAGE_URI/);
+  assert.match(androidTest, /File\(targetContext\.cacheDir, "quata-prepared-image-media-draft-fixture\.png"\)/);
+  assert.match(androidTest, /restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard[\s\S]*?private_image_binary_present_after_process_restart[\s\S]*?media_binary_and_envelope_removed_after_discard/);
+  assert.match(androidTest, /compose\.waitUntil\(10_000\) \{ persistedPath\?\.exists\(\) == false \}/);
+  assert.match(androidRunner, /seedAuthenticatedImageDraftForProcessRestart[\s\S]*?force-stop[\s\S]*?restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard/);
+  assert.match(androidRunner, /android-create-post-media-draft-evidence\.json[\s\S]*?media_binary_and_envelope_removed_after_discard/);
+  assert.match(iosTest, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing[\s\S]*?composer-media\.selected-image-preview[\s\S]*?app\.terminate\(\)[\s\S]*?composer-media\.selected-image-preview[\s\S]*?discard restored image draft/);
+  assert.match(iosTest, /afterDiscard[\s\S]*?A discarded image draft must not reappear after another app relaunch/);
+  assert.match(iosRunner, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
+  assert.match(iosRunner, /get_app_container[\s\S]*?post-composer-draft\.\*[\s\S]*?IOS_CREATE_POST_MEDIA_DRAFT_CACHE_CLEAN_PASSED/);
+  assert.match(iosWrapper, /ios_discarded_media_binary_and_envelope_absent_after_second_app_relaunch/);
+});
+
 test("session transitions retire the previous actor draft on every platform", async () => {
   const [android, web, ios] = await Promise.all([
     source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),

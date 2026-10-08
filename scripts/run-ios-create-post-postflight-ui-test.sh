@@ -86,6 +86,7 @@ run_and_require() {
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
 ui='QuataIosUITests/QuataIosAuthenticatedCreatePostPostflightUITests/testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing'
+media_ui='QuataIosUITests/QuataIosAuthenticatedCreatePostPostflightUITests/testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing'
 cleanup='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testClearAuthenticatedSessionAfterVisualGates'
 cleanup_required=1
 cleanup_on_exit() {
@@ -102,6 +103,14 @@ trap cleanup_on_exit EXIT
 
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/seed.log"
 run_and_require "$ui" testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/ui.log"
+run_and_require "$media_ui" testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/media-ui.log"
+app_container="$(xcrun simctl get_app_container "$QUATA_IOS_SIMULATOR_UDID" com.quata.ios data)"
+media_cache="$app_container/Library/Application Support/Quata/ChatOutbox"
+if [[ -d "$media_cache" ]] && find "$media_cache" -maxdepth 1 -type f -name 'post-composer-draft.*' -print -quit | grep -q .; then
+  echo "Post Composer media draft cache residue remains after discard." >&2
+  exit 1
+fi
+echo "IOS_CREATE_POST_MEDIA_DRAFT_CACHE_CLEAN_PASSED" | tee -a "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/media-ui.log"
 run_and_require "$cleanup" testClearAuthenticatedSessionAfterVisualGates "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/cleanup.log"
 cleanup_required=0
 trap - EXIT
