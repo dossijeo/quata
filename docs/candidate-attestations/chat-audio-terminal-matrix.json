@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "20d8acb69d7269cd3f2585d11a242f680c466180",
-  "certification": "platform-result-terminal-matrix-platform-focal-complete-independent-review-go-final-CI-pending",
+  "productSha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
+  "certification": "platform-result-terminal-matrix-platform-focal-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "20d8acb69d7269cd3f2585d11a242f680c466180",
+      "sha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "20d8acb69d7269cd3f2585d11a242f680c466180",
+      "sha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "20d8acb69d7269cd3f2585d11a242f680c466180",
+      "sha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -78,8 +78,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-terminal-matrix.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "328933ba15283742999d189409f3a03ad71e9ab4",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [],
     "scopeLimit": "The hermetic adapter matrix proves Failure, Cancelled and Unsupported boundary handling and temporary-resource custody. It does not prove real HTTP, proxy, captive-portal, physical microphone, routing or background-playback behavior."
@@ -89,7 +89,7 @@
     "The iOS terminal matrix and production adapter are byte-identical to the 12/12 passed transport-retry evidence; it was not repeated solely because Android/Web test sources changed the Product SHA.",
     "This closes adapter-level PlatformResult coverage only. Real outage, proxy, captive-portal and exhaustive HTTP-code integration remain explicit external limits.",
     "Independent exact-head review of 57b531d7 returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
-    "The three-commit terminal-matrix series was replayed over reviewed UI head b03f1e28. Comparing executed Product 2b2d05eb with recomposed Product 20d8acb6 changes only five inherited custody documents; all terminal-matrix runtime, platform-test, contract and report blobs remain byte-identical.",
-    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. It confirmed two exact and one conflict-adapted equivalent commits, preserved transport/UI SHAs, contract 45/45, validator, diff-check and a clean tree. This final documentation-only commit records that review without attributing a new platform execution."
+    "The five-commit terminal-matrix series was replayed over reviewed UI candidate e668e1e5. Conflict adaptations preserve transport eb9cd3c3 and UI e51bfe97; all terminal-matrix runtime, platform-test, contract and report blobs remain byte-identical.",
+    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. A new exact-head review is required after this candidate reanchor without attributing a new platform execution."
   ]
 }
