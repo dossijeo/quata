@@ -1478,7 +1478,7 @@ private final class IosAppCompositionRoot {
                         shareService: shareService,
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
                         preferences: self.platformServices.services.preferences,
-                        currentUserId: nil,
+                        currentUserId: self.renewableAuthSession?.restoredSession()?.userId,
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onAuthenticationContinuationRequired: { [weak self] continuation in
                             guard let self else { return }
