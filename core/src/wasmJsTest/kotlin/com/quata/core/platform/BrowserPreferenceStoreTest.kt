@@ -63,6 +63,12 @@ private fun browserPreferenceTestInstallEnvironment(): Unit = js("""(() => {
       globalThis.__quataPreferenceTestEnvironment = { simulated: false };
       return;
     }
+    const isNodeRunner = typeof globalThis.window === 'undefined' &&
+      typeof globalThis.document === 'undefined';
+    if (!isNodeRunner) {
+      globalThis.__quataPreferenceTestEnvironment = { simulated: false };
+      return;
+    }
     const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
     const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
     const originalNavigator = globalThis.navigator;
