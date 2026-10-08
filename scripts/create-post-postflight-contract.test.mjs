@@ -85,6 +85,8 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(shell, /testClearAuthenticatedSessionAfterVisualGates/);
   assert.match(shell, /trap cleanup_on_exit EXIT/);
+  assert.match(shell, /-only-testing:"\$selected" \|\| return 1/);
+  assert.match(shell, /--require-terminal-success-marker \|\| return 1/);
   assert.match(coordinator, /bash scripts\/run-ios-create-post-postflight-ui-test\.sh/);
   assert.match(coordinator, /publishCallbacksInvoked: false/);
   assert.match(coordinator, /cleanupRemoteSimulatorState\(options\)/);

@@ -78,9 +78,9 @@ run_and_require() {
   fi
   run_bounded "$method" "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_TIMEOUT_SECONDS" "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
-    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
+    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected" || return 1
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
-    --method "$method" --log "$log" --require-terminal-success-marker
+    --method "$method" --log "$log" --require-terminal-success-marker || return 1
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
 
