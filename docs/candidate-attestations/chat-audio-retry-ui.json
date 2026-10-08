@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
-  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-pending",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -87,15 +87,19 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-retry-ui.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "40bd4cda45d7aab34f5022519ea5d237b13aa3a8",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "P2 corrected: the UI evidence now claims only one component callback invocation, the supplied loading render and preserved visible label; exact descriptor recovery remains bound to chat-audio-transport-retry.json.",
+      "P2 corrected: trailing CR/blank EOF bytes were removed and the full changed range passes diff --check."
+    ],
     "scopeLimit": "This focal attestation closes the rendered Compose failure surface and visible Retry callback activation on Android, Web/Wasm and iOS x64. Exact descriptor selection and platform transport recovery remain certified by chat-audio-transport-retry.json; this UI test does not execute the adapter. Physical microphone, routing, prolonged background playback, exhaustive network matrices and audio outside Chat remain separate."
   },
   "notes": [
     "The common test renders the production ChatAudioAttachmentPlayerContent, verifies failed semantics and click action, activates Retry once, preserves the same rendered attachment label and observes the supplied loading state on Web/Wasm and iOS x64.",
     "Android repeats the same interaction through Compose instrumentation on API 35.",
-    "No backend, credentials, database row, Storage object or remote product state was used or mutated."
+    "No backend, credentials, database row, Storage object or remote product state was used or mutated.",
+    "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings."
   ]
 }
