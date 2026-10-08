@@ -59,6 +59,8 @@ printf '{"head":"%s","workingTreeDirty":%s}\\n' "$head" "$dirty"
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
+export QUATA_IOS_SIGNED_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
+export QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=${shellQuote(`${options.remoteLogDir}/signed-build.xcresult`)}
 scripts/build-ios-intel-simulator-signed.sh
 `);
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");

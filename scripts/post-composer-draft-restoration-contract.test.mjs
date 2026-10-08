@@ -110,6 +110,7 @@ test("native evidence restores a private image draft and proves discard cleanup"
   assert.match(iosRunner, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(iosRunner, /get_app_container[\s\S]*?post-composer-draft\.\*[\s\S]*?IOS_CREATE_POST_MEDIA_DRAFT_CACHE_CLEAN_PASSED/);
   assert.match(iosWrapper, /ios_discarded_media_binary_and_envelope_absent_after_second_app_relaunch/);
+  assert.match(iosWrapper, /QUATA_IOS_SIGNED_DERIVED_DATA_PATH=\$\{shellQuote\(options\.derivedDataPath\)\}/);
 });
 
 test("session transitions retire the previous actor draft on every platform", async () => {
