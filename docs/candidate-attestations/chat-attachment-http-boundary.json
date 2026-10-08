@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
-  "certification": "attachment-http-boundary-platform-focal-complete-final-review-pending",
+  "certification": "attachment-http-boundary-platform-focal-complete-rebase-review-pending",
   "evidenceKind": "CHAT_ATTACHMENT_HTTP_BOUNDARY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -79,11 +79,22 @@
     "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatAttachmentDownloaderCompletionTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-attachment-http-boundary.json --head HEAD"
   ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2 Android cleanup verification from the initial e41823f4 review was resolved in Product SHA 9fff209b and renewed 5/5."
+    ],
+    "scopeLimit": "Pending renewed exact-head review after replay over the frozen terminal-matrix candidate."
+  },
   "notes": [
     "Android is the real local-network leg: production OkHttp, TLS socket, auth headers, exact bytes, fail-closed redirect/size/origin behavior and zero private residue.",
     "Web executes production browser fetch code against deterministic Response fixtures; iOS x64 executes the exact completion decision called by the production NSURLSession delegate.",
     "Android was renewed 5/5 at exact Product SHA 9fff209b after the independent-review cleanup fix. Web execution head 4921116d and iOS execution head be98fcad retain byte-identical platform runtime and test blobs; their matrices were not repeated solely for the amended Android test and documentation SHA.",
     "The initial independent review of e41823f4 returned NO-GO with one P2: Android teardown could skip or fail cleanup silently after a server-shutdown error. Product SHA 9fff209b fixes that path and the focal Android class passed again 5/5 on the exact clean head.",
-    "OS-level proxy, captive portal and physical network topologies remain external and are not inferred from this focal status matrix."
+    "OS-level proxy, captive portal and physical network topologies remain external and are not inferred from this focal status matrix.",
+    "Independent exact-head review of af5a223c returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
+    "The seven-commit HTTP boundary series was replayed over reviewed terminal-matrix head d6c27d305. Relative to executed Product 9fff209b, the new base also carries six inherited custody documents and the unrelated Official accessibility XCTest integrated by #569; every HTTP-owned runtime, platform-test, contract and report blob remains byte-identical. A renewed exact-head review is required after this custody reanchor."
   ]
 }
