@@ -73,15 +73,19 @@ test("profile private chat serializes targets and rejects stale navigation", () 
   assert.match(concurrencyMigration, /pg_advisory_xact_lock[\s\S]*hashtextextended\('quata-private:' \|\| v_low::text \|\| ':' \|\| v_high::text, 0\)[\s\S]*select thread_id[\s\S]*insert into public\.chat_threads/);
 });
 
-test("profile private chat backend evidence forces two actors through the same race barrier", () => {
+test("profile private chat backend evidence forces sustained pair contention through the same race barrier", () => {
   const runner = read("scripts/profile-private-chat-race-backend-evidence.mjs");
 
+  assert.match(runner, /const contentionCallCount = 8/);
+  assert.match(runner, /openWorkerConnections[\s\S]*Promise\.allSettled[\s\S]*connections\.push\(connection\)[\s\S]*database_preflight_failed:worker_connect/);
+  assert.match(runner, /control = await client[\s\S]*connections\.push\(control\)[\s\S]*openWorkerConnections/);
   assert.match(runner, /lock table public\.chat_private_threads in access exclusive mode/);
   assert.match(runner, /waitForBlockedWorkers[\s\S]*wait_event_type = 'Lock'/);
-  assert.match(runner, /Promise\.all\(\[call\(workerA, profileA, profileB\), call\(workerB, profileB, profileA\)\]\)/);
+  assert.match(runner, /Promise\.all\(workers\.map[\s\S]*index % 2 === 0[\s\S]*profileA, profileB[\s\S]*profileB, profileA/);
+  assert.match(runner, /set_config\('request\.jwt\.claim\.sub'[\s\S]*request\.jwt\.claim\.role'[\s\S]*authenticated/);
   assert.match(runner, /new Set\(ids\)\.size !== 1/);
-  assert.match(runner, /private_threads\) !== 1[\s\S]*participants\) !== 2[\s\S]*open_events\) !== 2/);
-  assert.match(runner, /fixture_ownership[\s\S]*delete from public\.chat_threads[\s\S]*delete from public\.community_profiles[\s\S]*cleanup_residue_detected:physical_rows/);
+  assert.match(runner, /private_threads\) !== 1[\s\S]*participants\) !== 2[\s\S]*open_events\) !== contentionCallCount/);
+  assert.match(runner, /fixture_ownership[\s\S]*delete from public\.chat_threads[\s\S]*delete from public\.community_profiles[\s\S]*delete from auth\.users[\s\S]*cleanup_residue_detected:physical_rows/);
   assert.match(runner, /workspaceRelative\.startsWith\("\.\."\) \|\| isAbsolute\(workspaceRelative\)/);
   assert.doesNotMatch(runner, /console\.log\([^)]*(connectionString|accessToken|password)/);
 });

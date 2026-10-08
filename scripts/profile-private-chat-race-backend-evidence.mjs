@@ -7,6 +7,7 @@ import pg from "pg";
 
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
+const contentionCallCount = 8;
 
 function parseArgs(argv) {
   if (argv.length === 2 && argv[0] === "--out" && argv[1].trim()) return { output: resolve(argv[1]) };
@@ -60,6 +61,17 @@ async function client(applicationName) {
   return connection;
 }
 
+async function openWorkerConnections(applicationNames, connections) {
+  const outcomes = await Promise.allSettled(applicationNames.map(async (applicationName) => {
+    const connection = await client(applicationName);
+    connections.push(connection);
+    return connection;
+  }));
+  const failed = outcomes.find((outcome) => outcome.status === "rejected");
+  if (failed) throw new Error("database_preflight_failed:worker_connect");
+  return outcomes.map((outcome) => outcome.value);
+}
+
 function threadId(payload) {
   const value = Number(payload?.thread?.id ?? payload?.threads?.[0]?.id ?? payload?.thread_id ?? payload?.id);
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error("race_contract_failed:thread_id");
@@ -99,10 +111,15 @@ async function main() {
   const candidateSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   const runId = randomUUID();
   const marker = `qadata-private-race-${runId}`;
+  const authUserA = randomUUID();
+  const authUserB = randomUUID();
   const profileA = randomUUID();
   const profileB = randomUUID();
   const phoneSeed = String(randomInt(10_000_000, 99_999_999));
-  const applicationNames = [`quata-race-a-${runId.slice(0, 8)}`, `quata-race-b-${runId.slice(0, 8)}`];
+  const applicationNames = Array.from(
+    { length: contentionCallCount },
+    (_, index) => `quata-race-${index + 1}-${runId.slice(0, 8)}`,
+  );
   const connections = [];
   let created = false;
   let control;
@@ -120,15 +137,16 @@ async function main() {
     await setup.query("begin");
     try {
       const values = [
-        [profileA, `${marker}-a`, `${phoneSeed}1`],
-        [profileB, `${marker}-b`, `${phoneSeed}2`],
+        [authUserA, profileA, `${marker}-a`, `${phoneSeed}1`],
+        [authUserB, profileB, `${marker}-b`, `${phoneSeed}2`],
       ];
-      for (const [id, displayName, phoneLocal] of values) {
+      for (const [authUserId, id, displayName, phoneLocal] of values) {
+        await setup.query("insert into auth.users(id) values ($1)", [authUserId]);
         await setup.query(
           `insert into public.community_profiles
-            (id, display_name, phone, pass_hash, phone_normalized, country_code, phone_local, phone_e164, neighborhood, barrio, barrio_normalized, account_status)
-           values ($1, $2, $3, $4, $5, '240', $6, $7, 'QADATA', 'QADATA', 'qadata', 'active')`,
-          [id, displayName, `+240 ${phoneLocal}`, `${marker}-no-login`, `240${phoneLocal}`, phoneLocal, `+240${phoneLocal}`],
+            (id, auth_user_id, display_name, phone, pass_hash, phone_normalized, country_code, phone_local, phone_e164, neighborhood, barrio, barrio_normalized, account_status)
+           values ($1, $2, $3, $4, $5, $6, '240', $7, $8, 'QADATA', 'QADATA', 'qadata', 'active')`,
+          [id, authUserId, displayName, `+240 ${phoneLocal}`, `${marker}-no-login`, `240${phoneLocal}`, phoneLocal, `+240${phoneLocal}`],
         );
       }
       await setup.query("commit");
@@ -139,15 +157,17 @@ async function main() {
     }
 
     control = await client(`quata-race-control-${runId.slice(0, 8)}`);
-    const workerA = await client(applicationNames[0]);
-    const workerB = await client(applicationNames[1]);
-    connections.push(control, workerA, workerB);
-    const workerPidRows = await Promise.all([
-      workerA.query("select pg_backend_pid()::int as pid"),
-      workerB.query("select pg_backend_pid()::int as pid"),
-    ]);
+    connections.push(control);
+    const workers = await openWorkerConnections(applicationNames, connections);
+    const workerPidRows = await Promise.all(
+      workers.map((worker) => worker.query("select pg_backend_pid()::int as pid")),
+    );
     const workerPids = workerPidRows.map((response) => Number(response.rows[0]?.pid));
     if (workerPids.some((pid) => !Number.isSafeInteger(pid) || pid <= 0)) throw new Error("database_preflight_failed:worker_pid");
+    await Promise.all(workers.map((worker, index) => worker.query(
+      "select set_config('request.jwt.claim.sub', $1::text, false), set_config('request.jwt.claim.role', 'authenticated', false)",
+      [index % 2 === 0 ? authUserA : authUserB],
+    )));
 
     await control.query("begin");
     controlTransactionOpen = true;
@@ -156,7 +176,12 @@ async function main() {
       "select public.quata_chat_get_or_create_private_thread($1::uuid, $2::uuid) as payload",
       [actor, peer],
     );
-    calls = Promise.all([call(workerA, profileA, profileB), call(workerB, profileB, profileA)]);
+    calls = Promise.all(workers.map((worker, index) => (
+      index % 2 === 0
+        ? call(worker, profileA, profileB)
+        : call(worker, profileB, profileA)
+    )));
+    void calls.catch(() => {});
     const blockedWorkers = await waitForBlockedWorkers(control, workerPids);
     await control.query("commit");
     controlTransactionOpen = false;
@@ -172,7 +197,11 @@ async function main() {
       [profileA, profileB, ids[0]],
     );
     const counts = snapshot.rows[0] ?? {};
-    if (Number(counts.private_threads) !== 1 || Number(counts.participants) !== 2 || Number(counts.open_events) !== 2) {
+    if (
+      Number(counts.private_threads) !== 1
+      || Number(counts.participants) !== 2
+      || Number(counts.open_events) !== contentionCallCount
+    ) {
       throw new Error("race_contract_failed:database_cardinality");
     }
     result = {
@@ -184,7 +213,7 @@ async function main() {
       fixtureMarkerSha256: sha256(marker),
       barrier: { blockedWorkers, releasedTogether: true },
       observations: {
-        calls: 2,
+        calls: contentionCallCount,
         distinctActors: 2,
         distinctReturnedThreadIds: new Set(ids).size,
         privateThreadRows: Number(counts.private_threads),
@@ -216,12 +245,14 @@ async function main() {
         );
         for (const row of threads.rows) await cleanupClient.query("delete from public.chat_threads where id = $1", [row.thread_id]);
         await cleanupClient.query("delete from public.community_profiles where id = any($1::uuid[])", [[profileA, profileB]]);
+        await cleanupClient.query("delete from auth.users where id = any($1::uuid[])", [[authUserA, authUserB]]);
         const residue = await cleanupClient.query(
           `select
              (select count(*)::int from public.community_profiles where id = any($1::uuid[])) as profiles,
              (select count(*)::int from public.chat_private_threads where profile_low_id = any($1::uuid[]) or profile_high_id = any($1::uuid[])) as private_threads,
-             (select count(*)::int from public.chat_participants where profile_id = any($1::uuid[])) as participants`,
-          [[profileA, profileB]],
+             (select count(*)::int from public.chat_participants where profile_id = any($1::uuid[])) as participants,
+             (select count(*)::int from auth.users where id = any($2::uuid[])) as auth_users`,
+          [[profileA, profileB], [authUserA, authUserB]],
         );
         const counts = residue.rows[0] ?? {};
         if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:physical_rows");
