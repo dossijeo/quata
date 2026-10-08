@@ -136,6 +136,11 @@ class CreatePostPostflightInstrumentedTest {
         grantOptionalNotificationPermission()
         val initialSession = app.container.sessionManager.currentSession()
         assertTrue("android_create_post_draft_session_missing_after_restart", initialSession?.isSupabaseAuthenticated() == true)
+        val prelaunchDraft = PostComposerDraftStore(app.container.platformServices.preferences)
+            .restore(initialSession?.userId.orEmpty()) { false }
+            ?.snapshot
+        assertEquals("android_create_post_draft_step_missing_after_restart", CreatePostStep.Text, prelaunchDraft?.step)
+        assertEquals("android_create_post_draft_payload_missing_after_restart", marker.orEmpty(), prelaunchDraft?.text)
         val screenshots = mutableListOf<String>()
         val steps = mutableListOf(
             "authenticated_feed_entry_visible",
