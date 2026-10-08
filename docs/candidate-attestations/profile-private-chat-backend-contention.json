@@ -4,13 +4,13 @@
     "PROF-PRIVATE-CHAT"
   ],
   "status": "passed",
-  "productSha": "b43c4f6a535729f26af9f59c1159a74965681a2b",
+  "productSha": "2ad48e73eed6cbad49dfa826a40c97574575b76e",
   "certification": "production-backend-contention-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "REAL_PRODUCTION_BACKEND_ACTOR_BOUND_SQL_CONTENTION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "b43c4f6a535729f26af9f59c1159a74965681a2b",
+      "sha": "2ad48e73eed6cbad49dfa826a40c97574575b76e",
       "report": "docs/candidate-attestations/evidence/profile-private-chat-backend-contention-8bf1d29c.json",
       "reportSha256": "9ccd4bea7c580ed6dba457fc9f3e7ec4edae30250e06c4f641f89dba4d7e138c",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     "The accepted exact-product-head run removed both profiles, both Auth users, the thread mapping and participants with zero owned residue. Credentials, connection data and raw fixture identifiers remain outside the repository.",
     "This closes the previous evidence restriction to one simultaneous call from each actor. The unordered private pair still consists of exactly two actors by product definition.",
     "Independent exact-head review returned GO with no material P0-P3 after the partial-connection custody fix.",
-    "The final backend-contention delta was reconstructed over reviewed rendered-race head 7e2fa7467. Product SHA b43c4f6a5 is patch-equivalent to previously reviewed Product ea56b77a0; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base.",
+    "The backend-contention delta was replayed over rendered-race head 809839142 after its exact-head GO review. Product SHA 2ad48e73e is patch-equivalent to previously reviewed Product b43c4f6a5; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base.",
     "Independent exact-head review of 8fb90a1a8 returned GO with no P0-P3 findings. It reproduced syntax, contract 3/3, validator and diff-check, confirmed immediate connection custody plus allSettled cleanup, and found a clean tree; this documentation-only commit records that result."
   ]
 }
