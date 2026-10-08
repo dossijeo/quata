@@ -52,7 +52,8 @@ test("Android postflight restores an exact draft after a real process restart wi
   assert.match(coordinator, /am", "force-stop", "com\.quata/);
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
   assert.match(uiTest, /restore\(initialSession\?\.userId\.orEmpty\(\)\)[\s\S]*android_create_post_draft_step_missing_after_restart[\s\S]*android_create_post_draft_payload_missing_after_restart/);
-  assert.match(uiTest, /tap\("composer-back"\)[\s\S]*waitForGone\(CreatePostCommonRootTestTag\)[\s\S]*waitForPrefix\("feed\.action\.publish\."\)/);
+  assert.match(uiTest, /onNodeWithTag\("composer-back"[\s\S]*performScrollTo\(\)[\s\S]*performClick\(\)[\s\S]*waitForGone\(CreatePostCommonRootTestTag\)[\s\S]*waitForPrefix\("feed\.action\.publish\."\)/);
+  assert.match(uiTest, /waitForPersistedDraftCleared\(initialSession\?\.userId\.orEmpty\(\)\)/);
   assert.match(coordinator, /pm", "clear", "com\.quata/);
   assert.match(coordinator, /report\.cleanup\.appDataCleared = true/);
   assert.match(coordinator, /publishCallbacksInvoked !== false/);

@@ -54,6 +54,13 @@ test("Android Web and iOS inject the same store and validate platform media refe
   assert.match(iosRoot, /private lazy var postComposerDraftStore = PostComposerDraftStore[\s\S]*?durableDraftStore: self\?\.postComposerDraftStore/);
 });
 
+test("Android process-restart evidence scrolls to discard and verifies durable removal", async () => {
+  const testSource = await source("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/CreatePostPostflightInstrumentedTest.kt");
+  assert.match(testSource, /onNodeWithTag\("composer-back"[\s\S]*?\.performScrollTo\(\)[\s\S]*?\.performClick\(\)/);
+  assert.match(testSource, /waitForPersistedDraftCleared\(initialSession\?\.userId\.orEmpty\(\)\)/);
+  assert.match(testSource, /store\.restore\(actorProfileId\) \{ false \} == null/);
+});
+
 test("session transitions retire the previous actor draft on every platform", async () => {
   const [android, web, ios] = await Promise.all([
     source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),

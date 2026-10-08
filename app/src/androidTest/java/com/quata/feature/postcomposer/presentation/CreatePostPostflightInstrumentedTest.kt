@@ -12,6 +12,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -160,9 +161,12 @@ class CreatePostPostflightInstrumentedTest {
             steps += "exact_text_draft_restored_after_process_restart"
             screenshots += screenshot("android-create-post-draft-after-process-restart")
 
-            tap("composer-back")
+            compose.onNodeWithTag("composer-back", useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
             waitForGone(CreatePostCommonRootTestTag)
             waitForPrefix("feed.action.publish.")
+            waitForPersistedDraftCleared(initialSession?.userId.orEmpty())
             steps += "restored_draft_explicitly_discarded"
             steps += "create_post_returned_to_feed_without_publish"
             screenshots += screenshot("android-create-post-postflight-returned")
@@ -229,6 +233,15 @@ class CreatePostPostflightInstrumentedTest {
             delay(100)
         }
         throw AssertionError("android_create_post_draft_not_committed_before_process_restart")
+    }
+
+    private suspend fun waitForPersistedDraftCleared(actorProfileId: String) {
+        val store = PostComposerDraftStore(app.container.platformServices.preferences)
+        repeat(100) {
+            if (store.restore(actorProfileId) { false } == null) return
+            delay(100)
+        }
+        throw AssertionError("android_create_post_draft_not_cleared_after_discard")
     }
 
     private fun tagStartsWith(prefix: String) = SemanticsMatcher("testTag starts with $prefix") { node ->
