@@ -87,6 +87,28 @@ try {
   report.steps.push("common_create_post_types_visible");
   report.evidence.opened = await screenshot(page, "web-create-post-postflight-opened");
 
+  const draftMarker = `QUATA-DRAFT-WEB-${randomUUID()}`;
+  await page.locator("#composer-type-text").first().click({ force: true, timeout: 10_000 });
+  await fillSemanticInput(page, "composer-text-input", draftMarker);
+  await expectSemanticInputValue(page, "composer-text-input", draftMarker);
+  report.steps.push("exclusive_text_draft_entered_without_publish");
+  report.evidence.beforeReload = await screenshot(page, "web-create-post-draft-before-reload");
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-shell-route") === "composer" &&
+    localStorage.getItem("web.auth.session_ready") === "true",
+  null, { timeout: 45_000 });
+  await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 30_000 });
+  await expectSemanticInputValue(page, "composer-text-input", draftMarker);
+  report.steps.push("exact_text_draft_restored_after_document_reload");
+  report.evidence.afterReload = await screenshot(page, "web-create-post-draft-after-reload");
+
+  await page.locator("#composer-back").first().click({ force: true, timeout: 10_000 });
+  await page.locator("#composer-type-picker").first().waitFor({ state: "attached", timeout: 15_000 });
+  report.steps.push("restored_draft_explicitly_discarded");
+
   await page.locator("#navigation\\.primary\\.feed").first().click({ force: true, timeout: 10_000 });
   await page.waitForFunction(() =>
     document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
@@ -154,6 +176,26 @@ async function passUgcTermsGate(page) {
     });
   }
   await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted", null, { timeout: 20_000 });
+}
+
+async function fillSemanticInput(page, id, value) {
+  const locator = page.locator(`#${cssEscape(id)}`).first();
+  await locator.waitFor({ state: "attached", timeout: 20_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => {});
+  await locator.click({ force: true, timeout: 5_000 });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+  await page.keyboard.insertText(value);
+}
+
+async function expectSemanticInputValue(page, id, expected) {
+  const locator = page.locator(`#${cssEscape(id)}`).first();
+  await locator.waitFor({ state: "attached", timeout: 20_000 });
+  await page.waitForFunction(({ selector, value }) => {
+    const node = document.querySelector(selector);
+    if (!node) return false;
+    const actual = "value" in node ? node.value : (node.getAttribute("value") ?? node.textContent ?? "");
+    return actual === value;
+  }, { selector: `#${cssEscape(id)}`, value: expected }, { timeout: 20_000 });
 }
 
 function parseArgs(args) {

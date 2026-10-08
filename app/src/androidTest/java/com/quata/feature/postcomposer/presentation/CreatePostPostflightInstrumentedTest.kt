@@ -8,7 +8,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -87,6 +89,81 @@ class CreatePostPostflightInstrumentedTest {
         writeReport(initialSession?.userId.orEmpty(), steps, screenshots)
     }
 
+    @Test
+    fun seedAuthenticatedTextDraftForProcessRestart() = runBlocking {
+        val credentialsFile = optionalArgument("quataCreatePostPostflightCredentialsFile")
+        val marker = optionalArgument("quataCreatePostDraftMarker")
+        assumeTrue(
+            "CREATE-POST-DRAFT-ANDROID-001 is opt-in and requires local credentials and marker.",
+            !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank() && optionalArgument("quataCreatePostPostflightEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        assertTrue(app.container.sessionManager.currentSession()?.isSupabaseAuthenticated() == true)
+
+        ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            waitFor("navigation.primary.feed")
+            waitForPrefix("feed.action.publish.")
+            tapPrefix("feed.action.publish.")
+            waitFor(CreatePostCommonRootTestTag)
+            tap("composer-type-text")
+            waitFor(ComposerTextInputTestTag)
+            compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).performTextInput(marker.orEmpty())
+            waitForText(ComposerTextInputTestTag, marker.orEmpty())
+            screenshot("android-create-post-draft-before-process-restart")
+        }
+        File(evidenceDir(), "android-create-post-draft-seeded.json").writeText(
+            JSONObject().put("status", "seeded").put("markerSha256", sha256(marker.orEmpty())).toString() + "\n",
+        )
+    }
+
+    @Test
+    fun restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard() = runBlocking {
+        val marker = optionalArgument("quataCreatePostDraftMarker")
+        assumeTrue(
+            "CREATE-POST-DRAFT-ANDROID-001 is opt-in and requires the exclusive marker.",
+            !marker.isNullOrBlank() && optionalArgument("quataCreatePostPostflightEvidence") == "1",
+        )
+        suppressStartupPrompts()
+        val initialSession = app.container.sessionManager.currentSession()
+        assertTrue("android_create_post_draft_session_missing_after_restart", initialSession?.isSupabaseAuthenticated() == true)
+        val screenshots = mutableListOf<String>()
+        val steps = mutableListOf(
+            "authenticated_feed_entry_visible",
+            "create_post_opened_from_feed_publish_action",
+            "common_create_post_types_visible",
+            "exclusive_text_draft_entered_without_publish",
+            "target_process_force_stopped",
+        )
+
+        ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            waitFor("navigation.primary.feed")
+            waitForPrefix("feed.action.publish.")
+            tapPrefix("feed.action.publish.")
+            waitFor(CreatePostCommonRootTestTag)
+            waitFor(ComposerTextInputTestTag)
+            waitForText(ComposerTextInputTestTag, marker.orEmpty())
+            steps += "exact_text_draft_restored_after_process_restart"
+            screenshots += screenshot("android-create-post-draft-after-process-restart")
+
+            tap("composer-back")
+            waitFor("composer-type-picker")
+            steps += "restored_draft_explicitly_discarded"
+            tap("navigation.primary.feed")
+            waitForGone(CreatePostCommonRootTestTag)
+            waitForPrefix("feed.action.publish.")
+            steps += "create_post_returned_to_feed_without_publish"
+            screenshots += screenshot("android-create-post-postflight-returned")
+        }
+
+        val finalSession = app.container.sessionManager.currentSession()
+        assertTrue("android_create_post_postflight_session_lost", finalSession?.isSupabaseAuthenticated() == true)
+        assertEquals("android_create_post_postflight_actor_changed", initialSession?.userId, finalSession?.userId)
+        steps += "authenticated_session_preserved_after_relaunch"
+        writeReport(initialSession?.userId.orEmpty(), steps, screenshots)
+    }
+
     private fun tap(tag: String) {
         compose.onNodeWithTag(tag, useUnmergedTree = true).performClick()
     }
@@ -111,6 +188,15 @@ class CreatePostPostflightInstrumentedTest {
     private fun waitForGone(tag: String) {
         compose.waitUntil(15_000) {
             runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+        }
+    }
+
+    private fun waitForText(tag: String, expected: String) {
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag(tag, useUnmergedTree = true).assertTextContains(expected)
+                true
+            }.getOrDefault(false)
         }
     }
 

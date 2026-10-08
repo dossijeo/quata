@@ -31,7 +31,7 @@ test("Android, Web and iOS keep the authenticated Create Post route wired to the
   assert.match(ios, /installAuthenticatedComposerIfAvailable\(\)/);
 });
 
-test("Android postflight opens from Feed and returns without publishing", async () => {
+test("Android postflight restores an exact draft after a real process restart without publishing", async () => {
   const [uiTest, coordinator] = await Promise.all([
     source("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/CreatePostPostflightInstrumentedTest.kt"),
     source("scripts/create-post-postflight-android-evidence.mjs"),
@@ -42,21 +42,29 @@ test("Android postflight opens from Feed and returns without publishing", async 
   assert.match(uiTest, /tap\("navigation\.primary\.feed"\)/);
   assert.match(uiTest, /"publishCallbacksInvoked", false/);
   assert.doesNotMatch(uiTest, /composer-publish|ComposerPublishButtonTestTag|onPostCreated/);
-  assert.match(coordinator, /CreatePostPostflightInstrumentedTest#authenticatedCreatePostRootOpensAndReturnsWithoutPublishing/);
+  assert.match(uiTest, /seedAuthenticatedTextDraftForProcessRestart/);
+  assert.match(uiTest, /restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
+  assert.match(uiTest, /waitForText\(ComposerTextInputTestTag, marker\.orEmpty\(\)\)/);
+  assert.match(coordinator, /CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart/);
+  assert.match(coordinator, /am", "force-stop", "com\.quata/);
+  assert.match(coordinator, /CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
   assert.match(coordinator, /publishCallbacksInvoked !== false/);
 });
 
-test("Web postflight uses the real Feed entry and observes zero publish requests", async () => {
+test("Web postflight restores an exact draft after document reload and observes zero publish requests", async () => {
   const runner = await source("scripts/create-post-postflight-web-evidence.mjs");
   assert.match(runner, /\[id\^='feed\.action\.publish\.'\]/);
   assert.match(runner, /data-quata-shell-route"\) === "composer"/);
   assert.ok(runner.includes('#navigation\\\\.primary\\\\.feed'));
   assert.match(runner, /publishRequests\.length/);
   assert.match(runner, /storedActor !== session\.userId/);
+  assert.match(runner, /page\.reload/);
+  assert.match(runner, /expectSemanticInputValue\(page, "composer-text-input", draftMarker\)/);
+  assert.match(runner, /#composer-back/);
   assert.doesNotMatch(runner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION|composer-publish/);
 });
 
-test("iOS postflight runs one authenticated non-publishing XCTest", async () => {
+test("iOS postflight restores an exact draft after app relaunch without publishing", async () => {
   const [uiTest, shell, coordinator] = await Promise.all([
     source("iosApp/iosAppUITests/QuataIosAuthenticatedCreatePostPostflightUITests.swift"),
     source("scripts/run-ios-create-post-postflight-ui-test.sh"),
@@ -67,9 +75,11 @@ test("iOS postflight runs one authenticated non-publishing XCTest", async () => 
   assert.match(uiTest, /create-post-common-root/);
   assert.match(uiTest, /dismissStartupWhatsNewIfPresent/);
   assert.match(uiTest, /quata-ios-profile-sos-host/);
+  assert.match(uiTest, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
+  assert.match(uiTest, /assertTextInput\(restoredInput, equals: marker/);
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);
-  assert.match(shell, /testAuthenticatedCreatePostRootOpensAndReturnsWithoutPublishing/);
+  assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(coordinator, /bash scripts\/run-ios-create-post-postflight-ui-test\.sh/);
   assert.match(coordinator, /publishCallbacksInvoked: false/);
 });

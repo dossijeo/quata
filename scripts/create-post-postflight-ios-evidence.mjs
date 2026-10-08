@@ -67,8 +67,9 @@ scripts/build-ios-intel-simulator-signed.sh
   report.attempts.push(await runAttempt());
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.error ?? "unknown"}`);
-  report.steps.push("ios_create_post_opened_from_feed_and_common_types_verified");
-  report.steps.push("ios_create_post_returned_without_publish_and_session_preserved_after_relaunch");
+  report.steps.push("ios_exclusive_text_draft_entered_without_publish");
+  report.steps.push("ios_exact_text_draft_restored_after_app_relaunch");
+  report.steps.push("ios_restored_draft_explicitly_discarded_and_returned_to_feed");
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);

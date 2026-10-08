@@ -54,22 +54,30 @@ try {
   );
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
-  const instrumentationOutput = await runCapture(adb, [
+  const draftMarker = `QUATA-DRAFT-ANDROID-${randomUUID()}`;
+  const seedOutput = await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#authenticatedCreatePostRootOpensAndReturnsWithoutPublishing",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart",
     "-e", "quataCreatePostPostflightCredentialsFile", deviceCredentialsPath,
     "-e", "quataCreatePostPostflightEvidence", "1",
+    "-e", "quataCreatePostDraftMarker", draftMarker,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
-  const attempt = { source: "create-post-postflight", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
-  if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
-    report.attempts.push({ ...attempt, status: "failed" });
-    throw new Error("android_instrumentation_not_ok");
-  }
-  if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
-    report.attempts.push({ ...attempt, status: "failed" });
-    throw new Error("android_instrumentation_semantic_failure");
-  }
+  requireInstrumentationSuccess(seedOutput, "draft-seed");
+  report.attempts.push({ source: "draft-seed", outcome: "success", status: "passed", instrumentationTail: redactedTail(seedOutput) });
+  await run(adb, ["shell", "am", "force-stop", "com.quata"]);
+  report.steps.push("target_process_force_stopped");
+
+  const instrumentationOutput = await runCapture(adb, [
+    "shell", "am", "instrument", "-w", "-r",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard",
+    "-e", "quataCreatePostPostflightCredentialsFile", deviceCredentialsPath,
+    "-e", "quataCreatePostPostflightEvidence", "1",
+    "-e", "quataCreatePostDraftMarker", draftMarker,
+    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+  ]);
+  const attempt = { source: "draft-restore", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
+  requireInstrumentationSuccess(instrumentationOutput, "draft-restore");
   report.attempts.push({ ...attempt, status: "passed" });
 
   const evidenceDir = resolve(options.evidenceDir);
@@ -143,6 +151,10 @@ async function verifyAndroidCreatePostPostflight(evidenceDir) {
     "authenticated_feed_entry_visible",
     "create_post_opened_from_feed_publish_action",
     "common_create_post_types_visible",
+    "exclusive_text_draft_entered_without_publish",
+    "target_process_force_stopped",
+    "exact_text_draft_restored_after_process_restart",
+    "restored_draft_explicitly_discarded",
     "create_post_returned_to_feed_without_publish",
     "authenticated_session_preserved_after_relaunch",
   ];
@@ -154,6 +166,13 @@ async function verifyAndroidCreatePostPostflight(evidenceDir) {
   }
   report.steps.push(...expectedSteps);
   report.evidence.platformReport = platformReportPath;
+}
+
+function requireInstrumentationSuccess(output, source) {
+  if (!/OK \(\d+ tests?\)/.test(output)) throw new Error(`android_instrumentation_not_ok:${source}`);
+  if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(output)) {
+    throw new Error(`android_instrumentation_semantic_failure:${source}`);
+  }
 }
 
 async function adbRunAsCat(devicePath, localPath) {

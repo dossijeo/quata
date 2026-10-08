@@ -2,6 +2,38 @@ import XCTest
 
 /// Focal, non-destructive postflight for the authenticated shared Create Post root.
 final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
+    func testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_E2E"] == "1",
+              let marker = environment["QUATA_IOS_CREATE_POST_DRAFT_MARKER"],
+              !marker.isEmpty else {
+            throw XCTSkip("Authenticated Create Post draft restoration is opt-in.")
+        }
+
+        let app = launchAuthenticatedApp()
+        openTextComposer(in: app)
+        let input = app.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 15), "Expected text composer input before relaunch.")
+        input.tap()
+        input.typeText(marker)
+        assertTextInput(input, equals: marker, context: "draft before relaunch")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-draft-before-relaunch")
+
+        app.terminate()
+        let relaunched = launchAuthenticatedApp()
+        openTextComposer(in: relaunched)
+        let restoredInput = relaunched.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
+        XCTAssertTrue(restoredInput.waitForExistence(timeout: 15), "Expected restored text composer input after relaunch.")
+        assertTextInput(restoredInput, equals: marker, context: "draft after relaunch")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-draft-after-relaunch")
+
+        tapIdentifier("composer-back", in: relaunched, context: "discard restored draft")
+        assertVisible("composer-type-picker", in: relaunched, context: "empty composer after discard")
+        tapIdentifier("navigation.primary.feed", in: relaunched, context: "return to Feed without publishing")
+        assertVisible("quata-ios-feed-host", in: relaunched, context: "Feed after draft discard")
+        print("IOS_CREATE_POST_DRAFT_RESTORATION_UI_GATE_PASSED")
+    }
+
     func testAuthenticatedCreatePostRootOpensAndReturnsWithoutPublishing() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated Create Post postflight is opt-in.")
@@ -42,6 +74,34 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         assertVisible("navigation.primary.profile", in: app, context: "restored authenticated shell", timeout: 25)
         dismissStartupWhatsNewIfPresent(in: app)
         return app
+    }
+
+    private func openTextComposer(in app: XCUIApplication) {
+        if !app.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.exists {
+            assertVisible("quata-ios-feed-host", in: app, context: "authenticated Feed")
+            tapPrefix("feed.action.publish.", in: app, context: "open Create Post from Feed")
+        }
+        assertVisible("create-post-common-root", in: app, context: "common Create Post root")
+        let input = app.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
+        if !input.exists {
+            tapIdentifier("composer-type-text", in: app, context: "select text post type")
+        }
+        assertVisible("composer-text-input", in: app, context: "text composer input")
+    }
+
+    private func assertTextInput(_ element: XCUIElement, equals expected: String, context: String) {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { candidate, _ in
+                guard let input = candidate as? XCUIElement else { return false }
+                return ((input.value as? String) ?? input.label) == expected
+            },
+            object: element
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 15),
+            .completed,
+            "Expected exact marker in \(context)."
+        )
     }
 
     private func dismissStartupWhatsNewIfPresent(in app: XCUIApplication) {
