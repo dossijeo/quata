@@ -65,6 +65,7 @@ import platform.UIKit.UIViewController
 class IosProfileHostDependencies(
     val repository: ProfileRepository,
     val onLogout: () -> Unit,
+    val onLogoutEverywhere: () -> Unit,
     val onDeactivateAccount: () -> Unit,
     val onDeleteAccountData: () -> Unit,
     val filePicker: FilePickerService,
@@ -105,6 +106,7 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
                 dependencies.onThemeModeChange(mode)
             },
             onLogout = dependencies.onLogout,
+            onLogoutEverywhere = dependencies.onLogoutEverywhere,
             onDeactivateAccount = dependencies.onDeactivateAccount,
             onDeleteAccountData = dependencies.onDeleteAccountData,
             onLinkGoogleIdentity = dependencies.googleIdentityLinker?.let { linker ->
@@ -331,4 +333,6 @@ private val IosProfileScreenStrings = ProfileScreenStrings(
     cancelGoogleLink = "Cancel Google linking",
     googleLinked = "Google account linked.",
     googleLinkFailed = "Google account could not be linked.",
+    logoutEverywhere = "Log out on all devices",
+    logoutEverywhereConfirmation = "This will log out every device using this account.",
 )

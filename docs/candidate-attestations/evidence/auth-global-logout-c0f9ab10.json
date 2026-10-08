@@ -1,0 +1,103 @@
+{
+  "check": "AUTH-GLOBAL-LOGOUT-CROSS-PLATFORM-REAL-001",
+  "status": "passed",
+  "git": {
+    "head": "c0f9ab10c7744a59dbb2472298985ed548ca4b28",
+    "branch": "codex/auth-global-logout",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "encrypted_full_logical_backup_created",
+    "focal_restore_drill_passed",
+    "selective_release_snapshot_and_dry_run_passed",
+    "auth_global_logout_migration_committed_transactionally",
+    "database_release_postflight_passed",
+    "edge_function_deployed_with_jwt_verification",
+    "web_two_owned_auth_sessions_created",
+    "web_global_logout_confirmation_activated_once",
+    "web_local_session_absent_after_reload",
+    "web_both_owned_auth_sessions_revoked_remotely",
+    "web_both_owned_refresh_tokens_rejected",
+    "web_all_actor_device_endpoints_retired",
+    "android_two_owned_auth_sessions_created",
+    "android_global_logout_confirmation_activated_once",
+    "android_public_feed_visible_after_relaunch",
+    "android_both_owned_auth_sessions_revoked_remotely",
+    "android_both_owned_refresh_tokens_rejected",
+    "android_all_actor_device_endpoints_retired",
+    "ios_two_owned_auth_sessions_created",
+    "ios_global_logout_confirmation_activated_once",
+    "ios_public_feed_visible_after_global_logout",
+    "ios_keychain_session_absent_after_global_logout_relaunch",
+    "ios_both_owned_auth_sessions_revoked_remotely",
+    "ios_both_owned_refresh_tokens_rejected",
+    "ios_all_actor_device_endpoints_retired"
+  ],
+  "platforms": {
+    "web": {
+      "status": "passed",
+      "ownedAuthSessionsBefore": 2,
+      "ownedAuthSessionsAfter": 0,
+      "activeOwnedRefreshTokensBefore": 2,
+      "activeOwnedRefreshTokensAfter": 0,
+      "activeWebSessionsBefore": 2,
+      "activeWebSessionsAfter": 0,
+      "refreshTokensRejected": 2
+    },
+    "android": {
+      "status": "passed",
+      "tests": 1,
+      "failures": 0,
+      "refreshTokensRejected": 2
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorSigned": true,
+      "tests": 2,
+      "failures": 0,
+      "refreshTokensRejected": 2,
+      "runtimeConfigRestored": true,
+      "temporaryCredentialsRemoved": true,
+      "logoutSessionReceiptRemoved": true
+    }
+  },
+  "database": {
+    "status": "passed",
+    "migration": "20261007090000_auth_global_logout_device_retirement.sql",
+    "migrationSha256": "f7d3f63da639fafb4162b5057195bb7db65bcf9d8cfbc771270023b5005b8756",
+    "selectiveReleaseCommitStatus": "committed",
+    "postflight": "passed",
+    "edgeFunction": "quata-auth-global-logout",
+    "edgeFunctionStatus": "ACTIVE",
+    "edgeFunctionVerifyJwt": true
+  },
+  "cleanup": {
+    "state": "completed",
+    "verified": true,
+    "residueCounts": {
+      "ownedAuthSessions": 0,
+      "activeOwnedRefreshTokens": 0,
+      "activePushTokens": 0,
+      "activeWebPushSubscriptions": 0,
+      "activeWebSessions": 0,
+      "temporaryCredentials": 0,
+      "temporaryRuntimeConfigs": 0,
+      "privateSessionReceipts": 0
+    }
+  },
+  "failedPilots": [
+    "The first Web run timed out while Chrome captured the confirmation screenshot; the bounded Edge control reached the product flow.",
+    "The first successful Web interaction exposed that the evidence init script re-seeded local storage on reload; c0f9ab10 fixes the harness and the exact-head rerun passed.",
+    "The first Android emulator hit a startup ANR under sustained host CPU pressure; the bounded second emulator rerun passed without product changes.",
+    "The first iOS build failed closed after the Mac exhausted disk space and a Gradle daemon result became unreadable; stale transfer bundles whose tips were preserved in the Windows repository were removed, the simulator was erased, and the exact-head rebuild passed.",
+    "The next iOS seed was skipped because the app had been compiled before transient public runtime configuration; the exact runner rebuilt after injecting that configuration and both native tests passed."
+  ],
+  "privacy": {
+    "credentialsIncluded": false,
+    "tokensIncluded": false,
+    "connectionStringsIncluded": false,
+    "databaseProjectFingerprintIncluded": false,
+    "privatePathsIncluded": false,
+    "rawActorIdentifiersIncluded": false
+  }
+}

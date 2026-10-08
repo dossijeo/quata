@@ -1646,6 +1646,7 @@ private final class IosAppCompositionRoot {
             // it is not a substitute route for Profile on iOS.
             let dependencies = profileSosRuntimeBootstrap.profileHostDependencies(
                 onLogout: { [weak self] in self?.authenticatedHost.performLogout() },
+                onLogoutEverywhere: { [weak self] in self?.authenticatedHost.performLogoutEverywhere() },
                 onDeactivateAccount: { [weak self] in
                     self?.presentAccountLifecyclePrompt(action: "deactivate", handler: lifecycleHandler)
                 },
@@ -2242,6 +2243,18 @@ private final class IosAppCompositionRoot {
                     }
                 }
             },
+            logoutEverywhereAction: { [weak self] completed in
+                guard let self else { return }
+                self.prepareChatDraftRetirement()
+                self.notificationReplyRuntime?.sessionEnded()
+                logoutHandler.logoutEverywhere(
+                    onCompleted: completed,
+                    onFailure: { [weak self] in
+                        self?.notificationReplyRuntime?.resumeAfterSessionValidation()
+                        self?.authenticatedHost.reportLogoutFailure(global: true)
+                    },
+                )
+            },
             onLoggedOut: { [weak self] in
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
@@ -2793,6 +2806,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
+    private var logoutEverywhereAction: ((@escaping () -> Void) -> Void)?
+    private var failedLogoutWasGlobal = false
     private var sosAction: (() -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var onAuthenticationContinuationAbandoned: (() -> Void)?
@@ -3125,9 +3140,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// confirmation UX and replaces authenticated route factories after its completion.
     func installLogoutAction(
         _ action: @escaping (@escaping () -> Void) -> Void,
+        logoutEverywhereAction: ((@escaping () -> Void) -> Void)? = nil,
         onLoggedOut: @escaping () -> Void,
     ) {
         logoutAction = action
+        self.logoutEverywhereAction = logoutEverywhereAction
         self.onLoggedOut = onLoggedOut
     }
 
@@ -3935,8 +3952,20 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// network, Keychain or a confirmation alert.
     func performLogout() {
         guard let logoutAction, !isLoggingOut else { return }
+        failedLogoutWasGlobal = false
         isLoggingOut = true
         logoutAction { [weak self] in
+            DispatchQueue.main.async {
+                self?.finishLogout()
+            }
+        }
+    }
+
+    func performLogoutEverywhere() {
+        guard let logoutEverywhereAction, !isLoggingOut else { return }
+        failedLogoutWasGlobal = false
+        isLoggingOut = true
+        logoutEverywhereAction { [weak self] in
             DispatchQueue.main.async {
                 self?.finishLogout()
             }
@@ -3951,9 +3980,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         finishLogout()
     }
 
-    func reportLogoutFailure() {
+    func reportLogoutFailure(global: Bool = false) {
         guard isLoggingOut else { return }
         isLoggingOut = false
+        failedLogoutWasGlobal = global
         let alert = UIAlertController(
             title: NSLocalizedString("ios_logout_failed_title", value: "No se ha cerrado la sesión", comment: ""),
             message: NSLocalizedString("ios_logout_failed_message", value: "Comprueba tu conexión y vuelve a intentarlo.", comment: ""),
@@ -3962,17 +3992,29 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         alert.addAction(UIAlertAction(
             title: NSLocalizedString("common_retry", value: "Reintentar", comment: ""),
             style: .default,
-        ) { [weak self] _ in self?.performLogout() })
+        ) { [weak self] _ in self?.retryFailedLogout() })
         alert.addAction(UIAlertAction(
             title: NSLocalizedString("common_cancel", value: "Cancelar", comment: ""),
             style: .cancel,
-        ))
+        ) { [weak self] _ in self?.failedLogoutWasGlobal = false })
         present(alert, animated: true)
+    }
+
+    /// Internal for XCTest: retry must preserve the scope of the operation that failed.
+    func retryFailedLogout() {
+        let retryEverywhere = failedLogoutWasGlobal
+        failedLogoutWasGlobal = false
+        if retryEverywhere {
+            performLogoutEverywhere()
+        } else {
+            performLogout()
+        }
     }
 
     private func finishLogout() {
         guard isLoggingOut else { return }
         isLoggingOut = false
+        failedLogoutWasGlobal = false
         let completion = onLoggedOut
         // A private route may hold a live Compose controller/repository. Remove every factory
         // before asking the composition root to reinstall the anonymous public Feed.
@@ -3997,6 +4039,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         onAuthenticationContinuationAbandoned?()
         persistPrimaryRoute("feed")
         logoutAction = nil
+        logoutEverywhereAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
         // The public application chrome is deliberately kept mounted while the composition

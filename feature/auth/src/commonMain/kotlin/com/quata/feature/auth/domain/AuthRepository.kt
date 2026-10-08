@@ -19,6 +19,11 @@ interface AuthRepository : LoginRepository, RegisterRepository, PasswordRecovery
     suspend fun deactivateAccount(password: String): Result<Unit>
     suspend fun deleteAccountData(password: String): Result<Unit>
     suspend fun logout()
+
+    /** Revokes every Auth session for the actor before retiring this device's private state. */
+    suspend fun logoutEverywhere() {
+        throw UnsupportedOperationException("auth_global_logout_unavailable")
+    }
 }
 
 data class RegisterAccountRequest(

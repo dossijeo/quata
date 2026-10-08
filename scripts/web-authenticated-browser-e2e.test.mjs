@@ -597,6 +597,31 @@ test("browser policy allows only declared read RPCs and Auth lifecycle effects",
     stage: "native_auth_control_logout",
     body: JSON.stringify({ action: "logout" }),
   }).allowed, true);
+  for (const scope of ["local", "global"]) {
+    const authLogout = decision({
+      url: `${backend}/auth/v1/logout?scope=${scope}`,
+      method: "POST",
+      stage: "compose_auth_bridge_logout",
+      body: null,
+    });
+    assert.equal(authLogout.allowed, true);
+    assert.equal(authLogout.reason, "declared_auth_session_revocation");
+  }
+  for (const overrides of [
+    { stage: "authenticated_route_matrix" },
+    { method: "DELETE" },
+    { url: `${backend}/auth/v1/logout?scope=others` },
+    { url: `${backend}/auth/v1/logout?scope=global&extra=true` },
+    { url: `${backend}/auth/v1/logout` },
+  ]) {
+    assert.equal(decision({
+      url: `${backend}/auth/v1/logout?scope=global`,
+      method: "POST",
+      stage: "compose_auth_bridge_logout",
+      body: null,
+      ...overrides,
+    }).allowed, false);
+  }
   assert.equal(decision({
     url: `${backend}/functions/v1/quata-auth-bridge`,
     method: "POST",

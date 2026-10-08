@@ -195,6 +195,15 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
   ) {
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_web_session_cleanup" });
   }
+  if (
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/auth/v1/logout" &&
+    ["local", "global"].includes(parsed.searchParams.get("scope")) &&
+    [...parsed.searchParams.keys()].length === 1 &&
+    AUTH_LOGOUT_STAGES.includes(stage)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_auth_session_revocation" });
+  }
   return Object.freeze({
     backendApi: true,
     allowed: false,

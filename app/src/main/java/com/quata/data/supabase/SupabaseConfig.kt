@@ -28,3 +28,9 @@ data class SupabaseConfig(
             .replaceFirst("http://", "ws://") + "/realtime/v1/websocket?apikey=$encodedKey&vsn=2.0.0"
     }
 }
+
+internal val SupabaseConfig.authLogoutUrl: String
+    get() = "$authUrl/logout?scope=local"
+
+internal val SupabaseConfig.globalLogoutUrl: String
+    get() = "$functionsUrl/quata-auth-global-logout"

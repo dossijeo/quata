@@ -378,8 +378,29 @@ class IosAuthRepository(
         performLifecycle("delete", password)
 
     /** Settle the remote attempt before publishing logout; Keychain still clears when transport fails. */
-    override suspend fun logout() {
+    override suspend fun logout() = performLogout(global = false)
+
+    override suspend fun logoutEverywhere() = performLogout(global = true)
+
+    private suspend fun performLogout(global: Boolean) {
         val bearerToken = session.restoredSession()?.bearerToken
+        if (global) {
+            if (bearerToken == null) {
+                session.clear()
+                return
+            }
+            val completed = withTimeoutOrNull(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS) {
+                post(
+                    endpoint = configuration.globalLogoutEndpoint(),
+                    accessToken = bearerToken,
+                    body = "{}",
+                )
+                true
+            } == true
+            check(completed) { "ios_auth_global_logout_timeout" }
+            session.clear()
+            return
+        }
         try {
             bearerToken?.let { token ->
                 withTimeoutOrNull(IOS_AUTH_LOGOUT_TIMEOUT_MILLIS) {
@@ -576,7 +597,11 @@ private fun IosAuthRuntimeConfiguration.publishableKey(): String = supabasePubli
 private fun IosAuthRuntimeConfiguration.authBridgeEndpoint(): String = "${baseUrl()}/functions/v1/quata-auth-bridge"
 private fun IosAuthRuntimeConfiguration.accountLifecycleEndpoint(): String = "${baseUrl()}/functions/v1/quata-account-lifecycle"
 private fun IosAuthRuntimeConfiguration.supabaseRefreshEndpoint(): String = "${baseUrl()}/auth/v1/token?grant_type=refresh_token"
-private fun IosAuthRuntimeConfiguration.supabaseLogoutEndpoint(): String = "${baseUrl()}/auth/v1/logout"
+private fun IosAuthRuntimeConfiguration.supabaseLogoutEndpoint(): String =
+    "${baseUrl()}/auth/v1/logout?scope=local"
+
+private fun IosAuthRuntimeConfiguration.globalLogoutEndpoint(): String =
+    "${baseUrl()}/functions/v1/quata-auth-global-logout"
 private fun IosAuthRuntimeConfiguration.registrationEndpoint(): String = "${baseUrl()}/functions/v1/quata-register"
 
 private fun String.digitsOrThrow(error: String): String = filter(Char::isDigit).takeIf(String::isNotBlank) ?: throw IllegalArgumentException(error)

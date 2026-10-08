@@ -61,6 +61,36 @@ final class QuataIosAuthenticatedAccountPostflightUITests: XCTestCase {
         print("IOS_AUTH_LOGOUT_UI_GATE_PASSED")
     }
 
+    func testAuthenticatedGlobalLogoutConfirmsAndReturnsToPublicFeed() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_GLOBAL_LOGOUT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated global logout postflight is opt-in.")
+        }
+        continueAfterFailure = false
+
+        let app = launchAuthenticatedApp()
+        tapIdentifier("navigation.primary.profile", in: app, context: "open Account before global logout")
+        tapIdentifier("profile.management.open", in: app, context: "open Account management before global logout")
+        tapIdentifier("profile.management.logout-everywhere", in: app, context: "open global logout confirmation")
+        assertVisible("profile.management.confirmation", in: app, context: "global logout confirmation")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-global-logout-confirmation")
+        tapIdentifier("profile.management.confirm", in: app, context: "confirm global logout once")
+        assertVisible("feed.root", in: app, context: "public Feed after global logout", timeout: 35)
+        assertPrivateProfileAbsent(in: app, context: "after global logout")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-global-logout-public-feed")
+
+        app.terminate()
+        let relaunched = XCUIApplication()
+        disableQuiescenceWait(for: relaunched)
+        relaunched.launchArguments += [
+            "-AppleLanguages", "(es)", "-AppleLocale", "es_ES",
+            "-quata-ui-test-reset-primary-route",
+        ]
+        relaunched.launch()
+        assertVisible("feed.root", in: relaunched, context: "public Feed after global logout relaunch", timeout: 25)
+        assertPrivateProfileAbsent(in: relaunched, context: "after global logout relaunch")
+        print("IOS_AUTH_GLOBAL_LOGOUT_UI_GATE_PASSED")
+    }
+
     func testAuthenticatedSettingsLogoutReturnsToPublicFeedAndClearsRestoredSession() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_SETTINGS_LOGOUT_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated Settings logout postflight is opt-in.")

@@ -314,12 +314,10 @@ class SupabaseHttpClient(
         execute("POST", "${config.rpcUrl}/$functionName", payload)
     }
 
-    internal suspend fun logout(bearerToken: String) {
+    internal suspend fun logout(bearerToken: String, global: Boolean = false) {
         execute(
             method = "POST",
-            // Android logout is device-local. Omitting the scope would revoke every refresh-token
-            // family for the account, including sessions on the user's other platforms.
-            url = "${config.authUrl}/logout?scope=local",
+            url = if (global) config.globalLogoutUrl else config.authLogoutUrl,
             body = "{}",
             useContentProfile = false,
             authBearerOverride = bearerToken,

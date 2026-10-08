@@ -22,6 +22,59 @@ import kotlin.test.assertTrue
 
 class IosAuthLogoutOrderingTest {
     @Test
+    fun localAndGlobalLogoutUseExplicitSupabaseScopes() = runTest {
+        suspend fun observedEndpoint(global: Boolean): String {
+            val storage = MemorySessionStorage()
+            val session = renewableSession(storage)
+            session.save(authSession())
+            var recordedEndpoint = ""
+            val recording = repository(session, object : IosAuthHttpTransport {
+                override suspend fun post(
+                    endpoint: String,
+                    headers: Map<String, String>,
+                    body: String,
+                ): IosAuthHttpResponse {
+                    this@IosAuthLogoutOrderingTest.assertBearer(headers)
+                    recordedEndpoint = endpoint
+                    return IosAuthHttpResponse(204, "")
+                }
+
+                override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse =
+                    error("logout_must_not_get")
+            })
+            if (global) recording.logoutEverywhere() else recording.logout()
+            return recordedEndpoint
+        }
+
+        assertEquals("https://example.supabase.co/auth/v1/logout?scope=local", observedEndpoint(global = false))
+        assertEquals("https://example.supabase.co/functions/v1/quata-auth-global-logout", observedEndpoint(global = true))
+    }
+
+    @Test
+    fun failedGlobalLogoutKeepsTheKeychainSessionForRetry() = runTest {
+        val storage = MemorySessionStorage()
+        val session = renewableSession(storage)
+        session.save(authSession())
+        val repository = repository(session, object : IosAuthHttpTransport {
+            override suspend fun post(endpoint: String, headers: Map<String, String>, body: String) =
+                IosAuthHttpResponse(503, "{\"error\":\"offline\"}")
+
+            override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse =
+                error("logout_must_not_get")
+        })
+
+        var failure: Throwable? = null
+        try {
+            repository.logoutEverywhere()
+        } catch (caught: Throwable) {
+            failure = caught
+        }
+
+        assertNotNull(failure)
+        assertNotNull(session.restoredSession())
+    }
+
+    @Test
     fun incorrectLifecyclePasswordKeepsTheKeychainSessionAndStableErrorCode() = runTest {
         val storage = MemorySessionStorage()
         val session = renewableSession(storage)
@@ -232,6 +285,10 @@ class IosAuthLogoutOrderingTest {
         session = session,
         transport = transport,
     )
+
+    private fun assertBearer(headers: Map<String, String>) {
+        assertEquals("Bearer access-token", headers["Authorization"])
+    }
 
     private fun renewableSession(storage: SessionStorage) = IosRenewableAuthSession(
         refresher = { null },

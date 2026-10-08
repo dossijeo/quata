@@ -736,6 +736,30 @@ No se repitieron Web/Android ni UGC iOS por avances de SHA que modificaban únic
 Ajustes iOS. La revocación backend se atribuye sólo a Ajustes iOS; no se amplía a logout global de otros
 dispositivos, entrega push, OAuth Google ni una recertificación completa de la aplicación.
 
+### Logout global/multidispositivo — aceptación productiva Android/Web/iOS
+
+Product SHA `c0f9ab10c7744a59dbb2472298985ed548ca4b28` añade una acción separada y
+confirmada de cierre en todos los dispositivos. La Edge Function desplegada valida el bearer token,
+deriva de él el único actor permitido, retira mediante RPC service-only todos sus endpoints de push,
+Web Push y sesiones Web, y sólo después ejecuta el sign-out global de Supabase Auth. La migración
+`20261007090000_auth_global_logout_device_retirement.sql`, SHA-256
+`f7d3f63da639fafb4162b5057195bb7db65bcf9d8cfbc771270023b5005b8756`, se aplicó desde el
+paquete selectivo autorizado después de crear un backup lógico Full cifrado y validar su restauración
+focal; snapshot, dry-run, commit transaccional y postflight terminaron PASS.
+
+Web, Android e iOS `SimulatorSigned` crearon dos sesiones propias, activaron una sola vez el control
+real y comprobaron que ambas sesiones desaparecieron, ambos refresh tokens fueron rechazados y no
+quedó ningún endpoint activo del actor. Web permaneció anónimo tras recarga, Android volvió a Feed
+público tras relanzar e iOS retiró Keychain y conservó el estado público tras relanzar. El simulador
+iOS acredita la interacción y el efecto backend sin requerir dispositivo físico ni entrega APNs.
+Manifest: `docs/candidate-attestations/auth-global-logout.json`.
+
+Se conservan los pilotos fallidos: timeout de captura Chrome, reseeding del harness Web al recargar,
+ANR de arranque en un emulador Android saturado, falta de espacio en la VM macOS y un build iOS
+compilado antes de inyectar la configuración pública temporal. Ninguno se atribuye retrospectivamente
+al producto. Este cierre no acredita Google OAuth, traza HTTP de paquete, todas las rutas de retorno
+ni una recertificación exhaustiva de toda la aplicación.
+
 ## Auditoría histórica #154 — Create Post, superada por cierres posteriores
 
 #154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el

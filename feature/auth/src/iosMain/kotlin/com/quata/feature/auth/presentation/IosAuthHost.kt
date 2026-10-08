@@ -26,6 +26,7 @@ import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.LogoutUseCase
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -87,7 +88,7 @@ fun createIosAuthHostDependenciesForDestination(
  * operation that attempts the remote Supabase sign-out and always clears the Keychain-backed
  * session locally.
  */
-class IosAuthLogoutHandler(repository: AuthRepository) {
+class IosAuthLogoutHandler(private val repository: AuthRepository) {
     private val logoutUseCase = LogoutUseCase(repository)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -98,6 +99,19 @@ class IosAuthLogoutHandler(repository: AuthRepository) {
                 logoutUseCase()
             } finally {
                 onCompleted()
+            }
+        }
+    }
+
+    /** Publishes teardown only after the global backend operation succeeds; failures remain retryable. */
+    fun logoutEverywhere(onCompleted: () -> Unit, onFailure: () -> Unit) {
+        scope.launch {
+            try {
+                repository.logoutEverywhere()
+                onCompleted()
+            } catch (failure: Throwable) {
+                if (failure is CancellationException) throw failure
+                onFailure()
             }
         }
     }

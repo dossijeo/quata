@@ -91,6 +91,7 @@ const val ProfileDangerDialogTestTag = "profile.management.confirmation"
 const val ProfileDangerConfirmTestTag = "profile.management.confirm"
 const val ProfileDangerCancelTestTag = "profile.management.cancel"
 const val ProfileLogoutTestTag = "profile.logout"
+const val ProfileLogoutEverywhereOpenTestTag = "profile.management.logout-everywhere"
 
 /** The only product account surface. Platform hosts supply native integrations through [ProfileScreenSlots]. */
 @Composable
@@ -102,6 +103,7 @@ fun ProfileScreenHost(
     themeMode: QuataThemeMode,
     onThemeModeChange: (QuataThemeMode) -> Unit,
     onLogout: () -> Unit,
+    onLogoutEverywhere: (() -> Unit)? = null,
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     slots: ProfileScreenSlots,
@@ -116,6 +118,15 @@ fun ProfileScreenHost(
     var page by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
     var showSos by rememberSaveable { mutableStateOf(false) }
     var confirmation by rememberSaveable { mutableStateOf<ProfileDangerousAction?>(null) }
+    fun confirmDangerousAction() {
+        val action = confirmation ?: return
+        confirmation = null
+        when (action) {
+            ProfileDangerousAction.Deactivate -> onDeactivateAccount()
+            ProfileDangerousAction.DeleteData -> onDeleteAccountData()
+            ProfileDangerousAction.LogoutEverywhere -> onLogoutEverywhere?.invoke()
+        }
+    }
     DisposableEffect(viewModel) { onDispose { viewModel.close() } }
     LaunchedEffect(refreshKey) { if (refreshKey != 0L) viewModel.onEvent(ProfileUiEvent.Refresh) }
     LaunchedEffect(state.successMessage) {
@@ -193,6 +204,9 @@ fun ProfileScreenHost(
                         onBack = { page = ProfileAccountPage.Overview },
                         onDeactivate = { confirmation = ProfileDangerousAction.Deactivate },
                         onDelete = { confirmation = ProfileDangerousAction.DeleteData },
+                        onLogoutEverywhere = onLogoutEverywhere?.let {
+                            { confirmation = ProfileDangerousAction.LogoutEverywhere }
+                        },
                         onLinkGoogleIdentity = onLinkGoogleIdentity,
                     )
                 }
@@ -291,6 +305,8 @@ fun ProfileScreenHost(
             { page = ProfileAccountPage.Overview; confirmation = null },
             { check(page == ProfileAccountPage.Management); confirmation = ProfileDangerousAction.Deactivate },
             { check(page == ProfileAccountPage.Management); confirmation = ProfileDangerousAction.DeleteData },
+            { check(page == ProfileAccountPage.Management); confirmation = ProfileDangerousAction.LogoutEverywhere },
+            { check(confirmation == ProfileDangerousAction.LogoutEverywhere); confirmDangerousAction() },
             { confirmation = null },
             {
                 listOf(
@@ -353,11 +369,27 @@ fun ProfileScreenHost(
                     .testTag(ProfileDangerDialogTestTag)
                     .semantics { contentDescription = ProfileDangerDialogTestTag },
                 onDismissRequest = { confirmation = null },
-                title = { Text(if (action == ProfileDangerousAction.Deactivate) strings.deactivate else strings.deleteData) },
-                text = { Text(strings.dangerConfirmation) },
+                title = {
+                    Text(
+                        when (action) {
+                            ProfileDangerousAction.Deactivate -> strings.deactivate
+                            ProfileDangerousAction.DeleteData -> strings.deleteData
+                            ProfileDangerousAction.LogoutEverywhere -> strings.logoutEverywhere
+                        },
+                    )
+                },
+                text = {
+                    Text(
+                        if (action == ProfileDangerousAction.LogoutEverywhere) {
+                            strings.logoutEverywhereConfirmation
+                        } else {
+                            strings.dangerConfirmation
+                        },
+                    )
+                },
                 confirmButton = {
                     Button(
-                        onClick = { confirmation = null; if (action == ProfileDangerousAction.Deactivate) onDeactivateAccount() else onDeleteAccountData() },
+                        onClick = ::confirmDangerousAction,
                         modifier = Modifier
                             .testTag(ProfileDangerConfirmTestTag)
                             .semantics { contentDescription = ProfileDangerConfirmTestTag },
@@ -580,6 +612,7 @@ private fun ProfileManagementContent(
     onBack: () -> Unit,
     onDeactivate: () -> Unit,
     onDelete: () -> Unit,
+    onLogoutEverywhere: (() -> Unit)?,
     onLinkGoogleIdentity: (() -> suspend () -> Result<Unit>)?,
 ) {
     val scope = rememberCoroutineScope()
@@ -620,6 +653,13 @@ private fun ProfileManagementContent(
                         },
                     ),
                 )
+                if (onLogoutEverywhere != null) add(
+                    ProfileManagementAction(
+                        strings.logoutEverywhere,
+                        ProfileLogoutEverywhereOpenTestTag,
+                        onLogoutEverywhere,
+                    ),
+                )
                 add(ProfileManagementAction(strings.deactivate, ProfileDeactivateOpenTestTag, onDeactivate))
                 add(ProfileManagementAction(strings.deleteData, ProfileDeleteOpenTestTag, onDelete))
             },
@@ -640,7 +680,7 @@ private fun ProfileManagementContent(
 }
 
 private enum class ProfileAccountPage { Overview, Details, Management }
-private enum class ProfileDangerousAction { Deactivate, DeleteData }
+private enum class ProfileDangerousAction { Deactivate, DeleteData, LogoutEverywhere }
 
 data class ProfileScreenStrings(
     val loading: String, val myData: String, val management: String, val managementDescription: String,
@@ -657,6 +697,8 @@ data class ProfileScreenStrings(
     val cancelGoogleLink: String = "Cancel Google linking",
     val googleLinked: String = "Google account linked.",
     val googleLinkFailed: String = "Google account could not be linked.",
+    val logoutEverywhere: String = "Sign out on all devices",
+    val logoutEverywhereConfirmation: String = "This will sign out every device using this account.",
 )
 
 data class ProfileScreenSlots(
@@ -689,6 +731,8 @@ data class ProfileScreenSlots(
         backToOverview: () -> Unit,
         openDeactivateConfirmation: () -> Unit,
         openDeleteConfirmation: () -> Unit,
+        openLogoutEverywhereConfirmation: () -> Unit,
+        confirmLogoutEverywhere: () -> Unit,
         cancelConfirmation: () -> Unit,
         snapshot: () -> String,
     ) -> Unit)? = null,

@@ -109,6 +109,7 @@ const fixtureState = {
   exactChatThreadReads: 0,
   exactChatReadReceipts: 0,
   webLogout: 0,
+  localLogout: 0,
   globalLogout: 0,
 };
 const unexpectedNetwork = [];
@@ -393,7 +394,7 @@ try {
   if (!options.real) {
     if (fixtureState.login !== 1 || fixtureState.profileReads < 1 || fixtureState.pagedInboxReads < 1 ||
         fixtureState.exactChatThreadReads < 2 || fixtureState.exactChatReadReceipts < 2 ||
-        fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
+        fixtureState.webLogout !== 1 || fixtureState.localLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
     if (unexpectedNetwork.length !== 0) {
@@ -543,7 +544,10 @@ async function startServer(distribution, state, configuration) {
       }
       if (url.pathname === "/auth/v1/logout") {
         if (request.method !== "POST") return json(response, 405, { error: "fixture_method_forbidden" });
-        if (request.headers.authorization === `Bearer ${FIXTURE.accessToken}`) state.globalLogout += 1;
+        if (request.headers.authorization === `Bearer ${FIXTURE.accessToken}`) {
+          if (url.searchParams.get("scope") === "local") state.localLogout += 1;
+          if (url.searchParams.get("scope") === "global") state.globalLogout += 1;
+        }
         return json(response, 204, null);
       }
       if (url.pathname === "/auth/v1/user") {

@@ -65,6 +65,7 @@ private fun quataIosProfileLegalEvidenceViewController(
     IosProfileHostDependencies(
         repository = IosProfileLegalEvidenceRepository(forceSosSaveError, onSosSaved),
         onLogout = {},
+        onLogoutEverywhere = {},
         onDeactivateAccount = {},
         onDeleteAccountData = {},
         filePicker = IosProfileLegalEvidenceFilePicker,

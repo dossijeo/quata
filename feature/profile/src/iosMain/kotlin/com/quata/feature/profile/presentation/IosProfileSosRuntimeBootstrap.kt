@@ -100,6 +100,7 @@ class IosProfileSosRuntimeBootstrap(
     /** Factory for the full Cuenta route; callers no longer route Cuenta to SOS only. */
     fun profileHostDependencies(
         onLogout: () -> Unit,
+        onLogoutEverywhere: () -> Unit,
         onDeactivateAccount: () -> Unit,
         onDeleteAccountData: () -> Unit,
         googleIdentityLinker: com.quata.feature.auth.domain.GoogleIdentityLinker?,
@@ -118,6 +119,7 @@ class IosProfileSosRuntimeBootstrap(
     ): IosProfileHostDependencies = IosProfileHostDependencies(
         repository = repository,
         onLogout = onLogout,
+        onLogoutEverywhere = onLogoutEverywhere,
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
         googleIdentityLinker = googleIdentityLinker,

@@ -59,7 +59,11 @@ test("iOS single-gesture logout binds the seeded Auth session to fail-closed bac
   assert.match(iosSeeder, /let accessToken = session\.accessToken[\s\S]*jwtSessionId\(accessToken\)/);
   assert.match(iosSeeder, /\["session_id": sessionId, "auth_user_id": authUserId\]/);
   assert.match(iosSeeder, /\.posixPermissions: 0o600/);
-  assert.doesNotMatch(iosSeeder, /refreshToken|"access_token"|"refresh_token"/);
+  const localReceipt = iosSeeder.slice(
+    iosSeeder.indexOf("private func writeLogoutSessionReceipt"),
+    iosSeeder.indexOf("private func writeGlobalLogoutReceipt"),
+  );
+  assert.doesNotMatch(localReceipt, /refreshToken|"access_token"|"refresh_token"/);
   assert.match(iosShell, /logout_mode == '1' and logout_receipt/);
   assert.match(iosRunner, /--verify-backend-revocation/);
   assert.match(iosRunner, /exists\(select 1 from auth\.sessions where id=\$1::uuid and user_id=\$2::uuid\)/);

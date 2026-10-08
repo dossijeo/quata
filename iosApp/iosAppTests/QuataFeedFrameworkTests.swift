@@ -2603,6 +2603,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(loggedOut)
     }
 
+    func testFailedGlobalLogoutRetryPreservesGlobalScope() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installFeedFactory { _ in UIViewController() }
+        var localAttempts = 0
+        var globalAttempts = 0
+        router.installLogoutAction(
+            { _ in localAttempts += 1 },
+            logoutEverywhereAction: { _ in globalAttempts += 1 },
+            onLoggedOut: {},
+        )
+
+        router.performLogoutEverywhere()
+        router.reportLogoutFailure(global: true)
+        router.retryFailedLogout()
+
+        XCTAssertEqual(localAttempts, 0)
+        XCTAssertEqual(globalAttempts, 2)
+    }
+
     func testColdStartWithoutRestoredSessionStillDeliversPendingLink() {
         var events: [String] = []
         IosAuthLifecycleBootstrap.completeRestoredSessionAttempt(

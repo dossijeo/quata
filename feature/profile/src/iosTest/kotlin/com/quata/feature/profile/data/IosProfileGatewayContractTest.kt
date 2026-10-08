@@ -87,6 +87,7 @@ class IosProfileGatewayContractTest {
 
         val dependencies = bootstrap.profileHostDependencies(
             onLogout = {},
+            onLogoutEverywhere = {},
             onDeactivateAccount = {},
             onDeleteAccountData = {},
             googleIdentityLinker = null,

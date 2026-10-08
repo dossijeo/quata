@@ -1195,6 +1195,20 @@ fun AppNavGraph(
                                         }
                                 }
                             },
+                            onLogoutEverywhere = {
+                                appScope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        runCatching { container.authRepository.logoutEverywhere() }
+                                    }
+                                        .onSuccess {
+                                            globalProfileViewModel.clearUserProfile()
+                                            postComposerAuthenticationCoordinator.clear()
+                                        }
+                                        .onFailure {
+                                            Toast.makeText(appContext, R.string.error_backend_generic, Toast.LENGTH_LONG).show()
+                                        }
+                                }
+                            },
                             onDeactivateAccount = {
                                 accountOperationError = null
                                 pendingAccountAction = AccountLifecycleAction.Deactivate
