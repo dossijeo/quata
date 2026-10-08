@@ -4,12 +4,12 @@
     "OVR-MEDIA-OFFICIAL-VIDEO-POSITION"
   ],
   "status": "passed",
-  "productSha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+  "productSha": "e10265840f510bc024fccfc2f1e95a914a72d276",
   "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "sha": "e10265840f510bc024fccfc2f1e95a914a72d276",
       "report": "docs/candidate-attestations/evidence/official-video-position-restoration-web-35c0b047.json",
       "reportSha256": "4b94c309a18ca4a081e27b09e594b6e4c7dd2c2c4bd860f080f3e13a8d137fe6",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "sha": "e10265840f510bc024fccfc2f1e95a914a72d276",
       "report": "docs/candidate-attestations/evidence/official-video-position-restoration-android-181a66fa.json",
       "reportSha256": "b4b90be1fbf24504a28451c406593c5618278df00460e31fb831ba0cd83c3b6e",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "sha": "e10265840f510bc024fccfc2f1e95a914a72d276",
       "report": "docs/candidate-attestations/evidence/official-video-position-restoration-ios-35c0b047.json",
       "reportSha256": "f34336aab3a205f572178de5f897bdd5c8ff7ecde28461cfc7694889d222c7c6",
       "reportStatus": "passed",
@@ -85,7 +85,7 @@
     "Web/Wasm restored the exact checkpoint after a document reload. Android restored a nonzero checkpoint after force-stop. iOS restored a nonzero checkpoint after process termination and relaunch in Simulator.",
     "The iOS native viewer exposes playback status and the opt-in checkpoint as separate accessibility elements; product playback remains owned by AVPlayer and the common overlay.",
     "Earlier iOS attempts are retained in local raw history: one exposed missing public runtime forwarding, one found restoration into an existing Official route, one distinguished a hidden Compose probe from native accessibility, and one demonstrated that passing a nil actor ID prevented authenticated restoration.",
-    "The Android report remains byte-identified at 181a66fa because later runtime changes do not affect Android. The Web and iOS reports execute the exact Product SHA 35c0b047. No platform matrix was repeated solely for a new SHA.",
+    "The Android report remains byte-identified at 181a66fa because later runtime changes do not affect Android. The Web and iOS reports execute runtime SHA 35c0b047. Product SHA e1026584 adds only reviewed capability-matrix digests after recomposition; all Official runtime and platform-test blobs remain byte-identical, so no platform matrix was repeated solely for the new SHA.",
     "All temporary MP4 objects, posts, conversations and messages were removed; every recorded database and Storage residue count is zero.",
     "This closure covers Official fullscreen video checkpoints across Web document reload and Android/iOS process relaunch. It does not claim prolonged background playback, exhaustive codecs or transport failures, or other media producers."
   ]
