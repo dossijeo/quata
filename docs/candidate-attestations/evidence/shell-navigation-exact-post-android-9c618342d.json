@@ -1,0 +1,81 @@
+{
+  "check": "FLOW-SHELL-NAV-ANDROID-PROCESS-DEATH-001",
+  "status": "passed",
+  "reportGitHead": "9c618342dd36a1ca66ed9d96a4818fe0adcb1623",
+  "candidateProductSha": "9c618342dd36a1ca66ed9d96a4818fe0adcb1623",
+  "sourceReportSha256": "33e24630be8b878762ccdd553686ec14048fc661320dd6bc97a1fb8c119dc97e",
+  "git": {
+    "head": "9c618342dd36a1ca66ed9d96a4818fe0adcb1623",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "mode": "android_api_35_emulator_deterministic_public_mock_backend",
+    "serialSha256": "04ab3fc382bfb33ea4fbc120f5172ecfc4aed71652e00977064492ca0f65a017",
+    "backendMutation": false,
+    "credentialsUsed": false
+  },
+  "steps": [
+    "affected_android_apks_built",
+    "base_split_and_test_apks_installed",
+    "deterministic_public_mock_posts_selected_without_backend_or_session",
+    "exact_feed_differential_base_post_opened",
+    "exact_feed_target_opened_over_distinct_retained_base_intent",
+    "exact_feed_post_visible_before_process_death",
+    "exact_feed_post_background_process_killed_by_android_activity_manager",
+    "exact_feed_post_restored_in_new_process_without_route_replay",
+    "exact_feed_post_back_returned_to_retained_root",
+    "exact_official_differential_base_post_opened",
+    "exact_official_target_opened_over_distinct_retained_base_intent",
+    "exact_official_post_visible_before_process_death",
+    "exact_official_post_background_process_killed_by_android_activity_manager",
+    "exact_official_post_restored_in_new_process_without_route_replay",
+    "exact_official_post_back_returned_to_retained_root"
+  ],
+  "process": {
+    "pidChanged": true,
+    "exactPosts": [
+      {
+        "kind": "feed",
+        "pidChanged": true,
+        "exactIdentityRestored": true,
+        "differentialBaseIntentVerified": true,
+        "bareComponentRelaunch": true,
+        "restoredBackToRoot": true,
+        "routeSha256": "bfeebc79fce1d0ac41945404885cc3760faa78ad9c8081f0c22a9ca9ef732001"
+      },
+      {
+        "kind": "official",
+        "pidChanged": true,
+        "exactIdentityRestored": true,
+        "differentialBaseIntentVerified": true,
+        "bareComponentRelaunch": true,
+        "restoredBackToRoot": true,
+        "routeSha256": "d483f601b0ee1f7dd705234a219496a45db625f1adf0d1a65a8c734bd6dde9f1"
+      }
+    ]
+  },
+  "screenshots": {
+    "count": 6,
+    "sha256": {
+      "exact-feed-post-after-process-death.png": "cf5eba3819bdd06b3262bde2bf7dd4ac3970ae6eae7ffa1aa5a574332ad6e70a",
+      "exact-feed-post-before-process-death.png": "cf5eba3819bdd06b3262bde2bf7dd4ac3970ae6eae7ffa1aa5a574332ad6e70a",
+      "exact-feed-post-root-after-restored-back.png": "5162ab3298b99788fd6d8820fd6e502219a2200c41b2378535279efb19d5fbbd",
+      "exact-official-post-after-process-death.png": "85349cb7803d3916a09d050e2f60cff060f01b7017bc623980993d20058141e9",
+      "exact-official-post-before-process-death.png": "85349cb7803d3916a09d050e2f60cff060f01b7017bc623980993d20058141e9",
+      "exact-official-post-root-after-restored-back.png": "8b1252ad6d511c3de575e8b81dab510065897fb068b45f495ed5cfe1379d2d0d"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "environmentAcquired": true,
+    "credentialsRemoved": true,
+    "appDataCleared": true,
+    "auxiliarySessionRevoked": true
+  },
+  "limits": [
+    "This focal evidence accepts Android exact Feed and Official post restoration after real process death, bare component relaunch and Back to the retained root.",
+    "Each target differs from the retained task base intent, so replaying the historical deep link would fail the exact-identity assertion.",
+    "It does not claim Web document reload, scroll, media position, drafts, editor state or arbitrary secondary back stacks.",
+    "The deterministic public mock repository exercises routing and saved state without backend, credentials or remote mutation."
+  ]
+}
