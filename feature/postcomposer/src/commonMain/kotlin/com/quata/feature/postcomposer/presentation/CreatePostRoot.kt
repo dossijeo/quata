@@ -252,6 +252,9 @@ fun CreatePostRoot(
     var durableDraftActorLease by remember(durableDraftStore, draftActorProfileId) {
         mutableStateOf<PostComposerDraftActorLease?>(null)
     }
+    var durablePersistedSnapshot by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf<PostComposerDraftSnapshot?>(null)
+    }
     var durableActorResolved by remember(durableDraftStore) { mutableStateOf(false) }
     var durableActorProfileId by remember(durableDraftStore) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -284,7 +287,7 @@ fun CreatePostRoot(
         } else {
             null
         }
-        if (
+        val appliedRestoration = if (
             restoration != null &&
             store.isCurrent(restoration) &&
             viewModel.snapshot(step) == baseline
@@ -293,14 +296,20 @@ fun CreatePostRoot(
             viewModel.restore(restored)
             step = restored.step
             textValue = TextFieldValue(restored.text)
+            restored
+        } else {
+            null
         }
+        durablePersistedSnapshot = appliedRestoration ?: baseline
         durableDraftReady = true
     }
     val durableSnapshot = viewModel.snapshot(step)
-    LaunchedEffect(durableDraftStore, durableDraftActorLease, durableDraftReady, durableSnapshot) {
+    LaunchedEffect(durableDraftStore, durableDraftActorLease, durableDraftReady, durableSnapshot, durablePersistedSnapshot) {
         val store = durableDraftStore ?: return@LaunchedEffect
         val lease = durableDraftActorLease ?: return@LaunchedEffect
-        if (durableDraftReady) store.save(lease, durableSnapshot)
+        if (shouldPersistPostComposerDraft(durableDraftReady, durableSnapshot, durablePersistedSnapshot)) {
+            if (store.save(lease, durableSnapshot)) durablePersistedSnapshot = durableSnapshot
+        }
     }
 
     LaunchedEffect(resetToken) {
@@ -523,6 +532,12 @@ internal fun shouldResetDraftForActorTransition(
         previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation
     return !completingAuthenticationContinuation
 }
+
+internal fun shouldPersistPostComposerDraft(
+    ready: Boolean,
+    snapshot: PostComposerDraftSnapshot,
+    lastPersistedSnapshot: PostComposerDraftSnapshot?,
+): Boolean = ready && snapshot != lastPersistedSnapshot
 
 const val CreatePostTextLimit = 500
 

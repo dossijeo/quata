@@ -162,6 +162,35 @@ class PostComposerDraftStoreTest {
     }
 
     @Test
+    fun rejectedRestoreDoesNotTriggerAnInitialEmptyAutosaveOverTheNewerDraft() = runTest {
+        val preferences = AtomicMemoryPreferenceStore()
+        val restoringHost = PostComposerDraftStore(preferences)
+        val writingTab = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(restoringHost.activateActor("actor-a"))
+        assertTrue(restoringHost.save(lease, draft(text = "old", imageUri = "file:///gone.jpg")))
+        val validatorStarted = CompletableDeferred<Unit>()
+        val allowValidator = CompletableDeferred<Unit>()
+        val restoration = async {
+            restoringHost.restore("actor-a") {
+                validatorStarted.complete(Unit)
+                allowValidator.await()
+                false
+            }
+        }
+
+        validatorStarted.await()
+        val writerLease = requireNotNull(writingTab.activateActor("actor-a"))
+        assertTrue(writingTab.save(writerLease, draft(text = "new")))
+        allowValidator.complete(Unit)
+
+        assertNull(restoration.await())
+        val emptyHostSnapshot = draft()
+        assertFalse(shouldPersistPostComposerDraft(true, emptyHostSnapshot, emptyHostSnapshot))
+        assertEquals("new", writingTab.restore("actor-a") { true }?.snapshot?.text)
+        assertTrue(shouldPersistPostComposerDraft(true, draft(text = "explicit input"), emptyHostSnapshot))
+    }
+
+    @Test
     fun independentStoresShareTheActorFenceAndRejectAStaleTabWrite() = runTest {
         val preferences = AtomicMemoryPreferenceStore()
         val actorATab = PostComposerDraftStore(preferences)
