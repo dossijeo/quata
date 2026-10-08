@@ -4,13 +4,13 @@
     "PROF-PRIVATE-CHAT"
   ],
   "status": "passed",
-  "productSha": "f36ed7a379c12dda947cf1d8322bdbc2f86699e3",
+  "productSha": "32221e264183fcab991be06fb832f3d3241e394f",
   "certification": "production-backend-contention-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "REAL_PRODUCTION_BACKEND_ACTOR_BOUND_SQL_CONTENTION",
   "evidence": {
     "common": {
       "status": "passed",
-      "sha": "f36ed7a379c12dda947cf1d8322bdbc2f86699e3",
+      "sha": "32221e264183fcab991be06fb832f3d3241e394f",
       "report": "docs/candidate-attestations/evidence/profile-private-chat-backend-contention-8bf1d29c.json",
       "reportSha256": "9ccd4bea7c580ed6dba457fc9f3e7ec4edae30250e06c4f641f89dba4d7e138c",
       "reportStatus": "passed",
@@ -59,6 +59,7 @@
     "The backend-contention delta was replayed over rendered-race head 809839142 after its exact-head GO review. Product SHA 2ad48e73e is patch-equivalent to previously reviewed Product b43c4f6a5; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base.",
     "Independent exact-head review of 8fb90a1a8 returned GO with no P0-P3 findings. It reproduced syntax, contract 3/3, validator and diff-check, confirmed immediate connection custody plus allSettled cleanup, and found a clean tree; this documentation-only commit records that result.",
     "The backend-contention delta was replayed over exact-head reviewed rendered-race candidate 6011315f8. Product SHA 2911d66fa is patch-equivalent to previously reviewed Product 2ad48e73e; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base.",
-    "Product SHA f36ed7a37 hardens only failure-path evidence custody after independent review found cleanup could race still-running calls. The historical successful eight-session production result remains authoritative because all calls settled successfully there; the new 4/4 contract adds deterministic negative coverage for the previously untested rejection path."
+    "Product SHA f36ed7a37 hardens only failure-path evidence custody after independent review found cleanup could race still-running calls. The historical successful eight-session production result remains authoritative because all calls settled successfully there; the new 4/4 contract adds deterministic negative coverage for the previously untested rejection path.",
+    "After the rendered-race squash landed, the unchanged backend-contention series was replayed over main. Product SHA 32221e264 is patch-equivalent to f36ed7a37; the owned script and contract blobs remain byte-identical, so the production probe was not repeated solely for the new base."
   ]
 }
