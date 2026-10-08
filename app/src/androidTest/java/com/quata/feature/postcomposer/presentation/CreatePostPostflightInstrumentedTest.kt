@@ -168,6 +168,7 @@ class CreatePostPostflightInstrumentedTest {
             waitForPrefix("feed.action.publish.")
             waitForPersistedDraftCleared(initialSession?.userId.orEmpty())
             steps += "restored_draft_explicitly_discarded"
+            steps += "restored_draft_persistent_record_cleared_after_discard"
             steps += "create_post_returned_to_feed_without_publish"
             screenshots += screenshot("android-create-post-postflight-returned")
         }

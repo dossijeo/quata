@@ -58,6 +58,7 @@ test("Android process-restart evidence scrolls to discard and verifies durable r
   const testSource = await source("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/CreatePostPostflightInstrumentedTest.kt");
   assert.match(testSource, /onNodeWithTag\("composer-back"[\s\S]*?\.performScrollTo\(\)[\s\S]*?\.performClick\(\)/);
   assert.match(testSource, /waitForPersistedDraftCleared\(initialSession\?\.userId\.orEmpty\(\)\)/);
+  assert.match(testSource, /restored_draft_persistent_record_cleared_after_discard/);
   assert.match(testSource, /store\.restore\(actorProfileId\) \{ false \} == null/);
 });
 
