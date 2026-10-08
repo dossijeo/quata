@@ -48,6 +48,7 @@ test("Android Web and iOS inject the same store and validate platform media refe
   assert.match(web, /webComposerDraftMediaReferenceAvailable/);
   assert.match(ios, /NSFileManager\.defaultManager::fileExistsAtPath/);
   assert.match(androidRoot, /durableDraftStore = postComposerDraftStore/);
+  assert.match(androidRoot, /PostComposerDraftStore\(AndroidPreferenceStore\(appContext, commitWrites = true\)\)/);
   assert.match(webRoot, /durableDraftStore = postComposerDraftStore/);
   assert.match(iosRoot, /private lazy var postComposerDraftStore = PostComposerDraftStore[\s\S]*?durableDraftStore: self\?\.postComposerDraftStore/);
 });

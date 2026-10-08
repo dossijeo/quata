@@ -135,6 +135,7 @@ import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.core.session.AuthState
@@ -241,8 +242,8 @@ fun AppNavGraph(
     val currentUserId = (authState as? AuthState.LoggedIn)?.userId
     val isAuthenticated = currentUserId != null
     val appContext = LocalContext.current
-    val postComposerDraftStore = remember(container.platformServices.preferences) {
-        PostComposerDraftStore(container.platformServices.preferences)
+    val postComposerDraftStore = remember(appContext) {
+        PostComposerDraftStore(AndroidPreferenceStore(appContext, commitWrites = true))
     }
     LaunchedEffect(currentUserId, postComposerDraftStore) {
         postComposerDraftStore.activateActor(currentUserId)
