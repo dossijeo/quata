@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
-  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
+  "productSha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-rebase-review-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "sha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
       "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
       "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "sha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
       "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
       "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "sha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
       "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
       "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
@@ -100,6 +100,7 @@
     "The common test renders the production ChatAudioAttachmentPlayerContent, verifies failed semantics and click action, activates Retry once, preserves the same rendered attachment label and observes the supplied loading state on Web/Wasm and iOS x64.",
     "Android repeats the same interaction through Compose instrumentation on API 35.",
     "No backend, credentials, database row, Storage object or remote product state was used or mutated.",
-    "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings."
+    "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings.",
+    "The six-commit UI series was replayed over reviewed Chat transport head 605fcad7. Comparing executed Product 2eff439b with recomposed Product 96848abc changes only four inherited custody documents from the Official and transport units; all UI runtime, platform-test and report blobs remain byte-identical. A renewed exact-head review is required after this custody reanchor."
   ]
 }
