@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "ff9d40faaf524335ace71c23677be1b42028cda6",
+  "executionSha": "ff9d40faaf524335ace71c23677be1b42028cda6",
+  "git": {
+    "head": "ff9d40faaf524335ace71c23677be1b42028cda6",
+    "workingTreeDirty": false,
+    "postExecutionDelta": [
+      "docs/SCREEN_MIGRATION_INVENTORY_V2.md",
+      "docs/candidate-attestations/chat-audio-lifecycle-routing.json",
+      "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json"
+    ]
+  },
+  "evidenceKind": "CHAT_AUDIO_LIFECYCLE_AND_ROUTE_INTERRUPTION_ANDROID_WEB_IOS",
+  "steps": [
+    "android_real_media3_playback_requests_audio_focus",
+    "android_competing_focus_pauses_without_terminal_completion",
+    "android_focus_return_does_not_resume_without_user_action",
+    "android_media3_noisy_route_handling_enabled",
+    "web_hidden_document_pauses_active_browser_audio",
+    "web_visibility_listener_removed_with_player_cleanup",
+    "ios_interruption_began_pauses_without_automatic_resume",
+    "ios_old_route_unavailable_pauses",
+    "ios_resign_active_pauses",
+    "no_backend_or_remote_state_mutated"
+  ],
+  "results": {
+    "contract": {
+      "status": "passed",
+      "command": "node --test scripts/chat-audio-lifecycle-routing-contract.test.mjs",
+      "tests": 3,
+      "failures": 0
+    },
+    "android": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.platform.AndroidAudioPlayerLifecycleInstrumentedTest --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "device": "QuataLivePr336Api35(AVD), Android API 35",
+      "resultPath": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml",
+      "resultSha256": "a89a5b355ddaac4fb779df56dbe13f15b89a28281b96377f5cea9090174f100a"
+    },
+    "web": {
+      "status": "passed",
+      "executionSha": "70c91c423f128df959d9bc664d46810ad9dcfff9",
+      "command": ".\\gradlew.bat :core:wasmJsBrowserTest --tests com.quata.core.platform.BrowserAudioPlayerLifecycleTest --no-daemon --console=plain",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "browser": "ChromeHeadless 154 on Windows 10",
+      "resultPath": "core/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.core.platform.BrowserAudioPlayerLifecycleTest.xml",
+      "resultSha256": "199ddf2b8d1195e9a680c9ee41d1f7b4931ab5e3ba13512857f9f541ebb3a431",
+      "reuseBinding": "The final Product SHA changes only Android production/test blobs after this execution; the Web production and test Git blobs remain identical."
+    },
+    "ios": {
+      "status": "passed",
+      "executionSha": "cb48b95829fed409a78cf2fc9ebb87c997fb8eb1",
+      "command": "xcodebuild -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -sdk iphonesimulator -destination platform=iOS Simulator,id=0506CC31-D3CF-401D-B275-444BEE5F69B6 ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES -only-testing:QuataIosTests/IosAvPlayerAudioEngineLifecycleTests test",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "device": "iPhone 16 Pro Simulator, iOS 26.5, x86_64",
+      "xcodebuildLogSha256": "5361632b62fbfafbc530d2d7d1b9925fe7bb7311715ce875651625f9e9eb0fda",
+      "gradleFrameworkLogSha256": "4000dbd8e1b59e077e4145278968f9690a5daebba47bb195aaa20ebd10dee109",
+      "reuseBinding": "The final Product SHA changes only non-iOS blobs after this execution; the iOS production and test Git blobs are identical to the executed commit."
+    }
+  },
+  "sourceBindings": {
+    "androidProduction": {
+      "path": "core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt",
+      "gitBlob": "f5ceeb28bfed5bad3956c18f54d1f5aefb281651",
+      "sha256": "62cfe77d38b2378bf82c8afc0322f832a5db04cb34c2adf6535698f279055a08"
+    },
+    "androidTest": {
+      "path": "app/src/androidTest/java/com/quata/core/platform/AndroidAudioPlayerLifecycleInstrumentedTest.kt",
+      "gitBlob": "665c1af2d27c2a2a47075c3c5ae04d9a16e29879",
+      "sha256": "7f45280f086226b3e3a15a8c9dd52358b60146c7d5c0511b7dcdadd2ab60c1d0"
+    },
+    "webProduction": {
+      "path": "core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt",
+      "gitBlob": "334c52109c3fec7222cc660b3014dfbf94a9795d",
+      "sha256": "ee0b26134f87c3287c59f4e6ae23d1a0f90c75bca2d15421307e2fadaef372c6"
+    },
+    "webTest": {
+      "path": "core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserAudioPlayerLifecycleTest.kt",
+      "gitBlob": "68fa6928472fc33853b789a7fc1ffc468eeb8f94",
+      "sha256": "385cc2ba053a234b28521ee75ad001be42ad298878be8d05badc60a9cb8a224d"
+    },
+    "iosProduction": {
+      "path": "iosApp/iosApp/IosAvPlayerAudioEngine.swift",
+      "gitBlob": "eeb465190a58c21693e12dac33e15b233ae9eda6",
+      "sha256": "60df494eb53bd56afbab018bafdba514fdf2ce32b751c07bc82eb67d511994a9"
+    },
+    "iosTest": {
+      "path": "iosApp/iosAppTests/IosAvPlayerAudioEngineLifecycleTests.swift",
+      "gitBlob": "de4c47d85a9ff1634f26a6784f9b50541594a90c",
+      "sha256": "f3b8e0f0573fd553cfbcfda2fbacfc371164e1bfc24c1c3e215a7dd39006130f"
+    },
+    "contract": {
+      "path": "scripts/chat-audio-lifecycle-routing-contract.test.mjs",
+      "gitBlob": "779e7e515b3a9c5678593cce90f6d50a748cf5b3",
+      "sha256": "68a12892e8d358ddd130ca053d67d94f2fc603639de5297449b178be99d63266"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "local-platform-lifecycle-fixtures-no-backend",
+    "residueCounts": {
+      "temporaryAndroidAudioFiles": 0,
+      "temporaryBrowserPlayers": 0,
+      "backendRows": 0,
+      "remoteMutations": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "Android Chat audio requests Media3 audio focus, pauses real playback when a competing foreground focus owner takes control and remains paused when focus returns until the user acts.",
+      "Android Chat audio enables Media3 handling for a route becoming noisy.",
+      "Web Chat audio pauses its active browser element when the document becomes hidden and removes the listener during cleanup.",
+      "iOS Chat audio pauses on interruption start, old-route loss and app resignation without silently resuming after interruption end."
+    ],
+    "doesNotProve": [
+      "Physical Bluetooth or wired-device routing on Android or iOS.",
+      "Prolonged background playback; the verified product policy pauses instead.",
+      "Physical microphone permission or recording.",
+      "Audio surfaces outside Chat."
+    ]
+  }
+}
