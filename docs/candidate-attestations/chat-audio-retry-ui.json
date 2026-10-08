@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
-  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
+  "productSha": "e51bfe9794532a3004285531ed7180fc1b23c072",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
+      "sha": "e51bfe9794532a3004285531ed7180fc1b23c072",
       "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
       "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
+      "sha": "e51bfe9794532a3004285531ed7180fc1b23c072",
       "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
       "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
+      "sha": "e51bfe9794532a3004285531ed7180fc1b23c072",
       "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
       "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
@@ -87,8 +87,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-retry-ui.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "fb4368ec4ad55c6f9ad23ac3d55796907850680d",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [
       "P2 corrected: the UI evidence now claims only one component callback invocation, the supplied loading render and preserved visible label; exact descriptor recovery remains bound to chat-audio-transport-retry.json.",
@@ -101,7 +101,7 @@
     "Android repeats the same interaction through Compose instrumentation on API 35.",
     "No backend, credentials, database row, Storage object or remote product state was used or mutated.",
     "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings.",
-    "The six-commit UI series was replayed over reviewed Chat transport head 605fcad7. Comparing executed Product 2eff439b with recomposed Product 96848abc changes only four inherited custody documents from the Official and transport units; all UI runtime, platform-test and report blobs remain byte-identical.",
-    "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. It confirmed four exact and two conflict-adapted equivalent commits, preserved UI scope and transport 6cec2376, contract 44/44, validator, diff-check and a clean tree. This final documentation-only commit records that review without attributing a new platform execution."
+    "The eight-commit UI series was replayed over frozen Chat transport candidate f492d6b7. The conflict adaptations preserve the newer transport Product eb9cd3c3 while all UI runtime, platform-test and report blobs remain byte-identical.",
+    "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. A new exact-head review is required after this candidate reanchor without attributing a new platform execution."
   ]
 }
