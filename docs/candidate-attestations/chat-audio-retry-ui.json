@@ -4,17 +4,17 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+  "productSha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
   "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
-      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-c0cc54e4.json",
-      "reportSha256": "aa7ad636b3e67b9dd512fd61ade87140179c174b2fbbbbbbc6eae82119ab1bc3",
+      "sha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
+      "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
-      "reportGitHead": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+      "reportGitHead": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -22,7 +22,7 @@
       "requiredSteps": [
         "rendered_audio_player_exposes_failed_state",
         "visible_retry_control_has_click_action",
-        "retry_click_targets_exact_same_attachment",
+        "retry_click_invokes_component_callback_once",
         "retry_click_transitions_player_to_loading"
       ],
       "cleanup": {
@@ -32,11 +32,11 @@
     },
     "web": {
       "status": "passed",
-      "sha": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
-      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-c0cc54e4.json",
-      "reportSha256": "aa7ad636b3e67b9dd512fd61ade87140179c174b2fbbbbbbc6eae82119ab1bc3",
+      "sha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
+      "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
-      "reportGitHead": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+      "reportGitHead": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -44,7 +44,7 @@
       "requiredSteps": [
         "rendered_audio_player_exposes_failed_state",
         "visible_retry_control_has_click_action",
-        "retry_click_targets_exact_same_attachment",
+        "retry_click_invokes_component_callback_once",
         "retry_click_transitions_player_to_loading",
         "attachment_identity_remains_rendered_after_retry"
       ],
@@ -55,11 +55,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
-      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-c0cc54e4.json",
-      "reportSha256": "aa7ad636b3e67b9dd512fd61ade87140179c174b2fbbbbbbc6eae82119ab1bc3",
+      "sha": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
+      "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
       "reportStatus": "passed",
-      "reportGitHead": "c0cc54e446280a01d7bb5b526514ffd75a9d48bf",
+      "reportGitHead": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -67,7 +67,7 @@
       "requiredSteps": [
         "rendered_audio_player_exposes_failed_state",
         "visible_retry_control_has_click_action",
-        "retry_click_targets_exact_same_attachment",
+        "retry_click_invokes_component_callback_once",
         "retry_click_transitions_player_to_loading",
         "temporary_mac_checkout_removed"
       ],
@@ -82,8 +82,8 @@
     "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
     ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
     ".\\gradlew.bat :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryInstrumentedTest' --no-daemon --console=plain",
-    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureRetriesTheSameAttachmentThroughTheVisibleControl --no-daemon --console=plain",
-    "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureRetriesTheSameAttachmentThroughTheVisibleControl --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureInvokesVisibleRetryAndRendersLoading --no-daemon --console=plain",
+    "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureInvokesVisibleRetryAndRendersLoading --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-retry-ui.json --head HEAD"
   ],
   "review": {
@@ -91,11 +91,12 @@
     "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [],
-    "scopeLimit": "This focal attestation closes the rendered Compose failure surface and visible Retry activation on Android, Web/Wasm and iOS x64. Platform transport recovery remains certified by chat-audio-transport-retry.json. Physical microphone, routing, prolonged background playback, exhaustive network matrices and audio outside Chat remain separate."
+    "scopeLimit": "This focal attestation closes the rendered Compose failure surface and visible Retry callback activation on Android, Web/Wasm and iOS x64. Exact descriptor selection and platform transport recovery remain certified by chat-audio-transport-retry.json; this UI test does not execute the adapter. Physical microphone, routing, prolonged background playback, exhaustive network matrices and audio outside Chat remain separate."
   },
   "notes": [
-    "The common test renders the production ChatAudioAttachmentPlayerContent, verifies failed semantics and click action, activates Retry, verifies the exact attachment identity and observes loading on Web/Wasm and iOS x64.",
+    "The common test renders the production ChatAudioAttachmentPlayerContent, verifies failed semantics and click action, activates Retry once, preserves the same rendered attachment label and observes the supplied loading state on Web/Wasm and iOS x64.",
     "Android repeats the same interaction through Compose instrumentation on API 35.",
     "No backend, credentials, database row, Storage object or remote product state was used or mutated."
   ]
 }
+
