@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
+  "executionSha": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
+  "git": {
+    "head": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
+    "workingTreeDirty": false,
+    "platformExecutionHeads": {
+      "android": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
+      "web": "4921116dc8579ce69edf7181cab2008bea298242",
+      "ios": "be98fcad91c7f7e446d84a7e3db49367a6261abd"
+    },
+    "postExecutionDelta": [
+      "scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "docs/SCREEN_MIGRATION_INVENTORY_V2.md",
+      "docs/candidate-attestations/chat-attachment-http-boundary.json",
+      "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json"
+    ],
+    "platformSourceBlobsUnchangedAfterExecution": true
+  },
+  "evidenceKind": "CHAT_ATTACHMENT_HTTP_BOUNDARY_ANDROID_WEB_IOS",
+  "steps": [
+    "android_real_tls_success_uses_auth_headers_and_exact_bytes",
+    "android_http_503_leaves_zero_residue_and_same_descriptor_retries",
+    "android_redirect_empty_oversize_and_non_allowlisted_fail_closed",
+    "web_http_401_403_404_408_429_500_503_prevent_native_effect_and_blob_residue",
+    "ios_http_401_403_404_408_429_500_503_fail_with_exact_status",
+    "ios_redirect_transport_missing_response_empty_and_oversize_remain_distinct",
+    "no_backend_or_remote_state_mutated"
+  ],
+  "results": {
+    "contract": {
+      "status": "passed",
+      "command": "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "tests": 46,
+      "failures": 0
+    },
+    "android": {
+      "status": "passed",
+      "executionSha": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
+      "device": "QuataLivePr336Api35(AVD), API 35",
+      "command": ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.data.ChatAttachmentFileCacheInstrumentedTest --no-daemon --console=plain",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 4.891,
+      "timestamp": "2026-10-08T05:30:29Z",
+      "resultPath": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml",
+      "resultSha256": "6c58df982bae986ecf614143b252bdd07a8d02fc53607b25e4976262956350ed",
+      "transport": "real in-process TLS socket through production OkHttp cache downloader"
+    },
+    "web": {
+      "status": "passed",
+      "executionSha": "4921116dc8579ce69edf7181cab2008bea298242",
+      "command": ".\\gradlew.bat :core:wasmJsBrowserTest --tests com.quata.core.platform.BrowserMediaFileExportServiceTest --no-daemon --console=plain",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.014,
+      "timestamp": "2026-10-08T05:23:29.216Z",
+      "resultPath": "core/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.core.platform.BrowserMediaFileExportServiceTest.xml",
+      "resultSha256": "27626ca3a471f86ac8dbc28db398a364870f2ecb0c2a60c5ea4eaf2090c3ea1a",
+      "transport": "real browser fetch code with deterministic Response fixtures"
+    },
+    "ios": {
+      "status": "passed",
+      "executionSha": "be98fcad91c7f7e446d84a7e3db49367a6261abd",
+      "host": "macOS Hyper-V VM",
+      "command": "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatAttachmentDownloaderCompletionTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.035,
+      "timestamp": "2026-10-08T05:17:59.361Z",
+      "resultPath": "feature/chat/build/test-results/iosX64Test/TEST-iosX64Test.com.quata.feature.chat.data.IosChatAttachmentDownloaderCompletionTest.xml",
+      "resultSha256": "faba7901fb12f58bf35d3f69f1feef06aefd94885d3450ac04e21ec14b82a5f0",
+      "transport": "production NSURLSession delegate completion decision on iOS x64"
+    }
+  },
+  "sourceBindings": {
+    "androidRuntime": {
+      "path": "app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt",
+      "gitBlob": "d5690706aafdc180518370f2affdc8b6374255b5",
+      "sha256": "ab2cabf4f53f949ffd889c950b86c8373186210edfba5767718fa78dcbeda7a9"
+    },
+    "androidTest": {
+      "path": "app/src/androidTest/java/com/quata/feature/chat/data/ChatAttachmentFileCacheInstrumentedTest.kt",
+      "gitBlob": "2a75c8add32f83d6b420687a72e811d2591b8b51",
+      "sha256": "f3dd0e41f7ef46c802f7f8422c8fb3e1a5a1aac80d0155e63c4d283271f18963"
+    },
+    "webRuntime": {
+      "path": "core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserMediaFileExportService.wasm.kt",
+      "gitBlob": "35f99b6394dfd3ec186593401c0d46d473c53336",
+      "sha256": "ac383d21a367242da688db3da5432b903d75141479c367875f3098c65e9aa326"
+    },
+    "webTest": {
+      "path": "core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserMediaFileExportServiceTest.kt",
+      "gitBlob": "72b3b11248b4d4414225c8dae6928c6d8a82aa90",
+      "sha256": "88319b291e1d025560fbe840cf4457251bd11a0993c37a92d1aa24e8f95c0218"
+    },
+    "iosRuntime": {
+      "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt",
+      "gitBlob": "743191ca0b1032f58539fd9cc1f9dc839f01fb86",
+      "sha256": "5e635fdb79de613f3fc0bb49eda55005f5040f56df81ae29e64743a9630fb4ef"
+    },
+    "iosTest": {
+      "path": "feature/chat/src/iosTest/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloaderCompletionTest.kt",
+      "gitBlob": "9b850716b5ffd588e1aa37546b022e285a43c97e",
+      "sha256": "13bd75e5a9792b3830fb2f17409d59f987260c69185032163a89ed0b3dd2e4fc"
+    },
+    "contract": {
+      "path": "scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "gitBlob": "09894c35c720d27b21a04871e1ecf174eee544d3",
+      "sha256": "a22d09e71d2d5d8571a5119356040649520bee3f126a5504252d7848144c38dd"
+    }
+  },
+  "diagnosticHistory": [
+    "The first Gradle launch did not execute tests because PowerShell split the unquoted instrumentation property; quoting it produced the authoritative run.",
+    "The first oversized Android fixture called setBody after setHeader, so MockWebServer replaced the declared length with one byte; reversing fixture construction produced the intended oversized response and 5/5 passed.",
+    "A first macOS command escaped PATH incorrectly and did not start Gradle; the corrected shell environment produced the authoritative 5/5 run.",
+    "Independent review of e41823f4 found that Android teardown did not guarantee cache cleanup after a shutdown failure. Product SHA 9fff209b now attempts both operations, asserts the cache directory is absent and propagated shutdown failure; Android was renewed 5/5 on that exact head."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "local-transport-fixtures-no-backend",
+    "residueCounts": {
+      "androidPrivateCacheFiles": 0,
+      "webBlobLeases": 0,
+      "macTemporaryWorktrees": 0,
+      "backendRows": 0,
+      "remoteMutations": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "Android uses its production OkHttp cache downloader over real local TLS, sends scoped authentication headers, rejects redirect/empty/oversize/non-allowlisted inputs, leaves no temporary residue and retries the same descriptor after HTTP 503.",
+      "Web and iOS classify the focal HTTP status matrix before native effects while preserving bounded resource cleanup and distinct redirect/transport failures."
+    ],
+    "doesNotProve": [
+      "OS-level corporate proxy, captive portal or every physical network outage topology.",
+      "A real remote HTTP server on Web or iOS; those status matrices use deterministic browser Response fixtures and the production iOS delegate decision respectively.",
+      "Physical microphone permission, Bluetooth/audio routing, prolonged background playback or audio surfaces outside Chat."
+    ]
+  }
+}

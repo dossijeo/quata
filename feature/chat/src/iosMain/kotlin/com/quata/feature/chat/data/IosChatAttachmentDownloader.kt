@@ -218,37 +218,50 @@ private class IosPublicChatAttachmentDelegate(
     override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
         session.finishTasksAndInvalidate()
         if (!continuation.isActive) return
-        val failure = terminalReason
-            ?: if (redirectRejected) "ios_chat_attachment_redirect_rejected" else null
+        val response = task.response
+        val httpResponse = response as? NSHTTPURLResponse
+        val failure = iosChatAttachmentCompletionFailureReason(
+            terminalReason = terminalReason,
+            redirectRejected = redirectRejected,
+            transportError = didCompleteWithError?.localizedDescription,
+            responsePresent = response != null,
+            statusCode = httpResponse?.statusCode?.toInt(),
+            declaredLength = response?.expectedContentLength ?: -1L,
+            bytesReceived = bytesReceived,
+        )
         if (failure != null) {
             continuation.resumeWithException(IllegalStateException(failure))
-            return
-        }
-        if (didCompleteWithError != null) {
-            continuation.resumeWithException(IllegalStateException(didCompleteWithError.localizedDescription))
-            return
-        }
-        val response = task.response ?: run {
-            continuation.resumeWithException(IllegalStateException("ios_chat_attachment_response_missing"))
-            return
-        }
-        val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt()
-        if (status == null || status !in 200..299) {
-            continuation.resumeWithException(IllegalStateException("ios_chat_attachment_http_${status ?: "unknown"}"))
-            return
-        }
-        val declaredLength = response.expectedContentLength
-        if (declaredLength > MaxAttachmentBytes || bytesReceived !in 1..MaxAttachmentBytes) {
-            continuation.resumeWithException(IllegalStateException("ios_chat_attachment_size_invalid"))
             return
         }
         continuation.resume(
             IosPublicChatAttachmentResponse(
                 data = chunks.toChatAttachmentData(),
-                mimeType = response.MIMEType,
+                mimeType = httpResponse?.MIMEType,
             ),
         )
     }
+}
+
+internal fun iosChatAttachmentCompletionFailureReason(
+    terminalReason: String?,
+    redirectRejected: Boolean,
+    transportError: String?,
+    responsePresent: Boolean,
+    statusCode: Int?,
+    declaredLength: Long,
+    bytesReceived: Long,
+): String? {
+    terminalReason?.let { return it }
+    if (redirectRejected) return "ios_chat_attachment_redirect_rejected"
+    transportError?.let { return it }
+    if (!responsePresent) return "ios_chat_attachment_response_missing"
+    if (statusCode == null || statusCode !in 200..299) {
+        return "ios_chat_attachment_http_${statusCode ?: "unknown"}"
+    }
+    if (declaredLength > MaxAttachmentBytes || bytesReceived !in 1..MaxAttachmentBytes) {
+        return "ios_chat_attachment_size_invalid"
+    }
+    return null
 }
 
 @OptIn(ExperimentalForeignApi::class)

@@ -32,7 +32,13 @@ internal class ChatAttachmentFileCache(
         .followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
-        .build()
+        .build(),
+    private val canonicalUrlResolver: (String) -> String? = { remoteUrl ->
+        ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(
+            supabaseUrl = supabaseUrl,
+            publicUrl = remoteUrl,
+        )
+    },
 ) {
     suspend fun prefetchAndResolve(profileId: String, messages: List<Message>): List<Message> =
         withContext(Dispatchers.IO) {
@@ -193,11 +199,7 @@ internal class ChatAttachmentFileCache(
         return uri.takeIf { scheme == "http" || scheme == "https" }
     }
 
-    private fun canonicalRemoteUrl(remoteUrl: String): String? =
-        ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(
-            supabaseUrl = supabaseUrl,
-            publicUrl = remoteUrl,
-        )
+    private fun canonicalRemoteUrl(remoteUrl: String): String? = canonicalUrlResolver(remoteUrl)
 
     private fun copyBounded(input: InputStream, output: FileOutputStream) {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
