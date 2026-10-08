@@ -395,6 +395,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
     }
 
+    func testPublicRuntimeConfigurationAcceptsXCTestEnvironmentClientSettings() {
+        let configuration = IosPublicRuntimeConfiguration.feedConfiguration(
+            infoDictionary: [:],
+            environment: [
+                "QUATA_SUPABASE_URL": " https://deployment.invalid ",
+                "QUATA_SUPABASE_PUBLISHABLE_KEY": " public-xctest-setting ",
+            ]
+        )
+
+        XCTAssertEqual(configuration?.supabaseUrl, "https://deployment.invalid")
+        XCTAssertEqual(configuration?.supabasePublishableKey, "public-xctest-setting")
+        XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(
+            infoDictionary: [:],
+            environment: [
+                "QUATA_SUPABASE_URL": "http://deployment.invalid",
+                "QUATA_SUPABASE_PUBLISHABLE_KEY": "public-xctest-setting",
+            ]
+        ))
+    }
+
     func testPublicRuntimeConfigurationAcceptsOnlyExplicitAuthorizedLoopbackFacade() {
         let bundled = [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",
