@@ -257,6 +257,7 @@ fun CreatePostRoot(
     }
     var durableActorResolved by remember(durableDraftStore) { mutableStateOf(false) }
     var durableActorProfileId by remember(durableDraftStore) { mutableStateOf<String?>(null) }
+    var durableRestorationStatus by remember(durableDraftStore) { mutableStateOf("pending") }
     val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
@@ -288,6 +289,7 @@ fun CreatePostRoot(
             durableDraftActorLease = null
             durablePersistedSnapshot = baseline
             durableDraftReady = false
+            durableRestorationStatus = "unresolved-actor"
             return@LaunchedEffect
         }
         val lease = store.activateActor(actor)
@@ -297,18 +299,22 @@ fun CreatePostRoot(
         } else {
             null
         }
-        val appliedRestoration = if (
-            restoration != null &&
-            store.isCurrent(restoration) &&
-            viewModel.draftMutationRevision() == baselineMutationRevision
-        ) {
-            val restored = restoration.snapshot
+        val restorationIsCurrent = restoration != null && store.isCurrent(restoration)
+        val mutationRevisionIsCurrent = viewModel.draftMutationRevision() == baselineMutationRevision
+        val appliedRestoration = if (restorationIsCurrent && mutationRevisionIsCurrent) {
+            val restored = checkNotNull(restoration).snapshot
             viewModel.restore(restored)
             step = restored.step
             textValue = TextFieldValue(restored.text)
             restored
         } else {
             null
+        }
+        durableRestorationStatus = when {
+            restoration == null -> "empty"
+            !restorationIsCurrent -> "stale"
+            !mutationRevisionIsCurrent -> "local-mutation"
+            else -> "restored"
         }
         durablePersistedSnapshot = appliedRestoration ?: baseline
         durableDraftReady = true
@@ -414,6 +420,12 @@ fun CreatePostRoot(
         title = title,
         scrollState = rememberScrollState(),
         form = {
+            Spacer(
+                Modifier
+                    .width(1.dp)
+                    .height(1.dp)
+                    .testTag("composer-draft-restoration.$durableRestorationStatus"),
+            )
             if (step != CreatePostStep.TypePicker) {
                 ComposerDestinationSelectorContent(
                     title = copy.destination,
