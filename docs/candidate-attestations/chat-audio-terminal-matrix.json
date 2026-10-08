@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-AUDIO"
+  ],
+  "status": "passed",
+  "productSha": "78ea235eebb2eabcbcc987fdb98562b4ea039fb3",
+  "certification": "audio-terminal-result-matrix-complete-independent-review-go-final-CI-pending",
+  "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "78ea235eebb2eabcbcc987fdb98562b4ea039fb3",
+      "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
+      "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
+      "reportStatus": "passed",
+      "reportGitHead": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_stop_failure_cancelled_unsupported_do_not_resolve_or_load",
+        "android_resolver_failure_cancelled_unsupported_do_not_native_load",
+        "android_native_load_failure_cancelled_unsupported_preserve_single_resolution"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-unit-test-no-backend"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "78ea235eebb2eabcbcc987fdb98562b4ea039fb3",
+      "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
+      "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
+      "reportStatus": "passed",
+      "reportGitHead": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_materializer_failure_cancelled_unsupported_do_not_native_load",
+        "web_native_load_failure_cancelled_unsupported_release_new_blob_lease",
+        "web_stop_failure_cancelled_unsupported_retain_owned_blob_lease"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-blob-lease-test-no-backend"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "78ea235eebb2eabcbcc987fdb98562b4ea039fb3",
+      "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
+      "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
+      "reportStatus": "passed",
+      "reportGitHead": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_existing_terminal_matrix_reused_by_exact_test_blob"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "byte-identical-source-evidence-reuse"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest --no-daemon --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebChatAttachmentAudioPlayerServiceTest --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-terminal-matrix.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "640411bf2641e2d7a930ec9345c22611e093ec29",
+    "blockingFindings": [],
+    "resolvedFindings": [],
+    "scopeLimit": "The focal matrix certifies terminal non-success outcomes and temporary-resource custody in the Android, Web and iOS audio adapters. Real outage, proxy, captive portal and exhaustive HTTP integration remain separate."
+  },
+  "notes": [
+    "The Android and Web focal suites exercise Failure, Cancelled and Unsupported at stop, resolver/materializer and native-load boundaries without production or backend mutation.",
+    "The iOS terminal matrix and production adapter are byte-identical to the 12/12 passed transport-retry evidence; it was not repeated solely because Android/Web test sources changed the Product SHA.",
+    "This closes adapter-level PlatformResult coverage only. Real outage, proxy, captive-portal and exhaustive HTTP-code integration remain explicit external limits.",
+    "Independent exact-head review of 57b531d7 returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
+    "The five-commit terminal-matrix series was replayed over reviewed UI candidate e668e1e5. Conflict adaptations preserve transport eb9cd3c3 and UI e51bfe97; all terminal-matrix runtime, platform-test, contract and report blobs remain byte-identical.",
+    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. The recomposed exact-head review of 203a6354 returned GO with no P0-P3 and confirmed unchanged terminal-matrix runtime, tests, contract and report blobs without attributing a new platform execution.",
+    "The seven-commit terminal-matrix series was replayed over merged Retry UI squash 810c6df98. Terminal-matrix runtime, tests, contract and report blobs remain byte-identical; inherited UI custody points to Product 7518a81a. No platform execution is attributed to this rebase.",
+    "Independent exact-head review of a0b53be3c returned GO with no P0-P3 findings. It confirmed terminal-matrix owned blob identity, preserved custody and coverage, contract 45/45, validator, diff-check and clean tree. This final documentation-only commit records that review.",
+    "Independent exact-head review of 640411bf2 returned GO with no P0-P3 findings after replay over merged #571, confirming Product content identity, historical custody, scope, contract 45/45, validator, diff-check and a clean tree."
+  ]
+}

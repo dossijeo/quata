@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+  "executionSha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+  "git": {
+    "head": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+    "workingTreeDirty": false,
+    "postExecutionDelta": [
+      "docs/SCREEN_MIGRATION_INVENTORY_V2.md",
+      "docs/candidate-attestations/chat-audio-terminal-matrix.json",
+      "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json"
+    ]
+  },
+  "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
+  "steps": [
+    "android_stop_failure_cancelled_unsupported_do_not_resolve_or_load",
+    "android_resolver_failure_cancelled_unsupported_do_not_native_load",
+    "android_native_load_failure_cancelled_unsupported_preserve_single_resolution",
+    "web_materializer_failure_cancelled_unsupported_do_not_native_load",
+    "web_native_load_failure_cancelled_unsupported_release_new_blob_lease",
+    "web_stop_failure_cancelled_unsupported_retain_owned_blob_lease",
+    "ios_existing_terminal_matrix_reused_by_exact_test_blob",
+    "no_backend_or_remote_state_mutated"
+  ],
+  "results": {
+    "contract": {
+      "status": "passed",
+      "command": "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "tests": 45,
+      "failures": 0
+    },
+    "android": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest --no-daemon --console=plain",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.186,
+      "timestamp": "2026-10-08T04:45:15.092Z",
+      "resultPath": "app/build/test-results/testDebugUnitTest/TEST-com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest.xml",
+      "resultSha256": "ae7f02d59dca1c49d7fc989af5faf31e7968a42fd28ac685c3dcbe6f65b3b69b"
+    },
+    "web": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebChatAttachmentAudioPlayerServiceTest --no-daemon --console=plain",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.015,
+      "timestamp": "2026-10-08T04:53:22.582Z",
+      "resultPath": "web/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.web.WebChatAttachmentAudioPlayerServiceTest.xml",
+      "resultSha256": "3605cdfc37114c9cb82db5b02ef22535a5fa5a377ad5557cb751afdb5947b56c"
+    },
+    "ios": {
+      "status": "reused-passed",
+      "tests": 12,
+      "failures": 0,
+      "sourceReport": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
+      "sourceResultSha256": "dc1bea9155811f9b373c9e4ceeb6af194889776500f399b0bba63a96209c32ec",
+      "reason": "The iOS production adapter and terminal-matrix test blob are byte-identical; Android/Web test-only changes do not justify repeating iOS solely for a new SHA."
+    }
+  },
+  "sourceBindings": {
+    "androidTest": {
+      "path": "app/src/test/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerServiceTest.kt",
+      "gitBlob": "34cb4e27759cb3e468cdf1ee72a2b24ba02ea312",
+      "sha256": "c73dc615b5e39f2d2aa767b0c890f570975f5567ad24ef52a14f41c68eff1a03"
+    },
+    "webTest": {
+      "path": "web/src/wasmJsTest/kotlin/com/quata/web/WebChatAttachmentAudioPlayerServiceTest.kt",
+      "gitBlob": "97529060064ce953ce52b8724e5ff802bd5989c9",
+      "sha256": "f1f65c747ef4877599a0e733316f5268244dbfb362c46d84fa9d013631cdd189"
+    },
+    "iosTest": {
+      "path": "feature/chat/src/iosTest/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerServiceTest.kt",
+      "gitBlob": "e60481c20d9b4f7ed55ce40ec268c9d102a29802",
+      "sha256": "c8185fc16444e9f6eb96420300fe65943ee3e7bd2f2634d6ecd4f4968e16ed0d"
+    },
+    "contract": {
+      "path": "scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "gitBlob": "a62c1c5d918b9295bae3235b9b3b48968ad1e0d3",
+      "sha256": "fa5f8ca435b8c112f7756093c016abc9a4473761c0d04659cc8a33fe3bdc1c27"
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "hermetic-platform-result-matrix-no-backend",
+    "residueCounts": {
+      "temporaryBlobLeases": 0,
+      "temporaryIosFiles": 0,
+      "backendRows": 0,
+      "remoteMutations": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "Android, Web and iOS Chat audio adapters have explicit Failure, Cancelled and Unsupported coverage at every stop, resolver/materializer and native-load boundary.",
+      "Terminal outcomes do not cross an adapter boundary that must remain unopened, and temporary resources follow the documented ownership transition."
+    ],
+    "doesNotProve": [
+      "Real proxy, captive-portal, outage or exhaustive HTTP-code integration behavior.",
+      "Physical microphone permission, Bluetooth/audio routing or prolonged background playback.",
+      "Audio surfaces outside Chat."
+    ]
+  }
+}
