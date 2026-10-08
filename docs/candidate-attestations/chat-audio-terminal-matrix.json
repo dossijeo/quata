@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
-  "certification": "platform-result-terminal-matrix-platform-focal-complete-independent-review-go-final-CI-pending",
+  "productSha": "8717f452811b45614e7d3036a41a6e59e5b65aa0",
+  "certification": "audio-terminal-result-matrix-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
+      "sha": "8717f452811b45614e7d3036a41a6e59e5b65aa0",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
+      "sha": "8717f452811b45614e7d3036a41a6e59e5b65aa0",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
+      "sha": "8717f452811b45614e7d3036a41a6e59e5b65aa0",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -78,11 +78,11 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-terminal-matrix.json --head HEAD"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "203a63548528a1778b41145c411f5ca5f8f2b886",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [],
-    "scopeLimit": "The hermetic adapter matrix proves Failure, Cancelled and Unsupported boundary handling and temporary-resource custody. It does not prove real HTTP, proxy, captive-portal, physical microphone, routing or background-playback behavior."
+    "scopeLimit": "Pending renewed exact-head review after replay over frozen Retry UI candidate #571."
   },
   "notes": [
     "The Android and Web focal suites exercise Failure, Cancelled and Unsupported at stop, resolver/materializer and native-load boundaries without production or backend mutation.",
@@ -90,6 +90,7 @@
     "This closes adapter-level PlatformResult coverage only. Real outage, proxy, captive-portal and exhaustive HTTP-code integration remain explicit external limits.",
     "Independent exact-head review of 57b531d7 returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
     "The five-commit terminal-matrix series was replayed over reviewed UI candidate e668e1e5. Conflict adaptations preserve transport eb9cd3c3 and UI e51bfe97; all terminal-matrix runtime, platform-test, contract and report blobs remain byte-identical.",
-    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. The recomposed exact-head review of 203a6354 returned GO with no P0-P3 and confirmed unchanged terminal-matrix runtime, tests, contract and report blobs without attributing a new platform execution."
+    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. The recomposed exact-head review of 203a6354 returned GO with no P0-P3 and confirmed unchanged terminal-matrix runtime, tests, contract and report blobs without attributing a new platform execution.",
+    "The seven-commit terminal-matrix series was replayed over frozen Retry UI candidate f0aa0ac1. Terminal-matrix runtime, tests, contract and report blobs remain byte-identical; inherited UI custody points to Product 7518a81a. No platform execution is attributed to this rebase."
   ]
 }
