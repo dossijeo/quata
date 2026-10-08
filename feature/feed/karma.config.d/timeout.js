@@ -1,4 +1,4 @@
-// The real Feed Compose interaction resolves successfully after ~3.7s in the
-// measured browser run, exceeding Mocha's 2s default. Keep a bounded budget for this module.
+// Feed Compose interaction tests now include durable video-position restoration before media
+// handoff. Keep a bounded budget that covers that asynchronous startup in the browser runner.
 config.client = config.client || {};
-config.client.mocha = Object.assign({}, config.client.mocha, { timeout: 10000 });
+config.client.mocha = Object.assign({}, config.client.mocha, { timeout: 20000 });

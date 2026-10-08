@@ -11,6 +11,11 @@ async function source(path) {
 
 const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPostDetailChromeContent.kt");
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
+const feedVideoPositionStore = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStore.kt");
+const browserPreferenceStore = await source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserPreferenceStore.wasm.kt");
+const browserPreferenceStoreTest = await source("core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserPreferenceStoreTest.kt");
+const feedVideoPositionStoreTest = await source("feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/FeedVideoPositionStoreTest.kt");
+const feedPlaybackHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelVideoPlaybackHostContent.kt");
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
 const feedTextReader = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/TextOnlyReelContent.kt");
 const feedTextReaderAnchorTest = await source("feature/feed/src/commonTest/kotlin/com/quata/feature/feed/presentation/TextOnlyReelScrollAnchorTest.kt");
@@ -234,12 +239,43 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(webEvidence, /--feed-video/);
   assert.match(webEvidence, /withFeedVideo: options\.feedVideo/);
   assert.match(webEvidence, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(webEvidence, /feed_fullscreen_video_position_persisted_and_restored_after_document_reload/);
+  assert.match(webEvidence, /page\.locator\("video"\)\.last\(\)/);
+  assert.match(webEvidence, /quata\.feed\.video_positions\.v1\./);
+  assert.match(feedVideoPositionStore, /AtomicPreferenceStore/);
+  assert.match(feedVideoPositionStore, /updateStringAtomically\(key\)/);
+  assert.match(browserPreferenceStore, /navigator\?\.locks/);
+  assert.match(browserPreferenceStore, /locks\.request\('quata\.preference\.' \+ key/);
+  assert.match(browserPreferenceStoreTest, /updatesWaitForTheSharedBrowserLockAndPreserveBothValues/);
+  assert.match(browserPreferenceStoreTest, /updates must remain pending behind the held lock/);
+  assert.match(feedVideoPositionStoreTest, /separateAtomicStoresSerializeConcurrentActorMapUpdates/);
+  assert.match(webEvidence, /await page\.reload\(\{ waitUntil: "domcontentloaded", timeout: 60_000 \}\)/);
+  assert.match(webEvidence, /if \(!options\.feedVideo\) await verifyOfficialDetail/);
   assert.match(androidEvidence, /--post-detail-feed-video/);
   assert.match(androidEvidence, /withFeedVideo: postDetailFeedVideo/);
+  assert.match(androidEvidence, /--feed-video-position-lifecycle/);
+  assert.match(androidEvidence, /feed-video-position-seed/);
+  assert.match(androidEvidence, /am", "force-stop", "com\.quata/);
+  assert.match(androidEvidence, /feed-video-position-restore/);
   assert.match(androidUiTest, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(androidUiTest, /feedVideoNode\(FeedVideoTimelineTestTag\)\.performTouchInput/);
+  assert.match(androidUiTest, /FeedVideoTimelineTestTag/);
+  assert.match(androidUiTest, /performTouchInput \{ click\(center\) \}/);
+  assert.match(androidUiTest, /compose\.waitUntil\(10_000\) \{ feedVideoControlShowsPause\(\) \}/);
+  assert.match(androidUiTest, /compose\.waitUntil\(5_000\) \{ feedVideoPositionSeconds\(\) >= 2 \}/);
+  assert.match(feedPlaybackHost, /stateDescription = if \(state\.isPlaying\) "playing" else "paused"/);
   assert.match(iosEvidence, /--post-detail-feed-video/);
   assert.match(iosEvidence, /withFeedVideo: postDetailFeedVideo/);
+  assert.match(iosEvidence, /--feed-video-position-lifecycle/);
+  assert.match(iosEvidence, /withFeedVideo: postDetailFeedVideo \|\| feedVideoPositionLifecycle/);
+  assert.match(iosEvidence, /testFeedVideoPositionRestoresAfterProcessRelaunch/);
+  assert.match(iosUiWrapper, /QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE/);
+  assert.match(iosUiWrapper, /feed-video-position-lifecycle\.log/);
   assert.match(iosUiTest, /feed\.post\.video\.fullscreen\.open/);
+  assert.match(iosUiTest, /visibleFullscreenControl\("feed\.video\.timeline"/);
+  assert.match(iosUiTest, /func testFeedVideoPositionRestoresAfterProcessRelaunch\(\) throws/);
+  assert.match(iosUiTest, /app\.terminate\(\)/);
+  assert.match(iosUiTest, /ios-feed-video-position-restored-after-relaunch/);
 
   assert.match(webEvidence, /--official-video/);
   assert.match(webEvidence, /withOfficialVideo: options\.officialVideo/);
@@ -299,9 +335,17 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
     /video = \{[\s\S]*?slots\.media\([\s\S]*?activeFocusedPostId == post\.id && mediaPostId == null[\s\S]*?onClick = \{ mediaPostId = post\.id \}/,
   );
   assert.match(feedHost, /contentDescription = "\$FeedPostVideoFullscreenOpenTestTagPrefix\.\$\{post\.id\}"/);
-  assert.match(feedHost, /post\.videoUrl\?\.let \{ videoPositions\[it\] \} \?: 0L/);
-  assert.match(feedHost, /\{ position -> post\.videoUrl\?\.let \{ videoPositions\[it\] = position \} \}/);
+  assert.match(feedHost, /videoPositionStore: FeedVideoPositionStore\? = null/);
+  assert.match(feedHost, /store\.restore\(effectiveCurrentUserId\)/);
+  assert.match(feedHost, /if \(videoPositionsRestored\)/);
+  assert.match(feedHost, /abs\(normalized - lastPersisted\) >= 1_000L/);
+  assert.match(feedHost, /store\.persistPosition\(effectiveCurrentUserId, mediaId, normalized\)/);
+  assert.equal(feedHost.match(/\{ position -> updateVideoPosition\(post, position\) \}/g)?.length, 2);
+  assert.match(feedHost, /feedVideoPositionMediaId\(post\.id, url\)/);
+  assert.match(feedVideoPositionStore, /actorLock\(actorId\)\.withLock/);
+  assert.match(feedVideoPositionStore, /positions\.remove\(mediaId\)[\s\S]*?positions\[mediaId\] = positionMs/);
   assert.match(androidFeedScreen, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
+  assert.match(androidFeedScreen, /LaunchedEffect\(player, isActive, initialPositionMs\)/);
   assert.match(webFeedMedia, /isBecomingCurrent = isCurrent && !wasCurrent/);
   assert.match(webFeedMedia, /shouldSynchronizeFeedVideoPosition\([\s\S]*?sharedPositionMs = initialPositionMs/);
   assert.match(iosFeedBridge, /let isBecomingActive = isActive && !configuredActive/);
@@ -313,7 +357,8 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(feedHost, /QuataFullscreenMediaOverlayContent\([\s\S]*?slots\.media\(/);
 
   assert.match(feedMediaViewerTest, /focusedFeedMediaOpensTheSharedViewerAndReturnsToTheSameDetail/);
-  assert.match(feedMediaViewerTest, /focusedFeedVideoUsesAnExplicitFullscreenActionAndPreservesPlaybackPosition/);
+  assert.match(feedMediaViewerTest, /focusedFeedVideoUsesAnExplicitFullscreenActionAndPersistsPlaybackPosition/);
+  assert.match(feedMediaViewerTest, /assertEquals\(2_000L, store\.restore\(actorId\)\[mediaId\]\)/);
   assert.match(feedMediaViewerTest, /FeedPostMediaOpenTestTagPrefix/);
   assert.match(feedMediaViewerTest, /FeedPostVideoFullscreenOpenTestTagPrefix/);
   assert.match(feedMediaViewerTest, /media-slot-paused/);

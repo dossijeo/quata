@@ -151,6 +151,7 @@ import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.AndroidMediaFileExportService
 import com.quata.core.platform.rememberAndroidMediaFileShareService
 import com.quata.core.text.cleanTextCanvasSeedBody
@@ -193,6 +194,7 @@ fun FeedScreen(
     padding: PaddingValues,
     feedRepository: FeedRepository,
     shareService: ShareService,
+    preferenceStore: PreferenceStore? = null,
     onOpenUserProfile: (String) -> Unit,
     currentUserId: String? = null,
     openingProfileUserId: String? = null,
@@ -227,6 +229,7 @@ fun FeedScreen(
         repository = feedRepository,
         stateHolder = viewModel,
         currentUserId = currentUserId,
+        videoPositionStore = remember(preferenceStore) { preferenceStore?.let(::FeedVideoPositionStore) },
         focusedPostId = focusedPostId,
         feedResetToken = feedResetToken,
         networkReconnectToken = networkReconnectToken,
@@ -457,6 +460,21 @@ private fun ReelVideo(
         }
     }
 
+    // The actor-scoped checkpoint is loaded asynchronously after the first composition. Adopt
+    // that late value without changing the user's current play/pause intent. Subsequent progress
+    // callbacks are already within the synchronization tolerance and therefore do not reseek.
+    LaunchedEffect(player, isActive, initialPositionMs) {
+        if (isActive && shouldSynchronizeFeedVideoPosition(
+                currentPositionMs = player.currentPosition,
+                sharedPositionMs = initialPositionMs,
+                isBecomingActive = true,
+            )
+        ) {
+            player.seekTo(initialPositionMs)
+            positionMs = initialPositionMs
+        }
+    }
+
     LaunchedEffect(player, isMuted) {
         player.setFeedAudioEnabled(!isMuted)
         player.volume = if (isMuted) 0f else 1f
@@ -614,6 +632,7 @@ private fun ReelVideo(
         onSeek = { targetMs ->
             player.seekTo(targetMs)
             positionMs = targetMs
+            onPositionChanged(targetMs)
         },
         onEnded = {
             player.seekTo(0)

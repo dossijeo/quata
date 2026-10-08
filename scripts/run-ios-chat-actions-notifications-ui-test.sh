@@ -15,6 +15,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_POST_DETAIL_UI_E2E:=0}"
+: "${QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE:=0}"
 : "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E:=0}"
 : "${QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE:=0}"
@@ -259,6 +260,7 @@ def patch_target(target, hint=''):
         'QUATA_IOS_NATIVE_FACADE_AUTHORIZATION',
         'QUATA_IOS_NATIVE_FACADE_URL',
         'QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY',
+        'QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE',
     ]:
         value = os.environ.get(key)
         if value:
@@ -405,6 +407,7 @@ feed_official_comments_translation='QuataIosUITests/QuataIosAuthenticatedChatAct
 feed_official_comments_error='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment'
 feed_official_comments_selector_states='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'
 post_detail='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialPostDetailsUseSharedChromeAndBack'
+feed_video_position_lifecycle='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedVideoPositionRestoresAfterProcessRelaunch'
 profile_roles_safety='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
 profile_private_chat='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfilePrivateChatFromChatUsesSharedPublicProfileAction'
 menu_surface='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
@@ -440,6 +443,7 @@ feed_official_comments_translation_method='testFeedAndOfficialCommentsTranslateF
 feed_official_comments_error_method='testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment'
 feed_official_comments_selector_states_method='testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'
 post_detail_method='testFeedAndOfficialPostDetailsUseSharedChromeAndBack'
+feed_video_position_lifecycle_method='testFeedVideoPositionRestoresAfterProcessRelaunch'
 profile_roles_safety_method='testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
 profile_private_chat_method='testProfilePrivateChatFromChatUsesSharedPublicProfileAction'
 menu_surface_method='testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
@@ -625,6 +629,8 @@ elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_TRANSLATION_UI_E2E" == "1" ]]; t
   run_and_require "$feed_official_comments_translation" "$feed_official_comments_translation_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments-translation.log" 840
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" == "1" ]]; then
   run_and_require "$feed_official_comments" "$feed_official_comments_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments.log" 840
+elif [[ "$QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE" == "1" ]]; then
+  run_and_require "$feed_video_position_lifecycle" "$feed_video_position_lifecycle_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-video-position-lifecycle.log"
 elif [[ "$QUATA_IOS_CHAT_POST_DETAIL_UI_E2E" == "1" ]]; then
   run_and_require "$post_detail" "$post_detail_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/post-detail.log"
 elif [[ "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" || "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "permissions" || "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "error-retry" ]]; then

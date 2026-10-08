@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsEnabled
@@ -30,6 +31,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
@@ -75,6 +77,9 @@ import com.quata.feature.chat.presentation.conversations.ConversationPickerRootT
 import com.quata.feature.chat.presentation.conversations.ConversationPickerSearchTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationSearchTestTag
 import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
+import com.quata.feature.feed.presentation.FeedVideoPlayPauseTestTag
+import com.quata.feature.feed.presentation.FeedVideoTimelineTestTag
+import com.quata.feature.feed.presentation.FeedVideoTimeTestTag
 import com.quata.feature.notifications.presentation.NotificationItemTestTagPrefix
 import com.quata.feature.notifications.presentation.NotificationsLoadingTestTag
 import com.quata.feature.notifications.presentation.NotificationsRootTestTag
@@ -223,6 +228,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat", "profile-private-chat-error-retry" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
+            "feed-video-position-seed", "feed-video-position-restore" ->
+                !postId.isNullOrBlank() && !actorProfileId.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "profile-entry-error-deep" -> listOf(chatUrl, peerProbe, profileId, actorProfileId).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
@@ -335,6 +342,21 @@ class ChatActionsNotificationsInstrumentedTest {
                 JSONObject()
                     .put("check", "POST-DETAIL-ANDROID-COMMON-001")
                     .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "feed-video-position-seed" || stage == "feed-video-position-restore") {
+            runFeedVideoPositionLifecycleStage(
+                feedPostId = postId.orEmpty(),
+                actorProfileId = actorProfileId.orEmpty(),
+                restore = stage == "feed-video-position-restore",
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-FEED-VIDEO-POSITION-ANDROID-001")
+                    .put("status", "passed")
+                    .put("phase", if (stage.endsWith("restore")) "restore_after_force_stop" else "seed_before_force_stop")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
             )
             return@runBlocking
@@ -741,6 +763,100 @@ class ChatActionsNotificationsInstrumentedTest {
             SystemClock.sleep(800)
             saveScreenshot("android-post-detail-official-back")
         }
+    }
+
+    private fun runFeedVideoPositionLifecycleStage(feedPostId: String, actorProfileId: String, restore: Boolean) {
+        if (restore) {
+            val durableSeconds = persistedFeedVideoPositionSeconds(actorProfileId)
+            assertTrue(
+                "The durable feed-video checkpoint must survive the process stop before rendering; observed=$durableSeconds.",
+                durableSeconds.any { it >= 2 },
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#post-${Uri.encode(feedPostId)}")).use {
+            waitForTag("feed.detail.chrome", "feed video position detail", 45_000)
+            waitForTag(FeedVideoTimelineTestTag, "feed video timeline", 45_000)
+            waitForTag(FeedVideoTimeTestTag, "feed video time", 45_000)
+            if (restore) {
+                compose.waitUntil(10_000) { feedVideoControlShowsPause() }
+                feedVideoNode(FeedVideoPlayPauseTestTag).performClick()
+                compose.waitUntil(5_000) { feedVideoPositionSeconds() >= 2 }
+                compose.waitUntil(20_000) { feedVideoDurationSeconds() >= 5 }
+                assertTrue(
+                    "Feed video must restore beyond two seconds before fresh playback could reach it.",
+                    feedVideoPositionSeconds() >= 2,
+                )
+                saveScreenshot("android-feed-video-position-restored-after-force-stop")
+            } else {
+                compose.onNodeWithContentDescription(
+                    "feed.post.video.fullscreen.open.$feedPostId",
+                    useUnmergedTree = true,
+                ).assertHasClickAction().performClick()
+                waitForTag("fullscreen-media.title", "feed video fullscreen", 20_000)
+                compose.waitUntil(20_000) { feedVideoDurationSeconds() >= 5 }
+                feedVideoNode(FeedVideoTimelineTestTag).performTouchInput { click(center) }
+                compose.waitUntil(2_000) { feedVideoPositionSeconds() in 2..3 }
+                compose.waitUntil(10_000) { feedVideoControlShowsPause() }
+                feedVideoNode(FeedVideoPlayPauseTestTag).performClick()
+                SystemClock.sleep(1_500)
+                assertTrue(
+                    "Feed video seed position must remain near the midpoint.",
+                    feedVideoPositionSeconds() in 2..3,
+                )
+                assertTrue(
+                    "The midpoint must be durably checkpointed before the process stop.",
+                    persistedFeedVideoPositionSeconds(actorProfileId).any { it >= 2 },
+                )
+                saveScreenshot("android-feed-video-position-seeded-before-force-stop")
+            }
+        }
+    }
+
+    private fun persistedFeedVideoPositionSeconds(actorProfileId: String): List<Int> =
+        targetContext.getSharedPreferences("quata_platform", Context.MODE_PRIVATE)
+            .all
+            .asSequence()
+            .filter { (key, _) -> key == "quata.feed.video_positions.v1.$actorProfileId" }
+            .flatMap { (_, value) ->
+                val entries = runCatching { JSONObject(value as String).getJSONArray("entries") }.getOrNull()
+                    ?: return@flatMap emptySequence()
+                (0 until entries.length()).asSequence().mapNotNull { index ->
+                    entries.optJSONObject(index)?.optLong("positionMs", -1L)?.takeIf { it >= 0L }?.let { (it / 1_000L).toInt() }
+                }
+            }
+            .toList()
+
+    private fun feedVideoControlShowsPause(): Boolean = runCatching {
+        feedVideoNode(FeedVideoPlayPauseTestTag)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.StateDescription) == "playing"
+    }.getOrDefault(false)
+
+    private fun feedVideoPositionSeconds(): Int = feedVideoTimeParts().first
+
+    private fun feedVideoDurationSeconds(): Int = feedVideoTimeParts().second
+
+    private fun feedVideoTimeParts(): Pair<Int, Int> {
+        val text = feedVideoNode(FeedVideoTimeTestTag)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.Text)
+            .orEmpty()
+            .joinToString("|") { it.text }
+        val match = Regex("""(\d+):(\d{2})\s*/\s*(\d+):(\d{2})""")
+            .find(text)
+            ?: return 0 to 0
+        fun seconds(minutesGroup: Int, secondsGroup: Int): Int =
+            match.groupValues[minutesGroup].toInt() * 60 + match.groupValues[secondsGroup].toInt()
+        return seconds(1, 2) to seconds(3, 4)
+    }
+
+    private fun feedVideoNode(tag: String): SemanticsNodeInteraction {
+        val nodes = compose.onAllNodesWithTag(tag, useUnmergedTree = true)
+        val lastIndex = nodes.fetchSemanticsNodes().lastIndex
+        assertTrue("Expected at least one Feed video control for $tag.", lastIndex >= 0)
+        return nodes[lastIndex]
     }
 
     private suspend fun runTranslationStage(markerProbe: String) {

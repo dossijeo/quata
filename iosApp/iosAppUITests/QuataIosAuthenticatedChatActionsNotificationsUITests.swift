@@ -2273,6 +2273,95 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "\(screenshotPrefix)-return")
     }
 
+    func testFeedVideoPositionRestoresAfterProcessRelaunch() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FEED_VIDEO_POSITION_LIFECYCLE"] == "1" else {
+            throw XCTSkip("Feed video position lifecycle gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]) else {
+            throw XCTSkip("Disposable Feed video fixture is not configured.")
+        }
+
+        func clockSeconds(_ element: XCUIElement) -> Int? {
+            let raw = [element.label, element.value as? String]
+                .compactMap { $0 }
+                .first { $0.contains("/") }
+            guard let first = raw?.split(separator: "/", maxSplits: 1).first else { return nil }
+            let parts = first.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ":")
+            guard parts.count == 2, let minutes = Int(parts[0]), let seconds = Int(parts[1]) else { return nil }
+            return (minutes * 60) + seconds
+        }
+
+        func waitForPosition(_ range: ClosedRange<Int>, element: XCUIElement, timeout: TimeInterval) -> Int? {
+            let deadline = Date().addingTimeInterval(timeout)
+            while Date() < deadline {
+                if let seconds = clockSeconds(element), range.contains(seconds) { return seconds }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+            return clockSeconds(element)
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
+        guard app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+            .waitForExistence(timeout: 20) else {
+            XCTFail("The seeded normal launch must restore Feed.")
+            return
+        }
+
+          openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
+          tapVisibleIdentifier(
+              "feed.post.video.fullscreen.open.\(feedPostId)",
+              in: app,
+              context: "Feed video fullscreen open"
+          )
+          _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "Feed video fullscreen")
+          func visibleFullscreenControl(_ identifier: String, context: String) -> XCUIElement {
+              let candidates = app.descendants(matching: .any)
+                  .matching(identifier: identifier)
+                  .allElementsBoundByIndex
+              if let visible = candidates.first(where: { $0.exists && $0.isHittable }) {
+                  return visible
+              }
+              return waitForVisibleIdentifier(identifier, in: app, context: context)
+          }
+          let timeline = visibleFullscreenControl("feed.video.timeline", context: "Feed fullscreen video timeline")
+          let time = visibleFullscreenControl("feed.video.time", context: "Feed fullscreen video time")
+          _ = visibleFullscreenControl("feed.video.play-pause", context: "Feed fullscreen video playback state")
+        let durationDeadline = Date().addingTimeInterval(20)
+        while Date() < durationDeadline, !time.label.contains("0:06") {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertTrue(time.label.contains("0:06"), "The disposable Feed video must expose its six-second duration.")
+        timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).press(
+            forDuration: 0.15,
+            thenDragTo: timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)),
+        )
+        let seeded = waitForPosition(2...4, element: time, timeout: 5)
+        XCTAssertNotNil(seeded, "The Feed video must seek to a midpoint checkpoint before process termination.")
+        XCUIDevice.shared.press(.home)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        app.terminate()
+        app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
+        guard app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+            .waitForExistence(timeout: 20) else {
+            XCTFail("Feed must relaunch from a new application process.")
+            return
+        }
+        openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
+        let restoredTime = waitForExistingIdentifier("feed.video.time", in: app, context: "Restored Feed video time", timeout: 10)
+        let restored = waitForPosition(2...5, element: restoredTime, timeout: 2)
+        XCTAssertNotNil(restored, "The actor-scoped Feed video checkpoint must survive iOS process termination and relaunch.")
+        attachScreenshot(app, name: "ios-feed-video-position-restored-after-relaunch")
+    }
+
     func testFeedAndOfficialPostDetailsUseSharedChromeAndBack() throws {
         let environment = ProcessInfo.processInfo.environment
         let officialVideo = environment["QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO"] == "1"

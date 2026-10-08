@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -104,6 +105,7 @@ import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.core.ui.components.insertAtSelection
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
+import kotlin.math.abs
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorGateway
@@ -249,6 +251,7 @@ fun FeedScreenHost(
     slots: FeedScreenPlatformSlots,
     presence: FeedUserPresence? = null,
     currentUserId: String? = null,
+    videoPositionStore: FeedVideoPositionStore? = null,
     focusedPostId: String? = null,
     feedResetToken: Int = 0,
     networkReconnectToken: Long = 0L,
@@ -300,10 +303,41 @@ fun FeedScreenHost(
     val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
     val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
     val focusedPostLoad = activeFocusedPostId?.let { state.focusedPostLoads[it] }
-    val videoPositions = remember { mutableMapOf<String, Long>() }
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
     val layoutDirection = LocalLayoutDirection.current
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
+    val videoPositions = remember(videoPositionStore, effectiveCurrentUserId) { mutableStateMapOf<String, Long>() }
+    val persistedVideoPositions = remember(videoPositionStore, effectiveCurrentUserId) { mutableStateMapOf<String, Long>() }
+    var videoPositionsRestored by remember(videoPositionStore, effectiveCurrentUserId) {
+        mutableStateOf(videoPositionStore == null)
+    }
+    LaunchedEffect(videoPositionStore, effectiveCurrentUserId) {
+        val store = videoPositionStore ?: return@LaunchedEffect
+        val restored = store.restore(effectiveCurrentUserId)
+        restored.forEach { (mediaId, positionMs) ->
+            if (mediaId !in videoPositions) {
+                videoPositions[mediaId] = positionMs
+                persistedVideoPositions[mediaId] = positionMs
+            }
+        }
+        videoPositionsRestored = true
+    }
+    fun updateVideoPosition(post: Post, position: Long) {
+        if (videoPositionsRestored) {
+            post.videoUrl?.let { url ->
+                val mediaId = feedVideoPositionMediaId(post.id, url)
+                val normalized = position.coerceAtLeast(0L)
+                videoPositions[mediaId] = normalized
+                val lastPersisted = persistedVideoPositions[mediaId]
+                if (lastPersisted == null || abs(normalized - lastPersisted) >= 1_000L) {
+                    persistedVideoPositions[mediaId] = normalized
+                    videoPositionStore?.let { store ->
+                        scope.launch { store.persistPosition(effectiveCurrentUserId, mediaId, normalized) }
+                    }
+                }
+            }
+        }
+    }
     val canParticipate = effectiveCurrentUserId != null
     val pendingAuthenticationContinuation by (
         authenticationContinuationCoordinator?.pending
@@ -602,15 +636,20 @@ fun FeedScreenHost(
                             hasImage = post.imageUrl != null,
                             hasText = post.text.parsePostShortcodeContent().cleanText.isNotBlank(),
                             video = {
-                                slots.media(
-                                    this,
-                                    post,
-                                    isCurrent && mediaPostId == null,
-                                    post.videoUrl?.let { videoPositions[it] } ?: 0L,
-                                    { position -> post.videoUrl?.let { videoPositions[it] = position } },
-                                    isFeedMuted,
-                                    { isFeedMuted = it },
-                                )
+                                // Native renderers retain their player by media URL. Recreate that renderer once
+                                // durable positions finish loading so its one-time initial seek receives the restored
+                                // value instead of the empty pre-restore snapshot.
+                                key(videoPositionsRestored) {
+                                    slots.media(
+                                        this,
+                                        post,
+                                        isCurrent && mediaPostId == null,
+                                        post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
+                                        { position -> updateVideoPosition(post, position) },
+                                        isFeedMuted,
+                                        { isFeedMuted = it },
+                                    )
+                                }
                                 if (activeFocusedPostId == post.id && mediaPostId == null) {
                                     CompactIconButton(
                                         onClick = { mediaPostId = post.id },
@@ -762,8 +801,8 @@ fun FeedScreenHost(
                             this,
                             post,
                             true,
-                            post.videoUrl?.let { videoPositions[it] } ?: 0L,
-                            { position -> post.videoUrl?.let { videoPositions[it] = position } },
+                            post.videoUrl?.let { videoPositions[feedVideoPositionMediaId(post.id, it)] } ?: 0L,
+                            { position -> updateVideoPosition(post, position) },
                             isFeedMuted,
                             { isFeedMuted = it },
                         )

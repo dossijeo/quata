@@ -1098,6 +1098,7 @@ private fun QuataWebApp(
                             WebFeedHost(
                                 repository = feedRepository,
                                 shareService = platformServices.share,
+                                preferenceStore = platformServices.preferences,
                                 presence = feedPresence,
                                 sharedPostId = navigation.postId,
                                 currentUserId = currentUserId,

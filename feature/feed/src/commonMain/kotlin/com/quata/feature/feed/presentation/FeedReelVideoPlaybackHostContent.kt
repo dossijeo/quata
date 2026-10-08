@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -144,6 +146,9 @@ fun FeedReelVideoPlaybackHostContent(
             FeedReelPlaybackControlButton(
                 contentDescription = if (state.isPlaying) strings.pause else strings.play,
                 onClick = { toggle(showFeedback = false) },
+                modifier = Modifier
+                    .testTag(FeedVideoPlayPauseTestTag)
+                    .semantics { stateDescription = if (state.isPlaying) "playing" else "paused" },
             ) {
                 CompactIcon(
                     imageVector = feedPlaybackPlayPauseIcon(state.isPlaying),
@@ -160,7 +165,8 @@ fun FeedReelVideoPlaybackHostContent(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(30.dp),
+                    .height(30.dp)
+                    .testTag(FeedVideoTimelineTestTag),
             )
             Text(
                 text = formatFeedReelPlaybackTime(state.positionMs, state.durationMs),
@@ -168,7 +174,9 @@ fun FeedReelVideoPlaybackHostContent(
                 fontSize = 12.sp,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.widthIn(min = 74.dp),
+                modifier = Modifier
+                    .widthIn(min = 74.dp)
+                    .testTag(FeedVideoTimeTestTag),
             )
             if (state.showMuteButton) {
                 FeedReelPlaybackControlButton(
@@ -195,14 +203,19 @@ fun FeedReelVideoPlaybackHostContent(
     }
 }
 
+const val FeedVideoTimelineTestTag = "feed.video.timeline"
+const val FeedVideoTimeTestTag = "feed.video.time"
+const val FeedVideoPlayPauseTestTag = "feed.video.play-pause"
+
 @Composable
 private fun FeedReelPlaybackControlButton(
     contentDescription: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(40.dp)
             .background(Color.White.copy(alpha = FeedReelPlaybackIconScrimAlpha), RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.Center,

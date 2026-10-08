@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -21,6 +22,7 @@ import com.quata.core.model.User
 import com.quata.core.platform.MediaFileExportAction
 import com.quata.core.platform.MediaFileExportDescriptor
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayCloseTestTag
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayRootTestTag
 import com.quata.core.ui.components.QuataMediaExportDownloadTestTag
@@ -31,6 +33,7 @@ import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -132,7 +135,7 @@ class FeedDetailMediaViewerTest {
     }
 
     @Test
-    fun focusedFeedVideoUsesAnExplicitFullscreenActionAndPreservesPlaybackPosition() = runComposeUiTest {
+    fun focusedFeedVideoUsesAnExplicitFullscreenActionAndPersistsPlaybackPosition() {
         val post = Post(
             id = "feed-video-detail",
             author = User("feed-video-author", "feed-video@example.invalid", "Feed Video"),
@@ -141,55 +144,121 @@ class FeedDetailMediaViewerTest {
             createdAt = "2026-09-20T00:00:00Z",
         )
         val holder = MediaStateHolder(post)
-        setContent {
-            QuataTheme {
-                FeedScreenHost(
-                    padding = PaddingValues(),
-                    repository = mediaRepository(post),
-                    stateHolder = holder,
-                    slots = FeedScreenPlatformSlots(
-                        media = { mediaPost, active, initialPositionMs, onPositionChanged, _, _ ->
-                            val state = if (active) "active" else "paused"
-                            Column {
-                                Text(
-                                    "media-${mediaPost.id}-$state-$initialPositionMs",
-                                    Modifier.testTag("media-slot-$state"),
-                                )
-                                Button(
-                                    onClick = { onPositionChanged(initialPositionMs + 1_000L) },
-                                    modifier = Modifier.testTag("media-slot-$state-advance"),
-                                ) {
-                                    Text("advance")
+        val actorId = "feed-video-fullscreen-actor"
+        val mediaId = feedVideoPositionMediaId(post.id, checkNotNull(post.videoUrl))
+        val store = FeedVideoPositionStore(MediaMemoryPreferenceStore())
+        runComposeUiTest {
+            setContent {
+                QuataTheme {
+                    FeedScreenHost(
+                        padding = PaddingValues(),
+                        repository = mediaRepository(post),
+                        stateHolder = holder,
+                        slots = FeedScreenPlatformSlots(
+                            media = { mediaPost, active, initialPositionMs, onPositionChanged, _, _ ->
+                                val state = if (active) "active" else "paused"
+                                Column {
+                                    Text(
+                                        "media-${mediaPost.id}-$state-$initialPositionMs",
+                                        Modifier.testTag("media-slot-$state"),
+                                    )
+                                    Button(
+                                        onClick = { onPositionChanged(initialPositionMs + 1_000L) },
+                                        modifier = Modifier.testTag("media-slot-$state-advance"),
+                                    ) {
+                                        Text("advance")
+                                    }
                                 }
-                            }
-                        },
-                    ),
-                    focusedPostId = post.id,
-                    onBackFromFocusedPost = {},
-                    isLandscape = false,
-                )
+                            },
+                        ),
+                        focusedPostId = post.id,
+                        currentUserId = actorId,
+                        videoPositionStore = store,
+                        onBackFromFocusedPost = {},
+                        isLandscape = false,
+                    )
+                }
             }
+
+            onNodeWithTag("media-slot-active").assertTextContains("-0", substring = true)
+            onNodeWithTag("media-slot-active-advance").performClick()
+
+            onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
+                .assertHasClickAction()
+                .performClick()
+
+            onNodeWithTag(QuataFullscreenMediaOverlayRootTestTag).assertIsDisplayed()
+            onNodeWithTag("media-slot-paused").assertTextContains("-1000", substring = true)
+            onNodeWithTag("media-slot-active").assertTextContains("-1000", substring = true)
+            onNodeWithTag("media-slot-active-advance").performClick()
+
+            onNodeWithTag(QuataFullscreenMediaOverlayCloseTestTag).performClick()
+            assertTrue(onAllNodesWithTag(QuataFullscreenMediaOverlayRootTestTag).fetchSemanticsNodes().isEmpty())
+
+            onNodeWithTag(FeedPostDetailChromeTestTag).assertIsDisplayed()
+            onNodeWithTag("media-slot-active").assertTextContains("-2000", substring = true)
+            onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
+                .assertHasClickAction()
+        }
+        runTest {
+            assertEquals(2_000L, store.restore(actorId)[mediaId])
+        }
+    }
+
+    @Test
+    fun feedVideoRestoresAndPersistsTheActorScopedPositionThroughTheSharedHost() {
+        val post = Post(
+            id = "feed-video-durable",
+            author = User("feed-video-author", "feed-video@example.invalid", "Feed Video"),
+            text = "Feed video durable position",
+            videoUrl = "fixture://feed-video-durable.mp4",
+            createdAt = "2026-10-07T00:00:00Z",
+        )
+        val actorId = "feed-video-actor"
+        val mediaId = feedVideoPositionMediaId(post.id, checkNotNull(post.videoUrl))
+        val preferences = MediaMemoryPreferenceStore()
+        val store = FeedVideoPositionStore(preferences)
+        runTest { store.persistPosition(actorId, mediaId, 12_345L) }
+
+        runComposeUiTest {
+            setContent {
+                QuataTheme {
+                    FeedScreenHost(
+                        padding = PaddingValues(),
+                        repository = mediaRepository(post),
+                        stateHolder = MediaStateHolder(post),
+                        slots = FeedScreenPlatformSlots(
+                            media = { _, active, initialPositionMs, onPositionChanged, _, _ ->
+                                if (initialPositionMs == 0L) {
+                                    LaunchedEffect(Unit) { onPositionChanged(0L) }
+                                }
+                                if (active) {
+                                    Column {
+                                        Text("position-$initialPositionMs", Modifier.testTag("durable-video-position"))
+                                        Button(
+                                            onClick = { onPositionChanged(23_456L) },
+                                            modifier = Modifier.testTag("durable-video-advance"),
+                                        ) { Text("advance") }
+                                    }
+                                }
+                            },
+                        ),
+                        currentUserId = actorId,
+                        videoPositionStore = store,
+                        focusedPostId = post.id,
+                        onBackFromFocusedPost = {},
+                        isLandscape = false,
+                    )
+                }
+            }
+
+            onNodeWithTag("durable-video-position").assertTextContains("12345", substring = true)
+            onNodeWithTag("durable-video-advance").performClick()
+            mainClock.advanceTimeBy(1_000L)
+            waitForIdle()
         }
 
-        onNodeWithTag("media-slot-active").assertTextContains("-0", substring = true)
-        onNodeWithTag("media-slot-active-advance").performClick()
-
-        onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
-            .assertHasClickAction()
-            .performClick()
-
-        onNodeWithTag(QuataFullscreenMediaOverlayRootTestTag).assertIsDisplayed()
-        onNodeWithTag("media-slot-paused").assertTextContains("-1000", substring = true)
-        onNodeWithTag("media-slot-active").assertTextContains("-1000", substring = true)
-        onNodeWithTag("media-slot-active-advance").performClick()
-
-        onNodeWithTag(QuataFullscreenMediaOverlayCloseTestTag).performClick()
-        assertTrue(onAllNodesWithTag(QuataFullscreenMediaOverlayRootTestTag).fetchSemanticsNodes().isEmpty())
-
-        onNodeWithTag(FeedPostDetailChromeTestTag).assertIsDisplayed()
-        onNodeWithTag("media-slot-active").assertTextContains("-2000", substring = true)
-        onNodeWithContentDescription("$FeedPostVideoFullscreenOpenTestTagPrefix.${post.id}")
-            .assertHasClickAction()
+        runTest { assertEquals(23_456L, store.restore(actorId)[mediaId]) }
     }
 }
 
@@ -207,3 +276,10 @@ private fun mediaRepository(post: Post) = ReadOnlyFeedRepository(object : FeedRe
     override suspend fun refreshAuthor(userId: String) = Result.success<User?>(null)
     override suspend fun refreshPost(postId: String) = Result.success(post.takeIf { it.id == postId })
 })
+
+private class MediaMemoryPreferenceStore : PreferenceStore {
+    private val values = mutableMapOf<String, String>()
+    override suspend fun getString(key: String): String? = values[key]
+    override suspend fun putString(key: String, value: String) { values[key] = value }
+    override suspend fun remove(key: String) { values.remove(key) }
+}
