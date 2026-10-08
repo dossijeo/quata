@@ -537,7 +537,6 @@ fun AppNavGraph(
         if (route.requiresQuataAppDestinationAuthentication() && !isAuthenticated) {
             requestAuthentication(route = route)
         } else if (route == AppDestinations.CreatePost.route) {
-            createPostResetToken += 1
             navController.navigate(AppDestinations.CreatePost.route) {
                 popUpTo(AppDestinations.Feed.route) { saveState = false }
                 launchSingleTop = false
@@ -563,7 +562,6 @@ fun AppNavGraph(
                 navigateToFeed()
             }
             AppDestinations.CreatePost.route -> {
-                createPostResetToken += 1
                 navController.navigate(AppDestinations.CreatePost.route) {
                     popUpTo(AppDestinations.Feed.route) { saveState = false }
                     launchSingleTop = false
