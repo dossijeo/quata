@@ -188,6 +188,7 @@ class PostComposerDraftStoreTest {
         assertFalse(shouldPersistPostComposerDraft(true, emptyHostSnapshot, emptyHostSnapshot))
         assertEquals("new", writingTab.restore("actor-a") { true }?.snapshot?.text)
         assertTrue(shouldPersistPostComposerDraft(true, draft(text = "explicit input"), emptyHostSnapshot))
+        assertFalse(shouldPersistPostComposerDraft(false, draft(text = "discarded"), emptyHostSnapshot))
     }
 
     @Test

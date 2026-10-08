@@ -26,8 +26,8 @@ test("the common root restores before persistence and clears publish discard and
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
   assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.save\(lease, durableSnapshot\)/);
   assert.match(root, /LaunchedEffect\(resetToken\)[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)/);
-  assert.match(root, /if \(state\.successMessage != null\)[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)/);
-  assert.match(root, /ComposerBackButtonContent[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)/);
+  assert.match(root, /if \(state\.successMessage != null\)[\s\S]*?durableDraftReady = false[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)[\s\S]*?durablePersistedSnapshot = null/);
+  assert.match(root, /ComposerBackButtonContent[\s\S]*?durableDraftReady = false[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)[\s\S]*?durablePersistedSnapshot = null[\s\S]*?dispatchCreatePostBack/);
 });
 
 test("Android Web and iOS inject the same store and validate platform media references", async () => {

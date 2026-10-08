@@ -360,7 +360,9 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
+            durableDraftReady = false
             durableDraftActorLease = durableDraftStore?.clear(draftActorProfileId)
+            durablePersistedSnapshot = null
             focusManager.clearFocus(force = true)
             slots.clearOwnedMedia?.invoke()
             step = CreatePostStep.TypePicker
@@ -519,8 +521,10 @@ fun CreatePostRoot(
                     onRetry = state.lastFailedSubmitType?.let { type -> { viewModel.submit(type) } },
                 )
                 ComposerBackButtonContent(copy.back, {
+                    durableDraftReady = false
                     scope.launch {
                         durableDraftActorLease = durableDraftStore?.clear(draftActorProfileId)
+                        durablePersistedSnapshot = null
                         dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
                     }
                 }, accessibility = accessibility)
