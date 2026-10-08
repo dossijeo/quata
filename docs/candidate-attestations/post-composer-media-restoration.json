@@ -4,13 +4,13 @@
     "POST-COMPOSER-MEDIA-RESTORATION"
   ],
   "status": "passed",
-  "productSha": "bb3b99d22becb4065c0e99e99007e8b5c1b93a07",
+  "productSha": "76178e13eaef0dcfe5884ee81a6e32f59fef2cee",
   "certification": "media-draft-runtime-complete-web-real-native-platform-focal-independent-review-go-final-CI-pending",
   "evidenceKind": "POST_COMPOSER_MEDIA_DRAFT_RESTORATION_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "bb3b99d22becb4065c0e99e99007e8b5c1b93a07",
+      "sha": "76178e13eaef0dcfe5884ee81a6e32f59fef2cee",
       "report": "docs/candidate-attestations/evidence/post-composer-media-restoration-android-2d216efc.json",
       "reportSha256": "ecac074399932226556fdd80482321ac672545f166e989c2037be64084f467a8",
       "reportStatus": "passed",
@@ -24,7 +24,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "bb3b99d22becb4065c0e99e99007e8b5c1b93a07",
+      "sha": "76178e13eaef0dcfe5884ee81a6e32f59fef2cee",
       "report": "docs/candidate-attestations/evidence/post-composer-media-restoration-web-2d216efc.json",
       "reportSha256": "ee252db9adfb53408f8478e50f38191fd55d65d1baac4aaa32b662dced025ce2",
       "reportStatus": "passed",
@@ -44,7 +44,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "bb3b99d22becb4065c0e99e99007e8b5c1b93a07",
+      "sha": "76178e13eaef0dcfe5884ee81a6e32f59fef2cee",
       "report": "docs/candidate-attestations/evidence/post-composer-media-restoration-ios-2d216efc.json",
       "reportSha256": "e78292fca875d9b57df2445ea8024eb6d89e3e6261ba738bcf4b0cfb6c4112de",
       "reportStatus": "passed",
@@ -83,7 +83,7 @@
     "The authenticated Web run observed zero publish requests, preserved the session and removed both the discarded media binary and envelope.",
     "Independent product review at 2d216efc returned GO with no P0-P3 findings; the inventory-only Product boundary was then reviewed independently without changing runtime evidence.",
     "The historical text-draft evidence remains in post-composer-draft-restoration.json and is not re-attributed to this product head.",
-    "The unchanged media-restoration series was replayed over the reviewed draft-restoration and Official-media inventory chain. Product SHA bb3b99d22 is patch-equivalent to 187f9e77f; reports remain bound to runtime 2d216efc and no platform journey was repeated solely for ancestry.",
-    "The five-commit unit was recomposed over the frozen #578 head with an identical complete delta; platform reports remain bound to 2d216efc and no E2E matrix was repeated solely for ancestry."
+    "The unchanged media-restoration series was replayed over the reviewed draft-restoration and Official-media inventory chain. Product SHA 76178e13 preserves the reviewed runtime delta and adds only the required source-integrity hashes for the two decisive Web composition paths changed by this unit; reports remain bound to runtime 2d216efc and no platform journey was repeated solely for ancestry or metadata repair.",
+    "The six original commits were recomposed over the merged #578 squash with an identical complete functional delta. CAPABILITY-DRIFT-001 passes 22/22 after refreshing 12 declarations for those two paths; platform reports remain bound to 2d216efc."
   ]
 }
