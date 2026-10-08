@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "8bf1d29c6b5572a0831e93aa57b7777e6eaf8c69",
+    "workingTreeDirty": false
+  },
+  "scope": "PROF-PRIVATE-CHAT actor-bound SQL contention in the production database for one unordered pair; login, Auth gateway and PostgREST transport are excluded",
+  "commands": [
+    "node --check scripts/profile-private-chat-race-backend-evidence.mjs",
+    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs",
+    "node scripts/profile-private-chat-race-backend-evidence.mjs --out <private-report>"
+  ],
+  "steps": [
+    "eight_actor_bound_database_calls_blocked_behind_one_barrier",
+    "callers_alternated_both_actors_of_the_unordered_pair",
+    "all_calls_released_together",
+    "all_calls_returned_one_private_thread",
+    "one_private_mapping_two_participants_and_eight_open_events_observed",
+    "owned_profiles_auth_users_thread_and_participants_removed_with_zero_residue"
+  ],
+  "database": {
+    "privateReportSha256": "e9db4c7c7c3d3f2a74e89e46d1a3d37d8a2aef1c604d7fba4fb02e58694dfd99",
+    "databaseFingerprintSha256": "6968365f0aef21e4c4c3e4f329be570ebc75f8811109773f13bbfa8578cfc0c5",
+    "barrier": {
+      "blockedWorkers": 8,
+      "releasedTogether": true
+    },
+    "observations": {
+      "calls": 8,
+      "distinctActors": 2,
+      "distinctReturnedThreadIds": 1,
+      "privateThreadRows": 1,
+      "participantRows": 2,
+      "privateThreadOpenedEvents": 8
+    }
+  },
+  "cleanup": {
+    "state": "passed",
+    "hardCleanup": {
+      "residueCounts": {
+        "profiles": 0,
+        "auth_users": 0,
+        "chat_private_threads": 0,
+        "chat_participants": 0
+      }
+    }
+  }
+}

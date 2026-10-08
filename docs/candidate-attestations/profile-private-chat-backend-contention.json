@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-PRIVATE-CHAT"
+  ],
+  "status": "passed",
+  "productSha": "b43c4f6a535729f26af9f59c1159a74965681a2b",
+  "certification": "production-backend-contention-complete-rebase-review-pending-final-CI-pending",
+  "evidenceKind": "REAL_PRODUCTION_BACKEND_ACTOR_BOUND_SQL_CONTENTION",
+  "evidence": {
+    "common": {
+      "status": "passed",
+      "sha": "b43c4f6a535729f26af9f59c1159a74965681a2b",
+      "report": "docs/candidate-attestations/evidence/profile-private-chat-backend-contention-8bf1d29c.json",
+      "reportSha256": "9ccd4bea7c580ed6dba457fc9f3e7ec4edae30250e06c4f641f89dba4d7e138c",
+      "reportStatus": "passed",
+      "reportGitHead": "8bf1d29c6b5572a0831e93aa57b7777e6eaf8c69",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "passed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "eight_actor_bound_database_calls_blocked_behind_one_barrier",
+        "callers_alternated_both_actors_of_the_unordered_pair",
+        "all_calls_released_together",
+        "all_calls_returned_one_private_thread",
+        "one_private_mapping_two_participants_and_eight_open_events_observed",
+        "owned_profiles_auth_users_thread_and_participants_removed_with_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "owned-production-backend-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/profile-private-chat-race-backend-evidence.mjs",
+    "node --test scripts/profile-private-chat-error-retry-contract.test.mjs",
+    "node scripts/profile-private-chat-race-backend-evidence.mjs --out <private-report>"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Every successfully opened worker connection is registered immediately, all connection attempts settle before a partial failure propagates, and the control connection is registered before worker creation."
+    ],
+    "scopeLimit": "The production probe exercises the deployed actor-bound SQL function directly. Login, Auth gateway and PostgREST transport remain outside this unit."
+  },
+  "notes": [
+    "The production probe creates eight independent PostgreSQL sessions, binds request JWT claims in each connection to one of two fixture actors and alternates call direction for the same unordered profile pair. It exercises the deployed actor-bound SQL function directly; it does not claim login, Auth gateway or PostgREST transport coverage.",
+    "All eight workers were observed waiting on the forced barrier before simultaneous release. Every call returned the same thread; the database retained one private mapping, two participants and one audit event per accepted open.",
+    "The first repetition exposed that the historical raw-profile probe no longer satisfied the deployed authenticated actor boundary. The probe was corrected to create owned Auth users, bind request JWT claims and remove those users during cleanup; product runtime and schema were not changed.",
+    "The accepted exact-product-head run removed both profiles, both Auth users, the thread mapping and participants with zero owned residue. Credentials, connection data and raw fixture identifiers remain outside the repository.",
+    "This closes the previous evidence restriction to one simultaneous call from each actor. The unordered private pair still consists of exactly two actors by product definition.",
+    "Independent exact-head review returned GO with no material P0-P3 after the partial-connection custody fix.",
+    "The final backend-contention delta was reconstructed over reviewed rendered-race head 7e2fa7467. Product SHA b43c4f6a5 is patch-equivalent to previously reviewed Product ea56b77a0; its two owned script/contract blobs remain byte-identical to executed Product 8bf1d29c. The production probe was not repeated solely for the new base."
+  ]
+}
