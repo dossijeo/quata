@@ -1,0 +1,160 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-10-08T01:28:32.856Z",
+  "git": {
+    "head": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "feed_official_comments_fixture_prepared",
+    "ios_xctest_official_video_position_restored_after_process_relaunch_verified",
+    "official_video_position_restored_after_ios_process_relaunch"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "post_detail_media_storage_delete_verified_absent",
+      "post_detail_official_video_storage_delete_verified_absent",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "feed_official_comments_fixture_deleted",
+      "cleanup_verified_feed_official_comments_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3550,
+      "uniqueKeySha256": "1c97c90f9d1a19bd76232194ec74f0ec682b0b00588f01c5ec266cd46916c3cb",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "feedOfficialComments": {
+      "status": "cleanup_verified_feed_official_comments_residue_absent",
+      "feedPostId": "bd2254fb-272e-4f29-958b-adae8cc8c9cf",
+      "officialPostId": "80c26611-ce7d-449b-a22e-1a548a0d8102",
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  },
+  "evidence": {
+    "uiReportDirectory": "C:\\Users\\PC\\.codex\\quata-work\\official-video-position-restoration-20261008\\build-reports\\ios\\official-video-position-lifecycle-evidence\\mac-ui-report",
+    "resultBundleDirectory": "C:\\Users\\PC\\.codex\\quata-work\\official-video-position-restoration-20261008\\build-reports\\ios\\official-video-position-lifecycle-evidence\\xcresults",
+    "feedOfficialComments": {
+      "markerSha256": "b2cf46a7496da9dc439ee89a55b2835a88749cdcddb956648b06286d183bee3a",
+      "feedPostId": "bd2254fb-272e-4f29-958b-adae8cc8c9cf",
+      "feedReplyCommentId": null,
+      "feedReplyDiagnostic": null,
+      "feedPersistedReplyCommentPrefix": null,
+      "feedUiCommentId": null,
+      "feedPersistedUiCommentPrefix": null,
+      "officialPostId": "80c26611-ce7d-449b-a22e-1a548a0d8102",
+      "officialReplyCommentId": null,
+      "officialReplyDiagnostic": null,
+      "officialPersistedReplyCommentPrefix": null,
+      "officialUiCommentId": null,
+      "officialPersistedUiCommentPrefix": null
+    }
+  },
+  "lastCommandOutputTail": "    t =    70.65s         Find the \"official.media.open\" Button\n    t =    70.89s         Find the \"official.media.open\" Button\n    t =    71.15s         Find the \"official.media.open\" Button\n    t =    71.70s     Wait for com.quata.ios to idle\n    t =    71.85s Waiting 10.0s for \"fullscreen-media.title\" Any to exist\n    t =    72.88s     Checking `Expect predicate `existsNoRetry == 1` for object \"fullscreen-media.title\" Any`\n    t =    72.88s         Checking existence of `\"fullscreen-media.tit",
+  "mac": {
+    "host": "quata-mac",
+    "project": "/Users/gabriel/StudioProjects/quata-official-video-position-5369f561c",
+    "head": "35c0b047a7b7e3fd24c40cd26275631563a03efc"
+  },
+  "fixture": {
+    "threadId": 3550,
+    "conversationId": "sb:3550",
+    "decoyConversationId": null,
+    "seedMessageId": 12806,
+    "peerMessageId": 12807,
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "seedMarkerSha256": "25e1fc5c39d07dab8679023a51eb50d540fba5e2efa15d2a0c5761ca93571b7c",
+    "peerMarkerSha256": "6ecdc98d68bb623b4ebd7c90ecbab7c0b58d5051acbd8324065d2d3f791929ea",
+    "decoyMarkerSha256": null,
+    "menuSurfaceOnly": false,
+    "muteNegativeOnly": false,
+    "notificationInboxPropagationOnly": false,
+    "keyboardMenuOnly": false,
+    "messagePermissionsOnly": false,
+    "attachmentsAudioOnly": false,
+    "documentActionsOnly": false,
+    "composerEmojiOnly": false,
+    "attachmentPickerOnly": false,
+    "groupSosOnly": false,
+    "groupAdminOnly": false,
+    "groupModerationOnly": false,
+    "forwardNegativeOnly": false,
+    "forwardDestinationThreadId": null,
+    "forwardedMessageId": null,
+    "forwardDestinationProfileIdSha256": null,
+    "forwardedCopyCount": null,
+    "postDetailOnly": true,
+    "communityChatOnly": false,
+    "communityChatNegativeOnly": false,
+    "communityChat": null,
+    "groupAdminProfileIdSha256": null,
+    "groupAdminDisplayNameSha256": null,
+    "groupRemoveProfileIdSha256": null,
+    "groupBlockProfileIdSha256": null,
+    "attachmentPicker": null,
+    "attachmentsAudio": null,
+    "composerMessageId": null,
+    "composerMarkerSha256": null,
+    "profileFollowInitialState": null,
+    "profileContent": null,
+    "feedOfficialComments": {
+      "markerSha256": "b2cf46a7496da9dc439ee89a55b2835a88749cdcddb956648b06286d183bee3a",
+      "feedPostId": "bd2254fb-272e-4f29-958b-adae8cc8c9cf",
+      "feedReplyCommentId": null,
+      "feedReplyDiagnostic": null,
+      "feedUiCommentId": null,
+      "officialPostId": "80c26611-ce7d-449b-a22e-1a548a0d8102",
+      "officialReplyCommentId": null,
+      "officialReplyDiagnostic": null,
+      "officialUiCommentId": null
+    },
+    "profileEntry": null,
+    "profileRolesSafety": null,
+    "privateMarkerSha256": null,
+    "profilePrivateChatThreadId": null,
+    "sosWithLocationMessageId": null,
+    "sosUnavailableMessageId": null,
+    "sosWithLocationMarkerSha256": null,
+    "sosUnavailableMarkerSha256": null
+  },
+  "profileHashWindow": {
+    "state": "restored",
+    "count": 2
+  },
+  "finishedAt": "2026-10-08T01:31:55.450Z"
+}

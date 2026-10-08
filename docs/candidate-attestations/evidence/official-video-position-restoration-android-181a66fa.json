@@ -1,0 +1,94 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-10-08T00:07:10.502Z",
+  "git": {
+    "head": "181a66faed5a8b9270679ddae421724e909200d4",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "unique_own_and_peer_messages_visible",
+    "isolated_thread_and_own_message_ready",
+    "post_detail_feed_official_fixture_prepared",
+    "android_official_video_position_process_force_stopped_after_durable_position_seed",
+    "official_video_position_restored_after_android_force_stop"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "post_detail_media_storage_delete_verified_absent",
+      "post_detail_official_video_storage_delete_verified_absent",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "feed_official_comments_fixture_deleted",
+      "cleanup_verified_feed_official_comments_residue_absent"
+    ],
+    "hardCleanup": {
+      "threadId": 3542,
+      "uniqueKeySha256": "647350a9153d8e491ec6bdf348ed569466bb1d92f4d7ac772e1d870836d7a451",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "feedOfficialComments": {
+      "status": "cleanup_verified_feed_official_comments_residue_absent",
+      "feedPostId": "92634adf-d1cc-44ea-ba75-517cd1ad98ab",
+      "officialPostId": "a0643d25-3084-463d-a9f4-822d9a21a370",
+      "residueCounts": {
+        "community_posts": 0,
+        "community_comments": 0,
+        "community_post_likes": 0,
+        "official_posts": 0,
+        "official_post_comments": 0,
+        "official_post_likes": 0
+      }
+    }
+  },
+  "evidence": {
+    "files": [
+      "android-official-video-position-seeded-before-force-stop.png",
+      "android-official-video-position-restored-after-force-stop.png",
+      "android-chat-actions-notifications-evidence.json"
+    ],
+    "directory": "C:\\Users\\PC\\.codex\\quata-work\\official-video-position-restoration-20261008\\build-reports\\android\\official-video-position-lifecycle-evidence"
+  },
+  "fixture": {
+    "threadId": 3542,
+    "conversationId": "sb:3542",
+    "decoyConversationId": null,
+    "seedMessageId": 12790,
+    "peerMessageId": 12791,
+    "peerProfileIdSha256": "05e32f6f9863ad8fefd20a38de7da94466156b5aa1d1ae943d0e3622be09bba4",
+    "markerSha256": "3af3b3c0fe5c46ed6d6f1ac2af13a14dfc294303226c8a26329a1adf4b3dc12b",
+    "peerMarkerSha256": "763cd7d1d1f61cf606374f6054840720ea7f386c14ba9d5dbee7bb1224327d8a",
+    "decoyMarkerSha256": null,
+    "privateMarkerSha256": null,
+    "profilePrivateChatThreadId": null,
+    "profileFollowInitialState": null,
+    "profileContent": null,
+    "feedOfficialComments": {
+      "markerSha256": "c54eb51e2997e948c0e8884e74aad551a60cc48c4d581a12cc6eb19ffd75c796",
+      "feedPostId": "92634adf-d1cc-44ea-ba75-517cd1ad98ab",
+      "feedUiCommentId": null,
+      "feedPersistedUiComment": null,
+      "officialPostId": "a0643d25-3084-463d-a9f4-822d9a21a370",
+      "officialUiCommentId": null,
+      "officialPersistedUiComment": null
+    },
+    "profileEntry": null,
+    "profileRolesSafety": null
+  },
+  "finishedAt": "2026-10-08T00:09:34.048Z"
+}

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA-OFFICIAL-VIDEO-POSITION"
+  ],
+  "status": "passed",
+  "productSha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "report": "docs/candidate-attestations/evidence/official-video-position-restoration-web-9b13cbc7.json",
+      "reportSha256": "a11e2b4c9acb4ccb20f9bfa5179476c033ccdcd5ee11f6d884aff1b8586ca6f1",
+      "reportStatus": "passed",
+      "reportGitHead": "9b13cbc75aabea58a3488aa0c373af7cef19041f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "official_fullscreen_video_position_persisted_and_restored_after_document_reload",
+        "post_detail_media_storage_cleanup_verified_absent",
+        "shared_fixture_cleanup_verified_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "report": "docs/candidate-attestations/evidence/official-video-position-restoration-android-181a66fa.json",
+      "reportSha256": "b4b90be1fbf24504a28451c406593c5618278df00460e31fb831ba0cd83c3b6e",
+      "reportStatus": "passed",
+      "reportGitHead": "181a66faed5a8b9270679ddae421724e909200d4",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "post_detail_feed_official_fixture_prepared",
+        "android_official_video_position_process_force_stopped_after_durable_position_seed",
+        "official_video_position_restored_after_android_force_stop"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "report": "docs/candidate-attestations/evidence/official-video-position-restoration-ios-35c0b047.json",
+      "reportSha256": "f34336aab3a205f572178de5f897bdd5c8ff7ecde28461cfc7694889d222c7c6",
+      "reportStatus": "passed",
+      "reportGitHead": "35c0b047a7b7e3fd24c40cd26275631563a03efc",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_xctest_official_video_position_restored_after_process_relaunch_verified",
+        "official_video_position_restored_after_ios_process_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:official:compileKotlinIosX64 --no-daemon",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin",
+    "node --test scripts/post-detail-parity-contract.test.mjs",
+    "node scripts/post-detail-web-evidence.mjs --official-video-position",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --official-video-position-lifecycle",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --official-video-position-lifecycle",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/official-video-position-restoration.json"
+  ],
+  "notes": [
+    "The common Official host restores actor-scoped checkpoints by stable post and normalized media identity before mounting the native viewer.",
+    "Web/Wasm restored the exact checkpoint after a document reload. Android restored a nonzero checkpoint after force-stop. iOS restored a nonzero checkpoint after process termination and relaunch in Simulator.",
+    "The iOS native viewer exposes playback status and the opt-in checkpoint as separate accessibility elements; product playback remains owned by AVPlayer and the common overlay.",
+    "Earlier iOS attempts are retained in local raw history: one exposed missing public runtime forwarding, one found restoration into an existing Official route, one distinguished a hidden Compose probe from native accessibility, and one demonstrated that passing a nil actor ID prevented authenticated restoration.",
+    "The Android report remains byte-identified at 181a66fa and the Web report at 9b13cbc7 because subsequent runtime changes were iOS-only. They were not repeated solely for a new SHA.",
+    "All temporary MP4 objects, posts, conversations and messages were removed; every recorded database and Storage residue count is zero.",
+    "This closure covers Official fullscreen video checkpoints across Web document reload and Android/iOS process relaunch. It does not claim prolonged background playback, exhaustive codecs or transport failures, or other media producers."
+  ]
+}
