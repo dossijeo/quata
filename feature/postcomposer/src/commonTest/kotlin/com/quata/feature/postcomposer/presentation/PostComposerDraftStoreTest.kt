@@ -1,9 +1,12 @@
 package com.quata.feature.postcomposer.presentation
 
+import com.quata.core.platform.AtomicPreferenceStore
 import com.quata.core.platform.PreferenceStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,6 +15,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PostComposerDraftStoreTest {
+    @Test
+    fun actorSwitchResetsExistingContentButPreservesTheLoginContinuation() {
+        assertTrue(shouldResetDraftForActorTransition(true, "actor-a", "actor-b", false))
+        assertFalse(shouldResetDraftForActorTransition(true, null, "actor-a", true))
+        assertTrue(shouldResetDraftForActorTransition(true, null, "actor-a", false))
+    }
+
     @Test
     fun restoresOnlyTheMatchingActorAndClearsThePreviousActorOnChange() = runTest {
         val preferences = MemoryPreferenceStore()
@@ -31,10 +41,10 @@ class PostComposerDraftStoreTest {
         val store = PostComposerDraftStore(preferences)
         val lease = requireNotNull(store.activateActor("actor-a"))
         store.save(lease, draft())
-        preferences.values["post-composer.draft.v1.actor-a"] = "QPCD99:broken"
+        preferences.values[StateKey] = "QPCS1broken"
 
         assertNull(store.restore("actor-a") { true })
-        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
+        assertFalse(preferences.values.getValue(StateKey).contains("broken"))
     }
 
     @Test
@@ -60,7 +70,7 @@ class PostComposerDraftStoreTest {
         val lease = requireNotNull(store.activateActor("actor-a"))
         store.save(lease, draft(imageUri = "data:image/png;base64,secret"))
 
-        assertEquals(2, preferences.values.size)
+        assertEquals(1, preferences.values.size)
         val restored = store.restore("actor-a") { true }?.snapshot
         assertNull(restored?.imageUri)
     }
@@ -74,7 +84,7 @@ class PostComposerDraftStoreTest {
 
         val replacementLease = requireNotNull(store.clear("actor-a"))
 
-        assertEquals(emptyMap(), preferences.values)
+        assertFalse(preferences.values.getValue(StateKey).contains("draft"))
         assertFalse(store.save(lease, draft(text = "stale-after-clear")))
         assertTrue(store.save(replacementLease, draft(text = "new-after-clear")))
         assertEquals("new-after-clear", store.restore("actor-a") { true }?.snapshot?.text)
@@ -94,9 +104,9 @@ class PostComposerDraftStoreTest {
         save.join()
         actorChange.join()
 
-        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
+        assertNull(store.restore("actor-a") { true })
         assertFalse(store.save(actorALease, draft(text = "stale")))
-        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
+        assertNull(store.restore("actor-a") { true })
     }
 
     @Test
@@ -122,7 +132,23 @@ class PostComposerDraftStoreTest {
         actorChange.join()
 
         assertFalse(store.isCurrent(requireNotNull(restored).actorLease))
-        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
+        assertNull(store.restore("actor-a") { true })
+    }
+
+    @Test
+    fun independentStoresShareTheActorFenceAndRejectAStaleTabWrite() = runTest {
+        val preferences = AtomicMemoryPreferenceStore()
+        val actorATab = PostComposerDraftStore(preferences)
+        val actorBTab = PostComposerDraftStore(preferences)
+        val actorALease = requireNotNull(actorATab.activateActor("actor-a"))
+        assertTrue(actorATab.save(actorALease, draft(text = "actor-a-draft")))
+
+        requireNotNull(actorBTab.activateActor("actor-b"))
+
+        assertFalse(actorATab.save(actorALease, draft(text = "stale-tab-write")))
+        assertNull(actorBTab.restore("actor-b") { true })
+        assertFalse(preferences.values.getValue(StateKey).contains("actor-a-draft"))
+        assertFalse(preferences.values.getValue(StateKey).contains("stale-tab-write"))
     }
 
     private fun draft(
@@ -159,7 +185,7 @@ private class BlockingPreferenceStore : PreferenceStore {
     override suspend fun getString(key: String): String? = values[key]
 
     override suspend fun putString(key: String, value: String) {
-        if (blockDraftWrite && key.startsWith("post-composer.draft.v1.")) {
+        if (blockDraftWrite && key == StateKey) {
             blockDraftWrite = false
             draftWriteStarted.complete(Unit)
             allowDraftWrite.await()
@@ -171,3 +197,23 @@ private class BlockingPreferenceStore : PreferenceStore {
         values.remove(key)
     }
 }
+
+private class AtomicMemoryPreferenceStore : AtomicPreferenceStore {
+    val values = mutableMapOf<String, String>()
+    private val lock = Mutex()
+
+    override suspend fun getString(key: String): String? = lock.withLock { values[key] }
+    override suspend fun putString(key: String, value: String) = lock.withLock { values[key] = value }
+    override suspend fun remove(key: String) = lock.withLock { values.remove(key); Unit }
+
+    override suspend fun updateStringAtomically(
+        key: String,
+        transform: (String?) -> String?,
+    ): Boolean = lock.withLock {
+        val next = transform(values[key])
+        if (next == null) values.remove(key) else values[key] = next
+        true
+    }
+}
+
+private const val StateKey = "post-composer.draft.state.v1"

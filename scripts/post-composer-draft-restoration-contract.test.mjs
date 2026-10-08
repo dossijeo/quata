@@ -6,19 +6,22 @@ const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8"
 
 test("the durable envelope is versioned actor-bound and excludes raw media bytes", async () => {
   const store = await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/PostComposerDraftStore.kt");
-  assert.match(store, /const val DraftKeyPrefix = "post-composer\.draft\.v1\."/);
-  assert.match(store, /previous != null && previous != normalized[\s\S]*?preferences\.remove\(draftKey\(previous\)\)/);
+  assert.match(store, /const val StateKey = "post-composer\.draft\.state\.v1"/);
+  assert.match(store, /preferences as\? AtomicPreferenceStore/);
+  assert.match(store, /updateStringAtomically\(StateKey\)/);
+  assert.match(store, /current\.actorProfileId != normalized[\s\S]*?encodedDraft = null/);
   assert.match(store, /!it\.startsWith\("data:", ignoreCase = true\)/);
-  assert.match(store, /decoded == null[\s\S]*?preferences\.remove\(key\)[\s\S]*?return@withLock null/);
+  assert.match(store, /decoded == null[\s\S]*?current\.copy\(encodedDraft = null\)[\s\S]*?return null/);
   assert.match(store, /private val mutationLock = Mutex\(\)/);
-  assert.match(store, /suspend fun save\(lease: PostComposerDraftActorLease[\s\S]*?if \(!lease\.isCurrentLocked\(\)\) return@withLock false/);
-  assert.match(store, /suspend fun clear[\s\S]*?actorGeneration \+= 1[\s\S]*?PostComposerDraftActorLease\(actor, actorGeneration\)/);
+  assert.match(store, /suspend fun save\(lease: PostComposerDraftActorLease[\s\S]*?!current\.matches\(lease\)[\s\S]*?current\.copy/);
+  assert.match(store, /suspend fun clear[\s\S]*?generation = current\.generation \+ 1[\s\S]*?PostComposerDraftActorLease\(actor, next\.generation\)/);
   assert.doesNotMatch(store, /accessToken|refreshToken|bearerToken/);
 });
 
 test("the common root restores before persistence and clears publish discard and reset", async () => {
   const root = await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt");
-  assert.match(root, /durableDraftReady = false[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\.actorLease\)[\s\S]*?viewModel\.snapshot\(step\) == baseline[\s\S]*?durableDraftReady = true/);
+  assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\.actorLease\)[\s\S]*?viewModel\.snapshot\(step\) == baseline[\s\S]*?durableDraftReady = true/);
+  assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
   assert.match(root, /if \(durableDraftReady\) store\.save\(lease, durableSnapshot\)/);
   assert.match(root, /LaunchedEffect\(resetToken\)[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)/);
   assert.match(root, /if \(state\.successMessage != null\)[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)/);
@@ -68,5 +71,7 @@ test("the executable common tests cover isolation corruption cleanup and unavail
     "clearRemovesTheDraftAndActiveActorMarker",
     "actorChangeSerializesWithInFlightSaveAndRejectsStaleWrites",
     "delayedRestoreLeaseIsInvalidAfterActorChange",
+    "independentStoresShareTheActorFenceAndRejectAStaleTabWrite",
+    "actorSwitchResetsExistingContentButPreservesTheLoginContinuation",
   ]) assert.match(tests, new RegExp(`fun ${name}\\(`));
 });

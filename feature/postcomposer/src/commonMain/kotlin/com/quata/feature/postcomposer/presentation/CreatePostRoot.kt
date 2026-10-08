@@ -252,6 +252,8 @@ fun CreatePostRoot(
     var durableDraftActorLease by remember(durableDraftStore, draftActorProfileId) {
         mutableStateOf<PostComposerDraftActorLease?>(null)
     }
+    var durableActorResolved by remember(durableDraftStore) { mutableStateOf(false) }
+    var durableActorProfileId by remember(durableDraftStore) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
@@ -259,10 +261,25 @@ fun CreatePostRoot(
         val store = durableDraftStore ?: return@LaunchedEffect
         durableDraftReady = false
         val actor = draftActorProfileId
+        val resetForActorChange = shouldResetDraftForActorTransition(
+            wasResolved = durableActorResolved,
+            previousActorProfileId = durableActorProfileId,
+            nextActorProfileId = actor,
+            hasAuthenticationContinuation = initialStep != null,
+        )
+        if (resetForActorChange) {
+            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+            step = CreatePostStep.TypePicker
+            textValue = TextFieldValue("")
+            emojiOpen = false
+            locationOpen = false
+        }
+        durableActorResolved = true
+        durableActorProfileId = actor
         val baseline = viewModel.snapshot(step)
         val lease = store.activateActor(actor)
         durableDraftActorLease = lease
-        val restoration = if (lease != null && initialStep == null) {
+        val restoration = if (lease != null && initialStep == null && !resetForActorChange) {
             store.restore(lease.actorProfileId, durableMediaReferenceAvailable)
         } else {
             null
@@ -493,6 +510,18 @@ fun CreatePostRoot(
         feedback = {},
         modifier = modifier.fillMaxSize().testTag(CreatePostCommonRootTestTag),
     )
+}
+
+internal fun shouldResetDraftForActorTransition(
+    wasResolved: Boolean,
+    previousActorProfileId: String?,
+    nextActorProfileId: String?,
+    hasAuthenticationContinuation: Boolean,
+): Boolean {
+    if (!wasResolved || previousActorProfileId == nextActorProfileId) return false
+    val completingAuthenticationContinuation =
+        previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation
+    return !completingAuthenticationContinuation
 }
 
 const val CreatePostTextLimit = 500
