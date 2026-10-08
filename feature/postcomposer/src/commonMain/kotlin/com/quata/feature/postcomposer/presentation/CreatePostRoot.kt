@@ -271,6 +271,9 @@ fun CreatePostRoot(
     var durablePersistedSnapshot by remember(durableDraftStore, draftActorProfileId) {
         mutableStateOf<PostComposerDraftSnapshot?>(null)
     }
+    var durablePersistenceConfirmed by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf(false)
+    }
     var durableActorResolution by remember(durableDraftStore) {
         mutableStateOf(PostComposerDraftActorResolution())
     }
@@ -286,6 +289,7 @@ fun CreatePostRoot(
         val store = durableDraftStore ?: return@LaunchedEffect
         pendingDraftClearRequest = null
         durableDraftReady = false
+        durablePersistenceConfirmed = false
         val actor = draftActorProfileId
         val resetForActorChange = shouldResetDraftForActorTransition(
             wasResolved = durableActorResolution.wasResolved,
@@ -308,6 +312,7 @@ fun CreatePostRoot(
             // Session owners retire the stored actor explicitly when logout is authoritative.
             durableDraftActorLease = null
             durablePersistedSnapshot = baseline
+            durablePersistenceConfirmed = false
             durableDraftReady = false
             return@LaunchedEffect
         }
@@ -332,7 +337,8 @@ fun CreatePostRoot(
         } else {
             null
         }
-        durablePersistedSnapshot = appliedRestoration ?: baseline
+        durablePersistedSnapshot = initialPostComposerPersistedSnapshot(appliedRestoration, baseline)
+        durablePersistenceConfirmed = appliedRestoration != null
         durableDraftReady = true
     }
     val durableSnapshot = viewModel.snapshot(step)
@@ -353,6 +359,7 @@ fun CreatePostRoot(
                 durableMediaReconcile(persistedSnapshot.imageUri, persistedSnapshot.videoUri)
             ) {
                 durablePersistedSnapshot = durableSnapshot
+                durablePersistenceConfirmed = true
             }
         }
     }
@@ -391,6 +398,7 @@ fun CreatePostRoot(
         val clearedLease = (clearAttempt as? PostComposerDraftClearAttempt.Cleared)?.lease
         durableDraftActorLease = clearedLease
         durablePersistedSnapshot = null
+        durablePersistenceConfirmed = false
         pendingDraftClearRequest = request.copy(actorLease = clearedLease)
         val mediaCleared = try {
             durableMediaClear()
@@ -628,7 +636,7 @@ fun CreatePostRoot(
                 )
                 CreatePostStep.Image -> CommonImageComposerForm(state, slots, copy, accessibility, isLandscapeLayout, locationOpen, { locationOpen = it }, {
                     viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(it))
-                }, durablePersistedSnapshot?.imageUri != null && durablePersistedSnapshot?.imageUri == state.imageUri) {
+                }, isPostComposerImageDraftDurablyPersisted(durablePersistenceConfirmed, durablePersistedSnapshot, state.imageUri)) {
                     publish(PostComposerType.Image)
                 }
                 CreatePostStep.Video -> CommonVideoComposerForm(state, slots, copy, accessibility, isLandscapeLayout, {
@@ -721,6 +729,17 @@ internal fun shouldPersistPostComposerDraft(
     snapshot: PostComposerDraftSnapshot,
     lastPersistedSnapshot: PostComposerDraftSnapshot?,
 ): Boolean = ready && snapshot != lastPersistedSnapshot
+
+internal fun initialPostComposerPersistedSnapshot(
+    appliedRestoration: PostComposerDraftSnapshot?,
+    baseline: PostComposerDraftSnapshot,
+): PostComposerDraftSnapshot? = appliedRestoration ?: baseline.takeUnless { it.isMeaningfulForPersistence() }
+
+internal fun isPostComposerImageDraftDurablyPersisted(
+    persistenceConfirmed: Boolean,
+    persistedSnapshot: PostComposerDraftSnapshot?,
+    currentImageUri: String?,
+): Boolean = persistenceConfirmed && currentImageUri != null && persistedSnapshot?.imageUri == currentImageUri
 
 const val CreatePostTextLimit = 500
 

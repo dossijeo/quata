@@ -290,6 +290,20 @@ class PostComposerDraftStoreTest {
     }
 
     @Test
+    fun initialMediaBaselineIsNotReportedAsDurableBeforeItsCommit() {
+        val emptyBaseline = draft()
+        assertEquals(emptyBaseline, initialPostComposerPersistedSnapshot(null, emptyBaseline))
+
+        val initialMedia = draft(step = CreatePostStep.Image, imageUri = "file:///fixture.png")
+        assertNull(initialPostComposerPersistedSnapshot(null, initialMedia))
+        assertFalse(isPostComposerImageDraftDurablyPersisted(false, initialMedia, initialMedia.imageUri))
+        assertTrue(isPostComposerImageDraftDurablyPersisted(true, initialMedia, initialMedia.imageUri))
+        assertFalse(isPostComposerImageDraftDurablyPersisted(true, initialMedia, "file:///newer.png"))
+        assertFalse(isPostComposerImageDraftDurablyPersisted(true, initialMedia, null))
+        assertEquals(initialMedia, initialPostComposerPersistedSnapshot(initialMedia, emptyBaseline))
+    }
+
+    @Test
     fun independentStoresShareTheActorFenceAndRejectAStaleTabWrite() = runTest {
         val preferences = AtomicMemoryPreferenceStore()
         val actorATab = PostComposerDraftStore(preferences)
