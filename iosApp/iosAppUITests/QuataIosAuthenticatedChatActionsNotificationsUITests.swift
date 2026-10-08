@@ -2399,6 +2399,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        for key in [
+            "QUATA_SUPABASE_URL",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY",
+            "QUATA_IOS_NATIVE_FACADE_AUTHORIZATION",
+            "QUATA_IOS_NATIVE_FACADE_URL",
+            "QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY",
+        ] {
+            if let value = nonEmpty(environment[key]) {
+                app.launchEnvironment[key] = value
+            }
+        }
         app.launch()
         dismissStartupWhatsNewIfPresent(in: app)
         guard app.descendants(matching: .any)
