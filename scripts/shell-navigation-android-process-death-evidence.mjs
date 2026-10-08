@@ -623,8 +623,16 @@ async function verifyExactPostProcessDeath(target) {
   await waitForResource(target.baselineDetailResource);
   await waitForResource(target.baselineIdentityResource);
   const baselineActivityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    exactPostBaseIntentSummary: baselineActivityState
+      .split(/\r?\n/)
+      .filter((line) => /intent/i.test(line) && line.includes(PACKAGE))
+      .slice(0, 10)
+      .map((line) => line.replace(/dat=\S+/g, "dat=<redacted>")),
+  };
   const baselineIntentLine = baselineActivityState.split(/\r?\n/).find((line) =>
-    /baseIntent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
+    /intent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
   );
   if (!baselineIntentLine) throw new Error(`exact_post_differential_base_intent_missing:${target.kind}`);
   report.steps.push(`exact_${target.kind}_differential_base_post_opened`);
@@ -637,7 +645,7 @@ async function verifyExactPostProcessDeath(target) {
   await waitForResource(target.identityResource);
   const targetActivityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
   const retainedBaseIntentLine = targetActivityState.split(/\r?\n/).find((line) =>
-    /baseIntent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
+    /intent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
   );
   if (!retainedBaseIntentLine || retainedBaseIntentLine.includes(target.targetIntentMarker)) {
     throw new Error(`exact_post_differential_base_intent_not_preserved:${target.kind}`);
