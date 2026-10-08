@@ -2413,10 +2413,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launch()
         dismissStartupWhatsNewIfPresent(in: app)
         guard app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
             .firstMatch
             .waitForExistence(timeout: 20) else {
-            XCTFail("The seeded normal launch must restore Feed.")
+            XCTFail("The seeded normal launch must restore an authenticated surface.")
             return
         }
 
@@ -2432,10 +2432,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launch()
         dismissStartupWhatsNewIfPresent(in: app)
         guard app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-feed-host")
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
             .firstMatch
             .waitForExistence(timeout: 20) else {
-            XCTFail("Feed must relaunch from a new application process.")
+            XCTFail("An authenticated surface must relaunch from a new application process.")
             return
         }
 

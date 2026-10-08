@@ -326,6 +326,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(iosUiTest, /app\.launchEnvironment\[key\] = value/);
   assert.match(iosUiTest, /"QUATA_SUPABASE_URL"/);
   assert.match(iosUiTest, /"QUATA_SUPABASE_PUBLISHABLE_KEY"/);
+  assert.match(iosUiTest, /testOfficialVideoPositionRestoresAfterProcessRelaunch[\s\S]*quata-ios-authenticated-top-chrome/);
   assert.match(iosUiTest, /fullscreen-media\.video/);
   assert.match(iosOfficialBridge, /root\.accessibilityIdentifier = "fullscreen-media\.video"/);
   assert.match(iosOfficialBridge, /case \.playing: "playing"/);
