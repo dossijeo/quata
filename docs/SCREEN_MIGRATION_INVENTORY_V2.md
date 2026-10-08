@@ -282,4 +282,3 @@ Auditoría: `auditoria_quata_inventario.md`, `auditoria_quata_inventario.xlsx` y
 La auditoría revisó documentalmente las 75 unidades y produjo 20 observaciones. No compiló aplicaciones,
 no ejecutó tests ni mutó backend. Los detalles de contraste, fuentes y límites permanecen en los
 entregables de auditoría y en el historial archivado del inventario.
-

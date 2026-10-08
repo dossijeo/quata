@@ -924,4 +924,3 @@ El primer intento iOS conserva NO-GO: seleccionó el mensaje, pero pulsó Back m
 ## Rechazo caliente de sesión nativa — integrado por #484 el 30 de septiembre de 2026
 
 `FLOW-DEEP-LINKS` y `SCR-AUTH-LOGIN` eliminan el pendiente de rechazo caliente nativo con evidencia real Android/iOS Simulator y custodia exacta. La implementación iOS integrada por #484 está ligada a la generación de sesión y no puede desmontar un reemplazo concurrente. [Atestación](candidate-attestations/evidence/native-session-hot-rejection-20260930.json) y [plan de aceptación](FLOW_DEEP_LINKS_NATIVE_SESSION_ACCEPTANCE_PLAN.md#rechazo-caliente-de-sesión-nativa--candidata-local-del-30-de-septiembre-de-2026). Se conservan la traza de paquete, APNs, distribución/dispositivo físico y rutas ajenas como alcances separados.
-
