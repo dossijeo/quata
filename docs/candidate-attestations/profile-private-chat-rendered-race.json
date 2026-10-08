@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "9e0999d6379dbce8fb6486fd482b716e2a07dbac",
-  "certification": "rendered-common-compose-single-flight-complete-rebase-review-pending-final-CI-pending",
+  "certification": "rendered-common-compose-single-flight-complete-independent-review-go-final-CI-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -37,8 +37,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-private-chat-rendered-race.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "cf014f1e4e904cb78971a894d4357859a9d8ea1b",
     "blockingFindings": [],
     "resolvedFindings": [
       "The first review found that the fixture guard could hide callbacks from disabled controls. Every invocation is now recorded before the state guard, so either additional rendered touch would fail the exact single-open assertion.",
@@ -56,6 +56,7 @@
     "Independent exact-head review of cbd7a9a58 returned GO with no material P0-P3 findings. It confirmed own-blob identity, single callback/progress identity/disabled sibling assertions, focal scope, validator, diff-check and clean tree. This final documentation-only commit records that review without attributing native or backend execution.",
     "The rendered-race series was replayed over reviewed lifecycle head 09da55e3e. Its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff; inherited changes are outside this presentation-only unit. No native-platform or backend execution is attributed to this rebase.",
     "Independent exact-head review of 55482967b returned GO with no P0-P3 findings. It confirmed owned-blob identity, historical custody, focal scope, validator, diff-check and a clean tree; this documentation-only commit records that review without attributing native or backend execution.",
-    "The final rendered-race delta was reconstructed over frozen lifecycle head d36bc7ff1. Product SHA 9e0999d63 is patch-equivalent to previously reviewed Product eb6f70d64; its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff. No native-platform or backend execution is attributed to the new base."
+    "The final rendered-race delta was reconstructed over frozen lifecycle head d36bc7ff1. Product SHA 9e0999d63 is patch-equivalent to previously reviewed Product eb6f70d64; its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff. No native-platform or backend execution is attributed to the new base.",
+    "Independent exact-head review of cf014f1e4 returned GO with no P0-P3 findings. It confirmed callback-before-guard observation, exclusive progress identity, both controls disabled, owned-blob identity, validator, diff-check and a clean tree; this documentation-only commit records that result."
   ]
 }
