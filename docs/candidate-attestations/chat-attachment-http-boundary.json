@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "8cbb355173e2e1ccb0f0c9443d33acaf8556a3c4",
-  "certification": "attachment-http-boundary-platform-focal-complete-rebase-review-pending-final-CI-pending",
+  "certification": "attachment-http-boundary-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_ATTACHMENT_HTTP_BOUNDARY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -80,8 +80,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-attachment-http-boundary.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "616ff65af525725b80e48053cee9fd3e46f9271e",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2 Android cleanup verification from the initial e41823f4 review was resolved in Product SHA 9fff209b and renewed 5/5."
@@ -97,6 +97,7 @@
     "Independent exact-head review of af5a223c returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
     "The seven-commit HTTP boundary series was replayed over reviewed terminal-matrix head d6c27d305. Relative to executed Product 9fff209b, the new base also carries six inherited custody documents and the unrelated Official accessibility XCTest integrated by #569; every HTTP-owned runtime, platform-test, contract and report blob remains byte-identical.",
     "Independent exact-head review of 31c846919 returned GO with no P0-P3 findings after correcting the inherited-delta wording. It confirmed HTTP-owned blob identity, contract 46/46, validator, diff-check and a clean tree. This final documentation-only commit records that review without attributing new platform execution.",
-    "The HTTP boundary product series was replayed over squash 90ab413c3 after verifying tree identity with terminal-matrix candidate d6c27d305. Product SHA 8cbb35517 is patch-equivalent to previously reviewed Product 1aa072755; platform runtime, tests and evidence report blobs remain byte-identical, so no E2E matrix was repeated solely for the new base."
+    "The HTTP boundary product series was replayed over squash 90ab413c3 after verifying tree identity with terminal-matrix candidate d6c27d305. Product SHA 8cbb35517 is patch-equivalent to previously reviewed Product 1aa072755; platform runtime, tests and evidence report blobs remain byte-identical, so no E2E matrix was repeated solely for the new base.",
+    "Independent exact-head review of 616ff65af returned GO with no P0-P3 findings after correcting the execution attribution. Contract 46/46, validator and diff-check passed on the clean reviewed head; this documentation-only commit records that result."
   ]
 }
