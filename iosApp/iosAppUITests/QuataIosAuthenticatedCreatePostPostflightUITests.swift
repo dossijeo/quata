@@ -113,7 +113,9 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         let expectation = XCTNSPredicateExpectation(
             predicate: NSPredicate { candidate, _ in
                 guard let input = candidate as? XCUIElement else { return false }
-                return ((input.value as? String) ?? input.label) == expected
+                return [input.label, input.value as? String]
+                    .compactMap { $0 }
+                    .contains(expected)
             },
             object: element
         )
@@ -176,17 +178,44 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
     ) {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         let container = app.descendants(matching: .any).matching(identifier: containerIdentifier).firstMatch
+        let composerScroll = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-composer-host")
+            .firstMatch
+            .scrollViews
+            .firstMatch
         XCTAssertTrue(container.waitForExistence(timeout: 12), "Expected \(containerIdentifier) for \(context).")
         XCTAssertTrue(element.waitForExistence(timeout: 12), "Expected \(identifier) for \(context).")
 
-        var remainingScrolls = 5
+        dismissKeyboardIfPresent(in: app)
+        var remainingScrolls = 24
         while !element.isHittable && remainingScrolls > 0 {
-            container.swipeUp()
+            if composerScroll.exists {
+                let start = composerScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+                let end = composerScroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
+                start.press(forDuration: 0.01, thenDragTo: end)
+            } else {
+                container.swipeUp()
+            }
             remainingScrolls -= 1
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         XCTAssertTrue(element.isHittable, "Expected \(identifier) to become hittable after scrolling for \(context).")
         guard element.isHittable else { return }
         element.tap()
+    }
+
+    private func dismissKeyboardIfPresent(in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else { return }
+        for label in ["return", "Return", "Intro", "Retorno", "Done", "Hecho"] {
+            let key = app.keyboards.buttons[label].firstMatch
+            if key.exists {
+                key.tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                if app.keyboards.count == 0 { return }
+            }
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
     }
 
     private func tapPrefix(_ prefix: String, in app: XCUIApplication, context: String) {
