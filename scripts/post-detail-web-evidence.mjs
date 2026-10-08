@@ -145,6 +145,16 @@ async function verifyFeedDetail(page, origin, state) {
     await verifyFeedVideoPositionSurvivesReload(page, state);
     await waitForAnchor(page, "feed.detail.chrome");
     await waitForAnchor(page, mediaOpenAnchor);
+  } else {
+    await verifyExactPostSurvivesDocumentReload(page, {
+      fragment: `post-${encodeURIComponent(state.feed.postId)}`,
+      route: `post/${state.feed.postId}`,
+      markerName: "data-quata-feed-detail",
+      markerValue: state.feed.postId,
+      label: "feed",
+    });
+    await waitForAnchor(page, "feed.detail.chrome");
+    await waitForAnchor(page, mediaOpenAnchor);
   }
   const bodyVisibleInAccessibility = await visibleText(page, state.feed.postBody, 2_000);
   report.anchors.push("feed.detail.chrome", "feed.detail.back", `feed.post.media.${state.feed.postId}`, mediaOpenAnchor);
@@ -249,6 +259,15 @@ async function verifyOfficialDetail(page, origin, state) {
   await waitForAttribute(page, "data-quata-official-detail-link", state.official.linkUrl, "official_detail_link_marker_missing");
   if (options.officialVideoPositionLifecycle) {
     await verifyOfficialVideoPositionSurvivesReload(page, state);
+    await waitForAnchor(page, "official.detail.chrome");
+  } else {
+    await verifyExactPostSurvivesDocumentReload(page, {
+      fragment: `official-${encodeURIComponent(state.official.postId)}`,
+      route: `official/${state.official.postId}`,
+      markerName: "data-quata-official-detail-title",
+      markerValue: state.official.title,
+      label: "official",
+    });
     await waitForAnchor(page, "official.detail.chrome");
   }
   const titleVisibleInAccessibility = await visibleText(page, state.official.title, 2_000);
@@ -407,6 +426,29 @@ async function waitForRoute(page, expectedRoute, error, timeout = 15_000) {
   ).catch(() => {
     throw new Error(error);
   });
+}
+
+async function verifyExactPostSurvivesDocumentReload(page, { fragment, route, markerName, markerValue, label }) {
+  const beforeTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  const expectedHash = `#${fragment}`;
+  if (new URL(page.url()).hash !== expectedHash) throw new Error(`${label}_exact_post_hash_missing_before_reload`);
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await waitForRoute(page, route, `${label}_exact_post_route_missing_after_reload`, 35_000);
+  await waitForAttribute(page, markerName, markerValue, `${label}_exact_post_marker_missing_after_reload`, 35_000);
+
+  const afterTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  if (afterTimeOrigin === beforeTimeOrigin) throw new Error(`${label}_document_was_not_recreated`);
+  if (new URL(page.url()).hash !== expectedHash) throw new Error(`${label}_exact_post_hash_changed_after_reload`);
+
+  report.evidence[`${label}ExactPostDocumentReload`] = {
+    beforeTimeOrigin,
+    afterTimeOrigin,
+    fragmentSha256: sha256(fragment),
+    route,
+    markerSha256: sha256(markerValue),
+  };
+  report.steps.push(`exact_${label}_post_restored_after_real_web_document_reload_without_route_replay`);
 }
 
 async function waitForAttribute(page, name, value, error, timeout = 15_000) {
