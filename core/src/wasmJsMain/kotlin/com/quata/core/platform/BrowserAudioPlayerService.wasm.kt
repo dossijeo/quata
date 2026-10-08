@@ -170,6 +170,7 @@ private fun browserAudioLoad(
         };
         const cleanup = () => {
           if (controller) controller.abort();
+          document.removeEventListener('visibilitychange', pauseForHiddenDocument);
           element.onloadedmetadata = null;
           element.oncanplay = null;
           element.onplaying = null;
@@ -182,6 +183,13 @@ private fun browserAudioLoad(
           objectUrl = null;
           store.delete(id);
         };
+        element.__quataCleanup = cleanup;
+        const pauseForHiddenDocument = () => {
+          if (document.visibilityState !== 'visible' && !element.paused && !element.ended) {
+            element.pause();
+          }
+        };
+        document.addEventListener('visibilitychange', pauseForHiddenDocument);
         loadTimer = globalThis.setTimeout(() => {
           cleanup();
           complete('failure:web_audio_load_timeout');
@@ -252,7 +260,7 @@ private fun browserAudioState(id: String, onResult: (String) -> Unit): Unit = js
 )
 
 private fun browserAudioStop(id: String, onComplete: () -> Unit): Unit = js(
-    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { element.pause(); element.removeAttribute('src'); element.load(); store.delete(id); } onComplete(); })()""",
+    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { if (typeof element.__quataCleanup === 'function') element.__quataCleanup(); else { element.pause(); element.removeAttribute('src'); element.load(); store.delete(id); } } onComplete(); })()""",
 )
 
 private const val BrowserAudioUnsupported = "unsupported"

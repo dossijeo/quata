@@ -16,6 +16,8 @@ import android.media.MediaRecorder
 import java.io.File
 import kotlin.math.abs
 import java.util.Locale
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -484,6 +486,8 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
         releasePlayer()
         val nextSessionId = ++sessionId
         ExoPlayer.Builder(applicationContext).build().also { newPlayer ->
+            newPlayer.setAudioAttributes(AndroidChatAudioAttributes, true)
+            newPlayer.setHandleAudioBecomingNoisy(true)
             newPlayer.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (sessionId != nextSessionId) return
@@ -494,16 +498,27 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
                     }
                 }
 
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                  override fun onIsPlayingChanged(isPlaying: Boolean) {
                     if (sessionId != nextSessionId) return
                     eventSink.tryEmit(
                         AudioPlaybackEvent.StateChanged(
                             if (isPlaying) currentState(AudioPlaybackPhase.Playing) else currentState(),
                         ),
                     )
-                }
+                  }
 
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                  override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+                      if (
+                          playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS &&
+                          newPlayer.playWhenReady
+                      ) {
+                          // A lifecycle interruption must require an explicit user replay. Leaving
+                          // playWhenReady set would let Media3 resume when focus returns.
+                          newPlayer.pause()
+                      }
+                  }
+
+                  override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     if (sessionId != nextSessionId) return
                     eventSink.tryEmit(AudioPlaybackEvent.Failed(currentState(AudioPlaybackPhase.Failed), error.message))
                 }
@@ -620,3 +635,8 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
 }
 
 private const val ANDROID_AUDIO_SEEK_CONFIRMATION_TOLERANCE_MS = 250L
+
+private val AndroidChatAudioAttributes = AudioAttributes.Builder()
+    .setUsage(C.USAGE_MEDIA)
+    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+    .build()
