@@ -81,11 +81,9 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-lifecycle-routing.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
-    "blockingFindings": [
-      "Independent exact-head re-review required after fixing Web visibility-listener cleanup."
-    ],
+    "status": "GO",
+    "reviewedSha": "711ca5e08f7edf2be536c633d014f3bd97752390",
+    "blockingFindings": [],
     "resolvedFindings": [
       "The prior exact-head review found that Android did not prove the unit-wide no-auto-resume policy. The player now converts transient audio-focus suppression into an explicit pause, and the focal test verifies it remains paused after focus is returned.",
       "The prior exact-head review found cleanup could leave its WAV. Fixture creation now occurs inside the protected scope; stop, activity finish and deletion are attempted independently, and the test asserts both successful stop and absence of the file.",
@@ -103,6 +101,7 @@
     "The lifecycle series was replayed over merged HTTP-boundary squash bdb84c4bf after tree equality with frozen head 20707baab was verified. Product SHA 308c1ffa7 is patch-equivalent to previously reviewed Product a6e529084; Android, Web and iOS execution remain bound to ff9d40fa and every lifecycle-owned runtime, platform-test, contract and report blob remains byte-identical. No E2E matrix was repeated solely for the new base.",
     "Independent exact-head review of 5c190d08f returned GO with no P0-P3 findings. It reproduced contract 3/3, validator and diff-check on a clean tree; this documentation-only commit records that result.",
     "After the frozen candidate failed wasmJsNodeTest because the browser-only fixture dereferenced an absent Node document, the exact Web test was rerun at fea7a30e in both Node and Chrome Headless. Android and iOS production/test blobs remain identical to their historical executions.",
-    "The Web cleanup repair was executed at 5524485ba in both wasmJsNodeTest and Chrome Headless; the focal fixture tracks the exact visibility listener registration and asserts stop removes it."
+    "The Web cleanup repair was executed at 5524485ba in both wasmJsNodeTest and Chrome Headless; the focal fixture tracks the exact visibility listener registration and asserts stop removes it.",
+    "Independent exact-head review of 711ca5e08 returned GO with no P0-P3 findings after reproducing Node and Chrome 1/1, contract 3/3, validator, diff-check, source hashes and zero-listener cleanup. This documentation-only commit records that result."
   ]
 }
