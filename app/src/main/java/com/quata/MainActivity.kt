@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
             intent?.removeExtra(EXTRA_POST_DESTINATION_EVIDENCE_MODE)
             intent?.removeExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE)
             intent?.removeExtra(EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE)
-            handleIncomingIntent(intent)
+            handleIncomingIntent(intent, restoreFromSavedState = savedInstanceState != null)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
             setContent {
@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
                             container = appContainer,
                             themeMode = themeMode,
                             incomingLink = incomingLink.value,
-                            onIncomingLinkHandled = { incomingLink.value = null },
+                            onIncomingLinkHandled = ::clearIncomingLink,
                             incomingShare = incomingShare.value,
                             onIncomingShareHandled = ::clearIncomingShare,
                             startDestinationOverride = startDestinationForEvidence,
@@ -238,13 +238,19 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun handleIncomingIntent(sourceIntent: Intent?) {
+    private fun handleIncomingIntent(sourceIntent: Intent?, restoreFromSavedState: Boolean = false) {
         val callback = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
         if ((application as QuataApp).resumeGoogleOAuthCallback(callback)) {
             sourceIntent?.data = null
             return
         }
-        incomingLink.value = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
+        if (restoreFromSavedState && sourceIntent?.action == Intent.ACTION_VIEW) {
+            // The exact route is already in Compose's saved state. Replaying the task's historical
+            // deep link would overwrite a newer nested destination during Activity/process restore.
+            clearIncomingLink()
+        } else {
+            incomingLink.value = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
+        }
         val shareIntent = sourceIntent?.takeIf {
             it.action in SHARE_ACTIONS
         }
@@ -273,6 +279,13 @@ class MainActivity : ComponentActivity() {
     private fun rejectIncomingShare(messageRes: Int) {
         Toast.makeText(this, messageRes, Toast.LENGTH_LONG).show()
         clearIncomingShare()
+    }
+
+    private fun clearIncomingLink() {
+        incomingLink.value = null
+        if (intent?.action == Intent.ACTION_VIEW) {
+            setIntent(Intent(this, MainActivity::class.java).apply { action = Intent.ACTION_MAIN })
+        }
     }
 
     private fun clearIncomingShare() {
