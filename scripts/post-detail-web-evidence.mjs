@@ -156,6 +156,14 @@ async function verifyFeedDetail(page, origin, state) {
     await waitForAnchor(page, "feed.detail.chrome");
     await waitForAnchor(page, mediaOpenAnchor);
   }
+  if (options.exactPostReloadOnly) {
+    report.evidence.feedExactPostReload = await screenshot(page, "web-shell-exact-feed-post-reload");
+    await clickAnchor(page, "feed.detail.back");
+    await waitForRoute(page, "feed", "feed_back_route_missing_after_exact_reload");
+    await waitForAttribute(page, "data-quata-feed-detail", "", "feed_detail_marker_not_cleared_after_exact_reload");
+    report.steps.push("exact_feed_post_back_returned_to_feed_after_document_reload");
+    return;
+  }
   const bodyVisibleInAccessibility = await visibleText(page, state.feed.postBody, 2_000);
   report.anchors.push("feed.detail.chrome", "feed.detail.back", `feed.post.media.${state.feed.postId}`, mediaOpenAnchor);
   report.diagnostics = { ...(report.diagnostics ?? {}), feedBodyVisibleInAccessibility: bodyVisibleInAccessibility };
@@ -269,6 +277,13 @@ async function verifyOfficialDetail(page, origin, state) {
       label: "official",
     });
     await waitForAnchor(page, "official.detail.chrome");
+  }
+  if (options.exactPostReloadOnly) {
+    report.evidence.officialExactPostReload = await screenshot(page, "web-shell-exact-official-post-reload");
+    await clickAnchor(page, "official.detail.back");
+    await waitForRoute(page, "official", "official_back_route_missing_after_exact_reload");
+    report.steps.push("exact_official_post_back_returned_to_official_after_document_reload");
+    return;
   }
   const titleVisibleInAccessibility = await visibleText(page, state.official.title, 2_000);
   await clickAnchor(page, `official.detail.read-more.${state.official.postId}`);
@@ -725,6 +740,7 @@ function parseArgs(args) {
     feedVideo: false,
     officialVideo: false,
     officialVideoPositionLifecycle: false,
+    exactPostReloadOnly: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -749,6 +765,12 @@ function parseArgs(args) {
       parsed.officialVideoPositionLifecycle = true;
       parsed.output = resolve("build-reports/web/official-video-position-lifecycle-evidence.json");
       parsed.evidenceDir = resolve("build-reports/web/official-video-position-lifecycle-evidence");
+      continue;
+    }
+    if (key === "--exact-post-reload-only") {
+      parsed.exactPostReloadOnly = true;
+      parsed.output = resolve("build-reports/web/shell-navigation-exact-post-web-reload.json");
+      parsed.evidenceDir = resolve("build-reports/web/shell-navigation-exact-post-web-reload");
       continue;
     }
     const value = args[index + 1];

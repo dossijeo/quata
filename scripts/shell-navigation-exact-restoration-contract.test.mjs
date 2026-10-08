@@ -106,9 +106,12 @@ test("Android and Web restore exact Feed and Official posts without replaying a 
   assert.match(postDetailWebRunner, /feed_detail_marker_missing_after_reload/);
   assert.match(postDetailWebRunner, /official_detail_title_marker_missing_after_reload/);
   assert.match(postDetailWebRunner, /verifyExactPostSurvivesDocumentReload/);
+  assert.match(postDetailWebRunner, /--exact-post-reload-only/);
   assert.match(postDetailWebRunner, /performance\.timeOrigin/);
   assert.match(postDetailWebRunner, /exact_\$\{label\}_post_restored_after_real_web_document_reload_without_route_replay/);
   assert.match(postDetailWebRunner, /\$\{label\}_exact_post_hash_changed_after_reload/);
+  assert.match(postDetailWebRunner, /exact_feed_post_back_returned_to_feed_after_document_reload/);
+  assert.match(postDetailWebRunner, /exact_official_post_back_returned_to_official_after_document_reload/);
 });
 
 test("Web keeps allowlisted Communities and Notifications returns only for the matching exact Chat route", () => {
