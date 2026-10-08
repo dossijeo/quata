@@ -47,6 +47,8 @@ test("Android postflight restores an exact draft after a real process restart wi
   assert.match(uiTest, /waitForExactText\(ComposerTextInputTestTag, marker\.orEmpty\(\)\)/);
   assert.match(uiTest, /SemanticsProperties\.EditableText\)\?\.text == expected/);
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart/);
+  assert.match(uiTest, /waitForPersistedTextDraft\(initialSession\?\.userId\.orEmpty\(\), marker\.orEmpty\(\)\)/);
+  assert.match(uiTest, /store\.restore\(actorProfileId\)[\s\S]*restored\?\.step == CreatePostStep\.Text[\s\S]*restored\.text == expected/);
   assert.match(coordinator, /am", "force-stop", "com\.quata/);
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
   assert.match(uiTest, /tap\("composer-back"\)[\s\S]*waitForGone\(CreatePostCommonRootTestTag\)[\s\S]*waitForPrefix\("feed\.action\.publish\."\)/);

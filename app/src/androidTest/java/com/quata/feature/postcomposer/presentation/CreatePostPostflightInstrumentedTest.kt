@@ -19,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.MainActivity
 import com.quata.QuataApp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -104,7 +105,8 @@ class CreatePostPostflightInstrumentedTest {
         suppressStartupPrompts()
         grantOptionalNotificationPermission()
         app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
-        assertTrue(app.container.sessionManager.currentSession()?.isSupabaseAuthenticated() == true)
+        val initialSession = app.container.sessionManager.currentSession()
+        assertTrue(initialSession?.isSupabaseAuthenticated() == true)
 
         ActivityScenario.launch<MainActivity>(mainIntent()).use {
             waitFor("navigation.primary.feed")
@@ -115,6 +117,7 @@ class CreatePostPostflightInstrumentedTest {
             waitFor(ComposerTextInputTestTag)
             compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).performTextInput(marker.orEmpty())
             waitForExactText(ComposerTextInputTestTag, marker.orEmpty())
+            waitForPersistedTextDraft(initialSession?.userId.orEmpty(), marker.orEmpty())
             screenshot("android-create-post-draft-before-process-restart")
         }
         File(evidenceDir(), "android-create-post-draft-seeded.json").writeText(
@@ -211,6 +214,16 @@ class CreatePostPostflightInstrumentedTest {
                     .fetchSemanticsNode().config.getOrNull(SemanticsProperties.EditableText)?.text == expected
             }.getOrDefault(false)
         }
+    }
+
+    private suspend fun waitForPersistedTextDraft(actorProfileId: String, expected: String) {
+        val store = PostComposerDraftStore(app.container.platformServices.preferences)
+        repeat(100) {
+            val restored = store.restore(actorProfileId) { false }?.snapshot
+            if (restored?.step == CreatePostStep.Text && restored.text == expected) return
+            delay(100)
+        }
+        throw AssertionError("android_create_post_draft_not_committed_before_process_restart")
     }
 
     private fun tagStartsWith(prefix: String) = SemanticsMatcher("testTag starts with $prefix") { node ->
