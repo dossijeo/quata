@@ -83,11 +83,16 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
+  assert.match(shell, /testClearAuthenticatedSessionAfterVisualGates/);
+  assert.match(shell, /trap cleanup_on_exit EXIT/);
   assert.match(coordinator, /bash scripts\/run-ios-create-post-postflight-ui-test\.sh/);
   assert.match(coordinator, /publishCallbacksInvoked: false/);
   assert.match(coordinator, /cleanupRemoteSimulatorState\(options\)/);
   assert.match(coordinator, /simulatorAppContainerRemoved = true/);
   assert.match(coordinator, /simctl uninstall/);
+  assert.match(coordinator, /simctl bootstatus/);
+  assert.match(coordinator, /simctl getenv/);
+  assert.match(coordinator, /No such file or directory/);
 });
 
 test("Create Post postflight gates are registered in focal and fast entry points", async () => {

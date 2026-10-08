@@ -86,6 +86,23 @@ run_and_require() {
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
 ui='QuataIosUITests/QuataIosAuthenticatedCreatePostPostflightUITests/testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing'
+cleanup='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testClearAuthenticatedSessionAfterVisualGates'
+cleanup_required=1
+cleanup_on_exit() {
+  local original_status=$?
+  trap - EXIT
+  if [[ "$cleanup_required" == "1" ]]; then
+    cleanup_required=0
+    run_and_require "$cleanup" testClearAuthenticatedSessionAfterVisualGates \
+      "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/cleanup.log" || original_status=1
+  fi
+  exit "$original_status"
+}
+trap cleanup_on_exit EXIT
+
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/seed.log"
 run_and_require "$ui" testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/ui.log"
+run_and_require "$cleanup" testClearAuthenticatedSessionAfterVisualGates "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/cleanup.log"
+cleanup_required=0
+trap - EXIT
 echo "IOS_CREATE_POST_POSTFLIGHT_UI_GATE_PASSED" >&2

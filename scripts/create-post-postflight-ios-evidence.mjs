@@ -273,14 +273,22 @@ async function cleanupRemoteSimulatorState({ host, simulatorUdid }) {
 set -euo pipefail
 udid=${shellQuote(simulatorUdid)}
 bundle_id=com.quata.ios
+xcrun simctl bootstatus "$udid" -b >/dev/null
+simulator_home="$(xcrun simctl getenv "$udid" HOME)"
+test -n "$simulator_home"
 if xcrun simctl get_app_container "$udid" "$bundle_id" data >/dev/null 2>&1; then
   xcrun simctl terminate "$udid" "$bundle_id" >/dev/null 2>&1 || true
   xcrun simctl uninstall "$udid" "$bundle_id"
 fi
-if xcrun simctl get_app_container "$udid" "$bundle_id" data >/dev/null 2>&1; then
-  echo "Simulator app container still exists after cleanup." >&2
-  exit 1
-fi
+set +e
+absence="$(xcrun simctl get_app_container "$udid" "$bundle_id" data 2>&1)"
+absence_status=$?
+set -e
+test "$absence_status" -ne 0
+case "$absence" in
+  *"No such file or directory"*|*"No such app"*|*"not installed"*) ;;
+  *) echo "Unexpected get_app_container failure after cleanup: $absence" >&2; exit 1 ;;
+esac
 `);
 }
 
