@@ -59,6 +59,7 @@ const val ComposerPickVideoTestTag = "composer-media.pick-video"
 const val ComposerCaptureVideoTestTag = "composer-media.capture-video"
 const val ComposerEditVideoTestTag = "composer-media.edit-video"
 const val ComposerSelectedImagePreviewTestTag = "composer-media.selected-image-preview"
+const val ComposerPersistedImageDraftTestTag = "composer-media.selected-image-preview.persisted"
 const val ComposerSelectedVideoPreviewTestTag = "composer-media.selected-video-preview"
 const val ComposerMediaErrorTestTag = "composer-media.error"
 
@@ -627,7 +628,9 @@ fun CreatePostRoot(
                 )
                 CreatePostStep.Image -> CommonImageComposerForm(state, slots, copy, accessibility, isLandscapeLayout, locationOpen, { locationOpen = it }, {
                     viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(it))
-                }) { publish(PostComposerType.Image) }
+                }, durablePersistedSnapshot?.imageUri != null && durablePersistedSnapshot?.imageUri == state.imageUri) {
+                    publish(PostComposerType.Image)
+                }
                 CreatePostStep.Video -> CommonVideoComposerForm(state, slots, copy, accessibility, isLandscapeLayout, {
                     viewModel.onEvent(CreatePostUiEvent.TextChanged(it))
                 }) { publish(PostComposerType.Video) }
@@ -732,7 +735,7 @@ fun dispatchCreatePostBack(isLoading: Boolean, cancel: () -> Unit, reset: () -> 
 }
 
 @Composable
-private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots: CreatePostPlatformSlots, copy: CreatePostRootCopy, accessibility: CriticalControlsAccessibilityCopy, landscape: Boolean, locationOpen: Boolean, onLocationOpen: (Boolean) -> Unit, onLocationChange: (String) -> Unit, publish: () -> Unit) {
+private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots: CreatePostPlatformSlots, copy: CreatePostRootCopy, accessibility: CriticalControlsAccessibilityCopy, landscape: Boolean, locationOpen: Boolean, onLocationOpen: (Boolean) -> Unit, onLocationChange: (String) -> Unit, imageDraftPersisted: Boolean, publish: () -> Unit) {
     ComposerMediaPostFormContent(
         isLandscapeLayout = landscape,
         mediaSource = {
@@ -768,6 +771,15 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                             .testTag(ComposerSelectedImagePreviewTestTag)
                             .semantics { contentDescription = ComposerSelectedImagePreviewTestTag },
                     )
+                    if (imageDraftPersisted) {
+                        Spacer(
+                            Modifier
+                                .testTag(ComposerPersistedImageDraftTestTag)
+                                .semantics { contentDescription = ComposerPersistedImageDraftTestTag }
+                                .fillMaxWidth()
+                                .height(1.dp),
+                        )
+                    }
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.imageType, copy.imagePreviewEmpty)
             })
         },

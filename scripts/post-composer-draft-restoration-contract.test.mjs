@@ -105,7 +105,8 @@ test("native evidence restores a private image draft and proves discard cleanup"
   assert.match(androidTest, /compose\.waitUntil\(10_000\) \{ persistedPath\?\.exists\(\) == false \}/);
   assert.match(androidRunner, /seedAuthenticatedImageDraftForProcessRestart[\s\S]*?force-stop[\s\S]*?restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard/);
   assert.match(androidRunner, /android-create-post-media-draft-evidence\.json[\s\S]*?media_binary_and_envelope_removed_after_discard/);
-  assert.match(iosTest, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing[\s\S]*?composer-media\.selected-image-preview[\s\S]*?app\.terminate\(\)[\s\S]*?composer-media\.selected-image-preview[\s\S]*?discard restored image draft/);
+  assert.match(iosTest, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing[\s\S]*?composer-media\.selected-image-preview[\s\S]*?composer-media\.selected-image-preview\.persisted[\s\S]*?app\.terminate\(\)[\s\S]*?composer-media\.selected-image-preview[\s\S]*?discard restored image draft/);
+  assert.match(await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt"), /durablePersistedSnapshot\?\.imageUri != null[\s\S]*?durablePersistedSnapshot\?\.imageUri == state\.imageUri[\s\S]*?ComposerPersistedImageDraftTestTag/);
   assert.match(iosTest, /afterDiscard[\s\S]*?A discarded image draft must not reappear after another app relaunch/);
   assert.match(iosRunner, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(iosRunner, /run_status[\s\S]*?"0"[\s\S]*?"124"[\s\S]*?return 1/);

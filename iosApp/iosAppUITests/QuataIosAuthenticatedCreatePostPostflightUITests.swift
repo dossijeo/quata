@@ -94,6 +94,7 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         ])
         openComposer(in: app)
         assertVisible("composer-media.selected-image-preview", in: app, context: "image draft before relaunch")
+        assertVisible("composer-media.selected-image-preview.persisted", in: app, context: "durably persisted image draft before relaunch")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-media-draft-before-relaunch")
 
         app.terminate()
