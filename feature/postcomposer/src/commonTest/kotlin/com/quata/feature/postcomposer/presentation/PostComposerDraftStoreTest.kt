@@ -5,6 +5,7 @@ import com.quata.core.platform.PreferenceStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -45,6 +46,21 @@ class PostComposerDraftStoreTest {
         assertTrue(isPostComposerDraftClearRequestCurrent("actor-a", firstActorALease, "actor-a", firstActorALease))
         assertFalse(isPostComposerDraftClearRequestCurrent("actor-a", firstActorALease, "actor-b", null))
         assertFalse(isPostComposerDraftClearRequestCurrent("actor-a", firstActorALease, "actor-a", secondActorALease))
+    }
+
+    @Test
+    fun completedMediaClearCannotApplyEffectsAfterTheActorChanges() {
+        val clearedActorALease = PostComposerDraftActorLease("actor-a", 2)
+        assertTrue(isPostComposerDraftClearRequestCurrent("actor-a", clearedActorALease, "actor-a", clearedActorALease))
+        assertFalse(isPostComposerDraftClearRequestCurrent("actor-a", clearedActorALease, "actor-b", null))
+        assertFalse(
+            isPostComposerDraftClearRequestCurrent(
+                "actor-a",
+                clearedActorALease,
+                "actor-a",
+                PostComposerDraftActorLease("actor-a", 4),
+            ),
+        )
     }
 
     @Test
@@ -297,7 +313,9 @@ class PostComposerDraftStoreTest {
             store.saveWithMediaPersistence(
                 lease,
                 draft(imageUri = "blob:image", videoUri = "blob:video"),
-            ) { _, kind -> "cache:${kind.name.lowercase()}" },
+                { _, kind -> PostComposerDraftMediaPersistence("cache:${kind.name.lowercase()}", created = true) },
+                { _, _ -> },
+            ),
         )
 
         val restored = requireNotNull(
@@ -320,9 +338,266 @@ class PostComposerDraftStoreTest {
         assertTrue(store.save(lease, draft(text = "previous")))
 
         assertFalse(
-            store.saveWithMediaPersistence(lease, draft(text = "new", imageUri = "blob:image")) { _, _ -> null },
+            store.saveWithMediaPersistence(
+                lease,
+                draft(text = "new", imageUri = "blob:image"),
+                { _, _ -> null },
+                { _, _ -> },
+            ),
         )
         assertEquals("previous", store.restore("actor-a") { true }?.snapshot?.text)
+    }
+
+    @Test
+    fun secondMediaFailureDiscardsTheFirstNewBinaryAndPreservesTheEnvelope() = runTest {
+        val store = PostComposerDraftStore(MemoryPreferenceStore())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        assertTrue(store.save(lease, draft(text = "previous")))
+        val discarded = mutableListOf<String>()
+
+        assertFalse(
+            store.saveWithMediaPersistence(
+                lease,
+                draft(text = "replacement", imageUri = "blob:image", videoUri = "blob:video"),
+                { _, kind ->
+                    if (kind == PostComposerDraftMediaKind.Video) null
+                    else PostComposerDraftMediaPersistence("cache:image.new", created = true)
+                },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertEquals(listOf("cache:image.new"), discarded)
+        assertEquals("previous", store.restore("actor-a") { true }?.snapshot?.text)
+    }
+
+    @Test
+    fun staleLeaseAfterPersistenceDiscardsTheNewBinary() = runTest {
+        val preferences = AtomicMemoryPreferenceStore()
+        val writingStore = PostComposerDraftStore(preferences)
+        val actorStore = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(writingStore.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+
+        assertFalse(
+            writingStore.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image"),
+                { _, _ ->
+                    requireNotNull(actorStore.activateActor("actor-b"))
+                    PostComposerDraftMediaPersistence("cache:image.new", created = true)
+                },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertEquals(listOf("cache:image.new"), discarded)
+        assertNull(actorStore.restore("actor-b") { true })
+    }
+
+    @Test
+    fun cancellationDuringSecondMediaPersistenceCompensatesThenPropagates() = runTest {
+        val store = PostComposerDraftStore(MemoryPreferenceStore())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+
+        assertFailsWith<CancellationException> {
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image", videoUri = "blob:video"),
+                { _, kind ->
+                    if (kind == PostComposerDraftMediaKind.Video) throw CancellationException("actor retired")
+                    PostComposerDraftMediaPersistence("cache:image.new", created = true)
+                },
+                { persistence, _ -> discarded += persistence.reference },
+            )
+        }
+
+        assertEquals(listOf("cache:image.new"), discarded)
+        assertNull(store.restore("actor-a") { true })
+    }
+
+    @Test
+    fun coroutineCancellationStillRunsCompensationInANonCancellableContext() = runTest {
+        val store = PostComposerDraftStore(MemoryPreferenceStore())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        val videoPersistenceStarted = CompletableDeferred<Unit>()
+        val discarded = CompletableDeferred<String>()
+        val save = async {
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image", videoUri = "blob:video"),
+                { _, kind ->
+                    if (kind == PostComposerDraftMediaKind.Video) {
+                        videoPersistenceStarted.complete(Unit)
+                        awaitCancellation()
+                    }
+                    PostComposerDraftMediaPersistence("cache:image.new", created = true)
+                },
+                { persistence, _ -> discarded.complete(persistence.reference) },
+            )
+        }
+
+        videoPersistenceStarted.await()
+        save.cancel()
+        assertFailsWith<CancellationException> { save.await() }
+        assertEquals("cache:image.new", discarded.await())
+        assertNull(store.restore("actor-a") { true })
+    }
+
+    @Test
+    fun envelopeWriteFailureBeforeCommitDiscardsStagedMedia() = runTest {
+        val preferences = ThrowingCommitPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+        preferences.nextFailure = CommitFailure.BeforeWrite
+
+        assertFalse(
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image"),
+                { _, _ -> PostComposerDraftMediaPersistence("cache:image.new", created = true) },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertEquals(listOf("cache:image.new"), discarded)
+        assertNull(store.restore("actor-a") { true })
+    }
+
+    @Test
+    fun envelopeWriteExceptionAfterCommitKeepsTheReferencedMedia() = runTest {
+        val preferences = ThrowingCommitPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+        preferences.nextFailure = CommitFailure.AfterWrite
+
+        assertTrue(
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image"),
+                { _, _ -> PostComposerDraftMediaPersistence("cache:image.new", created = true) },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertTrue(discarded.isEmpty())
+        assertEquals("cache:image.new", store.restore("actor-a") { true }?.snapshot?.imageUri)
+    }
+
+    @Test
+    fun envelopeCancellationAfterCommitRethrowsWithoutDeletingReferencedMedia() = runTest {
+        val preferences = ThrowingCommitPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+        preferences.nextFailure = CommitFailure.CancelAfterWrite
+
+        assertFailsWith<CancellationException> {
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image"),
+                { _, _ -> PostComposerDraftMediaPersistence("cache:image.new", created = true) },
+                { persistence, _ -> discarded += persistence.reference },
+            )
+        }
+
+        assertTrue(discarded.isEmpty())
+        assertEquals("cache:image.new", store.restore("actor-a") { true }?.snapshot?.imageUri)
+    }
+
+    @Test
+    fun inconclusiveCommitConfirmationPreservesPotentiallyReferencedMedia() = runTest {
+        val preferences = ThrowingCommitPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+        preferences.nextFailure = CommitFailure.AfterWriteAndFailConfirmation
+
+        assertFalse(
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image"),
+                { _, _ -> PostComposerDraftMediaPersistence("cache:image.new", created = true) },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertTrue(discarded.isEmpty())
+        assertEquals("cache:image.new", store.restore("actor-a") { true }?.snapshot?.imageUri)
+    }
+
+    @Test
+    fun supersedingEnvelopeKeepsMediaCreatedByTheFailedSave() = runTest {
+        val preferences = ThrowingCommitPreferenceStore()
+        val firstStore = PostComposerDraftStore(preferences)
+        val supersedingStore = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(firstStore.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+        preferences.afterNextWrite = {
+            val supersedingLease = requireNotNull(supersedingStore.activateActor("actor-a"))
+            assertTrue(
+                supersedingStore.saveWithMediaPersistence(
+                    supersedingLease,
+                    draft(text = "newer text", imageUri = "cache:image.new"),
+                    { reference, _ -> PostComposerDraftMediaPersistence(reference, created = false) },
+                    { _, _ -> error("superseding save must not discard shared media") },
+                ),
+            )
+        }
+        preferences.nextFailure = CommitFailure.AfterWriteAndRunHook
+
+        assertFalse(
+            firstStore.saveWithMediaPersistence(
+                lease,
+                draft(text = "older text", imageUri = "blob:image"),
+                { _, _ -> PostComposerDraftMediaPersistence("cache:image.new", created = true) },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertTrue(discarded.isEmpty())
+        val restored = requireNotNull(firstStore.restore("actor-a") { true }).snapshot
+        assertEquals("newer text", restored.text)
+        assertEquals("cache:image.new", restored.imageUri)
+    }
+
+    @Test
+    fun secondMediaFailureKeepsFirstMediaAlreadyAdoptedByANewerEnvelope() = runTest {
+        val preferences = ThrowingCommitPreferenceStore()
+        val firstStore = PostComposerDraftStore(preferences)
+        val supersedingStore = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(firstStore.activateActor("actor-a"))
+        val discarded = mutableListOf<String>()
+
+        assertFalse(
+            firstStore.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image", videoUri = "blob:video"),
+                { _, kind ->
+                    if (kind == PostComposerDraftMediaKind.Video) return@saveWithMediaPersistence null
+                    val staged = PostComposerDraftMediaPersistence("cache:image.new", created = true)
+                    val supersedingLease = requireNotNull(supersedingStore.activateActor("actor-a"))
+                    assertTrue(
+                        supersedingStore.saveWithMediaPersistence(
+                            supersedingLease,
+                            draft(text = "newer text", imageUri = staged.reference),
+                            { reference, _ -> PostComposerDraftMediaPersistence(reference, created = false) },
+                            { _, _ -> error("superseding save must not discard shared media") },
+                        ),
+                    )
+                    staged
+                },
+                { persistence, _ -> discarded += persistence.reference },
+            ),
+        )
+
+        assertTrue(discarded.isEmpty())
+        val restored = requireNotNull(firstStore.restore("actor-a") { true }).snapshot
+        assertEquals("newer text", restored.text)
+        assertEquals("cache:image.new", restored.imageUri)
     }
 
     private fun draft(
@@ -348,6 +623,53 @@ private class MemoryPreferenceStore : PreferenceStore {
     override suspend fun getString(key: String): String? = values[key]
     override suspend fun putString(key: String, value: String) { values[key] = value }
     override suspend fun remove(key: String) { values.remove(key) }
+}
+
+private enum class CommitFailure {
+    None,
+    BeforeWrite,
+    AfterWrite,
+    CancelAfterWrite,
+    AfterWriteAndFailConfirmation,
+    AfterWriteAndRunHook,
+}
+
+private class ThrowingCommitPreferenceStore : PreferenceStore {
+    private val values = mutableMapOf<String, String>()
+    var nextFailure: CommitFailure = CommitFailure.None
+    var afterNextWrite: (suspend () -> Unit)? = null
+    private var failNextRead = false
+
+    override suspend fun getString(key: String): String? {
+        if (failNextRead) {
+            failNextRead = false
+            error("forced_confirmation_read_failure")
+        }
+        return values[key]
+    }
+
+    override suspend fun putString(key: String, value: String) {
+        val failure = nextFailure
+        nextFailure = CommitFailure.None
+        if (failure == CommitFailure.BeforeWrite) error("forced_before_write")
+        values[key] = value
+        if (failure == CommitFailure.AfterWrite) error("forced_after_write")
+        if (failure == CommitFailure.CancelAfterWrite) throw CancellationException("forced_after_write_cancel")
+        if (failure == CommitFailure.AfterWriteAndFailConfirmation) {
+            failNextRead = true
+            error("forced_after_write_with_confirmation_failure")
+        }
+        if (failure == CommitFailure.AfterWriteAndRunHook) {
+            val hook = afterNextWrite
+            afterNextWrite = null
+            hook?.invoke()
+            error("forced_after_superseding_write")
+        }
+    }
+
+    override suspend fun remove(key: String) {
+        values.remove(key)
+    }
 }
 
 private class BlockingPreferenceStore : PreferenceStore {

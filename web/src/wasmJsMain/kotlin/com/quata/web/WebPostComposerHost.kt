@@ -22,6 +22,7 @@ import com.quata.feature.postcomposer.presentation.CreatePostViewModel
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
 import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
+import com.quata.feature.postcomposer.presentation.PostComposerDraftMediaPersistence
 import com.quata.feature.postcomposer.presentation.createPostStepFor
 import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
 import com.quata.feature.postcomposer.presentation.viewModelMessages
@@ -163,7 +164,16 @@ fun WebPostComposerHost(
         draftActorProfileId = draftActorProfileId,
         durableMediaReferenceAvailable = ::webComposerDraftMediaReferenceAvailable,
         durableMediaReferenceForPersistence = { reference, kind ->
-            durableDraftMediaStore?.persist(reference, kind) ?: reference.takeIf(::webComposerDraftMediaReferenceAvailable)
+            val mediaStore = durableDraftMediaStore
+            if (mediaStore != null) {
+                mediaStore.persist(reference, kind)
+            } else {
+                reference.takeIf(::webComposerDraftMediaReferenceAvailable)
+                    ?.let { PostComposerDraftMediaPersistence(it, created = false) }
+            }
+        },
+        durableMediaDiscardPersistence = { persistence, kind ->
+            durableDraftMediaStore?.discard(persistence, kind)
         },
         durableMediaReferenceForRestoration = { reference, kind ->
             durableDraftMediaStore?.restore(reference, kind)

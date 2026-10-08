@@ -15,21 +15,22 @@ class WebPostComposerDraftMediaStoreTest {
     fun blobIsPersistedByActorAndRestoredAsANewRuntimeReference() = runTest {
         val files = MemoryFileCache()
         val first = WebPostComposerDraftMediaStore(files, "actor-a")
-        val persistent = first.persist("blob:first-window", PostComposerDraftMediaKind.Image)
+        val persistent = first.persist("blob:first-window", PostComposerDraftMediaKind.Image)?.reference
 
         assertTrue(persistent?.startsWith("quata-draft-cache:") == true)
+        assertTrue(first.reconcile(imageReference = persistent, videoReference = null))
         val second = WebPostComposerDraftMediaStore(files, "actor-a")
         val restored = second.restore(requireNotNull(persistent), PostComposerDraftMediaKind.Image)
         assertTrue(restored?.startsWith("blob:restored-post-composer-draft.actor-a.") == true)
         assertTrue(restored.contains(".image."))
-        assertEquals(persistent, second.persist(requireNotNull(restored), PostComposerDraftMediaKind.Image))
+        assertEquals(persistent, second.persist(requireNotNull(restored), PostComposerDraftMediaKind.Image)?.reference)
     }
 
     @Test
     fun actorAndMediaKindCannotOpenAnotherCachedDraft() = runTest {
         val files = MemoryFileCache()
         val actorA = WebPostComposerDraftMediaStore(files, "actor-a")
-        val persistent = requireNotNull(actorA.persist("blob:image", PostComposerDraftMediaKind.Image))
+        val persistent = requireNotNull(actorA.persist("blob:image", PostComposerDraftMediaKind.Image)).reference
 
         assertNull(WebPostComposerDraftMediaStore(files, "actor-b").restore(persistent, PostComposerDraftMediaKind.Image))
         assertNull(actorA.restore(persistent, PostComposerDraftMediaKind.Video))
@@ -39,8 +40,8 @@ class WebPostComposerDraftMediaStoreTest {
     fun clearRemovesBothKindsAndRejectsLaterRestoration() = runTest {
         val files = MemoryFileCache()
         val store = WebPostComposerDraftMediaStore(files, "actor-a")
-        val image = requireNotNull(store.persist("blob:image", PostComposerDraftMediaKind.Image))
-        val video = requireNotNull(store.persist("blob:video", PostComposerDraftMediaKind.Video))
+        val image = requireNotNull(store.persist("blob:image", PostComposerDraftMediaKind.Image)).reference
+        val video = requireNotNull(store.persist("blob:video", PostComposerDraftMediaKind.Video)).reference
 
         assertTrue(store.clear())
         assertNull(store.restore(image, PostComposerDraftMediaKind.Image))
@@ -52,7 +53,7 @@ class WebPostComposerDraftMediaStoreTest {
     fun reconcileRemovesBinaryWhoseMediaKindLeftTheDraft() = runTest {
         val files = MemoryFileCache()
         val store = WebPostComposerDraftMediaStore(files, "actor-a")
-        val image = requireNotNull(store.persist("blob:image", PostComposerDraftMediaKind.Image))
+        val image = requireNotNull(store.persist("blob:image", PostComposerDraftMediaKind.Image)).reference
 
         assertTrue(store.reconcile(imageReference = null, videoReference = "https://cdn.example/video.mp4"))
         assertNull(store.restore(image, PostComposerDraftMediaKind.Image))
@@ -63,11 +64,39 @@ class WebPostComposerDraftMediaStoreTest {
     fun failedReplacementKeepsThePreviouslyCommittedBinaryReadable() = runTest {
         val files = MemoryFileCache()
         val store = WebPostComposerDraftMediaStore(files, "actor-a")
-        val previous = requireNotNull(store.persist("blob:previous", PostComposerDraftMediaKind.Image))
+        val previous = requireNotNull(store.persist("blob:previous", PostComposerDraftMediaKind.Image)).reference
         files.failNextStore = true
 
         assertNull(store.persist("blob:replacement", PostComposerDraftMediaKind.Image))
         assertTrue(store.restore(previous, PostComposerDraftMediaKind.Image)?.startsWith("blob:restored-") == true)
+    }
+
+    @Test
+    fun compensationRemovesOnlyTheNewImmutableEntry() = runTest {
+        val files = MemoryFileCache()
+        val store = WebPostComposerDraftMediaStore(files, "actor-a")
+        val previous = requireNotNull(store.persist("blob:previous", PostComposerDraftMediaKind.Image))
+        val replacement = requireNotNull(store.persist("blob:replacement", PostComposerDraftMediaKind.Image))
+
+        store.discard(replacement, PostComposerDraftMediaKind.Image)
+
+        assertTrue(store.restore(previous.reference, PostComposerDraftMediaKind.Image)?.startsWith("blob:restored-") == true)
+        assertNull(store.restore(replacement.reference, PostComposerDraftMediaKind.Image))
+    }
+
+    @Test
+    fun provisionalBlobReferenceIsNeverReusedBeforeEnvelopeConfirmation() = runTest {
+        val files = MemoryFileCache()
+        val store = WebPostComposerDraftMediaStore(files, "actor-a")
+
+        val first = requireNotNull(store.persist("blob:pending", PostComposerDraftMediaKind.Image))
+        val second = requireNotNull(store.persist("blob:pending", PostComposerDraftMediaKind.Image))
+
+        assertTrue(first.created)
+        assertTrue(second.created)
+        assertTrue(first.reference != second.reference)
+        store.discard(first, PostComposerDraftMediaKind.Image)
+        assertTrue(store.restore(second.reference, PostComposerDraftMediaKind.Image)?.startsWith("blob:restored-") == true)
     }
 }
 

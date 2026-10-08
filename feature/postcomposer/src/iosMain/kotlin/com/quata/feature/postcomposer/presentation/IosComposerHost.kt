@@ -345,8 +345,16 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             draftActorProfileId = draftActorProfileId,
             durableMediaReferenceAvailable = ::iosComposerDraftMediaReferenceAvailable,
             durableMediaReferenceForPersistence = { reference, kind ->
-                durableDraftMediaStore?.persist(reference, kind)
-                    ?: reference.takeIf(::iosComposerDraftMediaReferenceAvailable)
+                val mediaStore = durableDraftMediaStore
+                if (mediaStore != null) {
+                    mediaStore.persist(reference, kind)
+                } else {
+                    reference.takeIf(::iosComposerDraftMediaReferenceAvailable)
+                        ?.let { PostComposerDraftMediaPersistence(it, created = false) }
+                }
+            },
+            durableMediaDiscardPersistence = { persistence, kind ->
+                durableDraftMediaStore?.discard(persistence, kind)
             },
             durableMediaReferenceForRestoration = { reference, kind ->
                 durableDraftMediaStore?.restore(reference, kind)

@@ -4,6 +4,10 @@ import com.quata.core.platform.IosFileCacheService
 import com.quata.core.platform.PrefixClearableFileCacheService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 /** Copies composer media into app-private storage before its reference enters the draft envelope. */
 internal class IosPostComposerDraftMediaStore(
@@ -13,22 +17,44 @@ internal class IosPostComposerDraftMediaStore(
     private val actorPrefix = postComposerDraftMediaActorPrefix(actorProfileId)
     private val runtimeKeys = mutableMapOf<String, String>()
 
-    suspend fun persist(reference: String, kind: PostComposerDraftMediaKind): String? {
-        if (reference.isRemotePostComposerMediaReference()) return reference
+    suspend fun persist(reference: String, kind: PostComposerDraftMediaKind): PostComposerDraftMediaPersistence? {
+        if (reference.isRemotePostComposerMediaReference()) return PostComposerDraftMediaPersistence(reference, created = false)
+        // runtimeKeys contains only file URLs produced by restore from an already committed
+        // envelope. A picker URL always gets a fresh key and remains private to this save until
+        // the opaque cache reference is committed.
         val existingKey = reference.postComposerDraftCacheKeyOrNull()?.takeIf { it.startsWith(kindPrefix(kind)) }
             ?: runtimeKeys[reference]?.takeIf { it.startsWith(kindPrefix(kind)) }
         if (existingKey != null) {
-            return existingKey.toPostComposerDraftCacheReference()
+            return PostComposerDraftMediaPersistence(existingKey.toPostComposerDraftCacheReference(), created = false)
         }
         val expectedKey = key(kind, reference)
-        return when (val stored = files.store(expectedKey, iosComposerRestoredMediaFile(reference, kind))) {
-            is PlatformResult.Success -> {
-                runtimeKeys[reference] = expectedKey
-                runtimeKeys[stored.value.reference] = expectedKey
-                expectedKey.toPostComposerDraftCacheReference()
-            }
-            is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
+        val stored = try {
+            files.store(expectedKey, iosComposerRestoredMediaFile(reference, kind))
+        } catch (cancelled: CancellationException) {
+            withContext(NonCancellable) { removeBestEffort(expectedKey) }
+            throw cancelled
+        } catch (_: Throwable) {
+            removeBestEffort(expectedKey)
+            return null
         }
+        return when (stored) {
+            is PlatformResult.Success -> {
+                PostComposerDraftMediaPersistence(expectedKey.toPostComposerDraftCacheReference(), created = true)
+            }
+            is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> {
+                files.remove(expectedKey)
+                null
+            }
+        }
+    }
+
+    suspend fun discard(persistence: PostComposerDraftMediaPersistence, kind: PostComposerDraftMediaKind) {
+        if (!persistence.created) return
+        val key = persistence.reference.postComposerDraftCacheKeyOrNull()
+            ?.takeIf { it.startsWith(kindPrefix(kind)) }
+            ?: return
+        runtimeKeys.entries.removeAll { (_, cachedKey) -> cachedKey == key }
+        files.remove(key)
     }
 
     suspend fun restore(reference: String, kind: PostComposerDraftMediaKind): String? {
@@ -68,8 +94,16 @@ internal class IosPostComposerDraftMediaStore(
 
     private fun kindPrefix(kind: PostComposerDraftMediaKind): String = actorPrefix + kind.name.lowercase() + '.'
 
+    private suspend fun removeBestEffort(key: String) {
+        try {
+            files.remove(key)
+        } catch (_: Throwable) {
+            // Actor retirement also clears the complete prefix.
+        }
+    }
+
     private fun key(kind: PostComposerDraftMediaKind, reference: String): String =
-        kindPrefix(kind) + reference.hashCode().toUInt().toString(16)
+        kindPrefix(kind) + reference.hashCode().toUInt().toString(16) + '.' + Random.nextLong().toULong().toString(16)
 }
 
 internal fun retireAllIosPostComposerDraftMedia(): Boolean =

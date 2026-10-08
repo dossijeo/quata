@@ -4,6 +4,11 @@ import com.quata.core.platform.PrefixClearableFileCacheService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.postcomposer.presentation.PostComposerDraftMediaKind
+import com.quata.feature.postcomposer.presentation.PostComposerDraftMediaPersistence
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 /**
  * Keeps browser-owned composer media in IndexedDB while the durable draft stores only a short,
@@ -24,22 +29,45 @@ class WebPostComposerDraftMediaStore(
     }
     private val runtimeKeys = mutableMapOf<String, String>()
 
-    suspend fun persist(reference: String, kind: PostComposerDraftMediaKind): String? {
-        if (reference.isRemoteMediaReference()) return reference
+    suspend fun persist(reference: String, kind: PostComposerDraftMediaKind): PostComposerDraftMediaPersistence? {
+        if (reference.isRemoteMediaReference()) return PostComposerDraftMediaPersistence(reference, created = false)
+        // runtimeKeys contains only URLs produced by restore from an already committed envelope.
+        // A raw local URL always gets a fresh key, so provisional media cannot be adopted by a
+        // concurrent save before the envelope that owns it is confirmed.
         val existingKey = reference.cacheKeyOrNull()?.takeIf { it.startsWith(kindPrefix(kind)) }
             ?: runtimeKeys[reference]?.takeIf { it.startsWith(kindPrefix(kind)) }
         if (existingKey != null) {
-            return existingKey.toDraftCacheReference()
+            return PostComposerDraftMediaPersistence(existingKey.toDraftCacheReference(), created = false)
         }
         val expectedKey = key(kind, reference)
-        return when (val stored = files.store(expectedKey, PlatformFile(reference))) {
+        val stored = try {
+            files.store(expectedKey, PlatformFile(reference))
+        } catch (cancelled: CancellationException) {
+            withContext(NonCancellable) { removeBestEffort(expectedKey) }
+            throw cancelled
+        } catch (_: Throwable) {
+            removeBestEffort(expectedKey)
+            return null
+        }
+        return when (stored) {
             is PlatformResult.Success -> {
                 releaseCachedReference(stored.value)
-                runtimeKeys[reference] = expectedKey
-                expectedKey.toDraftCacheReference()
+                PostComposerDraftMediaPersistence(expectedKey.toDraftCacheReference(), created = true)
             }
-            is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
+            is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> {
+                files.remove(expectedKey)
+                null
+            }
         }
+    }
+
+    suspend fun discard(persistence: PostComposerDraftMediaPersistence, kind: PostComposerDraftMediaKind) {
+        if (!persistence.created) return
+        val key = persistence.reference.cacheKeyOrNull()?.takeIf { it.startsWith(kindPrefix(kind)) } ?: return
+        runtimeKeys.entries.removeAll { (runtime, cachedKey) ->
+            (cachedKey == key).also { remove -> if (remove) releaseCachedReference(PlatformFile(runtime)) }
+        }
+        files.remove(key)
     }
 
     suspend fun restore(reference: String, kind: PostComposerDraftMediaKind): String? {
@@ -84,8 +112,16 @@ class WebPostComposerDraftMediaStore(
 
     private fun kindPrefix(kind: PostComposerDraftMediaKind): String = actorPrefix + kind.name.lowercase() + '.'
 
+    private suspend fun removeBestEffort(key: String) {
+        try {
+            files.remove(key)
+        } catch (_: Throwable) {
+            // Actor retirement also clears the complete prefix.
+        }
+    }
+
     private fun key(kind: PostComposerDraftMediaKind, reference: String): String =
-        kindPrefix(kind) + reference.hashCode().toUInt().toString(16)
+        kindPrefix(kind) + reference.hashCode().toUInt().toString(16) + '.' + Random.nextLong().toULong().toString(16)
 }
 
 private const val DraftCacheReferencePrefix = "quata-draft-cache:"

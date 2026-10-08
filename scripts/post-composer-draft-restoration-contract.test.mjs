@@ -16,6 +16,7 @@ test("the durable envelope is versioned actor-bound and excludes raw media bytes
   assert.match(store, /decoded == null[\s\S]*?current\.copy\(revision = current\.revision \+ 1, encodedDraft = null\)[\s\S]*?return null/);
   assert.match(store, /private val mutationLock = Mutex\(\)/);
   assert.match(store, /suspend fun save\(lease: PostComposerDraftActorLease[\s\S]*?!current\.matches\(lease\)[\s\S]*?current\.copy/);
+  assert.match(store, /saveWithMediaPersistence[\s\S]*?discardPersistedMediaReference[\s\S]*?referencesStillInUse[\s\S]*?commitObservation[\s\S]*?NotApplied[\s\S]*?compensate\(observation\.referencesStillInUse\)/);
   assert.match(store, /suspend fun clear\(lease: PostComposerDraftActorLease\)[\s\S]*?!current\.matches\(lease\)[\s\S]*?generation = current\.generation \+ 1[\s\S]*?PostComposerDraftActorLease\(lease\.actorProfileId, next\.generation\)/);
   assert.doesNotMatch(store, /accessToken|refreshToken|bearerToken/);
 });
@@ -24,8 +25,12 @@ test("the common root restores before persistence and clears publish discard and
   const root = await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt");
   assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restoreWithMediaResolution\(lease\.actorProfileId, durableMediaReferenceForRestoration\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
-  assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.saveWithMediaPersistence\(lease, durableSnapshot, durableMediaReferenceForPersistence\)/);
+  assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.saveWithMediaPersistenceResult\([\s\S]*?lease,[\s\S]*?durableSnapshot,[\s\S]*?durableMediaReferenceForPersistence[\s\S]*?persistedSnapshot = save\.persistedSnapshot[\s\S]*?durableMediaReconcile\(persistedSnapshot\.imageUri, persistedSnapshot\.videoUri\)/);
   assert.match(root, /suspend fun completeDraftClear[\s\S]*?attemptPostComposerDraftClear\(request\.actorProfileId, request\.actorLease, store::clear\)[\s\S]*?!isPostComposerDraftClearRequestCurrent[\s\S]*?request\.actorLease[\s\S]*?currentDraftActorLease[\s\S]*?PostComposerDraftClearAttempt\.Failed[\s\S]*?pendingDraftClearRequest = request[\s\S]*?durablePersistedSnapshot = null/);
+  const clearFlow = root.slice(root.indexOf("suspend fun completeDraftClear"));
+  assert.ok(clearFlow.indexOf("attemptPostComposerDraftClear(request.actorProfileId") < clearFlow.indexOf("durableMediaClear()"));
+  assert.match(root, /pendingDraftClearRequest = request\.copy\(actorLease = clearedLease\)[\s\S]*?durableMediaClear\(\)[\s\S]*?if \(!mediaCleared\)[\s\S]*?return/);
+  assert.match(root, /durableMediaClear\(\)[\s\S]*?isPostComposerDraftClearRequestCurrent\([\s\S]*?clearedLease,[\s\S]*?currentDraftActorProfileId,[\s\S]*?durableDraftActorLease/);
   assert.match(root, /fun requestDraftClear[\s\S]*?val request = PostComposerDraftClearRequest[\s\S]*?actorProfileId = currentDraftActorProfileId[\s\S]*?actorLease = currentDraftActorLease[\s\S]*?scope\.launch \{ completeDraftClear\(request\) \}/);
   assert.match(root, /attemptPostComposerDraftClear[\s\S]*?catch \(cancelled: CancellationException\)[\s\S]*?throw cancelled[\s\S]*?catch \(_: Throwable\)[\s\S]*?PostComposerDraftClearAttempt\.Failed/);
   assert.match(root, /PostComposerDraftClearAction\.Reset[\s\S]*?lastResetToken = action\.token[\s\S]*?PostComposerDraftClearAction\.PublishSuccess[\s\S]*?onPostCreated[\s\S]*?PostComposerDraftClearAction\.Discard[\s\S]*?dispatchCreatePostBack/);
@@ -50,17 +55,21 @@ test("Android Web and iOS inject the same store and validate platform media refe
   }
   assert.match(android, /openFileDescriptor\(uri, "r"\)/);
   assert.match(web, /webComposerDraftMediaReferenceAvailable/);
-  assert.match(web, /durableMediaReferenceForPersistence[\s\S]*?durableDraftMediaStore\?\.persist/);
+  assert.match(web, /durableMediaReferenceForPersistence[\s\S]*?mediaStore\.persist/);
+  assert.match(web, /durableMediaDiscardPersistence[\s\S]*?durableDraftMediaStore\?\.discard/);
   assert.match(webMedia, /files\.store\(expectedKey, PlatformFile\(reference\)\)/);
   assert.match(webMedia, /files\.get\(expectedKey\)/);
   assert.match(webMedia, /quata-draft-cache:/);
+  assert.doesNotMatch(webMedia, /runtimeKeys\[reference\] = expectedKey/);
   assert.match(ios, /NSFileManager\.defaultManager::fileExistsAtPath/);
   assert.match(ios, /LaunchedEffect\(composerState\.imageUri\)[\s\S]*?iosComposerRestoredMediaFile/);
   assert.match(ios, /LaunchedEffect\(composerState\.videoUri\)[\s\S]*?createThumbnail/);
-  assert.match(ios, /durableMediaReferenceForPersistence[\s\S]*?durableDraftMediaStore\?\.persist/);
+  assert.match(ios, /durableMediaReferenceForPersistence[\s\S]*?mediaStore\.persist/);
+  assert.match(ios, /durableMediaDiscardPersistence[\s\S]*?durableDraftMediaStore\?\.discard/);
   assert.match(iosMedia, /files\.store\(expectedKey, iosComposerRestoredMediaFile\(reference, kind\)\)/);
   assert.match(iosMedia, /files\.get\(expectedKey\)/);
   assert.match(iosMedia, /removeByPrefixNow\(PostComposerDraftMediaCacheKeyPrefix\)/);
+  assert.doesNotMatch(iosMedia, /runtimeKeys\[stored\.value\.reference\] = expectedKey/);
   assert.match(androidRoot, /durableDraftStore = postComposerDraftStore/);
   assert.match(androidRoot, /PostComposerDraftStore\(AndroidPreferenceStore\(appContext, commitWrites = true\)\)/);
   assert.doesNotMatch(androidRoot, /createPostResetToken \+= 1/);
@@ -110,6 +119,17 @@ test("the executable common tests cover isolation corruption cleanup and unavail
     "rejectedRestoreDoesNotTriggerAnInitialEmptyAutosaveOverTheNewerDraft",
     "clearAttemptTurnsStorageFailuresIntoRetryableResultsAndPreservesCancellation",
     "clearCompletionIsRejectedAfterTheAuthenticatedActorChanges",
+    "completedMediaClearCannotApplyEffectsAfterTheActorChanges",
     "staleClearLeaseCannotDeleteANewDraftAfterActorCyclesBack",
+    "secondMediaFailureDiscardsTheFirstNewBinaryAndPreservesTheEnvelope",
+    "staleLeaseAfterPersistenceDiscardsTheNewBinary",
+    "cancellationDuringSecondMediaPersistenceCompensatesThenPropagates",
+    "coroutineCancellationStillRunsCompensationInANonCancellableContext",
+    "envelopeWriteFailureBeforeCommitDiscardsStagedMedia",
+    "envelopeWriteExceptionAfterCommitKeepsTheReferencedMedia",
+    "envelopeCancellationAfterCommitRethrowsWithoutDeletingReferencedMedia",
+    "inconclusiveCommitConfirmationPreservesPotentiallyReferencedMedia",
+    "supersedingEnvelopeKeepsMediaCreatedByTheFailedSave",
+    "secondMediaFailureKeepsFirstMediaAlreadyAdoptedByANewerEnvelope",
   ]) assert.match(tests, new RegExp(`fun ${name}\\(`));
 });
