@@ -646,7 +646,7 @@ private fun FullscreenVideoPlayer(
             .background(Color.Black)
             .testTag("fullscreen-media.video")
             .semantics {
-                val duration = playbackDurationMs.coerceAtLeast(1L)
+                val duration = playbackDurationMs.coerceAtLeast(playbackPositionMs.coerceAtLeast(1L))
                 progressBarRangeInfo = ProgressBarRangeInfo(
                     current = playbackPositionMs.coerceIn(0L, duration).toFloat(),
                     range = 0f..duration.toFloat(),
