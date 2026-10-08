@@ -51,6 +51,42 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
     }
 
     @Test
+    fun resolverFailureCanRetryTheSameAttachmentAndLoadRecoveredBytes() = runBlocking {
+        val events = mutableListOf<String>()
+        var attempts = 0
+        val delegate = FakeAudioPlayer(events)
+        val service = AndroidChatAttachmentAudioPlayerService(
+            delegate = delegate,
+            resolver = AndroidChatAttachmentFileResolver { file ->
+                attempts += 1
+                events += "resolve:${file.displayName}:$attempts"
+                if (attempts == 1) {
+                    PlatformResult.Failure("forced_transport_failure")
+                } else {
+                    PlatformResult.Success(localFile("recovered.m4a"))
+                }
+            },
+        )
+        val attachment = remoteFile("same-voice.m4a")
+
+        val failed = service.load(attachment)
+        val recovered = service.load(attachment)
+
+        assertTrue(failed is PlatformResult.Failure)
+        assertTrue(recovered is PlatformResult.Success)
+        assertEquals(
+            listOf(
+                "stop",
+                "resolve:same-voice.m4a:1",
+                "stop",
+                "resolve:same-voice.m4a:2",
+                "load:file:///cache/recovered.m4a",
+            ),
+            events,
+        )
+    }
+
+    @Test
     fun stopPausePlaySeekAndEventsRemainNativeDelegateOwned() = runBlocking {
         val events = mutableListOf<String>()
         val delegate = FakeAudioPlayer(events)

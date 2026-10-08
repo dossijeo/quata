@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-AUDIO"
+  ],
+  "status": "passed",
+  "productSha": "eb9cd3c34355ecb9a025e983d04f5eafefe015c7",
+  "certification": "same-attachment-transport-retry-platform-focal-complete-independent-review-go-final-CI-pending",
+  "evidenceKind": "CHAT_AUDIO_RETRY_SEMANTICS_AND_PLATFORM_ADAPTER_RECOVERY_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "eb9cd3c34355ecb9a025e983d04f5eafefe015c7",
+      "report": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
+      "reportSha256": "1ad18fb45e957023be65ecde0f30d5234b7275dcafc889a2b5002777291cc739",
+      "reportStatus": "passed",
+      "reportGitHead": "f9a2f4b34e3f5c97b991b848edf2a845468af42a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "same_attachment_failure_remains_terminal_until_explicit_toggle",
+        "failed_toggle_static_contract_exposes_localized_retry_action",
+        "android_same_attachment_resolution_retried_and_recovered_bytes_loaded",
+        "no_backend_or_remote_state_mutated"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-resolver-failure-no-backend"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "eb9cd3c34355ecb9a025e983d04f5eafefe015c7",
+      "report": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
+      "reportSha256": "1ad18fb45e957023be65ecde0f30d5234b7275dcafc889a2b5002777291cc739",
+      "reportStatus": "passed",
+      "reportGitHead": "f9a2f4b34e3f5c97b991b848edf2a845468af42a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "same_attachment_failure_remains_terminal_until_explicit_toggle",
+        "failed_toggle_static_contract_exposes_localized_retry_action",
+        "web_same_attachment_materialization_retried_and_recovered_blob_loaded",
+        "web_blob_lease_released_after_native_load_cancellation",
+        "web_blob_lease_retained_until_native_stop_succeeds"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "bounded-blob-lease-lifecycle-no-backend"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "eb9cd3c34355ecb9a025e983d04f5eafefe015c7",
+      "report": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
+      "reportSha256": "1ad18fb45e957023be65ecde0f30d5234b7275dcafc889a2b5002777291cc739",
+      "reportStatus": "passed",
+      "reportGitHead": "f9a2f4b34e3f5c97b991b848edf2a845468af42a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "same_attachment_failure_remains_terminal_until_explicit_toggle",
+        "failed_toggle_static_contract_exposes_localized_retry_action",
+        "ios_same_attachment_download_retried_and_only_recovered_file_owned",
+        "temporary_mac_checkout_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-file-and-mac-checkout-cleanup-no-backend"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest --no-daemon",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --no-daemon",
+    ".\\gradlew.bat :web:wasmJsTest --no-daemon",
+    "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatAttachmentAudioPlayerServiceTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-transport-retry.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "97576ee4e13cac688fb0e0fc74648d13f5388daa",
+    "blockingFindings": [],
+    "resolvedFindings": [],
+    "scopeLimit": "This focal attestation closes the shared Retry semantics contract and exact same-attachment recovery through the Android, Web and iOS Chat playback adapters. A rendered Compose failure surface and native Retry click, physical microphone, routing and exhaustive outage matrices remain separate."
+  },
+  "notes": [
+    "The shared source keeps the same attachment selected, maps the failed toggle to localized Retry semantics and does not render internal transport reasons; the evidence does not claim a rendered Compose UI observation.",
+    "Android retries the same remote descriptor after resolver failure and invokes native load only with recovered local bytes.",
+    "Web serializes load/stop ownership, refuses to discard a Blob lease after failed native stop and releases a newly materialized lease when native load fails or throws cancellation.",
+    "iOS retries the same descriptor through its authenticated bounded downloader and discards only the recovered temporary file after successful native stop.",
+    "The platform execution head f9a2f4b34e3f5c97b991b848edf2a845468af42a and product head eb9cd3c34355ecb9a025e983d04f5eafefe015c7 differ by the reviewed Node source contract, certified inventory boundary and patch-equivalent recomposition over the integrated Feed and Official position units. All Chat common, Android, Web and iOS production and platform-test blobs are byte-identical, so platform matrices were not repeated solely for the amended commit identity.",
+    "Independent exact-head review of 66dcd6d3 returned GO with no P0-P3 findings and confirmed the Product boundary, historical custody, focal UI limits and independence from inherited Feed, Official and logout changes.",
+    "The eight-commit Chat audio series was replayed without conflict over the squash of Official video position restoration. Relative to the previous candidate, the only range-level file difference is the inherited iOS fullscreen-media accessibility repair already integrated by #569; all Chat runtime, platform tests, report and contract blobs remain byte-identical.",
+    "The previous exact-head review of 45cbf9ce returned GO with no P0-P3 findings. The post-squash exact-head review of 97576ee4 returned GO with no P0-P3, confirmed the inherited iOS-only delta and did not attribute a new platform execution.",
+    "No backend, credentials, database row, Storage object or remote product state was used or mutated."
+  ]
+}

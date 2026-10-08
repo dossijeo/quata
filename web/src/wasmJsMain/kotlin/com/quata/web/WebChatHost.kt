@@ -72,6 +72,8 @@ import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
 @Composable
@@ -840,16 +842,22 @@ private suspend fun PlatformFile.exportWebAttachment(
     return result
 }
 
-private class WebChatAttachmentAudioPlayerService(
+internal class WebChatAttachmentAudioPlayerService(
     private val delegate: AudioPlayerService,
     private val materializer: MediaFileMaterializer = BrowserMediaFileMaterializer(),
 ) : AudioPlayerService {
+    private val transitions = Mutex()
     private var ownedLease: MaterializedMediaFileLease? = null
 
     override val events: Flow<com.quata.core.platform.AudioPlaybackEvent> = delegate.events
 
-    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
-        delegate.stop()
+    override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> = transitions.withLock {
+        when (val stopped = delegate.stop()) {
+            is PlatformResult.Success -> Unit
+            is PlatformResult.Failure -> return PlatformResult.Failure(stopped.reason ?: "web_chat_audio_stop_failed")
+            PlatformResult.Cancelled -> return PlatformResult.Failure("web_chat_audio_stop_cancelled")
+            PlatformResult.Unsupported -> return PlatformResult.Failure("web_chat_audio_stop_unsupported")
+        }
         releaseOwnedLease()
         val source = file.reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
         val playable = if (source.startsWith("blob:", ignoreCase = true)) {
@@ -868,20 +876,19 @@ private class WebChatAttachmentAudioPlayerService(
                 PlatformResult.Unsupported -> return PlatformResult.Unsupported
             }
         }
-        return when (val result = delegate.load(playable)) {
-            is PlatformResult.Success -> result
-            is PlatformResult.Failure -> {
-                releaseOwnedLease()
-                result
+        var adopted = false
+        try {
+            return when (val result = delegate.load(playable)) {
+                is PlatformResult.Success -> {
+                    adopted = true
+                    result
+                }
+                is PlatformResult.Failure -> result
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
             }
-            PlatformResult.Cancelled -> {
-                releaseOwnedLease()
-                PlatformResult.Cancelled
-            }
-            PlatformResult.Unsupported -> {
-                releaseOwnedLease()
-                PlatformResult.Unsupported
-            }
+        } finally {
+            if (!adopted) releaseOwnedLease()
         }
     }
 
@@ -892,9 +899,9 @@ private class WebChatAttachmentAudioPlayerService(
     override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> =
         delegate.seekTo(positionMillis)
 
-    override suspend fun stop(): PlatformResult<Unit> {
+    override suspend fun stop(): PlatformResult<Unit> = transitions.withLock {
         val result = delegate.stop()
-        releaseOwnedLease()
+        if (result is PlatformResult.Success) releaseOwnedLease()
         return result
     }
 
