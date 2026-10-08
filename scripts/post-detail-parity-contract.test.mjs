@@ -297,6 +297,7 @@ test("post-detail evidence exercises real Feed media and Official fullscreen med
   assert.match(androidUiTest, /StateDescription\) == "playing"/);
   assert.match(androidUiTest, /OfficialVideoPositionTestTag/);
   assert.match(androidUiTest, /officialVideoPositionMsFromAccessibility/);
+  assert.match(androidUiTest, /node\.rangeInfo\?\.current/);
   assert.match(androidUiTest, /SemanticsActions\.SetProgress/);
   assert.match(androidUiTest, /rootInActiveWindow/);
   assert.match(androidUiTest, /quata\.official\.video_positions\.v1/);

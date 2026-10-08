@@ -106,6 +106,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.regex.Pattern
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 @RunWith(AndroidJUnit4::class)
 class ChatActionsNotificationsInstrumentedTest {
@@ -950,7 +951,23 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun officialVideoPositionMsFromAccessibility(): Long {
-        return accessibilityStateDescription(OfficialVideoPositionTestTag)?.toLongOrNull() ?: 0L
+        return accessibilityRangeCurrent("fullscreen-media.video")
+            ?: accessibilityStateDescription(OfficialVideoPositionTestTag)?.toLongOrNull()
+            ?: 0L
+    }
+
+    private fun accessibilityRangeCurrent(probe: String): Long? {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return null
+        val pending = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            val matchesProbe = node.contentDescription?.toString()?.contains(probe) == true ||
+                node.viewIdResourceName == probe ||
+                node.viewIdResourceName?.endsWith("/$probe") == true
+            if (matchesProbe) return node.rangeInfo?.current?.roundToLong()
+            repeat(node.childCount) { index -> node.getChild(index)?.let(pending::addLast) }
+        }
+        return null
     }
 
     private fun accessibilityStateDescription(probe: String): String? {
