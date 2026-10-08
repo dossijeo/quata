@@ -291,10 +291,18 @@ class PostComposerDraftStoreTest {
 
     @Test
     fun initialMediaBaselineIsNotReportedAsDurableBeforeItsCommit() {
-        val emptyBaseline = draft()
+        val emptyBaseline = draft(text = "").copy(
+            step = CreatePostStep.TypePicker,
+            textPatternId = DEFAULT_TEXT_CANVAS_PATTERN_ID,
+            locationLabel = null,
+            latitude = null,
+            longitude = null,
+            locationOrigin = null,
+            selectedDestinationWallId = null,
+        )
         assertEquals(emptyBaseline, initialPostComposerPersistedSnapshot(null, emptyBaseline))
 
-        val initialMedia = draft(step = CreatePostStep.Image, imageUri = "file:///fixture.png")
+        val initialMedia = emptyBaseline.copy(step = CreatePostStep.Image, imageUri = "file:///fixture.png")
         assertNull(initialPostComposerPersistedSnapshot(null, initialMedia))
         assertFalse(isPostComposerImageDraftDurablyPersisted(false, initialMedia, initialMedia.imageUri))
         assertTrue(isPostComposerImageDraftDurablyPersisted(true, initialMedia, initialMedia.imageUri))
