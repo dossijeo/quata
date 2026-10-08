@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
-  "certification": "platform-result-terminal-matrix-platform-focal-complete-independent-review-go-final-CI-pending",
+  "productSha": "20d8acb69d7269cd3f2585d11a242f680c466180",
+  "certification": "platform-result-terminal-matrix-platform-focal-complete-rebase-review-pending",
   "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "sha": "20d8acb69d7269cd3f2585d11a242f680c466180",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "sha": "20d8acb69d7269cd3f2585d11a242f680c466180",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "sha": "20d8acb69d7269cd3f2585d11a242f680c466180",
       "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
       "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
       "reportStatus": "passed",
@@ -88,6 +88,7 @@
     "The Android and Web focal suites exercise Failure, Cancelled and Unsupported at stop, resolver/materializer and native-load boundaries without production or backend mutation.",
     "The iOS terminal matrix and production adapter are byte-identical to the 12/12 passed transport-retry evidence; it was not repeated solely because Android/Web test sources changed the Product SHA.",
     "This closes adapter-level PlatformResult coverage only. Real outage, proxy, captive-portal and exhaustive HTTP-code integration remain explicit external limits.",
-    "Independent exact-head review of 57b531d7 returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs."
+    "Independent exact-head review of 57b531d7 returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
+    "The three-commit terminal-matrix series was replayed over reviewed UI head b03f1e28. Comparing executed Product 2b2d05eb with recomposed Product 20d8acb6 changes only five inherited custody documents; all terminal-matrix runtime, platform-test, contract and report blobs remain byte-identical. A renewed exact-head review is required after this custody reanchor."
   ]
 }
