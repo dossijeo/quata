@@ -4,17 +4,17 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "308c1ffa7c43074240882218defef2f1cbbf9558",
+  "productSha": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
   "certification": "lifecycle-and-route-interruption-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_LIFECYCLE_AND_ROUTE_INTERRUPTION_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "308c1ffa7c43074240882218defef2f1cbbf9558",
-      "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json",
-      "reportSha256": "874e698b9fc12e66c7546a377518d28bf5f6141dc898183a411a57d5ce663e5b",
+      "sha": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
+      "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-fea7a30e.json",
+      "reportSha256": "c25b75a10b92e7587ba6ab87cdf96f4b43f05da11ad814615654a4afbe868aa4",
       "reportStatus": "passed",
-      "reportGitHead": "ff9d40faaf524335ace71c23677be1b42028cda6",
+      "reportGitHead": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -32,11 +32,11 @@
     },
     "web": {
       "status": "passed",
-      "sha": "308c1ffa7c43074240882218defef2f1cbbf9558",
-      "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json",
-      "reportSha256": "874e698b9fc12e66c7546a377518d28bf5f6141dc898183a411a57d5ce663e5b",
+      "sha": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
+      "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-fea7a30e.json",
+      "reportSha256": "c25b75a10b92e7587ba6ab87cdf96f4b43f05da11ad814615654a4afbe868aa4",
       "reportStatus": "passed",
-      "reportGitHead": "ff9d40faaf524335ace71c23677be1b42028cda6",
+      "reportGitHead": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -52,11 +52,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "308c1ffa7c43074240882218defef2f1cbbf9558",
-      "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json",
-      "reportSha256": "874e698b9fc12e66c7546a377518d28bf5f6141dc898183a411a57d5ce663e5b",
+      "sha": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
+      "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-fea7a30e.json",
+      "reportSha256": "c25b75a10b92e7587ba6ab87cdf96f4b43f05da11ad814615654a4afbe868aa4",
       "reportStatus": "passed",
-      "reportGitHead": "ff9d40faaf524335ace71c23677be1b42028cda6",
+      "reportGitHead": "fea7a30eaf4acf1d0c3af3a7170c3e0cbd6ade56",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -86,7 +86,8 @@
     "blockingFindings": [],
     "resolvedFindings": [
       "The prior exact-head review found that Android did not prove the unit-wide no-auto-resume policy. The player now converts transient audio-focus suppression into an explicit pause, and the focal test verifies it remains paused after focus is returned.",
-      "The prior exact-head review found cleanup could leave its WAV. Fixture creation now occurs inside the protected scope; stop, activity finish and deletion are attempted independently, and the test asserts both successful stop and absence of the file."
+      "The prior exact-head review found cleanup could leave its WAV. Fixture creation now occurs inside the protected scope; stop, activity finish and deletion are attempted independently, and the test asserts both successful stop and absence of the file.",
+      "The frozen candidate exposed its browser lifecycle fixture to the required wasmJsNodeTest job, where no DOM exists. The fixture now installs and fully removes a minimal EventTarget-backed document only under Node; the exact test passes in both Node and Chrome Headless while production browser audio remains unchanged."
     ],
     "scopeLimit": "Platform focal coverage proves safe pausing for focus, route, interruption and foreground loss. Physical Bluetooth/wired routing, microphone permission, prolonged background playback and audio outside Chat remain outside this unit."
   },
@@ -97,6 +98,7 @@
     "The iOS execution remains bound to identical production and test Git blobs after Android and Web test-only additions; it was not repeated solely for the amended Product SHA.",
     "This unit adopts pause-without-auto-resume as the safe lifecycle policy. It does not claim prolonged background playback or physical-device routing.",
     "The lifecycle series was replayed over merged HTTP-boundary squash bdb84c4bf after tree equality with frozen head 20707baab was verified. Product SHA 308c1ffa7 is patch-equivalent to previously reviewed Product a6e529084; Android, Web and iOS execution remain bound to ff9d40fa and every lifecycle-owned runtime, platform-test, contract and report blob remains byte-identical. No E2E matrix was repeated solely for the new base.",
-    "Independent exact-head review of 5c190d08f returned GO with no P0-P3 findings. It reproduced contract 3/3, validator and diff-check on a clean tree; this documentation-only commit records that result."
+    "Independent exact-head review of 5c190d08f returned GO with no P0-P3 findings. It reproduced contract 3/3, validator and diff-check on a clean tree; this documentation-only commit records that result.",
+    "After the frozen candidate failed wasmJsNodeTest because the browser-only fixture dereferenced an absent Node document, the exact Web test was rerun at fea7a30e in both Node and Chrome Headless. Android and iOS production/test blobs remain identical to their historical executions."
   ]
 }
