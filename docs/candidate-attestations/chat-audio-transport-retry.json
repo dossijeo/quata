@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "fdbd8c399a327d188cd5fb63d1c5073fa28a07d1",
-  "certification": "same-attachment-transport-retry-platform-focal-complete-independent-review-go-final-CI-pending",
+  "productSha": "6cec2376bc0f622e8848304f374940f83586f2e0",
+  "certification": "same-attachment-transport-retry-platform-focal-complete-rebase-review-pending",
   "evidenceKind": "CHAT_AUDIO_RETRY_SEMANTICS_AND_PLATFORM_ADAPTER_RECOVERY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "fdbd8c399a327d188cd5fb63d1c5073fa28a07d1",
+      "sha": "6cec2376bc0f622e8848304f374940f83586f2e0",
       "report": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
       "reportSha256": "1ad18fb45e957023be65ecde0f30d5234b7275dcafc889a2b5002777291cc739",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "fdbd8c399a327d188cd5fb63d1c5073fa28a07d1",
+      "sha": "6cec2376bc0f622e8848304f374940f83586f2e0",
       "report": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
       "reportSha256": "1ad18fb45e957023be65ecde0f30d5234b7275dcafc889a2b5002777291cc739",
       "reportStatus": "passed",
@@ -55,7 +55,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "fdbd8c399a327d188cd5fb63d1c5073fa28a07d1",
+      "sha": "6cec2376bc0f622e8848304f374940f83586f2e0",
       "report": "docs/candidate-attestations/evidence/chat-audio-transport-retry-f9a2f4b3.json",
       "reportSha256": "1ad18fb45e957023be65ecde0f30d5234b7275dcafc889a2b5002777291cc739",
       "reportStatus": "passed",
@@ -97,8 +97,9 @@
     "Android retries the same remote descriptor after resolver failure and invokes native load only with recovered local bytes.",
     "Web serializes load/stop ownership, refuses to discard a Blob lease after failed native stop and releases a newly materialized lease when native load fails or throws cancellation.",
     "iOS retries the same descriptor through its authenticated bounded downloader and discards only the recovered temporary file after successful native stop.",
-    "The platform execution head f9a2f4b34e3f5c97b991b848edf2a845468af42a and product head fdbd8c399a327d188cd5fb63d1c5073fa28a07d1 differ by the reviewed Node source contract, certified inventory boundary and patch-equivalent recomposition over the Feed and Official position units. All Chat common, Android, Web and iOS production and platform-test blobs are byte-identical, so platform matrices were not repeated solely for the amended commit identity.",
+    "The platform execution head f9a2f4b34e3f5c97b991b848edf2a845468af42a and product head 6cec2376bc0f622e8848304f374940f83586f2e0 differ by the reviewed Node source contract, certified inventory boundary and patch-equivalent recomposition over the Feed and Official position units. All Chat common, Android, Web and iOS production and platform-test blobs are byte-identical, so platform matrices were not repeated solely for the amended commit identity.",
     "Independent exact-head review of 66dcd6d3 returned GO with no P0-P3 findings and confirmed the Product boundary, historical custody, focal UI limits and independence from inherited Feed, Official and logout changes.",
+    "The six-commit Chat audio series was replayed without conflict over frozen Official candidate ea8087ae. Comparing old Product fdbd8c39 with recomposed Product 6cec2376 changes only the three inherited Official custody documents; all Chat runtime, platform tests, report and contract blobs remain byte-identical. A renewed exact-head review is required after this custody reanchor.",
     "No backend, credentials, database row, Storage object or remote product state was used or mutated."
   ]
 }
