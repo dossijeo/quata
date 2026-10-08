@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "1521265c4c7486b016839bbc5c17d456b28e90b9",
-  "certification": "platform-result-terminal-matrix-platform-focal-complete-independent-review-pending-final-CI-pending",
+  "certification": "platform-result-terminal-matrix-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -78,8 +78,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-terminal-matrix.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "203a63548528a1778b41145c411f5ca5f8f2b886",
     "blockingFindings": [],
     "resolvedFindings": [],
     "scopeLimit": "The hermetic adapter matrix proves Failure, Cancelled and Unsupported boundary handling and temporary-resource custody. It does not prove real HTTP, proxy, captive-portal, physical microphone, routing or background-playback behavior."
@@ -90,6 +90,6 @@
     "This closes adapter-level PlatformResult coverage only. Real outage, proxy, captive-portal and exhaustive HTTP-code integration remain explicit external limits.",
     "Independent exact-head review of 57b531d7 returned GO with no P0-P3 findings. The final documentation-only commit records that review without changing the reviewed product, test or evidence blobs.",
     "The five-commit terminal-matrix series was replayed over reviewed UI candidate e668e1e5. Conflict adaptations preserve transport eb9cd3c3 and UI e51bfe97; all terminal-matrix runtime, platform-test, contract and report blobs remain byte-identical.",
-    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. A new exact-head review is required after this candidate reanchor without attributing a new platform execution."
+    "Independent exact-head review of 328933ba returned GO with no P0-P3 findings. The recomposed exact-head review of 203a6354 returned GO with no P0-P3 and confirmed unchanged terminal-matrix runtime, tests, contract and report blobs without attributing a new platform execution."
   ]
 }
