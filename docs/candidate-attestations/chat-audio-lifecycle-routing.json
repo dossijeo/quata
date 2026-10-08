@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "a6e52908406242c1a987fccd906e6cc2a2efbe1a",
-  "certification": "lifecycle-and-route-interruption-platform-focal-complete-rebase-review-pending-final-CI-pending",
+  "certification": "lifecycle-and-route-interruption-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_LIFECYCLE_AND_ROUTE_INTERRUPTION_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -81,8 +81,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-lifecycle-routing.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "5c190d08fa833049043f739130b9ed142f9838ea",
     "blockingFindings": [],
     "resolvedFindings": [
       "The prior exact-head review found that Android did not prove the unit-wide no-auto-resume policy. The player now converts transient audio-focus suppression into an explicit pause, and the focal test verifies it remains paused after focus is returned.",
@@ -96,6 +96,7 @@
     "The iOS focal suite executes the production AVPlayer engine on an x86_64 iOS 26.5 simulator and covers interruption start/end, old-route unavailability and app resignation.",
     "The iOS execution remains bound to identical production and test Git blobs after Android and Web test-only additions; it was not repeated solely for the amended Product SHA.",
     "This unit adopts pause-without-auto-resume as the safe lifecycle policy. It does not claim prolonged background playback or physical-device routing.",
-    "The lifecycle series was replayed over frozen HTTP-boundary head 20707baab after its exact-head review. Product SHA a6e529084 is patch-equivalent to previously reviewed Product 463e64dae; Android, Web and iOS execution remain bound to ff9d40fa and every lifecycle-owned runtime, platform-test, contract and report blob remains byte-identical. No E2E matrix was repeated solely for the new base."
+    "The lifecycle series was replayed over frozen HTTP-boundary head 20707baab after its exact-head review. Product SHA a6e529084 is patch-equivalent to previously reviewed Product 463e64dae; Android, Web and iOS execution remain bound to ff9d40fa and every lifecycle-owned runtime, platform-test, contract and report blob remains byte-identical. No E2E matrix was repeated solely for the new base.",
+    "Independent exact-head review of 5c190d08f returned GO with no P0-P3 findings. It reproduced contract 3/3, validator and diff-check on a clean tree; this documentation-only commit records that result."
   ]
 }
