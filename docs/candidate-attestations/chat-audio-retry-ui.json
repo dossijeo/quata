@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "96848abc874f4aef597ef2c836f9cb69824f1edc",
-  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-rebase-review-pending",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -88,7 +88,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "40bd4cda45d7aab34f5022519ea5d237b13aa3a8",
+    "reviewedSha": "fb4368ec4ad55c6f9ad23ac3d55796907850680d",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2 corrected: the UI evidence now claims only one component callback invocation, the supplied loading render and preserved visible label; exact descriptor recovery remains bound to chat-audio-transport-retry.json.",
@@ -101,6 +101,7 @@
     "Android repeats the same interaction through Compose instrumentation on API 35.",
     "No backend, credentials, database row, Storage object or remote product state was used or mutated.",
     "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings.",
-    "The six-commit UI series was replayed over reviewed Chat transport head 605fcad7. Comparing executed Product 2eff439b with recomposed Product 96848abc changes only four inherited custody documents from the Official and transport units; all UI runtime, platform-test and report blobs remain byte-identical. A renewed exact-head review is required after this custody reanchor."
+    "The six-commit UI series was replayed over reviewed Chat transport head 605fcad7. Comparing executed Product 2eff439b with recomposed Product 96848abc changes only four inherited custody documents from the Official and transport units; all UI runtime, platform-test and report blobs remain byte-identical.",
+    "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. It confirmed four exact and two conflict-adapted equivalent commits, preserved UI scope and transport 6cec2376, contract 44/44, validator, diff-check and a clean tree. This final documentation-only commit records that review without attributing a new platform execution."
   ]
 }
