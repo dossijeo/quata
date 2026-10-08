@@ -5,17 +5,17 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+  "productSha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
   "certification": "attachment-http-boundary-platform-focal-complete-final-review-pending",
   "evidenceKind": "CHAT_ATTACHMENT_HTTP_BOUNDARY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "sha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
       "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
-      "reportSha256": "9bb3b3e4a8b5b37e6e8597b3f6da0174697fe8887f62ac9725fd39f6d8bcf16b",
+      "reportSha256": "d284340dbe56fb48c115fa085de42bf3f8443656899e6a49daa1911e85893a4c",
       "reportStatus": "passed",
-      "reportGitHead": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "reportGitHead": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -32,11 +32,11 @@
     },
     "web": {
       "status": "passed",
-      "sha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "sha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
       "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
-      "reportSha256": "9bb3b3e4a8b5b37e6e8597b3f6da0174697fe8887f62ac9725fd39f6d8bcf16b",
+      "reportSha256": "d284340dbe56fb48c115fa085de42bf3f8443656899e6a49daa1911e85893a4c",
       "reportStatus": "passed",
-      "reportGitHead": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "reportGitHead": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -51,11 +51,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "sha": "1aa0727552650f4809f42cc333fff596ad3f82b6",
       "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
-      "reportSha256": "9bb3b3e4a8b5b37e6e8597b3f6da0174697fe8887f62ac9725fd39f6d8bcf16b",
+      "reportSha256": "d284340dbe56fb48c115fa085de42bf3f8443656899e6a49daa1911e85893a4c",
       "reportStatus": "passed",
-      "reportGitHead": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "reportGitHead": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requireCleanupState": "completed",
@@ -82,7 +82,8 @@
   "notes": [
     "Android is the real local-network leg: production OkHttp, TLS socket, auth headers, exact bytes, fail-closed redirect/size/origin behavior and zero private residue.",
     "Web executes production browser fetch code against deterministic Response fixtures; iOS x64 executes the exact completion decision called by the production NSURLSession delegate.",
-    "The Android and iOS execution head be98fcad and Web execution head 4921116d retain byte-identical platform runtime and test blobs at Product SHA a02555d9; only the reviewed fast evidence contract was added afterward.",
+    "Android was renewed 5/5 at exact Product SHA 9fff209b after the independent-review cleanup fix. Web execution head 4921116d and iOS execution head be98fcad retain byte-identical platform runtime and test blobs; their matrices were not repeated solely for the amended Android test and documentation SHA.",
+    "The initial independent review of e41823f4 returned NO-GO with one P2: Android teardown could skip or fail cleanup silently after a server-shutdown error. Product SHA 9fff209b fixes that path and the focal Android class passed again 5/5 on the exact clean head.",
     "OS-level proxy, captive portal and physical network topologies remain external and are not inferred from this focal status matrix."
   ]
 }

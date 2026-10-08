@@ -1,13 +1,13 @@
 {
   "version": 1,
   "status": "passed",
-  "productSha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
-  "executionSha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+  "productSha": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
+  "executionSha": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
   "git": {
-    "head": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+    "head": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
     "workingTreeDirty": false,
     "platformExecutionHeads": {
-      "android": "be98fcad91c7f7e446d84a7e3db49367a6261abd",
+      "android": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
       "web": "4921116dc8579ce69edf7181cab2008bea298242",
       "ios": "be98fcad91c7f7e446d84a7e3db49367a6261abd"
     },
@@ -38,17 +38,17 @@
     },
     "android": {
       "status": "passed",
-      "executionSha": "be98fcad91c7f7e446d84a7e3db49367a6261abd",
+      "executionSha": "9fff209bf9be5903c7abb937c46d4c58261a2e14",
       "device": "QuataLivePr336Api35(AVD), API 35",
       "command": ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.data.ChatAttachmentFileCacheInstrumentedTest --no-daemon --console=plain",
       "tests": 5,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "durationSeconds": 4.736,
-      "timestamp": "2026-10-08T05:11:12Z",
+      "durationSeconds": 4.891,
+      "timestamp": "2026-10-08T05:30:29Z",
       "resultPath": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml",
-      "resultSha256": "5722583d044ddb965064383e320737467dbae5010765771f964f3f9d17d495ac",
+      "resultSha256": "6c58df982bae986ecf614143b252bdd07a8d02fc53607b25e4976262956350ed",
       "transport": "real in-process TLS socket through production OkHttp cache downloader"
     },
     "web": {
@@ -89,8 +89,8 @@
     },
     "androidTest": {
       "path": "app/src/androidTest/java/com/quata/feature/chat/data/ChatAttachmentFileCacheInstrumentedTest.kt",
-      "gitBlob": "9ec2f0dfac79ca992334b8763a2bb160be267b1d",
-      "sha256": "eeae9d46b11db12f4007f4fc5d2d1b6fb5f090099d01e278e65f2bc074626a30"
+      "gitBlob": "2a75c8add32f83d6b420687a72e811d2591b8b51",
+      "sha256": "f3dd0e41f7ef46c802f7f8422c8fb3e1a5a1aac80d0155e63c4d283271f18963"
     },
     "webRuntime": {
       "path": "core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserMediaFileExportService.wasm.kt",
@@ -121,7 +121,8 @@
   "diagnosticHistory": [
     "The first Gradle launch did not execute tests because PowerShell split the unquoted instrumentation property; quoting it produced the authoritative run.",
     "The first oversized Android fixture called setBody after setHeader, so MockWebServer replaced the declared length with one byte; reversing fixture construction produced the intended oversized response and 5/5 passed.",
-    "A first macOS command escaped PATH incorrectly and did not start Gradle; the corrected shell environment produced the authoritative 5/5 run."
+    "A first macOS command escaped PATH incorrectly and did not start Gradle; the corrected shell environment produced the authoritative 5/5 run.",
+    "Independent review of e41823f4 found that Android teardown did not guarantee cache cleanup after a shutdown failure. Product SHA 9fff209b now attempts both operations, asserts the cache directory is absent and propagated shutdown failure; Android was renewed 5/5 on that exact head."
   ],
   "cleanup": {
     "state": "completed",
