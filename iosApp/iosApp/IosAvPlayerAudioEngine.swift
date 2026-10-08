@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import QuataShared
+import UIKit
 
 /// Production iOS playback edge for the shared Chat audio contract.
 ///
@@ -11,6 +12,7 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     private var listener: (any IosNativeAudioPlaybackEngineListener)?
     private var player: AVAudioPlayer?
     private var playbackStartWatchdog: DispatchWorkItem?
+    private var lifecycleObservers: [NSObjectProtocol] = []
     private var generation: Int64 = 0
     private var loaded = false
     private var durationMillis: Int64 = 0
@@ -20,7 +22,13 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
     private static var evidenceLogInitialized = false
     private static let dataBackedPlayerMaxBytes: Int64 = 50 * 1024 * 1024
 
+    override init() {
+        super.init()
+        installLifecycleObservers()
+    }
+
     deinit {
+        lifecycleObservers.forEach { NotificationCenter.default.removeObserver($0) }
         clearPlayer(deactivateSession: false)
     }
 
@@ -177,6 +185,47 @@ final class IosAvPlayerAudioEngine: NSObject, IosNativeAudioPlaybackEngine, AVAu
         }
         playbackStartWatchdog = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: workItem)
+    }
+
+    private func installLifecycleObservers() {
+        let center = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
+        lifecycleObservers = [
+            center.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: session,
+                queue: .main
+            ) { [weak self] notification in
+                guard let number = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? NSNumber,
+                      AVAudioSession.InterruptionType(rawValue: number.uintValue) == .began else { return }
+                self?.pauseForLifecycleChange("interruption")
+            },
+            center.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: session,
+                queue: .main
+            ) { [weak self] notification in
+                guard let number = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber,
+                      AVAudioSession.RouteChangeReason(rawValue: number.uintValue) == .oldDeviceUnavailable else { return }
+                self?.pauseForLifecycleChange("route_lost")
+            },
+            center.addObserver(
+                forName: UIApplication.willResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.pauseForLifecycleChange("background")
+            },
+        ]
+    }
+
+    private func pauseForLifecycleChange(_ reason: String) {
+        guard let activePlayer = player, activePlayer.isPlaying else { return }
+        activePlayer.pause()
+        playbackStartWatchdog?.cancel()
+        playbackStartWatchdog = nil
+        recordEvidenceEvent("paused_\(reason)")
+        listener?.playbackStateChanged()
     }
 
     private func state(errorReason: String? = nil) -> IosNativeAudioPlaybackEngineState {
