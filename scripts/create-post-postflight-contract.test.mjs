@@ -85,7 +85,8 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.match(uiTest, /quata-ios-profile-sos-host/);
   assert.match(uiTest, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(uiTest, /assertTextInput\(restoredInput, equals: marker/);
-  assert.match(uiTest, /tapIdentifier\("composer-back"[\s\S]*quata-ios-feed-host[\s\S]*waitForNonExistence/);
+  assert.match(uiTest, /tapScrollableIdentifier\([\s\S]*"composer-back"[\s\S]*inside: "create-post-common-root"[\s\S]*quata-ios-feed-host[\s\S]*waitForNonExistence/);
+  assert.match(uiTest, /while !element\.isHittable && remainingScrolls > 0[\s\S]*container\.swipeUp\(\)[\s\S]*XCTAssertTrue\(element\.isHittable/);
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);

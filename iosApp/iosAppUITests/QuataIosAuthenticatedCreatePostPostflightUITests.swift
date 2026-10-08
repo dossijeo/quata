@@ -27,7 +27,12 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         assertTextInput(restoredInput, equals: marker, context: "draft after relaunch")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-draft-after-relaunch")
 
-        tapIdentifier("composer-back", in: relaunched, context: "discard restored draft")
+        tapScrollableIdentifier(
+            "composer-back",
+            inside: "create-post-common-root",
+            in: relaunched,
+            context: "discard restored draft"
+        )
         assertVisible("quata-ios-feed-host", in: relaunched, context: "Feed after draft discard")
         XCTAssertTrue(
             relaunched.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.waitForNonExistence(timeout: 12),
@@ -148,6 +153,27 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         } else {
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
+    }
+
+    private func tapScrollableIdentifier(
+        _ identifier: String,
+        inside containerIdentifier: String,
+        in app: XCUIApplication,
+        context: String
+    ) {
+        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        let container = app.descendants(matching: .any).matching(identifier: containerIdentifier).firstMatch
+        XCTAssertTrue(container.waitForExistence(timeout: 12), "Expected \(containerIdentifier) for \(context).")
+        XCTAssertTrue(element.waitForExistence(timeout: 12), "Expected \(identifier) for \(context).")
+
+        var remainingScrolls = 5
+        while !element.isHittable && remainingScrolls > 0 {
+            container.swipeUp()
+            remainingScrolls -= 1
+        }
+        XCTAssertTrue(element.isHittable, "Expected \(identifier) to become hittable after scrolling for \(context).")
+        guard element.isHittable else { return }
+        element.tap()
     }
 
     private func tapPrefix(_ prefix: String, in app: XCUIApplication, context: String) {
