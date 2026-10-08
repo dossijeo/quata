@@ -19,6 +19,7 @@ const [
   commonAttachmentPresentation,
   communityProfileHost,
   commonAudioPlayer,
+  commonAudioRetryUiTest,
   commonAudioController,
   commonAudioPolicy,
   commonChatViewModel,
@@ -46,6 +47,7 @@ const [
   iosMediaContent,
   iosMediaBridge,
   androidUiTest,
+  androidAudioRetryUiTest,
   iosUiTest,
   iosWrapper,
   androidRunner,
@@ -85,6 +87,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentPresentation.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
+  source("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentRetryUiTest.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
@@ -112,6 +115,7 @@ const [
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatMediaContent.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+  source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentRetryInstrumentedTest.kt"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
   source("scripts/chat-actions-notifications-android-evidence.mjs"),
@@ -1894,4 +1898,22 @@ test("Web and iOS audio evidence prove finite consecutive playback, not just sec
   assert.match(iosWrapper, /for event in \["loaded", "playing", "progress", "ended", "stopped"\]:\s*if not matching\(next_audio_name, event\):/);
   assert.match(iosWrapper, /if item\.get\("isPlaying"\) != "true":/);
   assert.match(iosWrapper, /missing\.append\(f"\{next_audio_name\}:progress>0"\)/);
+});
+
+test("CHAT-AUDIO renders a failed player and retries the exact attachment through the visible control", () => {
+  for (const uiTest of [commonAudioRetryUiTest, androidAudioRetryUiTest]) {
+    assert.match(uiTest, /ChatAudioAttachmentPlayerContent\(/);
+    assert.match(uiTest, /hasError = hasError/);
+    assert.match(uiTest, /onNodeWithTag\(ChatAudioAttachmentPlayerTestTag\)/);
+    assert.match(uiTest, /(?:assertStateStartsWith|startsWith)\(ChatAudioAttachmentStateFailed\)/);
+    assert.match(uiTest, /onNodeWithTag\(ChatAudioAttachmentToggleTestTag\)/);
+    assert.match(uiTest, /assertHasClickAction\(\)/);
+    assert.match(uiTest, /performClick\(\)/);
+    assert.match(uiTest, /retriedAttachment = attachmentName/);
+    assert.match(uiTest, /assertEquals\(attachmentName, retriedAttachment\)/);
+    assert.match(uiTest, /(?:assertStateStartsWith|startsWith)\(ChatAudioAttachmentStateLoading\)/);
+  }
+  assert.match(commonAudioRetryUiTest, /runComposeUiTest/);
+  assert.match(commonAudioRetryUiTest, /hasAudioAttachmentDescription\(attachmentName\)/);
+  assert.match(androidAudioRetryUiTest, /createAndroidComposeRule/);
 });
