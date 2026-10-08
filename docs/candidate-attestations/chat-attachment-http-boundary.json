@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS",
+    "CHAT-AUDIO"
+  ],
+  "status": "passed",
+  "productSha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+  "certification": "attachment-http-boundary-platform-focal-complete-final-review-pending",
+  "evidenceKind": "CHAT_ATTACHMENT_HTTP_BOUNDARY_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
+      "reportSha256": "9bb3b3e4a8b5b37e6e8597b3f6da0174697fe8887f62ac9725fd39f6d8bcf16b",
+      "reportStatus": "passed",
+      "reportGitHead": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_real_tls_success_uses_auth_headers_and_exact_bytes",
+        "android_http_503_leaves_zero_residue_and_same_descriptor_retries",
+        "android_redirect_empty_oversize_and_non_allowlisted_fail_closed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-local-tls-private-cache-cleanup"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
+      "reportSha256": "9bb3b3e4a8b5b37e6e8597b3f6da0174697fe8887f62ac9725fd39f6d8bcf16b",
+      "reportStatus": "passed",
+      "reportGitHead": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_http_401_403_404_408_429_500_503_prevent_native_effect_and_blob_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "browser-response-fixture-blob-cleanup"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "report": "docs/candidate-attestations/evidence/chat-attachment-http-boundary-a02555d9.json",
+      "reportSha256": "9bb3b3e4a8b5b37e6e8597b3f6da0174697fe8887f62ac9725fd39f6d8bcf16b",
+      "reportStatus": "passed",
+      "reportGitHead": "a02555d9d0cc253379e22d26a143f348f5a72e49",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_http_401_403_404_408_429_500_503_fail_with_exact_status",
+        "ios_redirect_transport_missing_response_empty_and_oversize_remain_distinct"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "ios-x64-completion-matrix-no-file-created"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.data.ChatAttachmentFileCacheInstrumentedTest --no-daemon --console=plain",
+    ".\\gradlew.bat :core:wasmJsBrowserTest --tests com.quata.core.platform.BrowserMediaFileExportServiceTest --no-daemon --console=plain",
+    "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatAttachmentDownloaderCompletionTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-attachment-http-boundary.json --head HEAD"
+  ],
+  "notes": [
+    "Android is the real local-network leg: production OkHttp, TLS socket, auth headers, exact bytes, fail-closed redirect/size/origin behavior and zero private residue.",
+    "Web executes production browser fetch code against deterministic Response fixtures; iOS x64 executes the exact completion decision called by the production NSURLSession delegate.",
+    "The Android and iOS execution head be98fcad and Web execution head 4921116d retain byte-identical platform runtime and test blobs at Product SHA a02555d9; only the reviewed fast evidence contract was added afterward.",
+    "OS-level proxy, captive portal and physical network topologies remain external and are not inferred from this focal status matrix."
+  ]
+}
