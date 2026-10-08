@@ -100,8 +100,14 @@ class PostComposerDraftStore(
 
     suspend fun clear(actorProfileId: String?): PostComposerDraftActorLease? {
         val actor = actorProfileId.normalizedActorIdOrNull() ?: return null
+        val current = readStateConsistently()
+        if (current.actorProfileId != actor) return null
+        return clear(PostComposerDraftActorLease(actor, current.generation))
+    }
+
+    suspend fun clear(lease: PostComposerDraftActorLease): PostComposerDraftActorLease? {
         val mutation = mutateState { current ->
-            if (current.actorProfileId != actor) {
+            if (!current.matches(lease)) {
                 current to null
             } else {
                 val next = current.copy(
@@ -109,7 +115,7 @@ class PostComposerDraftStore(
                     revision = current.revision + 1,
                     encodedDraft = null,
                 )
-                next to PostComposerDraftActorLease(actor, next.generation)
+                next to PostComposerDraftActorLease(lease.actorProfileId, next.generation)
             }
         }
         return mutation.result.takeIf { mutation.committed }

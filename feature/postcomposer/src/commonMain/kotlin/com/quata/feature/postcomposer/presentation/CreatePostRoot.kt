@@ -268,6 +268,7 @@ fun CreatePostRoot(
         mutableStateOf<PostComposerDraftClearRequest?>(null)
     }
     val currentDraftActorProfileId by rememberUpdatedState(draftActorProfileId)
+    val currentDraftActorLease by rememberUpdatedState(durableDraftActorLease)
     val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
@@ -348,9 +349,15 @@ fun CreatePostRoot(
         val clearAttempt = if (store == null) {
             PostComposerDraftClearAttempt.NotRequired
         } else {
-            attemptPostComposerDraftClear(request.actorProfileId, store::clear)
+            attemptPostComposerDraftClear(request.actorProfileId, request.actorLease, store::clear)
         }
-        if (!isPostComposerDraftClearActorCurrent(request.actorProfileId, currentDraftActorProfileId)) {
+        if (!isPostComposerDraftClearRequestCurrent(
+                request.actorProfileId,
+                request.actorLease,
+                currentDraftActorProfileId,
+                currentDraftActorLease,
+            )
+        ) {
             pendingDraftClearRequest = null
             return
         }
@@ -395,15 +402,24 @@ fun CreatePostRoot(
     }
 
     fun requestDraftClear(action: PostComposerDraftClearAction) {
+        val request = PostComposerDraftClearRequest(
+            actorProfileId = currentDraftActorProfileId,
+            actorLease = currentDraftActorLease,
+            action = action,
+        )
         durableDraftReady = false
-        scope.launch {
-            completeDraftClear(PostComposerDraftClearRequest(currentDraftActorProfileId, action))
-        }
+        scope.launch { completeDraftClear(request) }
     }
 
     LaunchedEffect(resetToken) {
         if (resetToken > 0 && resetToken != lastResetToken) {
-            completeDraftClear(PostComposerDraftClearRequest(currentDraftActorProfileId, PostComposerDraftClearAction.Reset(resetToken)))
+            completeDraftClear(
+                PostComposerDraftClearRequest(
+                    currentDraftActorProfileId,
+                    currentDraftActorLease,
+                    PostComposerDraftClearAction.Reset(resetToken),
+                ),
+            )
         }
     }
     LaunchedEffect(cancelUploadToken) {
@@ -435,6 +451,7 @@ fun CreatePostRoot(
             completeDraftClear(
                 PostComposerDraftClearRequest(
                     currentDraftActorProfileId,
+                    currentDraftActorLease,
                     PostComposerDraftClearAction.PublishSuccess(state.createdPostId),
                 ),
             )
@@ -619,6 +636,7 @@ private sealed interface PostComposerDraftClearAction {
 
 private data class PostComposerDraftClearRequest(
     val actorProfileId: String?,
+    val actorLease: PostComposerDraftActorLease?,
     val action: PostComposerDraftClearAction,
 )
 
@@ -630,11 +648,13 @@ internal sealed interface PostComposerDraftClearAttempt {
 
 internal suspend fun attemptPostComposerDraftClear(
     actorProfileId: String?,
-    clear: suspend (String?) -> PostComposerDraftActorLease?,
+    actorLease: PostComposerDraftActorLease?,
+    clear: suspend (PostComposerDraftActorLease) -> PostComposerDraftActorLease?,
 ): PostComposerDraftClearAttempt {
     if (actorProfileId == null) return PostComposerDraftClearAttempt.NotRequired
+    if (actorLease?.actorProfileId != actorProfileId) return PostComposerDraftClearAttempt.Failed
     return try {
-        clear(actorProfileId)?.let(PostComposerDraftClearAttempt::Cleared)
+        clear(actorLease)?.let(PostComposerDraftClearAttempt::Cleared)
             ?: PostComposerDraftClearAttempt.Failed
     } catch (cancelled: CancellationException) {
         throw cancelled
@@ -643,10 +663,12 @@ internal suspend fun attemptPostComposerDraftClear(
     }
 }
 
-internal fun isPostComposerDraftClearActorCurrent(
+internal fun isPostComposerDraftClearRequestCurrent(
     requestedActorProfileId: String?,
+    requestedActorLease: PostComposerDraftActorLease?,
     currentActorProfileId: String?,
-): Boolean = requestedActorProfileId == currentActorProfileId
+    currentActorLease: PostComposerDraftActorLease?,
+): Boolean = requestedActorProfileId == currentActorProfileId && requestedActorLease == currentActorLease
 
 internal fun shouldPersistPostComposerDraft(
     ready: Boolean,

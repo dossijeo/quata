@@ -21,26 +21,43 @@ class PostComposerDraftStoreTest {
     fun clearAttemptTurnsStorageFailuresIntoRetryableResultsAndPreservesCancellation() = runTest {
         assertEquals(
             PostComposerDraftClearAttempt.Failed,
-            attemptPostComposerDraftClear("actor-a") { error("disk-write-failed") },
+            attemptPostComposerDraftClear("actor-a", PostComposerDraftActorLease("actor-a", 1)) { error("disk-write-failed") },
         )
         assertEquals(
             PostComposerDraftClearAttempt.Failed,
-            attemptPostComposerDraftClear("actor-a") { null },
+            attemptPostComposerDraftClear("actor-a", PostComposerDraftActorLease("actor-a", 1)) { null },
         )
         assertEquals(
             PostComposerDraftClearAttempt.NotRequired,
-            attemptPostComposerDraftClear(null) { error("must-not-run") },
+            attemptPostComposerDraftClear(null, null) { error("must-not-run") },
         )
         assertFailsWith<CancellationException> {
-            attemptPostComposerDraftClear("actor-a") { throw CancellationException("cancelled") }
+            attemptPostComposerDraftClear("actor-a", PostComposerDraftActorLease("actor-a", 1)) {
+                throw CancellationException("cancelled")
+            }
         }
     }
 
     @Test
     fun clearCompletionIsRejectedAfterTheAuthenticatedActorChanges() {
-        assertTrue(isPostComposerDraftClearActorCurrent("actor-a", "actor-a"))
-        assertFalse(isPostComposerDraftClearActorCurrent("actor-a", "actor-b"))
-        assertFalse(isPostComposerDraftClearActorCurrent("actor-a", null))
+        val firstActorALease = PostComposerDraftActorLease("actor-a", 1)
+        val secondActorALease = PostComposerDraftActorLease("actor-a", 3)
+        assertTrue(isPostComposerDraftClearRequestCurrent("actor-a", firstActorALease, "actor-a", firstActorALease))
+        assertFalse(isPostComposerDraftClearRequestCurrent("actor-a", firstActorALease, "actor-b", null))
+        assertFalse(isPostComposerDraftClearRequestCurrent("actor-a", firstActorALease, "actor-a", secondActorALease))
+    }
+
+    @Test
+    fun staleClearLeaseCannotDeleteANewDraftAfterActorCyclesBack() = runTest {
+        val store = PostComposerDraftStore(AtomicMemoryPreferenceStore())
+        val firstActorALease = requireNotNull(store.activateActor("actor-a"))
+        assertTrue(store.save(firstActorALease, draft(text = "old-a")))
+        requireNotNull(store.activateActor("actor-b"))
+        val secondActorALease = requireNotNull(store.activateActor("actor-a"))
+        assertTrue(store.save(secondActorALease, draft(text = "new-a")))
+
+        assertNull(store.clear(firstActorALease))
+        assertEquals("new-a", store.restore("actor-a") { true }?.snapshot?.text)
     }
 
     @Test

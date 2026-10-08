@@ -16,7 +16,7 @@ test("the durable envelope is versioned actor-bound and excludes raw media bytes
   assert.match(store, /decoded == null[\s\S]*?current\.copy\(revision = current\.revision \+ 1, encodedDraft = null\)[\s\S]*?return null/);
   assert.match(store, /private val mutationLock = Mutex\(\)/);
   assert.match(store, /suspend fun save\(lease: PostComposerDraftActorLease[\s\S]*?!current\.matches\(lease\)[\s\S]*?current\.copy/);
-  assert.match(store, /suspend fun clear[\s\S]*?generation = current\.generation \+ 1[\s\S]*?PostComposerDraftActorLease\(actor, next\.generation\)/);
+  assert.match(store, /suspend fun clear\(lease: PostComposerDraftActorLease\)[\s\S]*?!current\.matches\(lease\)[\s\S]*?generation = current\.generation \+ 1[\s\S]*?PostComposerDraftActorLease\(lease\.actorProfileId, next\.generation\)/);
   assert.doesNotMatch(store, /accessToken|refreshToken|bearerToken/);
 });
 
@@ -25,7 +25,8 @@ test("the common root restores before persistence and clears publish discard and
   assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
   assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.save\(lease, durableSnapshot\)/);
-  assert.match(root, /suspend fun completeDraftClear[\s\S]*?attemptPostComposerDraftClear\(request\.actorProfileId, store::clear\)[\s\S]*?!isPostComposerDraftClearActorCurrent\(request\.actorProfileId, currentDraftActorProfileId\)[\s\S]*?PostComposerDraftClearAttempt\.Failed[\s\S]*?pendingDraftClearRequest = request[\s\S]*?durablePersistedSnapshot = null/);
+  assert.match(root, /suspend fun completeDraftClear[\s\S]*?attemptPostComposerDraftClear\(request\.actorProfileId, request\.actorLease, store::clear\)[\s\S]*?!isPostComposerDraftClearRequestCurrent[\s\S]*?request\.actorLease[\s\S]*?currentDraftActorLease[\s\S]*?PostComposerDraftClearAttempt\.Failed[\s\S]*?pendingDraftClearRequest = request[\s\S]*?durablePersistedSnapshot = null/);
+  assert.match(root, /fun requestDraftClear[\s\S]*?val request = PostComposerDraftClearRequest[\s\S]*?actorProfileId = currentDraftActorProfileId[\s\S]*?actorLease = currentDraftActorLease[\s\S]*?scope\.launch \{ completeDraftClear\(request\) \}/);
   assert.match(root, /attemptPostComposerDraftClear[\s\S]*?catch \(cancelled: CancellationException\)[\s\S]*?throw cancelled[\s\S]*?catch \(_: Throwable\)[\s\S]*?PostComposerDraftClearAttempt\.Failed/);
   assert.match(root, /PostComposerDraftClearAction\.Reset[\s\S]*?lastResetToken = action\.token[\s\S]*?PostComposerDraftClearAction\.PublishSuccess[\s\S]*?onPostCreated[\s\S]*?PostComposerDraftClearAction\.Discard[\s\S]*?dispatchCreatePostBack/);
   assert.match(root, /errorMessage = if \(pendingDraftClearRequest != null\) copy\.draftDiscardFailed[\s\S]*?onRetry = pendingDraftClearRequest/);
@@ -97,5 +98,6 @@ test("the executable common tests cover isolation corruption cleanup and unavail
     "rejectedRestoreDoesNotTriggerAnInitialEmptyAutosaveOverTheNewerDraft",
     "clearAttemptTurnsStorageFailuresIntoRetryableResultsAndPreservesCancellation",
     "clearCompletionIsRejectedAfterTheAuthenticatedActorChanges",
+    "staleClearLeaseCannotDeleteANewDraftAfterActorCyclesBack",
   ]) assert.match(tests, new RegExp(`fun ${name}\\(`));
 });
