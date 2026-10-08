@@ -26,7 +26,6 @@ import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PermissionStatus
-import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import kotlinx.coroutines.CoroutineScope
@@ -53,7 +52,7 @@ class IosComposerHostDependencies(
     val canPublishNow: () -> Boolean = { true },
     val authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
     val onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
-    val preferences: PreferenceStore? = null,
+    val durableDraftStore: PostComposerDraftStore? = null,
     val actorProfileId: () -> String? = { null },
 )
 
@@ -72,7 +71,7 @@ fun createIosComposerHostDependenciesWithAuthenticationContinuation(
     canPublishNow: () -> Boolean,
     authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator,
     onAuthenticationContinuationRequired: (PostComposerAuthenticationContinuation) -> Unit,
-    preferences: PreferenceStore,
+    durableDraftStore: PostComposerDraftStore,
     actorProfileId: () -> String?,
 ): IosComposerHostDependencies = IosComposerHostDependencies(
     repository = repository,
@@ -89,7 +88,7 @@ fun createIosComposerHostDependenciesWithAuthenticationContinuation(
     canPublishNow = canPublishNow,
     authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
-    preferences = preferences,
+    durableDraftStore = durableDraftStore,
     actorProfileId = actorProfileId,
 )
 
@@ -180,10 +179,10 @@ fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIVi
     QuataTheme { IosPostComposerHost(dependencies) }
 }
 
-/** Clears the last actor's durable composer state after the authenticated logout has succeeded. */
-fun clearIosPostComposerDraft(preferences: PreferenceStore, actorProfileId: String?) {
+/** Retires the last actor after authenticated logout so no suspended write can revive its draft. */
+fun retireIosPostComposerDraft(store: PostComposerDraftStore) {
     CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
-        PostComposerDraftStore(preferences).clear(actorProfileId)
+        store.activateActor(null)
     }
 }
 
@@ -238,7 +237,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         ?.collectAsState()
         ?: remember { mutableStateOf(null) }
     val retainedDraft = dependencies.authenticationContinuationCoordinator?.retainedDraft?.value
-    val durableDraftStore = remember(dependencies.preferences) { dependencies.preferences?.let(::PostComposerDraftStore) }
+    val durableDraftStore = dependencies.durableDraftStore
     val draftActorProfileId = dependencies.actorProfileId()
     val viewModel = remember(dependencies.repository, copy) {
         CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages()).also { model ->

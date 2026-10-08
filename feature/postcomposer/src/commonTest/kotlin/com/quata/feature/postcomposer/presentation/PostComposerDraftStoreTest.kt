@@ -1,10 +1,15 @@
 package com.quata.feature.postcomposer.presentation
 
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class PostComposerDraftStoreTest {
     @Test
@@ -13,8 +18,9 @@ class PostComposerDraftStoreTest {
         val store = PostComposerDraftStore(preferences)
         val draft = draft(text = "actor-a")
 
-        store.save("actor-a", draft)
-        assertEquals(draft, store.restore("actor-a") { true })
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        store.save(lease, draft)
+        assertEquals(draft, store.restore("actor-a") { true }?.snapshot)
         assertNull(store.restore("actor-b") { true })
         assertNull(store.restore("actor-a") { true })
     }
@@ -23,7 +29,8 @@ class PostComposerDraftStoreTest {
     fun malformedOrUnknownPayloadFailsClosedAndIsRemoved() = runTest {
         val preferences = MemoryPreferenceStore()
         val store = PostComposerDraftStore(preferences)
-        store.save("actor-a", draft())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        store.save(lease, draft())
         preferences.values["post-composer.draft.v1.actor-a"] = "QPCD99:broken"
 
         assertNull(store.restore("actor-a") { true })
@@ -33,9 +40,10 @@ class PostComposerDraftStoreTest {
     @Test
     fun unavailableMediaIsDroppedWhileSafeFieldsRemain() = runTest {
         val store = PostComposerDraftStore(MemoryPreferenceStore())
-        store.save("actor-a", draft(imageUri = "file:///gone.jpg", videoUri = "file:///kept.mp4"))
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        store.save(lease, draft(imageUri = "file:///gone.jpg", videoUri = "file:///kept.mp4"))
 
-        val restored = store.restore("actor-a") { it.endsWith("kept.mp4") }
+        val restored = store.restore("actor-a") { it.endsWith("kept.mp4") }?.snapshot
 
         assertEquals("draft", restored?.text)
         assertNull(restored?.imageUri)
@@ -48,11 +56,12 @@ class PostComposerDraftStoreTest {
         val preferences = MemoryPreferenceStore()
         val store = PostComposerDraftStore(preferences)
 
-        store.save("../../other", draft())
-        store.save("actor-a", draft(imageUri = "data:image/png;base64,secret"))
+        assertNull(store.activateActor("../../other"))
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        store.save(lease, draft(imageUri = "data:image/png;base64,secret"))
 
         assertEquals(2, preferences.values.size)
-        val restored = store.restore("actor-a") { true }
+        val restored = store.restore("actor-a") { true }?.snapshot
         assertNull(restored?.imageUri)
     }
 
@@ -60,11 +69,60 @@ class PostComposerDraftStoreTest {
     fun clearRemovesTheDraftAndActiveActorMarker() = runTest {
         val preferences = MemoryPreferenceStore()
         val store = PostComposerDraftStore(preferences)
-        store.save("actor-a", draft())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        store.save(lease, draft())
 
-        store.clear("actor-a")
+        val replacementLease = requireNotNull(store.clear("actor-a"))
 
         assertEquals(emptyMap(), preferences.values)
+        assertFalse(store.save(lease, draft(text = "stale-after-clear")))
+        assertTrue(store.save(replacementLease, draft(text = "new-after-clear")))
+        assertEquals("new-after-clear", store.restore("actor-a") { true }?.snapshot?.text)
+    }
+
+    @Test
+    fun actorChangeSerializesWithInFlightSaveAndRejectsStaleWrites() = runTest {
+        val preferences = BlockingPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val actorALease = requireNotNull(store.activateActor("actor-a"))
+        preferences.blockDraftWrite = true
+
+        val save = launch { assertTrue(store.save(actorALease, draft(text = "in-flight"))) }
+        preferences.draftWriteStarted.await()
+        val actorChange = launch { store.activateActor("actor-b") }
+        preferences.allowDraftWrite.complete(Unit)
+        save.join()
+        actorChange.join()
+
+        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
+        assertFalse(store.save(actorALease, draft(text = "stale")))
+        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
+    }
+
+    @Test
+    fun delayedRestoreLeaseIsInvalidAfterActorChange() = runTest {
+        val preferences = MemoryPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        store.save(lease, draft(imageUri = "file:///slow.jpg"))
+        val validatorStarted = CompletableDeferred<Unit>()
+        val allowValidator = CompletableDeferred<Unit>()
+
+        val restoration = async {
+            store.restore("actor-a") {
+                validatorStarted.complete(Unit)
+                allowValidator.await()
+                true
+            }
+        }
+        validatorStarted.await()
+        val actorChange = launch { store.activateActor("actor-b") }
+        allowValidator.complete(Unit)
+        val restored = restoration.await()
+        actorChange.join()
+
+        assertFalse(store.isCurrent(requireNotNull(restored).actorLease))
+        assertNull(preferences.values["post-composer.draft.v1.actor-a"])
     }
 
     private fun draft(
@@ -90,4 +148,26 @@ private class MemoryPreferenceStore : PreferenceStore {
     override suspend fun getString(key: String): String? = values[key]
     override suspend fun putString(key: String, value: String) { values[key] = value }
     override suspend fun remove(key: String) { values.remove(key) }
+}
+
+private class BlockingPreferenceStore : PreferenceStore {
+    val values = mutableMapOf<String, String>()
+    var blockDraftWrite = false
+    val draftWriteStarted = CompletableDeferred<Unit>()
+    val allowDraftWrite = CompletableDeferred<Unit>()
+
+    override suspend fun getString(key: String): String? = values[key]
+
+    override suspend fun putString(key: String, value: String) {
+        if (blockDraftWrite && key.startsWith("post-composer.draft.v1.")) {
+            blockDraftWrite = false
+            draftWriteStarted.complete(Unit)
+            allowDraftWrite.await()
+        }
+        values[key] = value
+    }
+
+    override suspend fun remove(key: String) {
+        values.remove(key)
+    }
 }

@@ -66,7 +66,6 @@ import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.core.platform.LocationService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PermissionStatus
-import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataCameraDialog
@@ -130,7 +129,7 @@ fun CreatePostScreen(
     evidencePickerSource: String? = null,
     evidencePickerOutcome: String? = null,
     evidencePickerPath: String? = null,
-    preferenceStore: PreferenceStore? = null,
+    durableDraftStore: PostComposerDraftStore? = null,
     draftActorProfileId: String? = null,
     viewModel: CreatePostAndroidViewModel = viewModel(
         factory = CreatePostAndroidViewModel.factory(
@@ -157,8 +156,6 @@ fun CreatePostScreen(
     val evidencePicker = remember(evidencePickerSource, evidencePickerOutcome, evidencePickerPath) {
         AndroidPostComposerPickerEvidence.from(evidencePickerSource, evidencePickerOutcome, evidencePickerPath)
     }
-    val durableDraftStore = remember(preferenceStore) { preferenceStore?.let(::PostComposerDraftStore) }
-
     fun clearOwnedMedia() {
         val stateImageUri = state.imageUri?.let(Uri::parse)?.takeIf { it.scheme == "file" }
         val stateVideoUri = state.videoUri?.let(Uri::parse)?.takeIf { it.scheme == "file" }

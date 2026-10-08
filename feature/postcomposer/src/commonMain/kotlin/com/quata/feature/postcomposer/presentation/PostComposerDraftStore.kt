@@ -1,6 +1,8 @@
 package com.quata.feature.postcomposer.presentation
 
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Durable, actor-bound storage for the existing post-composer draft.
@@ -11,47 +13,76 @@ import com.quata.core.platform.PreferenceStore
 class PostComposerDraftStore(
     private val preferences: PreferenceStore,
 ) {
-    suspend fun activateActor(actorProfileId: String?): String? {
+    private val mutationLock = Mutex()
+    private var activeActorProfileId: String? = null
+    private var actorGeneration: Long = 0
+    private var actorResolved: Boolean = false
+
+    suspend fun activateActor(actorProfileId: String?): PostComposerDraftActorLease? = mutationLock.withLock {
         val normalized = actorProfileId.normalizedActorIdOrNull()
+        if (!actorResolved || activeActorProfileId != normalized) {
+            activeActorProfileId = normalized
+            actorGeneration += 1
+            actorResolved = true
+        }
         val previous = preferences.getString(ActiveActorKey)?.normalizedActorIdOrNull()
         if (previous != null && previous != normalized) preferences.remove(draftKey(previous))
         if (normalized == null) preferences.remove(ActiveActorKey)
         else preferences.putString(ActiveActorKey, normalized)
-        return normalized
+        normalized?.let { PostComposerDraftActorLease(it, actorGeneration) }
     }
 
-    suspend fun save(actorProfileId: String, draft: PostComposerDraftSnapshot) {
-        val actor = actorProfileId.normalizedActorIdOrNull() ?: return
+    suspend fun save(lease: PostComposerDraftActorLease, draft: PostComposerDraftSnapshot): Boolean = mutationLock.withLock {
+        if (!lease.isCurrentLocked()) return@withLock false
+        val actor = lease.actorProfileId
         val sanitized = draft.sanitizedForPersistence()
         if (!sanitized.isMeaningful()) preferences.remove(draftKey(actor))
         else preferences.putString(draftKey(actor), PostComposerDraftEnvelopeCodec.encode(sanitized))
         preferences.putString(ActiveActorKey, actor)
+        true
     }
 
     suspend fun restore(
         actorProfileId: String,
         mediaReferenceAvailable: suspend (String) -> Boolean,
-    ): PostComposerDraftSnapshot? {
-        val actor = activateActor(actorProfileId) ?: return null
-        val key = draftKey(actor)
-        val raw = preferences.getString(key) ?: return null
-        val decoded = PostComposerDraftEnvelopeCodec.decode(raw)
-        if (decoded == null) {
-            preferences.remove(key)
-            return null
-        }
-        val image = decoded.imageUri?.takeIf { mediaReferenceAvailable(it) }
-        val video = decoded.videoUri?.takeIf { mediaReferenceAvailable(it) }
-        return decoded.copy(imageUri = image, videoUri = video).also { restored ->
-            if (restored != decoded) preferences.putString(key, PostComposerDraftEnvelopeCodec.encode(restored))
+    ): PostComposerDraftRestoration? {
+        val lease = activateActor(actorProfileId) ?: return null
+        return mutationLock.withLock {
+            if (!lease.isCurrentLocked()) return@withLock null
+            val actor = lease.actorProfileId
+            val key = draftKey(actor)
+            val raw = preferences.getString(key) ?: return@withLock null
+            val decoded = PostComposerDraftEnvelopeCodec.decode(raw)
+            if (decoded == null) {
+                preferences.remove(key)
+                return@withLock null
+            }
+            val image = decoded.imageUri?.takeIf { mediaReferenceAvailable(it) }
+            val video = decoded.videoUri?.takeIf { mediaReferenceAvailable(it) }
+            decoded.copy(imageUri = image, videoUri = video).also { restored ->
+                if (restored != decoded) preferences.putString(key, PostComposerDraftEnvelopeCodec.encode(restored))
+            }.let { PostComposerDraftRestoration(lease, it) }
         }
     }
 
-    suspend fun clear(actorProfileId: String?) {
-        val actor = actorProfileId.normalizedActorIdOrNull() ?: return
+    suspend fun isCurrent(lease: PostComposerDraftActorLease): Boolean = mutationLock.withLock {
+        lease.isCurrentLocked()
+    }
+
+    suspend fun clear(actorProfileId: String?): PostComposerDraftActorLease? = mutationLock.withLock {
+        val actor = actorProfileId.normalizedActorIdOrNull() ?: return@withLock null
         preferences.remove(draftKey(actor))
         if (preferences.getString(ActiveActorKey) == actor) preferences.remove(ActiveActorKey)
+        if (actorResolved && activeActorProfileId == actor) {
+            actorGeneration += 1
+            PostComposerDraftActorLease(actor, actorGeneration)
+        } else {
+            null
+        }
     }
+
+    private fun PostComposerDraftActorLease.isCurrentLocked(): Boolean =
+        actorResolved && activeActorProfileId == actorProfileId && actorGeneration == generation
 
     private fun draftKey(actorProfileId: String): String = "$DraftKeyPrefix$actorProfileId"
 
@@ -60,6 +91,16 @@ class PostComposerDraftStore(
         const val ActiveActorKey = "post-composer.draft.active-actor.v1"
     }
 }
+
+class PostComposerDraftActorLease internal constructor(
+    val actorProfileId: String,
+    internal val generation: Long,
+)
+
+class PostComposerDraftRestoration internal constructor(
+    val actorLease: PostComposerDraftActorLease,
+    val snapshot: PostComposerDraftSnapshot,
+)
 
 private fun PostComposerDraftSnapshot.isMeaningful(): Boolean =
     step != CreatePostStep.TypePicker ||

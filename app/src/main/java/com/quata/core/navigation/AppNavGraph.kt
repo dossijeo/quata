@@ -1075,7 +1075,7 @@ fun AppNavGraph(
                         evidencePickerSource = postComposerPickerEvidenceSource,
                         evidencePickerOutcome = postComposerPickerEvidenceOutcome,
                         evidencePickerPath = postComposerPickerEvidencePath,
-                        preferenceStore = container.platformServices.preferences,
+                        durableDraftStore = postComposerDraftStore,
                         draftActorProfileId = container.sessionManager.currentSession()?.userId,
                         onBack = {
                             postComposerAuthenticationCoordinator.clear()

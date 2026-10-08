@@ -315,8 +315,8 @@ private fun QuataWebApp(
     val postComposerDraftStore = remember(platformServices.preferences) {
         PostComposerDraftStore(platformServices.preferences)
     }
-    LaunchedEffect(currentUserId, postComposerDraftStore) {
-        postComposerDraftStore.activateActor(currentUserId)
+    LaunchedEffect(currentUserId, isSessionResolved, postComposerDraftStore) {
+        if (isSessionResolved) postComposerDraftStore.activateActor(currentUserId)
     }
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
@@ -944,6 +944,8 @@ private fun QuataWebApp(
                             platformServices = platformServices,
                             runtimeConfiguration = runtimeConfiguration,
                             authRepository = authRepository,
+                            durableDraftStore = postComposerDraftStore,
+                            draftActorProfileId = currentUserId,
                             onBack = { navigation.navigate("") },
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             authenticationContinuationCoordinator = postComposerAuthenticationCoordinator,

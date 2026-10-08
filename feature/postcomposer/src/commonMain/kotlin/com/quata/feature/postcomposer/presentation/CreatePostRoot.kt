@@ -249,15 +249,30 @@ fun CreatePostRoot(
     var durableDraftReady by remember(durableDraftStore, draftActorProfileId) {
         mutableStateOf(durableDraftStore == null || draftActorProfileId == null)
     }
+    var durableDraftActorLease by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf<PostComposerDraftActorLease?>(null)
+    }
     val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
     LaunchedEffect(durableDraftStore, draftActorProfileId) {
         val store = durableDraftStore ?: return@LaunchedEffect
         durableDraftReady = false
-        val actor = store.activateActor(draftActorProfileId)
-        val restored = actor?.let { store.restore(it, durableMediaReferenceAvailable) }
-        if (restored != null) {
+        val actor = draftActorProfileId
+        val baseline = viewModel.snapshot(step)
+        val lease = store.activateActor(actor)
+        durableDraftActorLease = lease
+        val restoration = if (lease != null && initialStep == null) {
+            store.restore(lease.actorProfileId, durableMediaReferenceAvailable)
+        } else {
+            null
+        }
+        if (
+            restoration != null &&
+            store.isCurrent(restoration.actorLease) &&
+            viewModel.snapshot(step) == baseline
+        ) {
+            val restored = restoration.snapshot
             viewModel.restore(restored)
             step = restored.step
             textValue = TextFieldValue(restored.text)
@@ -265,15 +280,15 @@ fun CreatePostRoot(
         durableDraftReady = true
     }
     val durableSnapshot = viewModel.snapshot(step)
-    LaunchedEffect(durableDraftStore, draftActorProfileId, durableDraftReady, durableSnapshot) {
+    LaunchedEffect(durableDraftStore, durableDraftActorLease, durableDraftReady, durableSnapshot) {
         val store = durableDraftStore ?: return@LaunchedEffect
-        val actor = draftActorProfileId ?: return@LaunchedEffect
-        if (durableDraftReady) store.save(actor, durableSnapshot)
+        val lease = durableDraftActorLease ?: return@LaunchedEffect
+        if (durableDraftReady) store.save(lease, durableSnapshot)
     }
 
     LaunchedEffect(resetToken) {
         if (resetToken > 0 && resetToken != lastResetToken) {
-            durableDraftStore?.clear(draftActorProfileId)
+            durableDraftActorLease = durableDraftStore?.clear(draftActorProfileId)
             slots.clearOwnedMedia?.invoke()
             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
             step = CreatePostStep.TypePicker
@@ -309,7 +324,7 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
-            durableDraftStore?.clear(draftActorProfileId)
+            durableDraftActorLease = durableDraftStore?.clear(draftActorProfileId)
             focusManager.clearFocus(force = true)
             slots.clearOwnedMedia?.invoke()
             step = CreatePostStep.TypePicker
@@ -469,7 +484,7 @@ fun CreatePostRoot(
                 )
                 ComposerBackButtonContent(copy.back, {
                     scope.launch {
-                        durableDraftStore?.clear(draftActorProfileId)
+                        durableDraftActorLease = durableDraftStore?.clear(draftActorProfileId)
                         dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
                     }
                 }, accessibility = accessibility)

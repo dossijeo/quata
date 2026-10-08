@@ -25,6 +25,7 @@ import com.quata.feature.postcomposer.presentation.CreatePostMediaPermissionRequ
 import com.quata.feature.postcomposer.presentation.ensureCreatePostMediaPermissions
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
 import com.quata.feature.postcomposer.data.DestinationEvidencePostComposerRepository
 import com.quata.feature.postcomposer.data.FailInsertAfterUploadComposerTransport
@@ -40,6 +41,8 @@ fun WebPostComposerRoute(
     platformServices: WebPlatformServices,
     runtimeConfiguration: WebRuntimeConfiguration,
     authRepository: WebAuthRepository,
+    durableDraftStore: PostComposerDraftStore,
+    draftActorProfileId: String?,
     onBack: () -> Unit,
     onAuthRequired: () -> Unit,
     authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
@@ -167,8 +170,8 @@ fun WebPostComposerRoute(
         authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         pendingAuthenticationContinuation = pendingAuthenticationContinuation,
         onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
-        preferenceStore = platformServices.preferences,
-        draftActorProfileId = authRepository.activeProfileSessionOrNull()?.userId,
+        durableDraftStore = durableDraftStore,
+        draftActorProfileId = draftActorProfileId,
     )
 }
 
