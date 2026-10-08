@@ -88,6 +88,22 @@ class BrowserMediaFileExportServiceTest {
     }
 
     @Test
+    fun httpStatusMatrixFailsBeforeAnyNativeEffect() = runTest {
+        if (!browserMediaExportTestEnvironmentAvailable()) return@runTest
+        for (status in listOf(401, 403, 404, 408, 429, 500, 503)) {
+            installBrowserMediaExportFixture("http-$status")
+
+            val result = BrowserMediaFileExportService().export(descriptor, MediaFileExportAction.Share)
+
+            assertIs<PlatformResult.Failure>(result, "HTTP $status must fail")
+            assertEquals(0, browserMediaExportShareCount(), "HTTP $status share count")
+            assertEquals(0, browserMediaExportDownloadCount(), "HTTP $status download count")
+            assertEquals(0, browserMediaExportBlobMapSize(), "HTTP $status Blob residue")
+            restoreBrowserMediaExportFixture()
+        }
+    }
+
+    @Test
     fun oversizedResponseFailsBeforeDownloadOrShare() = runTest {
         if (!browserMediaExportTestEnvironmentAvailable()) return@runTest
         installBrowserMediaExportFixture("oversize")
@@ -183,6 +199,9 @@ private external fun browserMediaExportTestEnvironmentAvailable(): Boolean
         state.lastUrl = String(url);
         state.credentialsOmitted = options.credentials === 'omit' && options.redirect === 'error';
         if (state.mode === 'failure') return new Response('', { status: 503 });
+        if (String(state.mode).startsWith('http-')) {
+          return new Response('', { status: Number(String(state.mode).slice(5)) });
+        }
         if (state.mode === 'oversize') {
           return new Response(new Uint8Array([1]), {
             status: 200,
