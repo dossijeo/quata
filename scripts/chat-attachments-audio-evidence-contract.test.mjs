@@ -70,10 +70,13 @@ const [
   attestationJson,
   pickerAttestationJson,
   androidAttachmentFileCache,
+  androidAttachmentHttpTest,
   androidChatAttachmentAudioPlayerService,
   androidChatAttachmentAudioPlayerServiceTest,
   webChatAttachmentAudioPlayerServiceTest,
   iosChatAttachmentAudioPlayerServiceTest,
+  browserMediaExportTest,
+  iosAttachmentCompletionTest,
   iosProjectConfig,
   iosSignedBuildScript,
 ] = await Promise.all([
@@ -141,10 +144,13 @@ const [
   source("docs/candidate-attestations/chat-attachments-audio.json"),
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
+  source("app/src/androidTest/java/com/quata/feature/chat/data/ChatAttachmentFileCacheInstrumentedTest.kt"),
   source("app/src/main/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerService.kt"),
   source("app/src/test/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerServiceTest.kt"),
   source("web/src/wasmJsTest/kotlin/com/quata/web/WebChatAttachmentAudioPlayerServiceTest.kt"),
   source("feature/chat/src/iosTest/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerServiceTest.kt"),
+  source("core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserMediaFileExportServiceTest.kt"),
+  source("feature/chat/src/iosTest/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloaderCompletionTest.kt"),
   source("iosApp/project.yml"),
   source("scripts/build-ios-intel-simulator-signed.sh"),
 ]);
@@ -656,6 +662,32 @@ test("Chat audio adapters cover every non-success PlatformResult boundary", () =
     assert.match(source, /PlatformResult\.Cancelled/);
     assert.match(source, /PlatformResult\.Unsupported/);
   }
+});
+
+test("Chat attachment transports keep HTTP failures before native playback and leave zero residue", () => {
+  assert.match(androidAttachmentFileCache, /canonicalUrlResolver: \(String\) -> String\? = \{ remoteUrl ->/);
+  assert.match(androidAttachmentFileCache, /ChatAttachmentPublicUrlPolicy\.canonicalUrlOrNull/);
+  for (const testName of [
+    "successfulHttpsDownloadUsesAuthenticatedHeadersAndExactBytes",
+    "httpFailureLeavesNoFileAndTheSameDescriptorCanRetry",
+    "redirectIsNotFollowedAndLeavesNoPrivateResidue",
+    "emptyAndOversizedResponsesFailClosedWithoutResidualFiles",
+    "nonAllowlistedUrlNeverOpensTheTransport",
+  ]) {
+    assert.match(androidAttachmentHttpTest, new RegExp(`fun ${testName}\\(`));
+  }
+  assert.match(androidAttachmentHttpTest, /useHttps\(serverCertificates\.sslSocketFactory\(\), false\)/);
+  assert.match(androidAttachmentHttpTest, /assertEquals\("Bearer test-bearer", request\.getHeader\("Authorization"\)\)/);
+
+  assert.match(browserMediaExportTest, /fun httpStatusMatrixFailsBeforeAnyNativeEffect\(\)/);
+  assert.match(browserMediaExportTest, /listOf\(401, 403, 404, 408, 429, 500, 503\)/);
+  assert.match(browserMediaExportTest, /assertEquals\(0, browserMediaExportBlobMapSize\(\), "HTTP \$status Blob residue"\)/);
+
+  assert.match(iosChatAttachmentDownloader, /iosChatAttachmentCompletionFailureReason\(/);
+  assert.match(iosAttachmentCompletionTest, /fun httpStatusMatrixFailsClosedWithTheExactStatus\(\)/);
+  assert.match(iosAttachmentCompletionTest, /listOf\(401, 403, 404, 408, 429, 500, 503\)/);
+  assert.match(iosAttachmentCompletionTest, /fun redirectTransportAndMissingResponseRemainDistinct\(\)/);
+  assert.match(iosAttachmentCompletionTest, /fun emptyDeclaredOversizeAndStreamedOversizeFailClosed\(\)/);
 });
 
 test("Android internal reader late render failures fall back to the system chooser", () => {
