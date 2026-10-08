@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "e10265840f510bc024fccfc2f1e95a914a72d276",
-  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "certification": "focused-multiplatform-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -86,6 +86,7 @@
     "The iOS native viewer exposes playback status and the opt-in checkpoint as separate accessibility elements; product playback remains owned by AVPlayer and the common overlay.",
     "Earlier iOS attempts are retained in local raw history: one exposed missing public runtime forwarding, one found restoration into an existing Official route, one distinguished a hidden Compose probe from native accessibility, and one demonstrated that passing a nil actor ID prevented authenticated restoration.",
     "The Android report remains byte-identified at 181a66fa because later runtime changes do not affect Android. The Web and iOS reports execute runtime SHA 35c0b047. Product SHA e1026584 adds only reviewed capability-matrix digests after recomposition; all Official runtime and platform-test blobs remain byte-identical, so no platform matrix was repeated solely for the new SHA.",
+    "Independent exact-head review of d32ce6e3 found no P0-P3 findings: the 25 Official commits remain patch-equivalent, capability semantics are unchanged, historical runtime custody is preserved, and inherited logout changes are independent.",
     "All temporary MP4 objects, posts, conversations and messages were removed; every recorded database and Storage residue count is zero.",
     "This closure covers Official fullscreen video checkpoints across Web document reload and Android/iOS process relaunch. It does not claim prolonged background playback, exhaustive codecs or transport failures, or other media producers."
   ]
