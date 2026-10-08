@@ -173,8 +173,18 @@ class CreatePostPostflightInstrumentedTest {
     }
 
     private fun waitFor(tag: String) {
-        compose.waitUntil(30_000) {
-            runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+        try {
+            compose.waitUntil(30_000) {
+                runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+        } catch (error: Throwable) {
+            val availableTags = compose.onAllNodes(
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag),
+                useUnmergedTree = true,
+            ).fetchSemanticsNodes().mapNotNull { node ->
+                node.config.getOrNull(SemanticsProperties.TestTag)
+            }.distinct().sorted().take(120)
+            throw AssertionError("create_post_postflight_tag_timeout:$tag:available=$availableTags", error)
         }
     }
 
