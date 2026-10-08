@@ -34,6 +34,8 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.DurableMediaPositionStore
 import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.official.data.IosOfficialReadRepository
 import com.quata.feature.official.data.IosOfficialRuntimeConfiguration
@@ -66,6 +68,8 @@ interface IosOfficialMediaViewerFactory {
 interface IosOfficialMediaViewerSurface {
     fun nativeView(): platform.UIKit.UIView
     fun snapshot(): IosOfficialMediaViewerSnapshot
+    fun seekTo(positionMs: Long)
+    fun setPositionAccessibilityEnabled(enabled: Boolean)
     fun retry()
     fun dispose()
 }
@@ -74,6 +78,7 @@ data class IosOfficialMediaViewerSnapshot(
     val isPlaying: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
+    val positionMs: Long = 0L,
 )
 
 /**
@@ -91,6 +96,7 @@ class IosOfficialHostDependencies(
     val shareService: ShareService = IosShareService(),
     val mediaFileExportService: MediaFileExportService = IosMediaFileExportService(shareService),
     val mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    val preferences: PreferenceStore? = null,
     val canCreateOfficialPost: Boolean = false,
     val onAuthRequired: () -> Unit = {},
     val onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
@@ -113,6 +119,7 @@ fun createIosOfficialHostDependencies(
     repository: OfficialRepository,
     officialPostId: String?,
     shareService: ShareService = IosShareService(), mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    preferences: PreferenceStore? = null,
     currentUserId: String? = null,
     initialCurrentUser: User? = null,
     preferredLanguageTag: String? = null,
@@ -132,6 +139,7 @@ fun createIosOfficialHostDependencies(
     preferredLanguageTag = preferredLanguageTag,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
+    preferences = preferences,
     initialCurrentUser = initialCurrentUser,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
     onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
@@ -156,6 +164,7 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     officialPostId: String? = null,
     shareService: ShareService = IosShareService(),
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    preferences: PreferenceStore? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
     authenticationContinuationCoordinator: AuthenticationContinuationCoordinator? = null,
@@ -167,6 +176,7 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     officialPostId = officialPostId,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
+    preferences = preferences,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
     onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
     authenticationContinuationCoordinator = authenticationContinuationCoordinator,
@@ -182,6 +192,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     officialPostId: String? = null,
     shareService: ShareService = IosShareService(),
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
+    preferences: PreferenceStore? = null,
     currentUserId: String? = authSession.restoredSession()?.userId,
     onAuthRequired: () -> Unit = {},
     onAuthenticationContinuationRequired: (AuthenticationContinuationIntent) -> Unit = { onAuthRequired() },
@@ -199,6 +210,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     officialPostId = officialPostId,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
+    preferences = preferences,
     currentUserId = currentUserId,
     initialCurrentUser = null,
     preferredLanguageTag = preferredLanguageTag,
@@ -223,10 +235,16 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
         QuataTheme {
             val strings = defaultOfficialFeedScreenStrings(dependencies.preferredLanguageTag)
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
+            val videoPositionStore = remember(dependencies.preferences) {
+                dependencies.preferences?.let {
+                    DurableMediaPositionStore(it, OfficialVideoPositionStoragePrefix)
+                }
+            }
             OfficialFeedScreenHost(
                 padding = PaddingValues(),
                 repository = dependencies.repository,
                 currentUserId = dependencies.currentUserId,
+                videoPositionStore = videoPositionStore,
                 initialCurrentUser = dependencies.initialCurrentUser,
                 strings = strings,
                 focusedPostId = dependencies.officialPostId,

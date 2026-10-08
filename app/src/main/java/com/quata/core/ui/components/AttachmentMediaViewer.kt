@@ -58,8 +58,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +77,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,6 +102,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
+import kotlin.math.roundToLong
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -471,10 +477,17 @@ fun AttachmentViewerDialog(
 fun AttachmentFullscreenMediaContent(
     attachment: AttachmentPreview,
     modifier: Modifier = Modifier,
+    initialVideoPositionMs: Long = 0L,
+    onVideoPositionChanged: (Long) -> Unit = {},
 ) {
     when {
         attachment.isImage -> ZoomableImage(attachment, modifier)
-        attachment.isVideo -> FullscreenVideoPlayer(attachment.uri, modifier)
+        attachment.isVideo -> FullscreenVideoPlayer(
+            videoUri = attachment.uri,
+            modifier = modifier,
+            initialPositionMs = initialVideoPositionMs,
+            onPositionChanged = onVideoPositionChanged,
+        )
         else -> AttachmentThumbnail(attachment, modifier)
     }
 }
@@ -546,13 +559,22 @@ private fun ZoomableImage(attachment: AttachmentPreview, modifier: Modifier = Mo
 }
 
 @Composable
-private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifier) {
+private fun FullscreenVideoPlayer(
+    videoUri: String,
+    modifier: Modifier = Modifier,
+    initialPositionMs: Long = 0L,
+    onPositionChanged: (Long) -> Unit = {},
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var playbackRotation by remember(videoUri) { mutableStateOf(0) }
     var isLoading by remember(videoUri) { mutableStateOf(true) }
     var isPlaying by remember(videoUri) { mutableStateOf(false) }
     var hasPlaybackError by remember(videoUri) { mutableStateOf(false) }
+    val latestOnPositionChanged by rememberUpdatedState(onPositionChanged)
+    val startingPositionMs = remember(videoUri) { initialPositionMs.coerceAtLeast(0L) }
+    var playbackPositionMs by remember(videoUri) { mutableLongStateOf(startingPositionMs) }
+    var playbackDurationMs by remember(videoUri) { mutableLongStateOf(0L) }
     LaunchedEffect(videoUri) {
         playbackRotation = withContext(Dispatchers.IO) {
             readQuataVideoRotation(context, Uri.parse(videoUri))
@@ -564,10 +586,19 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
             .build()
             .apply {
                 setMediaItem(MediaItem.fromUri(videoUri))
+                if (startingPositionMs > 0L) seekTo(startingPositionMs)
                 repeatMode = Player.REPEAT_MODE_OFF
                 prepare()
                 playWhenReady = true
             }
+    }
+    LaunchedEffect(player) {
+        while (true) {
+            delay(250L)
+            playbackPositionMs = player.currentPosition.coerceAtLeast(0L)
+            playbackDurationMs = player.duration.takeIf { it > 0L } ?: playbackDurationMs
+            latestOnPositionChanged(playbackPositionMs)
+        }
     }
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -592,6 +623,7 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
         }
         player.addListener(listener)
         onDispose {
+            latestOnPositionChanged(player.currentPosition.coerceAtLeast(0L))
             player.removeListener(listener)
             player.stop()
             player.clearMediaItems()
@@ -614,6 +646,21 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
             .background(Color.Black)
             .testTag("fullscreen-media.video")
             .semantics {
+                val duration = playbackDurationMs.coerceAtLeast(playbackPositionMs.coerceAtLeast(1L))
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = playbackPositionMs.coerceIn(0L, duration).toFloat(),
+                    range = 0f..duration.toFloat(),
+                )
+                setProgress { target ->
+                    val targetMs = target.roundToLong().coerceAtLeast(0L)
+                    val seekPositionMs = playbackDurationMs.takeIf { it > 0L }
+                            ?.let(targetMs::coerceAtMost)
+                            ?: targetMs
+                    player.seekTo(seekPositionMs)
+                    playbackPositionMs = seekPositionMs
+                    latestOnPositionChanged(seekPositionMs)
+                    true
+                }
                 stateDescription = when {
                     hasPlaybackError -> "failed"
                     isLoading -> "loading"

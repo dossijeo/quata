@@ -2362,6 +2362,93 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-feed-video-position-restored-after-relaunch")
     }
 
+    func testOfficialVideoPositionRestoresAfterProcessRelaunch() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OFFICIAL_VIDEO_POSITION_LIFECYCLE"] == "1" else {
+            throw XCTSkip("Official video position lifecycle gate is opt-in.")
+        }
+        guard let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]) else {
+            throw XCTSkip("Disposable Official video fixture is not configured.")
+        }
+
+        func positionMs(_ element: XCUIElement) -> Int? {
+            let candidates = [element.value as? String, element.label, element.title]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            return candidates.compactMap(Int.init).first
+        }
+
+        func waitForPosition(atLeast minimum: Int, in app: XCUIApplication, timeout: TimeInterval) -> Int? {
+            let deadline = Date().addingTimeInterval(timeout)
+            while Date() < deadline {
+                let probe = app.descendants(matching: .any)
+                    .matching(identifier: "official.video.position")
+                    .firstMatch
+                if probe.exists, let observed = positionMs(probe), observed >= minimum { return observed }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+            return nil
+        }
+
+        func openOfficialVideo(_ app: XCUIApplication) {
+            openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
+            _ = waitForExistingIdentifier("official.detail.chrome", in: app, context: "Official video detail", timeout: 20)
+            tapVisibleIdentifier("official.media.open", in: app, context: "Official video fullscreen open")
+            _ = waitForExistingIdentifier("fullscreen-media.title", in: app, context: "Official video fullscreen", timeout: 10)
+            _ = waitForExistingIdentifier("official.video.position", in: app, context: "Official video position probe", timeout: 10)
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        for key in [
+            "QUATA_SUPABASE_URL",
+            "QUATA_SUPABASE_PUBLISHABLE_KEY",
+            "QUATA_IOS_NATIVE_FACADE_AUTHORIZATION",
+            "QUATA_IOS_NATIVE_FACADE_URL",
+            "QUATA_IOS_NATIVE_FACADE_PUBLISHABLE_KEY",
+        ] {
+            if let value = nonEmpty(environment[key]) {
+                app.launchEnvironment[key] = value
+            }
+        }
+        app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
+        guard app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
+            .waitForExistence(timeout: 20) else {
+            XCTFail("The seeded normal launch must restore an authenticated surface.")
+            return
+        }
+
+        openOfficialVideo(app)
+        guard let seededPositionMs = waitForPosition(atLeast: 2_500, in: app, timeout: 15) else {
+            XCTFail("The Official video must produce a durable checkpoint before process termination.")
+            return
+        }
+        attachScreenshot(app, name: "ios-official-video-position-seeded-before-relaunch")
+        XCUIDevice.shared.press(.home)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        app.terminate()
+        app.launch()
+        dismissStartupWhatsNewIfPresent(in: app)
+        guard app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
+            .waitForExistence(timeout: 20) else {
+            XCTFail("An authenticated surface must relaunch from a new application process.")
+            return
+        }
+
+        openOfficialVideo(app)
+        let minimumRestoredMs = max(1_000, seededPositionMs - 1_500)
+        let restoredPositionMs = waitForPosition(atLeast: minimumRestoredMs, in: app, timeout: 2)
+        XCTAssertNotNil(
+            restoredPositionMs,
+            "The actor-scoped Official video checkpoint must be applied before fresh playback can reach it after process relaunch.",
+        )
+        attachScreenshot(app, name: "ios-official-video-position-restored-after-relaunch")
+    }
+
     func testFeedAndOfficialPostDetailsUseSharedChromeAndBack() throws {
         let environment = ProcessInfo.processInfo.environment
         let officialVideo = environment["QUATA_IOS_CHAT_POST_DETAIL_OFFICIAL_VIDEO"] == "1"

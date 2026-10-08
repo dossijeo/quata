@@ -60,8 +60,9 @@ const profileContentOnly = process.argv.includes("--profile-content-only");
 const feedOfficialCommentsOnly = process.argv.includes("--feed-official-comments-only");
 const feedOfficialCommentsTranslationOnly = process.argv.includes("--feed-official-comments-translation-only");
 const feedVideoPositionLifecycle = process.argv.includes("--feed-video-position-lifecycle");
+const officialVideoPositionLifecycle = process.argv.includes("--official-video-position-lifecycle");
 const postDetailFeedVideo = process.argv.includes("--post-detail-feed-video") || feedVideoPositionLifecycle;
-const postDetailOfficialVideo = process.argv.includes("--post-detail-official-video");
+const postDetailOfficialVideo = process.argv.includes("--post-detail-official-video") || officialVideoPositionLifecycle;
 const postDetailOnly = process.argv.includes("--post-detail-only") || postDetailFeedVideo || postDetailOfficialVideo;
 const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-comments-error-only");
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
@@ -268,6 +269,8 @@ const evidenceFiles = [
   "android-post-detail-feed-back.png",
   "android-feed-video-position-seeded-before-force-stop.png",
   "android-feed-video-position-restored-after-force-stop.png",
+  "android-official-video-position-seeded-before-force-stop.png",
+  "android-official-video-position-restored-after-force-stop.png",
   "android-post-detail-official-open.png",
   "android-post-detail-official-media.png",
   "android-post-detail-official-back.png",
@@ -460,6 +463,11 @@ function parseArgs(argv) {
     if (key === "--post-detail-official-video") {
       result.output = join("build-reports", "android", "post-detail-official-video-evidence.json");
       result.evidenceDir = join("build-reports", "android", "post-detail-official-video-evidence");
+      continue;
+    }
+    if (key === "--official-video-position-lifecycle") {
+      result.output = join("build-reports", "android", "official-video-position-lifecycle-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "official-video-position-lifecycle-evidence");
       continue;
     }
     if (key === "--feed-official-comments-error-only") {
@@ -3102,12 +3110,13 @@ try {
       state.conversationsTopologyBefore = await conversationTopologySnapshot(config, state.a);
     }
     const profileStage = conversationsOnly ? "conversations" : postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsTranslationOnly ? "feed-official-comments-translation" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowNegativeOnly ? "profile-follow-negative" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profileEntryErrorDeepOnly ? "profile-entry-error-deep" : profilePrivateChatErrorRetryOnly ? "profile-private-chat-error-retry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesPermissionsOnly ? "profile-roles-permissions" : profileRolesErrorRetryOnly ? "profile-roles-error-retry" : profileSafetyNegativeOnly ? "profile-safety-negative" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
-    if (feedVideoPositionLifecycle) {
-      const seedStage = "feed-video-position-seed";
+    if (feedVideoPositionLifecycle || officialVideoPositionLifecycle) {
+      const lifecyclePrefix = officialVideoPositionLifecycle ? "official-video-position" : "feed-video-position";
+      const seedStage = `${lifecyclePrefix}-seed`;
       assertInstrumentationPassed(seedStage, await runInstrumentationStage(seedStage));
       await run(adbCommand, ["shell", "am", "force-stop", "com.quata"]);
-      report.steps.push("android_feed_video_process_force_stopped_after_durable_position_seed");
-      const restoreStage = "feed-video-position-restore";
+      report.steps.push(`android_${lifecyclePrefix.replaceAll("-", "_")}_process_force_stopped_after_durable_position_seed`);
+      const restoreStage = `${lifecyclePrefix}-restore`;
       assertInstrumentationPassed(restoreStage, await runInstrumentationStage(restoreStage));
     } else {
       assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
@@ -3149,8 +3158,8 @@ try {
       ? "conversations_background_resume_list_search_exact_thread_favorites_and_picker_verified"
       : profileListsOnly
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
-      : feedVideoPositionLifecycle
-        ? "feed_video_position_restored_after_android_force_stop"
+      : (feedVideoPositionLifecycle || officialVideoPositionLifecycle)
+        ? `${officialVideoPositionLifecycle ? "official" : "feed"}_video_position_restored_after_android_force_stop`
       : postDetailOnly
         ? postDetailOfficialVideo
           ? "official_detail_native_video_playback_and_panel_return_verified"
@@ -3255,8 +3264,8 @@ try {
   }
 
   if (profileOnly || profileFollowOnly || profileFollowNegativeOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profileEntryErrorDeepOnly || conversationsOnly || profilePrivateChatOnly || profilePrivateChatErrorRetryOnly || profileRolesSafetyOnly || profileRolesErrorRetryOnly || profileSafetyNegativeOnly || profileRolesPermissionsOnly) {
-    const focalEvidencePrefix = feedVideoPositionLifecycle
-      ? /feed-video-position/
+    const focalEvidencePrefix = (feedVideoPositionLifecycle || officialVideoPositionLifecycle)
+      ? new RegExp(`${officialVideoPositionLifecycle ? "official" : "feed"}-video-position`)
       : postDetailOnly
       ? /post-detail/
       : (feedOfficialCommentsOnly || feedOfficialCommentsTranslationOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly)

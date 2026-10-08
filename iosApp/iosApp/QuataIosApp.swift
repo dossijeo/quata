@@ -99,8 +99,10 @@ enum IosPublicRuntimeConfiguration {
             )
         }
         guard
-            let url = configuredURL(for: supabaseUrlKey, infoDictionary: infoDictionary),
+            let url = configuredURL(for: supabaseUrlKey, infoDictionary: infoDictionary)
+                ?? configuredEnvironmentURL(for: supabaseUrlKey, environment: environment),
             let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
+                ?? configuredEnvironmentValue(for: supabasePublishableKeyKey, environment: environment)
         else { return nil }
         return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
     }
@@ -155,6 +157,25 @@ enum IosPublicRuntimeConfiguration {
 
     private static func configuredURL(for key: String, infoDictionary: [String: Any]) -> String? {
         guard let value = configuredValue(for: key, infoDictionary: infoDictionary),
+              let url = URL(string: value),
+              url.scheme?.lowercased() == "https",
+              url.host?.isEmpty == false,
+              url.user == nil,
+              url.password == nil
+        else { return nil }
+        return value
+    }
+
+    private static func configuredEnvironmentValue(for key: String, environment: [String: String]) -> String? {
+        guard let value = environment[key] else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed.contains("$(") || trimmed.rangeOfCharacter(from: .newlines) != nil
+            ? nil
+            : trimmed
+    }
+
+    private static func configuredEnvironmentURL(for key: String, environment: [String: String]) -> String? {
+        guard let value = configuredEnvironmentValue(for: key, environment: environment),
               let url = URL(string: value),
               url.scheme?.lowercased() == "https",
               url.host?.isEmpty == false,
@@ -1456,7 +1477,8 @@ private final class IosAppCompositionRoot {
                         officialPostId: postId,
                         shareService: shareService,
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
-                        currentUserId: nil,
+                        preferences: self.platformServices.services.preferences,
+                        currentUserId: self.renewableAuthSession?.restoredSession()?.userId,
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onAuthenticationContinuationRequired: { [weak self] continuation in
                             guard let self else { return }
@@ -1485,6 +1507,7 @@ private final class IosAppCompositionRoot {
                     officialPostId: postId,
                     shareService: shareService,
                     mediaViewerFactory: IosOfficialMediaBridge.shared,
+                    preferences: self.platformServices.services.preferences,
                     currentUserId: nil,
                     initialCurrentUser: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,

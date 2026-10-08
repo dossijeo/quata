@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +39,8 @@ import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.DurableMediaPositionStore
 import com.quata.core.platform.ShareService
 import com.quata.core.platform.BrowserMediaFileExportService
 import com.quata.core.ui.components.QuataMediaExportActionsContent
@@ -75,6 +76,7 @@ import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
 import com.quata.feature.official.presentation.detectOfficialPostLanguage
 import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
+import com.quata.feature.official.presentation.OfficialVideoPositionStoragePrefix
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
@@ -87,6 +89,7 @@ import kotlin.js.toJsString
 fun WebOfficialHost(
     repository: WebOfficialRepository,
     shareService: ShareService,
+    preferences: PreferenceStore? = null,
     officialPostId: String?,
     currentUserId: String?,
     canCreateOfficialPost: Boolean,
@@ -103,6 +106,9 @@ fun WebOfficialHost(
     val languageTag = webOfficialLanguageTag()
     val strings = defaultOfficialFeedScreenStrings(languageTag)
     val mediaFileExportService = remember { BrowserMediaFileExportService() }
+    val videoPositionStore = remember(preferences) {
+        preferences?.let { DurableMediaPositionStore(it, OfficialVideoPositionStoragePrefix) }
+    }
     val commentsTranslationGateway = remember {
         FangTextTranslatorGateway(
             identifier = BrowserFastTextLanguageIdentifier,
@@ -126,6 +132,7 @@ fun WebOfficialHost(
         padding = PaddingValues(),
         repository = repository,
         currentUserId = currentUserId,
+        videoPositionStore = videoPositionStore,
         focusedPostId = officialPostId,
         onAuthRequired = onAuthRequired,
         onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
@@ -150,7 +157,16 @@ fun WebOfficialHost(
             )
         },
         article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
-        mediaViewer = { post, dismiss -> BrowserOfficialMediaViewer(post, strings, mediaFileExportService, dismiss) },
+        mediaViewer = { post, initialPositionMs, onPositionChanged, dismiss ->
+            BrowserOfficialMediaViewer(
+                post,
+                strings,
+                mediaFileExportService,
+                initialPositionMs,
+                onPositionChanged,
+                dismiss,
+            )
+        },
         share = { payload -> shareService.share(payload) },
         message = {},
         showComposeMessage = true,
@@ -445,11 +461,12 @@ private fun BrowserOfficialMediaViewer(
     post: OfficialPostItem,
     strings: OfficialFeedScreenStrings,
     mediaFileExportService: BrowserMediaFileExportService,
+    initialPositionMs: Long,
+    onPositionChanged: (Long) -> Unit,
     dismiss: () -> Unit,
 ) {
     val url = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
     var isMuted by remember(url) { mutableStateOf(true) }
-    var positionMs by remember(url) { mutableLongStateOf(0L) }
     val descriptor = remember(post.id, url, post.mediaType, post.title) { officialMediaFileExportDescriptor(post) }
     QuataFullscreenMediaOverlayContent(
         title = post.title,
@@ -472,8 +489,8 @@ private fun BrowserOfficialMediaViewer(
                 post = post.asFeedPost(),
                 isCurrent = true,
                 isMuted = isMuted,
-                initialPositionMs = positionMs,
-                onPositionChanged = { positionMs = it },
+                initialPositionMs = initialPositionMs,
+                onPositionChanged = onPositionChanged,
                 onMuteChange = { isMuted = it },
             )
         } else {

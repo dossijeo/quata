@@ -13,7 +13,32 @@ final class IosOfficialMediaBridge: NSObject, IosOfficialMediaViewerFactory {
 
 private final class IosOfficialMediaContainer: UIView {
     var playerLayer: AVPlayerLayer?
-    override func layoutSubviews() { super.layoutSubviews(); playerLayer?.frame = bounds }
+    let playbackAccessibility = UIView()
+    let positionAccessibility = UIView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = false
+        playbackAccessibility.isAccessibilityElement = false
+        playbackAccessibility.accessibilityIdentifier = "fullscreen-media.video"
+        playbackAccessibility.accessibilityLabel = "Official video"
+        playbackAccessibility.isUserInteractionEnabled = false
+        positionAccessibility.isAccessibilityElement = false
+        positionAccessibility.accessibilityIdentifier = "official.video.position"
+        positionAccessibility.accessibilityLabel = "Official video position"
+        positionAccessibility.isUserInteractionEnabled = false
+        addSubview(playbackAccessibility)
+        addSubview(positionAccessibility)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer?.frame = bounds
+        playbackAccessibility.frame = bounds
+        positionAccessibility.frame = bounds
+    }
 }
 
 private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSurface {
@@ -28,6 +53,7 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
     private var looping = false
     private var isLoading = true
     private var reportedError: String?
+    private var pendingPositionMs: Int64 = 0
 
     init(url: URL?, video: Bool) {
         sourceURL = url
@@ -40,10 +66,8 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
             return
         }
         if video {
-            root.isAccessibilityElement = true
-            root.accessibilityIdentifier = "fullscreen-media.video"
-            root.accessibilityLabel = "Official video"
-            root.accessibilityValue = "loading"
+            root.playbackAccessibility.isAccessibilityElement = true
+            root.playbackAccessibility.accessibilityValue = "loading"
             startVideo()
         } else {
             image.frame = root.bounds
@@ -62,13 +86,27 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
            player?.error != nil || player?.currentItem?.status == .failed {
             isLoading = false
             reportedError = "official_video_playback_failed"
-            root.accessibilityValue = "failed"
+            root.playbackAccessibility.accessibilityValue = "failed"
         }
+        root.positionAccessibility.accessibilityValue = currentPositionMs.description
         return IosOfficialMediaViewerSnapshot(
             isPlaying: player?.timeControlStatus == .playing,
             isLoading: isLoading,
-            error: reportedError
+            error: reportedError,
+            positionMs: currentPositionMs
         )
+    }
+
+    func seekTo(positionMs: Int64) {
+        pendingPositionMs = max(0, positionMs)
+        root.positionAccessibility.accessibilityValue = pendingPositionMs.description
+        guard let player else { return }
+        player.seek(to: CMTime(value: pendingPositionMs, timescale: 1_000))
+    }
+
+    func setPositionAccessibilityEnabled(enabled: Bool) {
+        root.positionAccessibility.isAccessibilityElement = enabled && isVideo
+        root.positionAccessibility.accessibilityValue = currentPositionMs.description
     }
 
     func retry() {
@@ -118,12 +156,12 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
         guard let sourceURL else {
             isLoading = false
             reportedError = "official_media_url_invalid"
-            root.accessibilityValue = "failed"
+            root.playbackAccessibility.accessibilityValue = "failed"
             return
         }
         isLoading = true
         reportedError = nil
-        root.accessibilityValue = "loading"
+        root.playbackAccessibility.accessibilityValue = "loading"
         let player = AVPlayer(url: sourceURL)
         player.actionAtItemEnd = .none
         let layer = AVPlayerLayer(player: player)
@@ -132,17 +170,20 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
         root.playerLayer = layer
         self.player = player
         playerLayer = layer
+        if pendingPositionMs > 0 {
+            player.seek(to: CMTime(value: pendingPositionMs, timescale: 1_000))
+        }
         timeControlObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
             DispatchQueue.main.async {
                 guard let self else { return }
                 if player.error != nil || player.currentItem?.status == .failed {
                     self.isLoading = false
                     self.reportedError = "official_video_playback_failed"
-                    self.root.accessibilityValue = "failed"
+                    self.root.playbackAccessibility.accessibilityValue = "failed"
                     return
                 }
                 self.isLoading = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
-                self.root.accessibilityValue = switch player.timeControlStatus {
+                self.root.playbackAccessibility.accessibilityValue = switch player.timeControlStatus {
                 case .playing: "playing"
                 case .paused: "paused"
                 case .waitingToPlayAtSpecifiedRate: "loading"
@@ -168,6 +209,13 @@ private final class IosOfficialMediaSurface: NSObject, IosOfficialMediaViewerSur
         root.playerLayer = nil
         playerLayer = nil
         player = nil
+    }
+
+    private var currentPositionMs: Int64 {
+        guard let player else { return pendingPositionMs }
+        let seconds = CMTimeGetSeconds(player.currentTime())
+        guard seconds.isFinite, seconds >= 0 else { return pendingPositionMs }
+        return Int64(seconds * 1_000)
     }
 
     @objc private func loop() { guard let player, !looping else { return }; looping = true; player.seek(to: .zero) { [weak self] _ in player.play(); self?.looping = false } }

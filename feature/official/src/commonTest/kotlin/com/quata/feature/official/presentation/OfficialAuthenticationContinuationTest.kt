@@ -119,7 +119,7 @@ private fun OfficialContinuationFixture(
                 avatar = { _, _ -> },
                 media = { _, _, _ -> },
                 article = { _, _ -> },
-                mediaViewer = { _, _ -> },
+                mediaViewer = { _, _, _, _ -> },
                 openUrl = {},
                 share = { PlatformResult.Unsupported },
                 message = {},

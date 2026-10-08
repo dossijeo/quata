@@ -6,11 +6,19 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -25,6 +33,8 @@ import com.quata.core.platform.rememberAndroidMediaFileShareService
 import com.quata.core.platform.MediaFileExportAction
 import com.quata.core.platform.MediaFileExportDescriptor
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.DurableMediaPositionStore
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentFullscreenMediaContent
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
@@ -48,6 +58,7 @@ fun OfficialFeedScreen(
     repository: OfficialRepository,
     shareService: ShareService,
     currentUserId: String?,
+    preferenceStore: PreferenceStore? = null,
     focusedPostId: String? = null,
     onFocusedPostHandled: () -> Unit = {},
     onFocusedPostChanged: (String) -> Unit = {},
@@ -64,6 +75,9 @@ fun OfficialFeedScreen(
     val mediaFileExportService = remember(context, mediaFileShareService) {
         AndroidMediaFileExportService(context, mediaFileShareService)
     }
+    val videoPositionStore = remember(preferenceStore) {
+        preferenceStore?.let { DurableMediaPositionStore(it, OfficialVideoPositionStoragePrefix) }
+    }
     val translatorModeController = LocalQuataTranslatorModeController.current
     val commentNamePlaceholder = "\u0000"
     BackHandler(enabled = focusedPostId != null && onBackFromFocusedPost != null) {
@@ -77,6 +91,7 @@ fun OfficialFeedScreen(
         padding = padding,
         repository = repository,
         currentUserId = currentUserId,
+        videoPositionStore = videoPositionStore,
         focusedPostId = focusedPostId,
         onFocusedPostHandled = onFocusedPostHandled,
         onFocusedPostChanged = onFocusedPostChanged,
@@ -147,7 +162,7 @@ fun OfficialFeedScreen(
             },
             media = { post, mediaModifier, open -> OfficialPostMedia(post, open, mediaModifier) },
             article = { post, articleModifier -> QuataRichTextRenderer(post.contentHtml, articleModifier, post.contentPlain) },
-            mediaViewer = { post, dismiss ->
+            mediaViewer = { post, initialPositionMs, onPositionChanged, dismiss ->
                 OfficialMediaViewerDialog(
                     post = post,
                     mediaFileExportService = mediaFileExportService::export,
@@ -155,6 +170,8 @@ fun OfficialFeedScreen(
                     shareLabel = stringResource(R.string.media_share_file),
                     failureLabel = stringResource(R.string.media_export_failed),
                     retryLabel = "Reintentar",
+                    initialPositionMs = initialPositionMs,
+                    onPositionChanged = onPositionChanged,
                     onDismiss = dismiss,
                 )
             },
@@ -222,6 +239,8 @@ private fun OfficialMediaViewerDialog(
     shareLabel: String,
     failureLabel: String,
     retryLabel: String,
+    initialPositionMs: Long,
+    onPositionChanged: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val url = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
@@ -229,6 +248,7 @@ private fun OfficialMediaViewerDialog(
     val attachment = remember(post.id, url, descriptor?.mimeType, post.title) {
         AttachmentPreview(post.title, url, descriptor?.mimeType ?: "application/octet-stream")
     }
+    var observedPositionMs by remember(post.id, url) { mutableLongStateOf(initialPositionMs) }
     BackHandler(onBack = onDismiss)
     QuataFullscreenMediaOverlayContent(
         title = post.title,
@@ -245,7 +265,30 @@ private fun OfficialMediaViewerDialog(
                 )
             }
         },
-    ) { mediaModifier -> AttachmentFullscreenMediaContent(attachment, mediaModifier) }
+    ) { mediaModifier ->
+        Box(mediaModifier) {
+            AttachmentFullscreenMediaContent(
+                attachment = attachment,
+                modifier = Modifier,
+                initialVideoPositionMs = initialPositionMs,
+                onVideoPositionChanged = { positionMs ->
+                    observedPositionMs = positionMs
+                    onPositionChanged(positionMs)
+                },
+            )
+            if (com.quata.BuildConfig.DEBUG && post.mediaType == OfficialMediaType.Video) {
+                Box(
+                    Modifier
+                        .size(1.dp)
+                        .testTag(OfficialVideoPositionTestTag)
+                        .semantics {
+                            contentDescription = OfficialVideoPositionTestTag
+                            stateDescription = observedPositionMs.toString()
+                        },
+                )
+            }
+        }
+    }
 }
 
 private fun android.content.Context.openOfficialPostLink(url: String) {

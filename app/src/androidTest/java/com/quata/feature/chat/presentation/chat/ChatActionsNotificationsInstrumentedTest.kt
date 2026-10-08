@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -80,6 +81,7 @@ import com.quata.feature.chat.presentation.conversations.conversationRowTestTag
 import com.quata.feature.feed.presentation.FeedVideoPlayPauseTestTag
 import com.quata.feature.feed.presentation.FeedVideoTimelineTestTag
 import com.quata.feature.feed.presentation.FeedVideoTimeTestTag
+import com.quata.feature.official.presentation.OfficialVideoPositionTestTag
 import com.quata.feature.notifications.presentation.NotificationItemTestTagPrefix
 import com.quata.feature.notifications.presentation.NotificationsLoadingTestTag
 import com.quata.feature.notifications.presentation.NotificationsRootTestTag
@@ -104,6 +106,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.regex.Pattern
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 @RunWith(AndroidJUnit4::class)
 class ChatActionsNotificationsInstrumentedTest {
@@ -230,6 +233,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "feed-video-position-seed", "feed-video-position-restore" ->
                 !postId.isNullOrBlank() && !actorProfileId.isNullOrBlank()
+            "official-video-position-seed", "official-video-position-restore" ->
+                !officialPostId.isNullOrBlank() && !actorProfileId.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, ownProbe, peerProbe, profileId, postId, officialPostId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
             "profile-entry-error-deep" -> listOf(chatUrl, peerProbe, profileId, actorProfileId).all { !it.isNullOrBlank() }
             "conversations" -> listOf(ownProbe, profileId, conversationsConversationId, conversationsDecoyConversationId, conversationsSubject, conversationsCandidateQuery).all { !it.isNullOrBlank() }
@@ -355,6 +360,21 @@ class ChatActionsNotificationsInstrumentedTest {
             writeReport(
                 JSONObject()
                     .put("check", "FLOW-FEED-VIDEO-POSITION-ANDROID-001")
+                    .put("status", "passed")
+                    .put("phase", if (stage.endsWith("restore")) "restore_after_force_stop" else "seed_before_force_stop")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "official-video-position-seed" || stage == "official-video-position-restore") {
+            runOfficialVideoPositionLifecycleStage(
+                officialPostId = officialPostId.orEmpty(),
+                actorProfileId = actorProfileId.orEmpty(),
+                restore = stage == "official-video-position-restore",
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "FLOW-OFFICIAL-VIDEO-POSITION-ANDROID-001")
                     .put("status", "passed")
                     .put("phase", if (stage.endsWith("restore")) "restore_after_force_stop" else "seed_before_force_stop")
                     .put("evidenceDirectory", evidenceDir().absolutePath),
@@ -812,11 +832,51 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
+    private fun runOfficialVideoPositionLifecycleStage(officialPostId: String, actorProfileId: String, restore: Boolean) {
+        val persistedBefore = persistedVideoPositionSeconds("quata.official.video_positions.v1.$actorProfileId")
+        if (restore) {
+            assertTrue(
+                "The durable Official-video checkpoint must survive the process stop before rendering; observed=$persistedBefore.",
+                persistedBefore.any { it >= 2 },
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#official-${Uri.encode(officialPostId)}")).use {
+            waitForTag("official.detail.chrome", "Official video position detail", 45_000)
+            waitForTag("official.media.open", "Official video position media", 45_000)
+            clickMergedTagWithAction("official.media.open")
+            waitForTag("fullscreen-media.title", "Official video position fullscreen", 20_000)
+            ensureOfficialVideoPlaying()
+            if (restore) {
+                val firstObserved = waitForOfficialVideoPosition(timeoutMillis = 10_000) { it > 0L }
+                val minimumRestored = (persistedBefore.maxOrNull()?.times(1_000L) ?: 0L) - 1_500L
+                assertTrue(
+                    "Official video must seek to the durable checkpoint before fresh playback can reach it; persisted=$persistedBefore observedMs=$firstObserved.",
+                    firstObserved >= minimumRestored,
+                )
+                saveScreenshot("android-official-video-position-restored-after-force-stop")
+            } else {
+                seekOfficialVideoToMiddle()
+                val persisted = waitForPersistedVideoPosition(
+                    storageKey = "quata.official.video_positions.v1.$actorProfileId",
+                    timeoutMillis = 20_000,
+                ) { positions -> positions.any { it >= 2 } }
+                assertTrue(
+                    "The Official video position must be durably checkpointed before the process stop; observed=$persisted.",
+                    persisted.any { it >= 2 },
+                )
+                saveScreenshot("android-official-video-position-seeded-before-force-stop")
+            }
+        }
+    }
+
     private fun persistedFeedVideoPositionSeconds(actorProfileId: String): List<Int> =
+        persistedVideoPositionSeconds("quata.feed.video_positions.v1.$actorProfileId")
+
+    private fun persistedVideoPositionSeconds(storageKey: String): List<Int> =
         targetContext.getSharedPreferences("quata_platform", Context.MODE_PRIVATE)
             .all
             .asSequence()
-            .filter { (key, _) -> key == "quata.feed.video_positions.v1.$actorProfileId" }
+            .filter { (key, _) -> key == storageKey }
             .flatMap { (_, value) ->
                 val entries = runCatching { JSONObject(value as String).getJSONArray("entries") }.getOrNull()
                     ?: return@flatMap emptySequence()
@@ -825,6 +885,110 @@ class ChatActionsNotificationsInstrumentedTest {
                 }
             }
             .toList()
+
+    private fun waitForOfficialVideoPosition(timeoutMillis: Long, predicate: (Long) -> Boolean): Long {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        var observed = 0L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            observed = officialVideoPositionMsFromAccessibility()
+            if (predicate(observed)) return observed
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Official video position accessibility probe timed out; observed=$observed")
+    }
+
+    private fun ensureOfficialVideoPlaying() {
+        val initialState = waitForAccessibilityState("fullscreen-media.video", 10_000) {
+            it == "playing" || it == "paused" || it == "failed"
+        }
+        check(initialState != "failed") { "Official video entered the failed playback state." }
+        if (initialState == "playing") return
+        device.click(device.displayWidth / 2, device.displayHeight / 2)
+        val play = device.wait(
+            Until.findObject(By.desc(Pattern.compile("(?i).*(play|reproducir).*"))),
+            5_000,
+        )
+        check(play != null) { "Official video native play control was not exposed while paused." }
+        play.click()
+        check(waitForAccessibilityState("fullscreen-media.video", 10_000) { it == "playing" } == "playing") {
+            "Official video did not enter the playing state after the native play action."
+        }
+    }
+
+    private fun seekOfficialVideoToMiddle() {
+        compose.onNodeWithTag("fullscreen-media.video", useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.SetProgress) { setProgress -> setProgress(3_000f) }
+    }
+
+    private fun waitForAccessibilityState(
+        probe: String,
+        timeoutMillis: Long,
+        predicate: (String) -> Boolean,
+    ): String? {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        var observed: String? = null
+        while (SystemClock.elapsedRealtime() < deadline) {
+            observed = accessibilityStateDescription(probe)
+            if (observed != null && predicate(observed)) return observed
+            SystemClock.sleep(100)
+        }
+        return observed
+    }
+
+    private fun waitForPersistedVideoPosition(
+        storageKey: String,
+        timeoutMillis: Long,
+        predicate: (List<Int>) -> Boolean,
+    ): List<Int> {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        var observed = emptyList<Int>()
+        while (SystemClock.elapsedRealtime() < deadline) {
+            observed = persistedVideoPositionSeconds(storageKey)
+            if (predicate(observed)) return observed
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Official video persisted position probe timed out; observed=$observed")
+    }
+
+    private fun officialVideoPositionMsFromAccessibility(): Long {
+        return accessibilityRangeCurrent("fullscreen-media.video")
+            ?: accessibilityStateDescription(OfficialVideoPositionTestTag)?.toLongOrNull()
+            ?: 0L
+    }
+
+    private fun accessibilityRangeCurrent(probe: String): Long? {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return null
+        val pending = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            val matchesProbe = node.contentDescription?.toString()?.contains(probe) == true ||
+                node.viewIdResourceName == probe ||
+                node.viewIdResourceName?.endsWith("/$probe") == true
+            if (matchesProbe) return node.rangeInfo?.current?.roundToLong()
+            repeat(node.childCount) { index -> node.getChild(index)?.let(pending::addLast) }
+        }
+        return null
+    }
+
+    private fun accessibilityStateDescription(probe: String): String? {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return null
+        val pending = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            val matchesProbe = node.contentDescription?.toString()?.contains(probe) == true ||
+                node.viewIdResourceName == probe ||
+                node.viewIdResourceName?.endsWith("/$probe") == true
+            if (matchesProbe) {
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    node.stateDescription?.toString()
+                } else {
+                    null
+                }
+            }
+            repeat(node.childCount) { index -> node.getChild(index)?.let(pending::addLast) }
+        }
+        return null
+    }
 
     private fun feedVideoControlShowsPause(): Boolean = runCatching {
         feedVideoNode(FeedVideoPlayPauseTestTag)

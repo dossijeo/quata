@@ -935,6 +935,7 @@ fun AppNavGraph(
                         repository = container.officialRepository,
                         shareService = container.shareService,
                         currentUserId = container.sessionManager.currentSession()?.userId,
+                        preferenceStore = container.feedVideoPositionPreferences,
                         focusedPostId = officialFocusedPostId,
                         onFocusedPostHandled = {},
                         onFocusedPostChanged = { officialFocusedPostId = it },
