@@ -4,12 +4,12 @@
     "PROF-PRIVATE-CHAT"
   ],
   "status": "passed",
-  "productSha": "851825e2a7bcb060073f8f1ff3779587cb19cdb8",
+  "productSha": "1a46c28fbf13ceaadefc1df00d862b9110814fc1",
   "certification": "rendered-common-compose-single-flight-complete-independent-review-go-final-CI-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "851825e2a7bcb060073f8f1ff3779587cb19cdb8",
+      "sha": "1a46c28fbf13ceaadefc1df00d862b9110814fc1",
       "report": "docs/candidate-attestations/evidence/profile-private-chat-rendered-race-3b419bff.json",
       "reportSha256": "16a9a67ec7bd9723b4d7396849a15ee4f5a1902a77cafc8a4705cab9d7157abc",
       "reportStatus": "passed",
@@ -57,6 +57,7 @@
     "The rendered-race series was replayed over reviewed lifecycle head 09da55e3e. Its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff; inherited changes are outside this presentation-only unit. No native-platform or backend execution is attributed to this rebase.",
     "Independent exact-head review of 55482967b returned GO with no P0-P3 findings. It confirmed owned-blob identity, historical custody, focal scope, validator, diff-check and a clean tree; this documentation-only commit records that review without attributing native or backend execution.",
     "The rendered-race delta was replayed over frozen lifecycle candidate e98534edd after its exact-head GO review. Product SHA 851825e2a is patch-equivalent to previously reviewed Product 9e0999d63; its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff. No native-platform or backend execution is attributed to the new base.",
-    "Independent exact-head review of cf014f1e4 returned GO with no P0-P3 findings. It confirmed callback-before-guard observation, exclusive progress identity, both controls disabled, owned-blob identity, validator, diff-check and a clean tree; this documentation-only commit records that result."
+    "Independent exact-head review of cf014f1e4 returned GO with no P0-P3 findings. It confirmed callback-before-guard observation, exclusive progress identity, both controls disabled, owned-blob identity, validator, diff-check and a clean tree; this documentation-only commit records that result.",
+    "The rendered-race delta was replayed over integrated lifecycle squash 5083d8cf6. Product SHA 1a46c28fb is patch-equivalent to previously reviewed Product 851825e2a; its three owned runtime/test blobs remain byte-identical to executed Product 3b419bff. No native-platform or backend execution is attributed to the new base."
   ]
 }
