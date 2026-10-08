@@ -188,21 +188,20 @@ private fun IosOfficialNativeViewer(
                 }
             },
         ) { mediaModifier ->
-            Box(modifier = mediaModifier) {
+            val viewerModifier = if (exposeE2eStateSemantics && post.mediaType == OfficialMediaType.Video) {
+                mediaModifier
+                    .testTag(OfficialVideoPositionTestTag)
+                    .semantics { stateDescription = snapshot.positionMs.toString() }
+            } else {
+                mediaModifier
+            }
+            Box(modifier = viewerModifier) {
                 UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
                 if (snapshot.error != null) {
                     QuataMediaPlaybackRecoveryContent(
                         message = playbackFailed,
                         retryLabel = retryLabel,
                         onRetry = surface::retry,
-                    )
-                }
-                if (exposeE2eStateSemantics && post.mediaType == OfficialMediaType.Video) {
-                    Box(
-                        Modifier
-                            .size(1.dp)
-                            .testTag(OfficialVideoPositionTestTag)
-                            .semantics { stateDescription = snapshot.positionMs.toString() },
                     )
                 }
             }
