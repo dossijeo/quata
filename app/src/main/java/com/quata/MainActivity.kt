@@ -68,6 +68,7 @@ const val AndroidComposeRootTestTag = "quata-android-compose-root"
 class MainActivity : ComponentActivity() {
     private val incomingLink = mutableStateOf<Uri?>(null)
     private val incomingShare = mutableStateOf<ExternalSharePayload?>(null)
+    private var incomingLinkConsumed = false
     private lateinit var appContainer: AppContainer
     private var filePickerHost: MainActivityFilePickerHost? = null
     private var permissionHost: MainActivityPermissionHost? = null
@@ -138,7 +139,10 @@ class MainActivity : ComponentActivity() {
             intent?.removeExtra(EXTRA_POST_DESTINATION_EVIDENCE_MODE)
             intent?.removeExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE)
             intent?.removeExtra(EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE)
-            handleIncomingIntent(intent, restoreFromSavedState = savedInstanceState != null)
+            incomingLinkConsumed = savedInstanceState
+                ?.getBoolean(IncomingNavigationRestorePolicy.ConsumedStateKey, false)
+                ?: false
+            handleIncomingIntent(intent, consumedBeforeRecreation = incomingLinkConsumed)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
             setContent {
@@ -205,6 +209,11 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean(IncomingNavigationRestorePolicy.ConsumedStateKey, incomingLinkConsumed)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onResume() {
         super.onResume()
         AndroidStartupDiagnostics.mark("mainActivity.onResume")
@@ -238,18 +247,24 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun handleIncomingIntent(sourceIntent: Intent?, restoreFromSavedState: Boolean = false) {
+    private fun handleIncomingIntent(sourceIntent: Intent?, consumedBeforeRecreation: Boolean = false) {
         val callback = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
         if ((application as QuataApp).resumeGoogleOAuthCallback(callback)) {
             sourceIntent?.data = null
             return
         }
-        if (restoreFromSavedState && sourceIntent?.action == Intent.ACTION_VIEW) {
+        val isNavigationViewIntent = sourceIntent?.action == Intent.ACTION_VIEW && sourceIntent.data != null
+        if (!IncomingNavigationRestorePolicy.shouldDeliver(
+                isNavigationViewIntent = isNavigationViewIntent,
+                consumedBeforeRecreation = consumedBeforeRecreation,
+            ) && isNavigationViewIntent
+        ) {
             // The exact route is already in Compose's saved state. Replaying the task's historical
             // deep link would overwrite a newer nested destination during Activity/process restore.
             clearIncomingLink()
         } else {
             incomingLink.value = sourceIntent?.data?.takeIf { sourceIntent.action == Intent.ACTION_VIEW }
+            if (incomingLink.value != null) incomingLinkConsumed = false
         }
         val shareIntent = sourceIntent?.takeIf {
             it.action in SHARE_ACTIONS
@@ -283,6 +298,7 @@ class MainActivity : ComponentActivity() {
 
     private fun clearIncomingLink() {
         incomingLink.value = null
+        incomingLinkConsumed = true
         if (intent?.action == Intent.ACTION_VIEW) {
             setIntent(Intent(this, MainActivity::class.java).apply { action = Intent.ACTION_MAIN })
         }
@@ -319,6 +335,13 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE = "com.quata.extra.POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE"
     }
 
+}
+
+internal object IncomingNavigationRestorePolicy {
+    const val ConsumedStateKey = "com.quata.state.INCOMING_NAVIGATION_LINK_CONSUMED"
+
+    fun shouldDeliver(isNavigationViewIntent: Boolean, consumedBeforeRecreation: Boolean): Boolean =
+        isNavigationViewIntent && !consumedBeforeRecreation
 }
 
 @Composable

@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [android, androidActivity, androidNotificationTests, androidRunner, ios, iosTests, web, webTests, webBrowserRunner, postDetailWebRunner] = await Promise.all([
+const [android, androidActivity, androidRestorePolicyTest, androidNotificationTests, androidRunner, ios, iosTests, web, webTests, webBrowserRunner, postDetailWebRunner] = await Promise.all([
   source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
   source("app/src/main/java/com/quata/MainActivity.kt"),
+  source("app/src/test/java/com/quata/IncomingNavigationRestorePolicyTest.kt"),
   source("app/src/test/java/com/quata/core/navigation/NotificationChatReturnRouteTest.kt"),
   source("scripts/shell-navigation-android-process-death-evidence.mjs"),
   source("iosApp/iosApp/QuataIosApp.swift"),
@@ -80,16 +81,22 @@ test("iOS persists exact Feed and Official post routes without storing post cont
 test("Android and Web restore exact Feed and Official posts without replaying a consumed route", () => {
   assert.match(android, /var feedFocusedPostId by rememberSaveable/);
   assert.match(android, /var officialFocusedPostId by rememberSaveable/);
-  assert.match(androidActivity, /handleIncomingIntent\(intent, restoreFromSavedState = savedInstanceState != null\)/);
-  assert.match(androidActivity, /restoreFromSavedState && sourceIntent\?\.action == Intent\.ACTION_VIEW/);
+  assert.match(androidActivity, /getBoolean\(IncomingNavigationRestorePolicy\.ConsumedStateKey, false\)/);
+  assert.match(androidActivity, /outState\.putBoolean\(IncomingNavigationRestorePolicy\.ConsumedStateKey, incomingLinkConsumed\)/);
+  assert.match(androidActivity, /consumedBeforeRecreation = consumedBeforeRecreation/);
   assert.match(androidActivity, /onIncomingLinkHandled = ::clearIncomingLink/);
+  assert.match(androidActivity, /incomingLinkConsumed = true/);
   assert.match(androidActivity, /setIntent\(Intent\(this, MainActivity::class\.java\)\.apply \{ action = Intent\.ACTION_MAIN \}\)/);
+  assert.match(androidRestorePolicyTest, /pendingDeepLinkIsDeliveredAcrossRecreation/);
+  assert.match(androidRestorePolicyTest, /consumedDeepLinkIsNotReplayedAcrossRecreation/);
   assert.match(androidRunner, /--exact-post-only/);
   assert.match(androidRunner, /-Pquata\.useMockBackend=true/);
   assert.match(androidRunner, /exact_\$\{target\.kind\}_post_restored_in_new_process_without_route_replay/);
   assert.match(androidRunner, /"am", "kill", PACKAGE/);
   assert.match(androidRunner, /"am", "start", "-W", "-n", `\$\{PACKAGE\}\/\.MainActivity`/);
   assert.match(androidRunner, /waitForResource\(target\.identityResource\)/);
+  assert.match(androidRunner, /exact_post_differential_base_intent_not_preserved/);
+  assert.match(androidRunner, /differentialBaseIntentVerified: true/);
   assert.match(androidRunner, /exact_\$\{target\.kind\}_post_back_returned_to_retained_root/);
 
   assert.match(postDetailWebRunner, /openRoute\(page, origin, `post-\$\{encodeURIComponent\(state\.feed\.postId\)\}`, `post\/\$\{state\.feed\.postId\}`\)/);

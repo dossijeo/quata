@@ -30,14 +30,24 @@ const PRIMARY_ROOTS = [
 const EXACT_POSTS = [
   {
     kind: "feed",
+    baselineUrl: "https://egquata.com/#post-p1",
+    baselineDetailResource: "feed.detail.chrome",
+    baselineIdentityResource: "feed.post.media.p1",
+    baselineIntentMarker: "post-p1",
     url: "https://egquata.com/#post-p2",
+    targetIntentMarker: "post-p2",
     detailResource: "feed.detail.chrome",
     identityResource: "feed.post.media.p2",
     rootResource: "feed.root",
   },
   {
     kind: "official",
+    baselineUrl: "https://egquata.com/#post-p1",
+    baselineDetailResource: "feed.detail.chrome",
+    baselineIdentityResource: "feed.post.media.p1",
+    baselineIntentMarker: "post-p1",
     url: "https://egquata.com/#official-official_mock_1",
+    targetIntentMarker: "official-official_mock_1",
     detailResource: "official.detail.chrome",
     identityResource: "official.detail.read-more.official_mock_1",
     rootResource: "official-feed-common-root",
@@ -608,10 +618,31 @@ async function verifyExactPostProcessDeath(target) {
   await runAdb(["shell", "pm", "grant", PACKAGE, "android.permission.POST_NOTIFICATIONS"]);
   await runAdb([
     "shell", "am", "start", "-W", "-a", "android.intent.action.VIEW",
+    "-d", target.baselineUrl, "-p", PACKAGE,
+  ]);
+  await waitForResource(target.baselineDetailResource);
+  await waitForResource(target.baselineIdentityResource);
+  const baselineActivityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
+  const baselineIntentLine = baselineActivityState.split(/\r?\n/).find((line) =>
+    /baseIntent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
+  );
+  if (!baselineIntentLine) throw new Error(`exact_post_differential_base_intent_missing:${target.kind}`);
+  report.steps.push(`exact_${target.kind}_differential_base_post_opened`);
+
+  await runAdb([
+    "shell", "am", "start", "-W", "-a", "android.intent.action.VIEW",
     "-d", target.url, "-p", PACKAGE,
   ]);
   await waitForResource(target.detailResource);
   await waitForResource(target.identityResource);
+  const targetActivityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
+  const retainedBaseIntentLine = targetActivityState.split(/\r?\n/).find((line) =>
+    /baseIntent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
+  );
+  if (!retainedBaseIntentLine || retainedBaseIntentLine.includes(target.targetIntentMarker)) {
+    throw new Error(`exact_post_differential_base_intent_not_preserved:${target.kind}`);
+  }
+  report.steps.push(`exact_${target.kind}_target_opened_over_distinct_retained_base_intent`);
   const activityState = await captureAdb(["shell", "dumpsys", "activity", "top"], { timeout: 15_000 });
   report.diagnostics = {
     ...(report.diagnostics ?? {}),
@@ -652,6 +683,7 @@ async function verifyExactPostProcessDeath(target) {
     kind: target.kind,
     pidChanged: true,
     exactIdentityRestored: true,
+    differentialBaseIntentVerified: true,
     bareComponentRelaunch: true,
     restoredBackToRoot: true,
     routeSha256: sha256(target.url),
