@@ -185,6 +185,7 @@ async function verifyAndroidCreatePostPostflight(evidenceDir) {
     "target_process_force_stopped",
     "exact_text_draft_restored_after_process_restart",
     "restored_draft_explicitly_discarded",
+    "restored_draft_persistent_record_cleared_after_discard",
     "create_post_returned_to_feed_without_publish",
     "authenticated_session_preserved_after_relaunch",
   ];

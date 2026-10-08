@@ -70,6 +70,7 @@ scripts/build-ios-intel-simulator-signed.sh
   report.steps.push("ios_exclusive_text_draft_entered_without_publish");
   report.steps.push("ios_exact_text_draft_restored_after_app_relaunch");
   report.steps.push("ios_restored_draft_explicitly_discarded_and_returned_to_feed");
+  report.steps.push("ios_discarded_draft_absent_after_second_app_relaunch");
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);

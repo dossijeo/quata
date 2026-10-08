@@ -115,6 +115,22 @@ try {
   report.steps.push("create_post_returned_to_feed_without_publish");
   report.evidence.returned = await screenshot(page, "web-create-post-postflight-returned");
 
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
+    localStorage.getItem("web.auth.session_ready") === "true",
+  null, { timeout: 45_000 });
+  const reopenedPublishAction = page.locator("[id^='feed.action.publish.']").first();
+  await reopenedPublishAction.waitFor({ state: "attached", timeout: 30_000 });
+  await reopenedPublishAction.click({ force: true, timeout: 10_000 });
+  await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 30_000 });
+  await page.locator("#composer-type-text").first().waitFor({ state: "attached", timeout: 15_000 });
+  if (await page.locator("#composer-text-input").count()) {
+    throw new Error("web_create_post_discarded_draft_restored_again");
+  }
+  report.steps.push("restored_draft_persistent_record_absent_after_reload");
+
   const storedActor = await page.evaluate(() => localStorage.getItem("quata_web_user_id"));
   if (storedActor !== session.userId) throw new Error("web_create_post_postflight_actor_changed");
   if (publishRequests.length) throw new Error(`web_create_post_postflight_publish_request_observed:${publishRequests[0].method}`);

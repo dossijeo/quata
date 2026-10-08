@@ -23,6 +23,26 @@ class PostComposerDraftStoreTest {
     }
 
     @Test
+    fun unresolvedActorDoesNotBecomeALogoutOrBlockLaterRestoration() {
+        val unresolved = PostComposerDraftActorResolution()
+        val stillUnresolved = unresolved.afterObservation(null)
+        assertFalse(stillUnresolved.wasResolved)
+        assertNull(stillUnresolved.actorProfileId)
+
+        val resolved = stillUnresolved.afterObservation("actor-a")
+        assertTrue(resolved.wasResolved)
+        assertEquals("actor-a", resolved.actorProfileId)
+        assertFalse(
+            shouldResetDraftForActorTransition(
+                wasResolved = stillUnresolved.wasResolved,
+                previousActorProfileId = stillUnresolved.actorProfileId,
+                nextActorProfileId = resolved.actorProfileId,
+                hasAuthenticationContinuation = false,
+            ),
+        )
+    }
+
+    @Test
     fun restoresOnlyTheMatchingActorAndClearsThePreviousActorOnChange() = runTest {
         val preferences = MemoryPreferenceStore()
         val store = PostComposerDraftStore(preferences)
@@ -88,6 +108,23 @@ class PostComposerDraftStoreTest {
         assertFalse(store.save(lease, draft(text = "stale-after-clear")))
         assertTrue(store.save(replacementLease, draft(text = "new-after-clear")))
         assertEquals("new-after-clear", store.restore("actor-a") { true }?.snapshot?.text)
+    }
+
+    @Test
+    fun failedAtomicClearKeepsTheDraftAndReturnsNoReplacementLease() = runTest {
+        val preferences = AtomicMemoryPreferenceStore()
+        val store = PostComposerDraftStore(preferences)
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        assertTrue(store.save(lease, draft(text = "must-survive-failed-clear")))
+
+        preferences.commitWrites = false
+        assertNull(store.clear("actor-a"))
+        preferences.commitWrites = true
+
+        assertEquals(
+            "must-survive-failed-clear",
+            store.restore("actor-a") { true }?.snapshot?.text,
+        )
     }
 
     @Test
@@ -257,6 +294,7 @@ private class BlockingPreferenceStore : PreferenceStore {
 private class AtomicMemoryPreferenceStore : AtomicPreferenceStore {
     val values = mutableMapOf<String, String>()
     private val lock = Mutex()
+    var commitWrites = true
 
     override suspend fun getString(key: String): String? = lock.withLock { values[key] }
     override suspend fun putString(key: String, value: String) = lock.withLock { values[key] = value }
@@ -266,6 +304,7 @@ private class AtomicMemoryPreferenceStore : AtomicPreferenceStore {
         key: String,
         transform: (String?) -> String?,
     ): Boolean = lock.withLock {
+        if (!commitWrites) return@withLock false
         val next = transform(values[key])
         if (next == null) values.remove(key) else values[key] = next
         true

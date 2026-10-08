@@ -22,12 +22,12 @@ test("the durable envelope is versioned actor-bound and excludes raw media bytes
 
 test("the common root restores before persistence and clears publish discard and reset", async () => {
   const root = await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt");
-  assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
+  assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
   assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.save\(lease, durableSnapshot\)/);
-  assert.match(root, /LaunchedEffect\(resetToken\)[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)/);
-  assert.match(root, /if \(state\.successMessage != null\)[\s\S]*?durableDraftReady = false[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)[\s\S]*?durablePersistedSnapshot = null/);
-  assert.match(root, /ComposerBackButtonContent[\s\S]*?durableDraftReady = false[\s\S]*?durableDraftStore\?\.clear\(draftActorProfileId\)[\s\S]*?durablePersistedSnapshot = null[\s\S]*?dispatchCreatePostBack/);
+  assert.match(root, /suspend fun completeDraftClear[\s\S]*?store\.clear\(draftActorProfileId\)[\s\S]*?clearedLease == null[\s\S]*?pendingDraftClearAction = action[\s\S]*?return[\s\S]*?durablePersistedSnapshot = null/);
+  assert.match(root, /PostComposerDraftClearAction\.Reset[\s\S]*?lastResetToken = action\.token[\s\S]*?PostComposerDraftClearAction\.PublishSuccess[\s\S]*?onPostCreated[\s\S]*?PostComposerDraftClearAction\.Discard[\s\S]*?dispatchCreatePostBack/);
+  assert.match(root, /errorMessage = if \(pendingDraftClearAction != null\) copy\.draftDiscardFailed[\s\S]*?onRetry = pendingDraftClearAction/);
 });
 
 test("Android Web and iOS inject the same store and validate platform media references", async () => {
@@ -84,6 +84,8 @@ test("the executable common tests cover isolation corruption cleanup and unavail
     "delayedRestoreLeaseIsInvalidAfterActorChange",
     "independentStoresShareTheActorFenceAndRejectAStaleTabWrite",
     "actorSwitchResetsExistingContentButPreservesTheLoginContinuation",
+    "unresolvedActorDoesNotBecomeALogoutOrBlockLaterRestoration",
+    "failedAtomicClearKeepsTheDraftAndReturnsNoReplacementLease",
     "delayedMediaRepairCannotOverwriteANewerDraftFromAnotherStore",
     "rejectedRestoreDoesNotTriggerAnInitialEmptyAutosaveOverTheNewerDraft",
   ]) assert.match(tests, new RegExp(`fun ${name}\\(`));

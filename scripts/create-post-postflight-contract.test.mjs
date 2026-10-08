@@ -66,6 +66,8 @@ test("Web postflight restores an exact draft after document reload and observes 
   assert.match(runner, /clickSemanticElement\(page, "composer-back"\)/);
   assert.match(runner, /data-quata-shell-route"\) === "feed"/);
   assert.match(runner, /restored_draft_explicitly_discarded/);
+  assert.match(runner, /restored_draft_persistent_record_absent_after_reload/);
+  assert.match(runner, /web_create_post_discarded_draft_restored_again/);
   assert.match(runner, /publishRequests\.length/);
   assert.match(runner, /storedActor !== session\.userId/);
   assert.match(runner, /page\.reload/);
@@ -87,6 +89,8 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.match(uiTest, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(uiTest, /assertTextInput\(restoredInput, equals: marker/);
   assert.match(uiTest, /tapScrollableIdentifier\([\s\S]*"composer-back"[\s\S]*inside: "create-post-common-root"[\s\S]*quata-ios-feed-host[\s\S]*waitForNonExistence/);
+  assert.match(uiTest, /A discarded draft must not reappear after another app relaunch/);
+  assert.match(coordinator, /ios_discarded_draft_absent_after_second_app_relaunch/);
   assert.match(uiTest, /while !element\.isHittable && remainingScrolls > 0[\s\S]*container\.swipeUp\(\)[\s\S]*XCTAssertTrue\(element\.isHittable/);
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);

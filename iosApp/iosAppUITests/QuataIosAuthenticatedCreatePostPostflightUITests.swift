@@ -38,6 +38,15 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
             relaunched.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.waitForNonExistence(timeout: 12),
             "Discarding the restored draft must dismiss the common Create Post root."
         )
+
+        relaunched.terminate()
+        let afterDiscard = launchAuthenticatedApp()
+        openComposer(in: afterDiscard)
+        assertVisible("composer-type-text", in: afterDiscard, context: "empty composer after durable discard")
+        XCTAssertFalse(
+            afterDiscard.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch.exists,
+            "A discarded draft must not reappear after another app relaunch."
+        )
         print("IOS_CREATE_POST_DRAFT_RESTORATION_UI_GATE_PASSED")
     }
 
@@ -84,16 +93,20 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
     }
 
     private func openTextComposer(in app: XCUIApplication) {
-        if !app.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.exists {
-            assertVisible("quata-ios-feed-host", in: app, context: "authenticated Feed")
-            tapPrefix("feed.action.publish.", in: app, context: "open Create Post from Feed")
-        }
-        assertVisible("create-post-common-root", in: app, context: "common Create Post root")
+        openComposer(in: app)
         let input = app.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
         if !input.exists {
             tapIdentifier("composer-type-text", in: app, context: "select text post type")
         }
         assertVisible("composer-text-input", in: app, context: "text composer input")
+    }
+
+    private func openComposer(in app: XCUIApplication) {
+        if !app.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.exists {
+            assertVisible("quata-ios-feed-host", in: app, context: "authenticated Feed")
+            tapPrefix("feed.action.publish.", in: app, context: "open Create Post from Feed")
+        }
+        assertVisible("create-post-common-root", in: app, context: "common Create Post root")
     }
 
     private func assertTextInput(_ element: XCUIElement, equals expected: String, context: String) {
