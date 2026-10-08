@@ -61,8 +61,10 @@ class ChatAttachmentFileCacheInstrumentedTest {
 
     @After
     fun tearDown() {
-        server.shutdown()
+        val shutdown = runCatching { server.shutdown() }
         cacheRoot().deleteRecursively()
+        assertFalse("Android private attachment cache must be absent after cleanup", cacheRoot().exists())
+        shutdown.getOrThrow()
     }
 
     @Test
