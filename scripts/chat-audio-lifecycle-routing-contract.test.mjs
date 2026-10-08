@@ -20,6 +20,11 @@ test("Web Chat audio pauses on document background and removes its listener on c
   assert.match(web, /document\.visibilityState !== 'visible'/);
   assert.match(web, /element\.pause\(\)/);
   assert.match(web, /document\.removeEventListener\('visibilitychange', pauseForHiddenDocument\)/);
+  assert.match(web, /element\.__quataCleanup = cleanup/);
+  assert.match(web, /typeof element\.__quataCleanup === 'function'/);
+
+  const webTest = source("core/src/wasmJsTest/kotlin/com/quata/core/platform/BrowserAudioPlayerLifecycleTest.kt");
+  assert.match(webTest, /assertEquals\(0, browserAudioLifecycleVisibilityListenerCount\(\)\)/);
 });
 
 test("iOS Chat audio pauses for interruption, route loss and background without auto-resume", () => {

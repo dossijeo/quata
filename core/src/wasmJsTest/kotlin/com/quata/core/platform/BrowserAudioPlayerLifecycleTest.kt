@@ -26,6 +26,8 @@ class BrowserAudioPlayerLifecycleTest {
 
             assertEquals(1, browserAudioLifecyclePauseCount())
             assertFalse(service.state().isPlaying)
+            service.stop()
+            assertEquals(0, browserAudioLifecycleVisibilityListenerCount())
         } finally {
             service.stop()
             restoreBrowserAudioLifecycleFixture()
@@ -43,13 +45,26 @@ class BrowserAudioPlayerLifecycleTest {
         globalThis.document = document;
       }
       const originalCreateElement = document.createElement.bind(document);
+      const originalAddEventListener = document.addEventListener.bind(document);
+      const originalRemoveEventListener = document.removeEventListener.bind(document);
       const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
       const state = globalThis.__quataAudioLifecycleTest = {
         visibilityState: 'visible',
         pauses: 0,
         hadDocument,
         originalCreateElement,
+        originalAddEventListener,
+        originalRemoveEventListener,
+        visibilityListeners: new Set(),
         visibilityDescriptor,
+      };
+      document.addEventListener = function(type, listener, options) {
+        if (type === 'visibilitychange') state.visibilityListeners.add(listener);
+        return originalAddEventListener(type, listener, options);
+      };
+      document.removeEventListener = function(type, listener, options) {
+        if (type === 'visibilitychange') state.visibilityListeners.delete(listener);
+        return originalRemoveEventListener(type, listener, options);
       };
       Object.defineProperty(document, 'visibilityState', {
         configurable: true,
@@ -108,11 +123,16 @@ private external fun hideBrowserAudioLifecycleDocument()
 @JsFun("() => globalThis.__quataAudioLifecycleTest.pauses")
 private external fun browserAudioLifecyclePauseCount(): Int
 
+@JsFun("() => globalThis.__quataAudioLifecycleTest.visibilityListeners.size")
+private external fun browserAudioLifecycleVisibilityListenerCount(): Int
+
 @JsFun(
     """() => {
       const state = globalThis.__quataAudioLifecycleTest;
       if (!state) return;
       globalThis.document.createElement = state.originalCreateElement;
+      globalThis.document.addEventListener = state.originalAddEventListener;
+      globalThis.document.removeEventListener = state.originalRemoveEventListener;
       if (state.visibilityDescriptor) {
         Object.defineProperty(globalThis.document, 'visibilityState', state.visibilityDescriptor);
       } else {
