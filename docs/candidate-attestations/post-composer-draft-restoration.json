@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "units": [
+    "POST-COMPOSER-DRAFT"
+  ],
+  "status": "passed",
+  "productSha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+  "certification": "authenticated-text-draft-restoration-platform-focal-complete-independent-review-go-final-CI-pending",
+  "evidenceKind": "POST_COMPOSER_DURABLE_DRAFT_RESTORATION_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+      "report": "docs/candidate-attestations/evidence/post-composer-draft-restoration-android-e26a9440.json",
+      "reportSha256": "0529139dc6c6503d4299653ed1d441a001f48fff5d1686898e501fe300536cf9",
+      "reportStatus": "passed",
+      "reportGitHead": "e26a9440794b1fee3a283f7ee5ae7c22a57e6f62",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_app_data_cleared_before_evidence",
+        "exclusive_text_draft_entered_without_publish",
+        "target_process_force_stopped",
+        "exact_text_draft_restored_after_process_restart",
+        "restored_draft_explicitly_discarded",
+        "restored_draft_persistent_record_cleared_after_discard",
+        "create_post_returned_to_feed_without_publish",
+        "authenticated_session_preserved_after_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-instrumentation-app-data-and-local-credentials-cleared"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+      "report": "docs/candidate-attestations/evidence/post-composer-draft-restoration-web-e26a9440.json",
+      "reportSha256": "48169e3316a8a1d6b0a0df7f2c704c99e6f78a3ede1c1a1827bfcbaa4bb30e52",
+      "reportStatus": "passed",
+      "reportGitHead": "e26a9440794b1fee3a283f7ee5ae7c22a57e6f62",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exclusive_text_draft_entered_without_publish",
+        "exact_text_draft_restored_after_document_reload",
+        "restored_draft_explicitly_discarded",
+        "restored_draft_persistent_record_absent_after_reload",
+        "authenticated_session_preserved_without_publish_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-browser-no-publish"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "f9246dc2b7e34418579b84f313577d2ef3a0ba82",
+      "report": "docs/candidate-attestations/evidence/post-composer-draft-restoration-ios-bd53354f.json",
+      "reportSha256": "1d3e943e29dd6427ca5357e91fd7ffa18f34145cc62f8028de836997df41317d",
+      "reportStatus": "passed",
+      "reportGitHead": "bd53354feb6eb3d094a945b6735944e5004a680d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "mac_checkout_clean",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_exclusive_text_draft_entered_without_publish",
+        "ios_exact_text_draft_restored_after_app_relaunch",
+        "ios_restored_draft_explicitly_discarded_and_returned_to_feed",
+        "ios_discarded_draft_absent_after_second_app_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-simulator-transient-config-and-credentials-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/create-post-postflight-web-evidence.mjs scripts/create-post-postflight-android-evidence.mjs scripts/create-post-postflight-ios-evidence.mjs",
+    "node --test scripts/create-post-postflight-contract.test.mjs scripts/post-composer-draft-restoration-contract.test.mjs",
+    ".\\gradlew.bat :feature:postcomposer:compileTestKotlinWasmJs :feature:postcomposer:wasmJsBrowserTest --tests com.quata.feature.postcomposer.presentation.PostComposerDraftStoreTest --console=plain",
+    "node scripts/create-post-postflight-web-evidence.mjs",
+    "node scripts/create-post-postflight-android-evidence.mjs",
+    "node scripts/create-post-postflight-ios-evidence.mjs --build-first --simulator <udid>",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-composer-draft-restoration.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "e26a9440794b1fee3a283f7ee5ae7c22a57e6f62",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "An unresolved initial null actor no longer becomes an authoritative logout and therefore cannot suppress restoration when the authenticated actor arrives.",
+      "Discard, reset and successful publication now wait for confirmed durable clear; persistence failures keep the composer open with a localized retry and preserve coroutine cancellation.",
+      "Clear requests capture actor and generation before launching, mutate only the exact lease and reject stale completion after an A-to-B-to-A session cycle."
+    ],
+    "scopeLimit": "The platform evidence restores and discards an authenticated text draft without publishing. Media references are sanitized and unit-tested, but media-draft recreation and arbitrary editor state remain outside this focal unit."
+  },
+  "notes": [
+    "The common versioned envelope stores only sanitized fields and actor/generation metadata; it excludes credentials and raw media bytes and validates platform-owned media references before restoration.",
+    "Android force-stops the real target process between seed and restore. Web reloads the document. iOS terminates and relaunches the Simulator app. Each lane then discards, recreates once more and verifies the text draft does not return.",
+    "All three evidence runs use a real authenticated profile, invoke no publish callback and make no post mutation. Android and iOS remove transient credential material; Android clears app data after the run.",
+    "Independent review of the exact runtime head returned GO with no P0-P3 findings after two repair rounds covering unresolved authentication, failed clear recovery, and stale actor-generation completions.",
+    "The iOS evidence ran at bd53354f after a test-only selector and scrolling repair; product runtime remained byte-identical to e26a9440. Android and Web evidence ran directly at e26a9440 and were not repeated for the iOS-only test change.",
+    "Product SHA f9246dc2 replays the reviewed draft-restoration runtime, iOS focal-test repair and inventory binding over the current stacked migration base. The Android/Web reports remain bound to e26a9440 and the iOS report to bd53354f; their runtime and focal test blobs are unchanged, so the platform journeys were not repeated solely for ancestry.",
+    "The versioned report projections preserve outcomes, Git binding and cleanup but replace private host names and absolute checkout paths with stable repository-relative labels.",
+    "The unit does not repeat destination, media editor, publication, rollback, hardware or permission matrices owned by existing POST-* attestations.",
+    "The recomposed candidate preserves the reviewed 30-commit delta byte-for-byte over the integrated #577 tree; no platform E2E was repeated solely for ancestry."
+  ]
+}
