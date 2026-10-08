@@ -22,7 +22,7 @@ test("Android retains the exact focused Chat message in saveable shell state and
   assert.match(android, /persistedChatFocusConversationId = conversationId\.takeIf \{ focusedMessageId != null \}/);
   assert.match(android, /focusedMessageId = activeChatFocusedMessageId\.takeIf \{[\s\S]*activeChatFocusConversationId == conversationId/);
   assert.match(android, /onFocusedMessageHandled = \{[\s\S]*activeChatFocusConversationId = null[\s\S]*activeChatFocusedMessageId = null/);
-  assert.match(android, /lastObservedRoute == AppDestinations\.Chat\.route && currentRoute != AppDestinations\.Chat\.route/);
+  assert.match(android, /shouldClearNotificationChatReturn\(lastObservedRoute, currentRoute, isAuthenticated\)/);
   assert.match(android, /persistedChatFocusConversationId = null[\s\S]*persistedChatFocusedMessageId = null[\s\S]*lastObservedRoute = currentRoute/);
   assert.match(androidRunner, /--exact-chat-only/);
   assert.match(androidRunner, /exact_chat_target_selected_by_uiautomator_after_distinct_task_base_intent/);
@@ -99,11 +99,14 @@ test("Notifications to exact Chat restores its native parent across recreation o
   assert.match(android, /popBackStack\(returnRoute, inclusive = false\)/);
   assert.match(androidNotificationTests, /returnsNotificationsOnlyForTheExactConversation/);
   assert.match(androidNotificationTests, /rejectsBlankConversationAndUnrelatedReturnRoutes/);
+  assert.match(androidNotificationTests, /clearsTheReturnWhenLeavingChatOrLoggingOut/);
+  assert.match(android, /shouldClearNotificationChatReturn\(lastObservedRoute, currentRoute, isAuthenticated\)/);
+  assert.match(android, /persistedChatReturnConversationId = null[\s\S]*persistedChatReturnRoute = null/);
 
   assert.match(web, /navigateConversation\(conversationId, returnFragment = "notifications"\)/);
   assert.match(web, /pendingAuthenticationReturnFragment/);
   assert.match(web, /pendingAuthenticationFragment = null\s+pendingAuthenticationReturnFragment = null\s+isAuthRequiredPromptOpen = false/);
-  assert.match(webTests, /notificationConversationReturnsToNotificationsAfterFullDocumentReload/);
+  assert.match(webTests, /notificationConversationReturnsToNotificationsAfterControllerRecreationWithPersistedStorage/);
   assert.match(webTests, /notificationReturnIsBoundToTheExactConversation/);
 
   assert.match(ios, /persistedChatReturnKey = "quata\.ios\.shell\.chat-return"/);

@@ -41,4 +41,32 @@ class NotificationChatReturnRouteTest {
             ),
         )
     }
+
+    @Test
+    fun clearsTheReturnWhenLeavingChatOrLoggingOut() {
+        assertEquals(
+            false,
+            shouldClearNotificationChatReturn(
+                previousRoute = AppDestinations.Chat.route,
+                currentRoute = AppDestinations.Chat.route,
+                isAuthenticated = true,
+            ),
+        )
+        assertEquals(
+            true,
+            shouldClearNotificationChatReturn(
+                previousRoute = AppDestinations.Chat.route,
+                currentRoute = AppDestinations.Feed.route,
+                isAuthenticated = true,
+            ),
+        )
+        assertEquals(
+            true,
+            shouldClearNotificationChatReturn(
+                previousRoute = AppDestinations.Chat.route,
+                currentRoute = AppDestinations.Chat.route,
+                isAuthenticated = false,
+            ),
+        )
+    }
 }

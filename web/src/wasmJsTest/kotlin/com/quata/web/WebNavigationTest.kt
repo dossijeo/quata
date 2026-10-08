@@ -138,7 +138,7 @@ class WebNavigationTest {
     }
 
     @Test
-    fun notificationConversationReturnsToNotificationsAfterFullDocumentReload() {
+    fun notificationConversationReturnsToNotificationsAfterControllerRecreationWithPersistedStorage() {
         var browserFragment = "notifications"
         var storedConversationId: String? = null
         var storedReturnFragment: String? = null

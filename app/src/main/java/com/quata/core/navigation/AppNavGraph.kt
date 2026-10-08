@@ -689,12 +689,14 @@ fun AppNavGraph(
         container.userPresenceRepository.setAppForeground(isAppForeground)
     }
 
-    LaunchedEffect(currentRoute) {
-        if (lastObservedRoute == AppDestinations.Chat.route && currentRoute != AppDestinations.Chat.route) {
+    LaunchedEffect(currentRoute, isAuthenticated) {
+        if (shouldClearNotificationChatReturn(lastObservedRoute, currentRoute, isAuthenticated)) {
             persistedChatFocusConversationId = null
             persistedChatFocusedMessageId = null
             activeChatFocusConversationId = null
             activeChatFocusedMessageId = null
+            persistedChatReturnConversationId = null
+            persistedChatReturnRoute = null
         }
         lastObservedRoute = currentRoute
         if (currentRoute != null && currentRoute in bottomRoutes) {
@@ -1695,6 +1697,13 @@ internal fun notificationChatReturnRoute(
         storedConversationId == currentConversationId &&
         storedRoute == AppDestinations.Notifications.route
 }
+
+internal fun shouldClearNotificationChatReturn(
+    previousRoute: String?,
+    currentRoute: String?,
+    isAuthenticated: Boolean,
+): Boolean = !isAuthenticated ||
+    (previousRoute == AppDestinations.Chat.route && currentRoute != AppDestinations.Chat.route)
 
 private fun android.os.LocaleList.languageTags(): List<String> =
     List(size()) { index -> get(index).toLanguageTag() }
