@@ -22,9 +22,9 @@ test("the durable envelope is versioned actor-bound and excludes raw media bytes
 
 test("the common root restores before persistence and clears publish discard and reset", async () => {
   const root = await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt");
-  assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
+  assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restoreWithMediaResolution\(lease\.actorProfileId, durableMediaReferenceForRestoration\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
-  assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.save\(lease, durableSnapshot\)/);
+  assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.saveWithMediaPersistence\(lease, durableSnapshot, durableMediaReferenceForPersistence\)/);
   assert.match(root, /suspend fun completeDraftClear[\s\S]*?attemptPostComposerDraftClear\(request\.actorProfileId, request\.actorLease, store::clear\)[\s\S]*?!isPostComposerDraftClearRequestCurrent[\s\S]*?request\.actorLease[\s\S]*?currentDraftActorLease[\s\S]*?PostComposerDraftClearAttempt\.Failed[\s\S]*?pendingDraftClearRequest = request[\s\S]*?durablePersistedSnapshot = null/);
   assert.match(root, /fun requestDraftClear[\s\S]*?val request = PostComposerDraftClearRequest[\s\S]*?actorProfileId = currentDraftActorProfileId[\s\S]*?actorLease = currentDraftActorLease[\s\S]*?scope\.launch \{ completeDraftClear\(request\) \}/);
   assert.match(root, /attemptPostComposerDraftClear[\s\S]*?catch \(cancelled: CancellationException\)[\s\S]*?throw cancelled[\s\S]*?catch \(_: Throwable\)[\s\S]*?PostComposerDraftClearAttempt\.Failed/);
@@ -33,12 +33,14 @@ test("the common root restores before persistence and clears publish discard and
 });
 
 test("Android Web and iOS inject the same store and validate platform media references", async () => {
-  const [android, androidRoot, web, webRoot, ios, iosRoot] = await Promise.all([
+  const [android, androidRoot, web, webMedia, webRoot, ios, iosMedia, iosRoot] = await Promise.all([
     source("app/src/main/java/com/quata/feature/postcomposer/presentation/CreatePostScreen.kt"),
     source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerDraftMediaStore.kt"),
     source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
     source("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt"),
+    source("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostComposerDraftMediaStore.kt"),
     source("iosApp/iosApp/QuataIosApp.swift"),
   ]);
   for (const host of [android, web, ios]) {
@@ -48,7 +50,17 @@ test("Android Web and iOS inject the same store and validate platform media refe
   }
   assert.match(android, /openFileDescriptor\(uri, "r"\)/);
   assert.match(web, /webComposerDraftMediaReferenceAvailable/);
+  assert.match(web, /durableMediaReferenceForPersistence[\s\S]*?durableDraftMediaStore\?\.persist/);
+  assert.match(webMedia, /files\.store\(expectedKey, PlatformFile\(reference\)\)/);
+  assert.match(webMedia, /files\.get\(expectedKey\)/);
+  assert.match(webMedia, /quata-draft-cache:/);
   assert.match(ios, /NSFileManager\.defaultManager::fileExistsAtPath/);
+  assert.match(ios, /LaunchedEffect\(composerState\.imageUri\)[\s\S]*?iosComposerRestoredMediaFile/);
+  assert.match(ios, /LaunchedEffect\(composerState\.videoUri\)[\s\S]*?createThumbnail/);
+  assert.match(ios, /durableMediaReferenceForPersistence[\s\S]*?durableDraftMediaStore\?\.persist/);
+  assert.match(iosMedia, /files\.store\(expectedKey, iosComposerRestoredMediaFile\(reference, kind\)\)/);
+  assert.match(iosMedia, /files\.get\(expectedKey\)/);
+  assert.match(iosMedia, /removeByPrefixNow\(PostComposerDraftMediaCacheKeyPrefix\)/);
   assert.match(androidRoot, /durableDraftStore = postComposerDraftStore/);
   assert.match(androidRoot, /PostComposerDraftStore\(AndroidPreferenceStore\(appContext, commitWrites = true\)\)/);
   assert.doesNotMatch(androidRoot, /createPostResetToken \+= 1/);
@@ -76,7 +88,7 @@ test("session transitions retire the previous actor draft on every platform", as
     source("iosApp/iosApp/QuataIosApp.swift"),
   ]);
   assert.match(android, /LaunchedEffect\(currentUserId, postComposerDraftStore\)[\s\S]*?activateActor\(currentUserId\)/);
-  assert.match(web, /LaunchedEffect\(currentUserId, isSessionResolved, postComposerDraftStore\)[\s\S]*?if \(isSessionResolved\) postComposerDraftStore\.activateActor\(currentUserId\)/);
+  assert.match(web, /LaunchedEffect\(currentUserId, isSessionResolved, postComposerDraftStore, platformServices\.fileCache\)[\s\S]*?previousActor != currentUserId[\s\S]*?WebPostComposerDraftMediaStore[\s\S]*?\.clear\(\)[\s\S]*?postComposerDraftStore\.activateActor\(currentUserId\)/);
   assert.match(ios, /onLoggedOut:[\s\S]*?retireIosPostComposerDraft/);
 });
 

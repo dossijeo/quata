@@ -315,8 +315,20 @@ private fun QuataWebApp(
     val postComposerDraftStore = remember(platformServices.preferences) {
         PostComposerDraftStore(platformServices.preferences)
     }
-    LaunchedEffect(currentUserId, isSessionResolved, postComposerDraftStore) {
-        if (isSessionResolved) postComposerDraftStore.activateActor(currentUserId)
+    var postComposerDraftMediaActorId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentUserId, isSessionResolved, postComposerDraftStore, platformServices.fileCache) {
+        if (isSessionResolved) {
+            val previousActor = postComposerDraftMediaActorId
+            if (previousActor != null && previousActor != currentUserId) {
+                WebPostComposerDraftMediaStore(
+                    files = platformServices.fileCache,
+                    actorProfileId = previousActor,
+                    releaseCachedReference = platformServices::releaseFileCacheReference,
+                ).clear()
+            }
+            postComposerDraftStore.activateActor(currentUserId)
+            postComposerDraftMediaActorId = currentUserId
+        }
     }
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }

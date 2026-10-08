@@ -35,8 +35,21 @@ class PostComposerDraftStore(
         return mutation.result.takeIf { mutation.committed }
     }
 
-    suspend fun save(lease: PostComposerDraftActorLease, draft: PostComposerDraftSnapshot): Boolean {
-        val sanitized = draft.sanitizedForPersistence()
+    suspend fun save(lease: PostComposerDraftActorLease, draft: PostComposerDraftSnapshot): Boolean =
+        saveWithMediaPersistence(lease, draft) { reference, _ -> reference }
+
+    suspend fun saveWithMediaPersistence(
+        lease: PostComposerDraftActorLease,
+        draft: PostComposerDraftSnapshot,
+        persistMediaReference: suspend (String, PostComposerDraftMediaKind) -> String?,
+    ): Boolean {
+        val persistentImage = draft.imageUri?.let {
+            persistMediaReference(it, PostComposerDraftMediaKind.Image) ?: return false
+        }
+        val persistentVideo = draft.videoUri?.let {
+            persistMediaReference(it, PostComposerDraftMediaKind.Video) ?: return false
+        }
+        val sanitized = draft.copy(imageUri = persistentImage, videoUri = persistentVideo).sanitizedForPersistence()
         return mutateState { current ->
             if (!current.matches(lease)) current to false
             else current.copy(
@@ -50,6 +63,13 @@ class PostComposerDraftStore(
     suspend fun restore(
         actorProfileId: String,
         mediaReferenceAvailable: suspend (String) -> Boolean,
+    ): PostComposerDraftRestoration? = restoreWithMediaResolution(actorProfileId) { reference, _ ->
+        reference.takeIf { mediaReferenceAvailable(it) }
+    }
+
+    suspend fun restoreWithMediaResolution(
+        actorProfileId: String,
+        resolveMediaReference: suspend (String, PostComposerDraftMediaKind) -> String?,
     ): PostComposerDraftRestoration? {
         val lease = activateActor(actorProfileId) ?: return null
         val state = readStateConsistently()
@@ -67,15 +87,19 @@ class PostComposerDraftStore(
             }
             return null
         }
-        val image = decoded.imageUri?.takeIf { mediaReferenceAvailable(it) }
-        val video = decoded.videoUri?.takeIf { mediaReferenceAvailable(it) }
+        val image = decoded.imageUri?.let { resolveMediaReference(it, PostComposerDraftMediaKind.Image) }
+        val video = decoded.videoUri?.let { resolveMediaReference(it, PostComposerDraftMediaKind.Video) }
         val restored = decoded.copy(imageUri = image, videoUri = video)
-        val finalRevision = if (restored != decoded) {
+        val repairedPersistent = decoded.copy(
+            imageUri = decoded.imageUri.takeIf { image != null },
+            videoUri = decoded.videoUri.takeIf { video != null },
+        )
+        val finalRevision = if (repairedPersistent != decoded) {
             val repair = mutateState { current ->
                 if (current.matches(lease) && current.revision == restoredRevision) {
                     val next = current.copy(
                         revision = current.revision + 1,
-                        encodedDraft = PostComposerDraftEnvelopeCodec.encode(restored),
+                        encodedDraft = PostComposerDraftEnvelopeCodec.encode(repairedPersistent),
                     )
                     next to next.revision
                 } else {
@@ -219,6 +243,8 @@ class PostComposerDraftRestoration internal constructor(
     val snapshot: PostComposerDraftSnapshot,
     internal val revision: Long,
 )
+
+enum class PostComposerDraftMediaKind { Image, Video }
 
 private fun PostComposerDraftSnapshot.isMeaningful(): Boolean =
     step != CreatePostStep.TypePicker ||

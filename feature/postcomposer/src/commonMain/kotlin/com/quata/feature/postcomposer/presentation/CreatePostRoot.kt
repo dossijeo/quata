@@ -242,6 +242,12 @@ fun CreatePostRoot(
     durableDraftStore: PostComposerDraftStore? = null,
     draftActorProfileId: String? = null,
     durableMediaReferenceAvailable: suspend (String) -> Boolean = { false },
+    durableMediaReferenceForPersistence: suspend (String, PostComposerDraftMediaKind) -> String? = { reference, _ -> reference },
+    durableMediaReferenceForRestoration: suspend (String, PostComposerDraftMediaKind) -> String? = { reference, _ ->
+        reference.takeIf { durableMediaReferenceAvailable(it) }
+    },
+    durableMediaReconcile: suspend (String?, String?) -> Boolean = { _, _ -> true },
+    durableMediaClear: suspend () -> Boolean = { true },
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -305,7 +311,7 @@ fun CreatePostRoot(
         val lease = store.activateActor(actor)
         durableDraftActorLease = lease
         val restoration = if (lease != null && initialStep == null && !resetForActorChange) {
-            store.restore(lease.actorProfileId, durableMediaReferenceAvailable)
+            store.restoreWithMediaResolution(lease.actorProfileId, durableMediaReferenceForRestoration)
         } else {
             null
         }
@@ -330,7 +336,11 @@ fun CreatePostRoot(
         val store = durableDraftStore ?: return@LaunchedEffect
         val lease = durableDraftActorLease ?: return@LaunchedEffect
         if (shouldPersistPostComposerDraft(durableDraftReady, durableSnapshot, durablePersistedSnapshot)) {
-            if (store.save(lease, durableSnapshot)) durablePersistedSnapshot = durableSnapshot
+            if (store.saveWithMediaPersistence(lease, durableSnapshot, durableMediaReferenceForPersistence) &&
+                durableMediaReconcile(durableSnapshot.imageUri, durableSnapshot.videoUri)
+            ) {
+                durablePersistedSnapshot = durableSnapshot
+            }
         }
     }
 
@@ -346,7 +356,16 @@ fun CreatePostRoot(
     suspend fun completeDraftClear(request: PostComposerDraftClearRequest) {
         durableDraftReady = false
         val store = durableDraftStore
-        val clearAttempt = if (store == null) {
+        val mediaCleared = try {
+            durableMediaClear()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
+        val clearAttempt = if (!mediaCleared) {
+            PostComposerDraftClearAttempt.Failed
+        } else if (store == null) {
             PostComposerDraftClearAttempt.NotRequired
         } else {
             attemptPostComposerDraftClear(request.actorProfileId, request.actorLease, store::clear)

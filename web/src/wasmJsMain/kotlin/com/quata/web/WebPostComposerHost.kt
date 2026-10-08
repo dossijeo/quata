@@ -60,6 +60,7 @@ fun WebPostComposerHost(
     onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
     durableDraftStore: PostComposerDraftStore? = null,
     draftActorProfileId: String? = null,
+    durableDraftMediaStore: WebPostComposerDraftMediaStore? = null,
     modifier: Modifier = Modifier,
 ) {
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
@@ -161,6 +162,17 @@ fun WebPostComposerHost(
         durableDraftStore = durableDraftStore,
         draftActorProfileId = draftActorProfileId,
         durableMediaReferenceAvailable = ::webComposerDraftMediaReferenceAvailable,
+        durableMediaReferenceForPersistence = { reference, kind ->
+            durableDraftMediaStore?.persist(reference, kind) ?: reference.takeIf(::webComposerDraftMediaReferenceAvailable)
+        },
+        durableMediaReferenceForRestoration = { reference, kind ->
+            durableDraftMediaStore?.restore(reference, kind)
+                ?: reference.takeIf(::webComposerDraftMediaReferenceAvailable)
+        },
+        durableMediaReconcile = { imageReference, videoReference ->
+            durableDraftMediaStore?.reconcile(imageReference, videoReference) ?: true
+        },
+        durableMediaClear = { durableDraftMediaStore?.clear() ?: true },
         copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },

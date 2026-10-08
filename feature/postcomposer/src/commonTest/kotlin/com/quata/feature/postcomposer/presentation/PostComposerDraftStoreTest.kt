@@ -289,6 +289,42 @@ class PostComposerDraftStoreTest {
         assertFalse(preferences.values.getValue(StateKey).contains("stale-tab-write"))
     }
 
+    @Test
+    fun mediaPersistenceStoresOpaqueReferencesAndRestoresRuntimeReferences() = runTest {
+        val store = PostComposerDraftStore(MemoryPreferenceStore())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        assertTrue(
+            store.saveWithMediaPersistence(
+                lease,
+                draft(imageUri = "blob:image", videoUri = "blob:video"),
+            ) { _, kind -> "cache:${kind.name.lowercase()}" },
+        )
+
+        val restored = requireNotNull(
+            store.restoreWithMediaResolution("actor-a") { reference, kind ->
+                "runtime:${kind.name.lowercase()}:${reference.removePrefix("cache:")}"
+            },
+        )
+        assertEquals("runtime:image:image", restored.snapshot.imageUri)
+        assertEquals("runtime:video:video", restored.snapshot.videoUri)
+
+        val secondRestore = requireNotNull(store.restore("actor-a") { true })
+        assertEquals("cache:image", secondRestore.snapshot.imageUri)
+        assertEquals("cache:video", secondRestore.snapshot.videoUri)
+    }
+
+    @Test
+    fun failedMediaPersistenceDoesNotReplaceThePreviousDurableDraft() = runTest {
+        val store = PostComposerDraftStore(MemoryPreferenceStore())
+        val lease = requireNotNull(store.activateActor("actor-a"))
+        assertTrue(store.save(lease, draft(text = "previous")))
+
+        assertFalse(
+            store.saveWithMediaPersistence(lease, draft(text = "new", imageUri = "blob:image")) { _, _ -> null },
+        )
+        assertEquals("previous", store.restore("actor-a") { true }?.snapshot?.text)
+    }
+
     private fun draft(
         text: String = "draft",
         imageUri: String? = null,
