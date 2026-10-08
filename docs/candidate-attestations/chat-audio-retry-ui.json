@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "7518a81acb00322d96839361d921f21fbc1928d2",
-  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-pending-final-CI-pending",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -87,14 +87,14 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-retry-ui.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "bae5dae85c1320c1da7479c0459521ff64f258da",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2 corrected: the UI evidence now claims only one component callback invocation, the supplied loading render and preserved visible label; exact descriptor recovery remains bound to chat-audio-transport-retry.json.",
       "P2 corrected: trailing CR/blank EOF bytes were removed and the full changed range passes diff --check."
     ],
-    "scopeLimit": "Pending renewed exact-head review after replay over the integrated Chat transport squash."
+    "scopeLimit": "This focal attestation closes the rendered Compose failure surface and visible Retry callback activation on Android, Web/Wasm and iOS x64. Exact descriptor selection and platform transport recovery remain certified by chat-audio-transport-retry.json; this UI test does not execute the adapter. Physical microphone, routing, prolonged background playback, exhaustive network matrices and audio outside Chat remain separate."
   },
   "notes": [
     "The common test renders the production ChatAudioAttachmentPlayerContent, verifies failed semantics and click action, activates Retry once, preserves the same rendered attachment label and observes the supplied loading state on Web/Wasm and iOS x64.",
@@ -103,6 +103,7 @@
     "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings.",
     "The eight-commit UI series was replayed over frozen Chat transport candidate f492d6b7. The conflict adaptations preserve the newer transport Product eb9cd3c3 while all UI runtime, platform-test and report blobs remain byte-identical.",
     "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. The recomposed exact-head review of 195eecb5 returned GO with no P0-P3 and confirmed unchanged UI runtime, tests and report blobs without attributing a new platform execution.",
-    "The ten-commit UI series was replayed over integrated transport squash 740c2301, whose tree is identical to frozen candidate f492d6b7. All UI-owned runtime, platform-test, contract and report blobs remain byte-identical; no platform execution is attributed to this parent replacement."
+    "The ten-commit UI series was replayed over integrated transport squash 740c2301, whose tree is identical to frozen candidate f492d6b7. All UI-owned runtime, platform-test, contract and report blobs remain byte-identical; no platform execution is attributed to this parent replacement.",
+    "Independent exact-head review of bae5dae85 returned GO with no P0-P3 findings. It confirmed Product e51bfe97 and 7518a81a are content-identical, preserved hermetic UI custody and scope, contract 44/44, validator, diff-check and clean tree. This final documentation-only commit records that review."
   ]
 }
