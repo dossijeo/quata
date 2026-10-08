@@ -3,6 +3,7 @@ import { createHash, randomInt, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import pg from "pg";
 
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -69,6 +70,13 @@ async function openWorkerConnections(applicationNames, connections) {
   }));
   const failed = outcomes.find((outcome) => outcome.status === "rejected");
   if (failed) throw new Error("database_preflight_failed:worker_connect");
+  return outcomes.map((outcome) => outcome.value);
+}
+
+export async function settleMutationCallsBeforeCleanup(callPromises) {
+  const outcomes = await Promise.allSettled(callPromises);
+  const failed = outcomes.find((outcome) => outcome.status === "rejected");
+  if (failed) throw failed.reason;
   return outcomes.map((outcome) => outcome.value);
 }
 
@@ -176,16 +184,16 @@ async function main() {
       "select public.quata_chat_get_or_create_private_thread($1::uuid, $2::uuid) as payload",
       [actor, peer],
     );
-    calls = Promise.all(workers.map((worker, index) => (
+    calls = workers.map((worker, index) => (
       index % 2 === 0
         ? call(worker, profileA, profileB)
         : call(worker, profileB, profileA)
-    )));
-    void calls.catch(() => {});
+    ));
+    calls.forEach((pendingCall) => { void pendingCall.catch(() => {}); });
     const blockedWorkers = await waitForBlockedWorkers(control, workerPids);
     await control.query("commit");
     controlTransactionOpen = false;
-    const responses = await calls;
+    const responses = await settleMutationCallsBeforeCleanup(calls);
     const ids = responses.map((response) => threadId(response.rows[0]?.payload));
     if (new Set(ids).size !== 1) throw new Error("race_contract_failed:divergent_thread_ids");
 
@@ -227,7 +235,7 @@ async function main() {
       await control?.query("rollback").catch(() => {});
       controlTransactionOpen = false;
     }
-    if (calls) await calls.catch(() => {});
+    if (calls) await Promise.allSettled(calls);
     result = { status: "failed", candidateSha, startedAt, completedAt: new Date().toISOString(), ...safeFailure(error) };
   } finally {
     if (created) {
@@ -272,10 +280,12 @@ async function main() {
   if (finalReport.status !== "passed") process.exitCode = 1;
 }
 
-main().catch(async (error) => {
-  const parsed = process.argv.slice(2);
-  const outputIndex = parsed.indexOf("--out");
-  const fallback = outputIndex >= 0 && parsed[outputIndex + 1] ? parsed[outputIndex + 1] : "build-reports/profile-private-chat-race-fatal.json";
-  await writeReport(fallback, { status: "failed", ...safeFailure(error), cleanup: { state: "not_started" } }).catch(() => {});
-  process.exitCode = 1;
-});
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  main().catch(async (error) => {
+    const parsed = process.argv.slice(2);
+    const outputIndex = parsed.indexOf("--out");
+    const fallback = outputIndex >= 0 && parsed[outputIndex + 1] ? parsed[outputIndex + 1] : "build-reports/profile-private-chat-race-fatal.json";
+    await writeReport(fallback, { status: "failed", ...safeFailure(error), cleanup: { state: "not_started" } }).catch(() => {});
+    process.exitCode = 1;
+  });
+}

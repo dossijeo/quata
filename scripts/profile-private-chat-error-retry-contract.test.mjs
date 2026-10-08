@@ -81,11 +81,29 @@ test("profile private chat backend evidence forces sustained pair contention thr
   assert.match(runner, /control = await client[\s\S]*connections\.push\(control\)[\s\S]*openWorkerConnections/);
   assert.match(runner, /lock table public\.chat_private_threads in access exclusive mode/);
   assert.match(runner, /waitForBlockedWorkers[\s\S]*wait_event_type = 'Lock'/);
-  assert.match(runner, /Promise\.all\(workers\.map[\s\S]*index % 2 === 0[\s\S]*profileA, profileB[\s\S]*profileB, profileA/);
+  assert.match(runner, /calls = workers\.map[\s\S]*index % 2 === 0[\s\S]*profileA, profileB[\s\S]*profileB, profileA/);
+  assert.match(runner, /settleMutationCallsBeforeCleanup\(calls\)[\s\S]*catch \(error\)[\s\S]*Promise\.allSettled\(calls\)[\s\S]*finally/);
   assert.match(runner, /set_config\('request\.jwt\.claim\.sub'[\s\S]*request\.jwt\.claim\.role'[\s\S]*authenticated/);
   assert.match(runner, /new Set\(ids\)\.size !== 1/);
   assert.match(runner, /private_threads\) !== 1[\s\S]*participants\) !== 2[\s\S]*open_events\) !== contentionCallCount/);
   assert.match(runner, /fixture_ownership[\s\S]*delete from public\.chat_threads[\s\S]*delete from public\.community_profiles[\s\S]*delete from auth\.users[\s\S]*cleanup_residue_detected:physical_rows/);
   assert.match(runner, /workspaceRelative\.startsWith\("\.\."\) \|\| isAbsolute\(workspaceRelative\)/);
   assert.doesNotMatch(runner, /console\.log\([^)]*(connectionString|accessToken|password)/);
+});
+
+test("backend evidence waits for every mutating call before failure cleanup can start", async () => {
+  const { settleMutationCallsBeforeCleanup } = await import("./profile-private-chat-race-backend-evidence.mjs");
+  let releaseRetained;
+  const retained = new Promise((resolve) => { releaseRetained = resolve; });
+  let settled = false;
+  const barrier = settleMutationCallsBeforeCleanup([
+    Promise.reject(new Error("synthetic_mutation_failure")),
+    retained,
+  ]).finally(() => { settled = true; });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, false, "cleanup boundary advanced while a mutating call was still retained");
+  releaseRetained({ rows: [] });
+  await assert.rejects(barrier, /synthetic_mutation_failure/);
+  assert.equal(settled, true);
 });
