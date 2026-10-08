@@ -4,13 +4,13 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "a6e52908406242c1a987fccd906e6cc2a2efbe1a",
+  "productSha": "308c1ffa7c43074240882218defef2f1cbbf9558",
   "certification": "lifecycle-and-route-interruption-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_LIFECYCLE_AND_ROUTE_INTERRUPTION_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "a6e52908406242c1a987fccd906e6cc2a2efbe1a",
+      "sha": "308c1ffa7c43074240882218defef2f1cbbf9558",
       "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json",
       "reportSha256": "874e698b9fc12e66c7546a377518d28bf5f6141dc898183a411a57d5ce663e5b",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "a6e52908406242c1a987fccd906e6cc2a2efbe1a",
+      "sha": "308c1ffa7c43074240882218defef2f1cbbf9558",
       "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json",
       "reportSha256": "874e698b9fc12e66c7546a377518d28bf5f6141dc898183a411a57d5ce663e5b",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a6e52908406242c1a987fccd906e6cc2a2efbe1a",
+      "sha": "308c1ffa7c43074240882218defef2f1cbbf9558",
       "report": "docs/candidate-attestations/evidence/chat-audio-lifecycle-routing-ff9d40fa.json",
       "reportSha256": "874e698b9fc12e66c7546a377518d28bf5f6141dc898183a411a57d5ce663e5b",
       "reportStatus": "passed",
@@ -96,7 +96,7 @@
     "The iOS focal suite executes the production AVPlayer engine on an x86_64 iOS 26.5 simulator and covers interruption start/end, old-route unavailability and app resignation.",
     "The iOS execution remains bound to identical production and test Git blobs after Android and Web test-only additions; it was not repeated solely for the amended Product SHA.",
     "This unit adopts pause-without-auto-resume as the safe lifecycle policy. It does not claim prolonged background playback or physical-device routing.",
-    "The lifecycle series was replayed over frozen HTTP-boundary head 20707baab after its exact-head review. Product SHA a6e529084 is patch-equivalent to previously reviewed Product 463e64dae; Android, Web and iOS execution remain bound to ff9d40fa and every lifecycle-owned runtime, platform-test, contract and report blob remains byte-identical. No E2E matrix was repeated solely for the new base.",
+    "The lifecycle series was replayed over merged HTTP-boundary squash bdb84c4bf after tree equality with frozen head 20707baab was verified. Product SHA 308c1ffa7 is patch-equivalent to previously reviewed Product a6e529084; Android, Web and iOS execution remain bound to ff9d40fa and every lifecycle-owned runtime, platform-test, contract and report blob remains byte-identical. No E2E matrix was repeated solely for the new base.",
     "Independent exact-head review of 5c190d08f returned GO with no P0-P3 findings. It reproduced contract 3/3, validator and diff-check on a clean tree; this documentation-only commit records that result."
   ]
 }
