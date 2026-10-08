@@ -66,6 +66,7 @@ import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.core.platform.LocationService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PermissionStatus
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataCameraDialog
@@ -93,6 +94,18 @@ import kotlin.math.roundToInt
 
 private enum class CaptureTarget { Photo, Video }
 
+private suspend fun Context.isComposerDraftMediaAvailable(reference: String): Boolean = withContext(Dispatchers.IO) {
+    runCatching {
+        val uri = Uri.parse(reference)
+        when (uri.scheme?.lowercase()) {
+            "file" -> uri.path?.let(::File)?.isFile == true
+            "content" -> contentResolver.openFileDescriptor(uri, "r")?.use { true } == true
+            "http", "https" -> true
+            else -> false
+        }
+    }.getOrDefault(false)
+}
+
 /** Android now owns only platform acquisition/edit/render slots around the common root. */
 @Composable
 fun CreatePostScreen(
@@ -117,6 +130,8 @@ fun CreatePostScreen(
     evidencePickerSource: String? = null,
     evidencePickerOutcome: String? = null,
     evidencePickerPath: String? = null,
+    preferenceStore: PreferenceStore? = null,
+    draftActorProfileId: String? = null,
     viewModel: CreatePostAndroidViewModel = viewModel(
         factory = CreatePostAndroidViewModel.factory(
             repository,
@@ -142,6 +157,7 @@ fun CreatePostScreen(
     val evidencePicker = remember(evidencePickerSource, evidencePickerOutcome, evidencePickerPath) {
         AndroidPostComposerPickerEvidence.from(evidencePickerSource, evidencePickerOutcome, evidencePickerPath)
     }
+    val durableDraftStore = remember(preferenceStore) { preferenceStore?.let(::PostComposerDraftStore) }
 
     fun clearOwnedMedia() {
         val stateImageUri = state.imageUri?.let(Uri::parse)?.takeIf { it.scheme == "file" }
@@ -266,6 +282,9 @@ fun CreatePostScreen(
             resetToken = resetToken,
             cancelUploadToken = cancelUploadToken,
             copy = rootCopy,
+            durableDraftStore = durableDraftStore,
+            draftActorProfileId = draftActorProfileId,
+            durableMediaReferenceAvailable = { reference -> context.isComposerDraftMediaAvailable(reference) },
             initialStep = authenticationContinuationCoordinator?.retainedDraft?.value?.step
                 ?: if (evidenceImageUri != null) CreatePostStep.Image else null,
             slots = CreatePostPlatformSlots(

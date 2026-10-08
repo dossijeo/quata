@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.launch
 
 enum class CreatePostStep { TypePicker, Text, Image, Video }
 const val CreatePostCommonRootTestTag = "create-post-common-root"
@@ -231,6 +233,9 @@ fun CreatePostRoot(
     cancelUploadToken: Int = 0,
     copy: CreatePostRootCopy = SpanishCreatePostRootCopy,
     initialStep: CreatePostStep? = null,
+    durableDraftStore: PostComposerDraftStore? = null,
+    draftActorProfileId: String? = null,
+    durableMediaReferenceAvailable: suspend (String) -> Boolean = { false },
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -241,10 +246,34 @@ fun CreatePostRoot(
     var locationOpen by rememberSaveable { mutableStateOf(false) }
     var lastResetToken by rememberSaveable { mutableStateOf(0) }
     var lastCancelUploadToken by rememberSaveable { mutableStateOf(0) }
+    var durableDraftReady by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf(durableDraftStore == null || draftActorProfileId == null)
+    }
+    val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
+
+    LaunchedEffect(durableDraftStore, draftActorProfileId) {
+        val store = durableDraftStore ?: return@LaunchedEffect
+        durableDraftReady = false
+        val actor = store.activateActor(draftActorProfileId)
+        val restored = actor?.let { store.restore(it, durableMediaReferenceAvailable) }
+        if (restored != null) {
+            viewModel.restore(restored)
+            step = restored.step
+            textValue = TextFieldValue(restored.text)
+        }
+        durableDraftReady = true
+    }
+    val durableSnapshot = viewModel.snapshot(step)
+    LaunchedEffect(durableDraftStore, draftActorProfileId, durableDraftReady, durableSnapshot) {
+        val store = durableDraftStore ?: return@LaunchedEffect
+        val actor = draftActorProfileId ?: return@LaunchedEffect
+        if (durableDraftReady) store.save(actor, durableSnapshot)
+    }
 
     LaunchedEffect(resetToken) {
         if (resetToken > 0 && resetToken != lastResetToken) {
+            durableDraftStore?.clear(draftActorProfileId)
             slots.clearOwnedMedia?.invoke()
             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
             step = CreatePostStep.TypePicker
@@ -280,6 +309,7 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
+            durableDraftStore?.clear(draftActorProfileId)
             focusManager.clearFocus(force = true)
             slots.clearOwnedMedia?.invoke()
             step = CreatePostStep.TypePicker
@@ -438,7 +468,10 @@ fun CreatePostRoot(
                     onRetry = state.lastFailedSubmitType?.let { type -> { viewModel.submit(type) } },
                 )
                 ComposerBackButtonContent(copy.back, {
-                    dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
+                    scope.launch {
+                        durableDraftStore?.clear(draftActorProfileId)
+                        dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
+                    }
                 }, accessibility = accessibility)
             }
         },

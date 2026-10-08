@@ -167,6 +167,8 @@ fun WebPostComposerRoute(
         authenticationContinuationCoordinator = authenticationContinuationCoordinator,
         pendingAuthenticationContinuation = pendingAuthenticationContinuation,
         onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+        preferenceStore = platformServices.preferences,
+        draftActorProfileId = authRepository.activeProfileSessionOrNull()?.userId,
     )
 }
 

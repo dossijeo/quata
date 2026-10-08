@@ -2016,6 +2016,10 @@ private final class IosAppCompositionRoot {
                         self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         self.authenticatedHost.presentAuthRequiredPrompt()
                     },
+                    preferences: services.preferences,
+                    actorProfileId: { [weak self] in
+                        self?.runtimeBootstrap?.authSessionForInteractiveLogin().restoredSession()?.userId
+                    },
                 ),
             )
         }
@@ -2246,6 +2250,7 @@ private final class IosAppCompositionRoot {
             )
         else { return }
         let logoutHandler = IosAuthHostKt.createIosAuthLogoutHandler(repository: repository)
+        let composerDraftActor = runtimeBootstrap.authSessionForInteractiveLogin().restoredSession()?.userId
         authenticatedHost.installLogoutAction(
             { [weak self] completed in
                 guard let self else { return }
@@ -2286,6 +2291,12 @@ private final class IosAppCompositionRoot {
                 self?.setValidatedAuthenticatedSession(false)
                 self?.authenticationContinuationCoordinator.clearAll()
                 self?.postComposerAuthenticationCoordinator.clear()
+                if let preferences = self?.platformServices.services.preferences {
+                    IosComposerHostKt.clearIosPostComposerDraft(
+                        preferences: preferences,
+                        actorProfileId: composerDraftActor
+                    )
+                }
                 self?.memberProfileRouteStore.clear()
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()

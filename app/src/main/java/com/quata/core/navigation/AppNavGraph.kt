@@ -191,6 +191,7 @@ import com.quata.feature.official.presentation.OfficialFeedScreen
 import com.quata.feature.official.presentation.OfficialPostEditorRoute
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.UserProfile
 import com.quata.feature.profile.presentation.EmergencyContactsDialog
@@ -240,6 +241,12 @@ fun AppNavGraph(
     val currentUserId = (authState as? AuthState.LoggedIn)?.userId
     val isAuthenticated = currentUserId != null
     val appContext = LocalContext.current
+    val postComposerDraftStore = remember(container.platformServices.preferences) {
+        PostComposerDraftStore(container.platformServices.preferences)
+    }
+    LaunchedEffect(currentUserId, postComposerDraftStore) {
+        postComposerDraftStore.activateActor(currentUserId)
+    }
     val documentRetryEvidenceRepository = remember(appContext) {
         androidDocumentRetryEvidenceRepositoryOrNull(appContext)
     }
@@ -1068,6 +1075,8 @@ fun AppNavGraph(
                         evidencePickerSource = postComposerPickerEvidenceSource,
                         evidencePickerOutcome = postComposerPickerEvidenceOutcome,
                         evidencePickerPath = postComposerPickerEvidencePath,
+                        preferenceStore = container.platformServices.preferences,
+                        draftActorProfileId = container.sessionManager.currentSession()?.userId,
                         onBack = {
                             postComposerAuthenticationCoordinator.clear()
                             navController.navigate(AppDestinations.Feed.route) {

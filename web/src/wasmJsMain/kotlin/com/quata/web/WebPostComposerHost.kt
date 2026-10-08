@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -21,6 +22,7 @@ import com.quata.feature.postcomposer.presentation.CreatePostUiEvent
 import com.quata.feature.postcomposer.presentation.CreatePostViewModel
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
 import com.quata.feature.postcomposer.presentation.createPostStepFor
 import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
 import com.quata.feature.postcomposer.presentation.viewModelMessages
@@ -57,10 +59,13 @@ fun WebPostComposerHost(
     authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
     pendingAuthenticationContinuation: PostComposerAuthenticationContinuation? = null,
     onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
+    preferenceStore: PreferenceStore? = null,
+    draftActorProfileId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
     val retainedDraft = authenticationContinuationCoordinator?.retainedDraft?.value
+    val durableDraftStore = remember(preferenceStore) { preferenceStore?.let(::PostComposerDraftStore) }
     val viewModel = remember(repository, copy, authenticationContinuationCoordinator) {
         CreatePostViewModel(repository, messages = copy.viewModelMessages()).also { model ->
             retainedDraft?.let(model::restore)
@@ -155,6 +160,9 @@ fun WebPostComposerHost(
         onPostCreated = onPostCreated,
         canPublish = canPublish,
         initialStep = retainedDraft?.step,
+        durableDraftStore = durableDraftStore,
+        draftActorProfileId = draftActorProfileId,
+        durableMediaReferenceAvailable = ::webComposerDraftMediaReferenceAvailable,
         copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
@@ -213,6 +221,10 @@ fun WebPostComposerHost(
         )
     }
 }
+
+internal fun webComposerDraftMediaReferenceAvailable(reference: String): Boolean =
+    reference.startsWith("https://", ignoreCase = true) ||
+        reference.startsWith("http://", ignoreCase = true)
 
 private fun stateUri(viewModel: CreatePostViewModel, image: Boolean): String? =
     if (image) viewModel.uiState.value.imageUri else viewModel.uiState.value.videoUri

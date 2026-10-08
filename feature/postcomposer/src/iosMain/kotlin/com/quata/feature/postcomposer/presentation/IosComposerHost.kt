@@ -26,10 +26,15 @@ import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PermissionStatus
+import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.postcomposer.domain.PostComposerRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.UIKit.UIViewController
 
@@ -48,6 +53,8 @@ class IosComposerHostDependencies(
     val canPublishNow: () -> Boolean = { true },
     val authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
     val onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
+    val preferences: PreferenceStore? = null,
+    val actorProfileId: () -> String? = { null },
 )
 
 fun createIosComposerHostDependenciesWithAuthenticationContinuation(
@@ -65,6 +72,8 @@ fun createIosComposerHostDependenciesWithAuthenticationContinuation(
     canPublishNow: () -> Boolean,
     authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator,
     onAuthenticationContinuationRequired: (PostComposerAuthenticationContinuation) -> Unit,
+    preferences: PreferenceStore,
+    actorProfileId: () -> String?,
 ): IosComposerHostDependencies = IosComposerHostDependencies(
     repository = repository,
     filePicker = filePicker,
@@ -80,6 +89,8 @@ fun createIosComposerHostDependenciesWithAuthenticationContinuation(
     canPublishNow = canPublishNow,
     authenticationContinuationCoordinator = authenticationContinuationCoordinator,
     onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
+    preferences = preferences,
+    actorProfileId = actorProfileId,
 )
 
 fun createIosComposerHostDependencies(
@@ -169,6 +180,13 @@ fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIVi
     QuataTheme { IosPostComposerHost(dependencies) }
 }
 
+/** Clears the last actor's durable composer state after the authenticated logout has succeeded. */
+fun clearIosPostComposerDraft(preferences: PreferenceStore, actorProfileId: String?) {
+    CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+        PostComposerDraftStore(preferences).clear(actorProfileId)
+    }
+}
+
 private suspend fun PlatformResult<List<PlatformFile>>.dispatchIosComposerMediaResult(
     viewModel: CreatePostViewModel,
     copy: CreatePostRootCopy,
@@ -220,6 +238,8 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         ?.collectAsState()
         ?: remember { mutableStateOf(null) }
     val retainedDraft = dependencies.authenticationContinuationCoordinator?.retainedDraft?.value
+    val durableDraftStore = remember(dependencies.preferences) { dependencies.preferences?.let(::PostComposerDraftStore) }
+    val draftActorProfileId = dependencies.actorProfileId()
     val viewModel = remember(dependencies.repository, copy) {
         CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages()).also { model ->
             retainedDraft?.let(model::restore)
@@ -300,6 +320,9 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             copy = copy,
             initialStep = retainedDraft?.step
                 ?: if (dependencies.initialImageReference != null) CreatePostStep.Image else null,
+            durableDraftStore = durableDraftStore,
+            draftActorProfileId = draftActorProfileId,
+            durableMediaReferenceAvailable = ::iosComposerDraftMediaReferenceAvailable,
             slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {
@@ -381,6 +404,14 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             },
         )
     }
+}
+
+private fun iosComposerDraftMediaReferenceAvailable(reference: String): Boolean = when {
+    reference.startsWith("https://", ignoreCase = true) -> true
+    reference.startsWith("http://", ignoreCase = true) -> true
+    reference.startsWith("file://", ignoreCase = true) -> NSURL.URLWithString(reference)?.path
+        ?.let(NSFileManager.defaultManager::fileExistsAtPath) == true
+    else -> false
 }
 
 private fun iosComposerCoordinateLabel(latitude: Double, longitude: Double): String = "$latitude, $longitude"
