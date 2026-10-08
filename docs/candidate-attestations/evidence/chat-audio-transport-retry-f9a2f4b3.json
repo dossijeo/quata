@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "status": "passed",
+  "productSha": "79063fff0f4f4d1c427da63df538b9e2e1741f90",
+  "executionSha": "f9a2f4b34e3f5c97b991b848edf2a845468af42a",
+  "git": {
+    "head": "f9a2f4b34e3f5c97b991b848edf2a845468af42a",
+    "workingTreeDirty": false,
+    "postExecutionDelta": [
+      "scripts/chat-attachments-audio-evidence-contract.test.mjs"
+    ],
+    "platformSourceBlobsUnchanged": true
+  },
+  "executedAt": "2026-10-08T02:46:44.366Z",
+  "evidenceKind": "CHAT_AUDIO_RETRY_SEMANTICS_AND_PLATFORM_ADAPTER_RECOVERY_ANDROID_WEB_IOS",
+  "steps": [
+    "same_attachment_failure_remains_terminal_until_explicit_toggle",
+    "failed_toggle_static_contract_exposes_localized_retry_action",
+    "android_same_attachment_resolution_retried_and_recovered_bytes_loaded",
+    "web_same_attachment_materialization_retried_and_recovered_blob_loaded",
+    "web_blob_lease_released_after_native_load_cancellation",
+    "web_blob_lease_retained_until_native_stop_succeeds",
+    "ios_same_attachment_download_retried_and_only_recovered_file_owned",
+    "temporary_mac_checkout_removed",
+    "no_backend_or_remote_state_mutated"
+  ],
+  "results": {
+    "contract": {
+      "status": "passed",
+      "command": "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "tests": 43,
+      "failures": 0
+    },
+    "android": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest --no-daemon",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.193,
+      "timestamp": "2026-10-08T02:25:19.609Z",
+      "resultPath": "app/build/test-results/testDebugUnitTest/TEST-com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest.xml",
+      "resultSha256": "63308f9495e2f79cdcb1f403d0c09684824bd94785bbd4e47df2daae6222902f",
+      "observed": [
+        "The first resolver attempt for the same remote attachment failed without invoking native load.",
+        "The explicit second load resolved the same attachment and handed only the recovered local file to the native player."
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :web:wasmJsTest --no-daemon",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.002,
+      "timestamp": "2026-10-08T02:34:06.149Z",
+      "resultPath": "web/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.web.WebChatAttachmentAudioPlayerServiceTest.xml",
+      "resultSha256": "260c6c6043deaa9d451d92a165b8b9553ba2112263ef646972d634f658a22bed",
+      "observed": [
+        "The first bounded materialization failed and the explicit retry of the same allow-listed URL loaded the recovered Blob URL.",
+        "A failed native stop retained the active Blob lease; a later successful stop released it exactly once.",
+        "Cancellation thrown by native load released the newly materialized Blob lease."
+      ]
+    },
+    "commonBrowser": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --no-daemon",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.0,
+      "timestamp": "2026-10-08T02:33:00.772Z",
+      "resultPath": "feature/chat/build/test-results/wasmJsBrowserTest/TEST-wasmJsBrowserTest.com.quata.feature.chat.presentation.chat.ChatChromeStringsTest.xml",
+      "resultSha256": "93d4added369139b43b5ce1f62bf6b8097565a7c016fe70f56ef9ee186fb6b0a",
+      "staticContractVerified": [
+        "The shared source maps the failed toggle semantics to Retry instead of Play/Pause.",
+        "The localization contract supplies playback-failure copy while the host source does not render the internal transport reason."
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "host": "macOS Hyper-V VM",
+      "command": "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosChatAttachmentAudioPlayerServiceTest --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 0.134,
+      "timestamp": "2026-10-08T02:46:44.366Z",
+      "resultPath": "feature/chat/build/test-results/iosX64Test/TEST-iosX64Test.com.quata.feature.chat.data.IosChatAttachmentAudioPlayerServiceTest.xml",
+      "resultSha256": "dc1bea9155811f9b373c9e4ceeb6af194889776500f399b0bba63a96209c32ec",
+      "observed": [
+        "The first download for the same attachment failed without native load.",
+        "The explicit retry downloaded and loaded the recovered local file, then successful stop discarded it exactly once."
+      ]
+    }
+  },
+  "sourceBindings": {
+    "androidTest": {
+      "path": "app/src/test/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerServiceTest.kt",
+      "gitBlob": "874af461aaabbbb2467b2cd8551179e5e40377de",
+      "sha256": "e1dc196abf402c56749a8ac18b948e70cee270cbcdd714bbf1fbeee5f5da0867"
+    },
+    "commonPlayer": {
+      "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt",
+      "gitBlob": "e1f8404e3136c6ad7e64cb8ed8789fe6c41df733",
+      "sha256": "398ea909e1919dc16bca52cb99ed4a3b2f8c4b1ba5a687ecf66a9b167c9da207"
+    },
+    "commonHost": {
+      "path": "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt",
+      "gitBlob": "915d55844a43c16bcbf72663c5a55e7f00914746",
+      "sha256": "cb820498450616d63004dda6a9078afc857e0ea843df8206ca851eca5cc87d35"
+    },
+    "iosTest": {
+      "path": "feature/chat/src/iosTest/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerServiceTest.kt",
+      "gitBlob": "e60481c20d9b4f7ed55ce40ec268c9d102a29802",
+      "sha256": "c8185fc16444e9f6eb96420300fe65943ee3e7bd2f2634d6ecd4f4968e16ed0d"
+    },
+    "webAdapter": {
+      "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt",
+      "gitBlob": "e4b7261bef7f381b42cf82c8e153ebf5d8f49474",
+      "sha256": "5fd66b13e74b86ced51a929a9020b52a7b379f00f6187cf897259ebe93399d1b"
+    },
+    "webTest": {
+      "path": "web/src/wasmJsTest/kotlin/com/quata/web/WebChatAttachmentAudioPlayerServiceTest.kt",
+      "gitBlob": "6bfad3f62a7b5e4bedc481d396a0725a472edd02",
+      "sha256": "a0ba977432907589175cea1508797246fe47fef2c9fff221a41f2920db0f583a"
+    },
+    "contract": {
+      "path": "scripts/chat-attachments-audio-evidence-contract.test.mjs",
+      "gitBlob": "a2b56a3b685335f9b21db52e03c9df0499d8b2c4",
+      "sha256": "9cb6297dbca05794e9ba3c9cbe95452a1c0fbf88712da97964f98f5323d35722"
+    }
+  },
+  "diagnosticHistory": [
+    "The first Web fixture used a non-allow-listed origin and returned Unsupported before materialization; the accepted test uses the canonical public Chat bucket shape without weakening URL policy.",
+    "Running the feature and Web Wasm linkers together exhausted the 4 GiB Gradle process; each affected browser suite passed independently.",
+    "The aggregate feature:chat wasmJsTest later reached wasmJsNodeTest and failed before tests because Skiko could not load skiko.wasm under Node 22. The authoritative browser task passed; this known runner-only diagnostic remains explicit."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "residueZero": true,
+    "mode": "hermetic-platform-faults-no-backend",
+    "residueCounts": {
+      "macCheckouts": 0,
+      "temporaryBlobLeases": 0,
+      "temporaryIosFiles": 0,
+      "backendRows": 0,
+      "remoteMutations": 0
+    }
+  },
+  "scope": {
+    "proves": [
+      "The shared Compose implementation maps a terminal Chat audio playback failure to localized Retry semantics; this run did not render and inspect that surface.",
+      "Android, Web and iOS can retry the exact same attachment after a transport/materialization failure and pass only recovered local bytes to the native player.",
+      "Web and iOS retain or release temporary playback resources according to successful native ownership transitions."
+    ],
+    "doesNotProve": [
+      "Exhaustive production outage, proxy, captive portal or every HTTP failure mode.",
+      "Physical microphone permission, Bluetooth/audio routing or background playback matrices.",
+      "Audio surfaces outside Chat.",
+      "A rendered Compose UI observation of the failed state or a native click on its Retry control."
+    ]
+  }
+}
