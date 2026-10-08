@@ -1,0 +1,49 @@
+{
+  "check": "CREATE-POST-POSTFLIGHT-ANDROID-001",
+  "status": "passed",
+  "startedAt": "2026-10-08T16:01:43.41Z",
+  "git": {
+    "head": "e26a9440794b1fee3a283f7ee5ae7c22a57e6f62",
+    "branch": "codex/post-composer-draft-restoration",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "draft-seed",
+      "outcome": "completed",
+      "status": "passed",
+      "instrumentationTail": "INSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\ncom.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest:\nINSTRUMENTATION_STATUS: test=seedAuthenticatedTextDraftForProcessRestart\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=seedAuthenticatedTextDraftForProcessRestart\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 70.408\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n"
+    },
+    {
+      "source": "draft-restore",
+      "outcome": "completed",
+      "status": "passed",
+      "instrumentationTail": "INSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\ncom.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest:\nINSTRUMENTATION_STATUS: test=restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 53.518\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n"
+    }
+  ],
+  "evidence": {
+    "platformReport": "build-reports/android/create-post-postflight-evidence/android-create-post-postflight-evidence.json",
+    "directory": "build-reports/android/create-post-postflight-evidence"
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_app_data_cleared_before_evidence",
+    "android_target_apk_precompiled_for_instrumentation",
+    "target_process_force_stopped",
+    "authenticated_feed_entry_visible",
+    "create_post_opened_from_feed_publish_action",
+    "common_create_post_types_visible",
+    "exclusive_text_draft_entered_without_publish",
+    "target_process_force_stopped",
+    "exact_text_draft_restored_after_process_restart",
+    "restored_draft_explicitly_discarded",
+    "restored_draft_persistent_record_cleared_after_discard",
+    "create_post_returned_to_feed_without_publish",
+    "authenticated_session_preserved_after_relaunch"
+  ],
+  "cleanup": {
+    "appDataCleared": true,
+    "localCredentialsRemoved": true
+  },
+  "finishedAt": "2026-10-08T16:05:11.877Z"
+}
