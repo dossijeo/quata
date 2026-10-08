@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-AUDIO"
+  ],
+  "status": "passed",
+  "productSha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+  "certification": "platform-result-terminal-matrix-platform-focal-complete-final-review-pending",
+  "evidenceKind": "CHAT_AUDIO_PLATFORM_RESULT_TERMINAL_MATRIX_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
+      "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
+      "reportStatus": "passed",
+      "reportGitHead": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "android_stop_failure_cancelled_unsupported_do_not_resolve_or_load",
+        "android_resolver_failure_cancelled_unsupported_do_not_native_load",
+        "android_native_load_failure_cancelled_unsupported_preserve_single_resolution"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-unit-test-no-backend"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
+      "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
+      "reportStatus": "passed",
+      "reportGitHead": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "web_materializer_failure_cancelled_unsupported_do_not_native_load",
+        "web_native_load_failure_cancelled_unsupported_release_new_blob_lease",
+        "web_stop_failure_cancelled_unsupported_retain_owned_blob_lease"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-blob-lease-test-no-backend"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "report": "docs/candidate-attestations/evidence/chat-audio-terminal-matrix-2b2d05eb.json",
+      "reportSha256": "f79328c4491084f5dc0e6e0862af07c21d43af62450ada9c872395f6b68a4d69",
+      "reportStatus": "passed",
+      "reportGitHead": "2b2d05eb75bbcd54451a0911c73d9e2985b29834",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_existing_terminal_matrix_reused_by_exact_test_blob"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "byte-identical-source-evidence-reuse"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.feature.chat.data.AndroidChatAttachmentAudioPlayerServiceTest --no-daemon --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebChatAttachmentAudioPlayerServiceTest --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-terminal-matrix.json --head HEAD"
+  ],
+  "notes": [
+    "The Android and Web focal suites exercise Failure, Cancelled and Unsupported at stop, resolver/materializer and native-load boundaries without production or backend mutation.",
+    "The iOS terminal matrix and production adapter are byte-identical to the 12/12 passed transport-retry evidence; it was not repeated solely because Android/Web test sources changed the Product SHA.",
+    "This closes adapter-level PlatformResult coverage only. Real outage, proxy, captive-portal and exhaustive HTTP-code integration remain explicit external limits."
+  ]
+}
