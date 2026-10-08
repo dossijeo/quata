@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 enum class CreatePostStep { TypePicker, Text, Image, Video }
@@ -262,14 +264,16 @@ fun CreatePostRoot(
     var durableActorResolution by remember(durableDraftStore) {
         mutableStateOf(PostComposerDraftActorResolution())
     }
-    var pendingDraftClearAction by remember(durableDraftStore) {
-        mutableStateOf<PostComposerDraftClearAction?>(null)
+    var pendingDraftClearRequest by remember(durableDraftStore) {
+        mutableStateOf<PostComposerDraftClearRequest?>(null)
     }
+    val currentDraftActorProfileId by rememberUpdatedState(draftActorProfileId)
     val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
     LaunchedEffect(durableDraftStore, draftActorProfileId) {
         val store = durableDraftStore ?: return@LaunchedEffect
+        pendingDraftClearRequest = null
         durableDraftReady = false
         val actor = draftActorProfileId
         val resetForActorChange = shouldResetDraftForActorTransition(
@@ -338,22 +342,27 @@ fun CreatePostRoot(
         step = next
     }
 
-    suspend fun completeDraftClear(action: PostComposerDraftClearAction) {
+    suspend fun completeDraftClear(request: PostComposerDraftClearRequest) {
         durableDraftReady = false
         val store = durableDraftStore
-        val clearedLease = if (store == null || draftActorProfileId == null) {
-            null
+        val clearAttempt = if (store == null) {
+            PostComposerDraftClearAttempt.NotRequired
         } else {
-            store.clear(draftActorProfileId)
+            attemptPostComposerDraftClear(request.actorProfileId, store::clear)
         }
-        if (store != null && draftActorProfileId != null && clearedLease == null) {
-            pendingDraftClearAction = action
+        if (!isPostComposerDraftClearActorCurrent(request.actorProfileId, currentDraftActorProfileId)) {
+            pendingDraftClearRequest = null
             return
         }
+        if (clearAttempt is PostComposerDraftClearAttempt.Failed) {
+            pendingDraftClearRequest = request
+            return
+        }
+        val clearedLease = (clearAttempt as? PostComposerDraftClearAttempt.Cleared)?.lease
         durableDraftActorLease = clearedLease
         durablePersistedSnapshot = null
-        pendingDraftClearAction = null
-        when (action) {
+        pendingDraftClearRequest = null
+        when (val action = request.action) {
             is PostComposerDraftClearAction.Reset -> {
                 slots.clearOwnedMedia?.invoke()
                 viewModel.onEvent(CreatePostUiEvent.ClearDraft)
@@ -387,12 +396,14 @@ fun CreatePostRoot(
 
     fun requestDraftClear(action: PostComposerDraftClearAction) {
         durableDraftReady = false
-        scope.launch { completeDraftClear(action) }
+        scope.launch {
+            completeDraftClear(PostComposerDraftClearRequest(currentDraftActorProfileId, action))
+        }
     }
 
     LaunchedEffect(resetToken) {
         if (resetToken > 0 && resetToken != lastResetToken) {
-            completeDraftClear(PostComposerDraftClearAction.Reset(resetToken))
+            completeDraftClear(PostComposerDraftClearRequest(currentDraftActorProfileId, PostComposerDraftClearAction.Reset(resetToken)))
         }
     }
     LaunchedEffect(cancelUploadToken) {
@@ -421,7 +432,12 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
-            completeDraftClear(PostComposerDraftClearAction.PublishSuccess(state.createdPostId))
+            completeDraftClear(
+                PostComposerDraftClearRequest(
+                    currentDraftActorProfileId,
+                    PostComposerDraftClearAction.PublishSuccess(state.createdPostId),
+                ),
+            )
         }
     }
     LaunchedEffect(state.authenticationRequiredSubmitType) {
@@ -558,11 +574,11 @@ fun CreatePostRoot(
             }
             if (step != CreatePostStep.TypePicker) {
                 ComposerSubmissionFeedbackContent(
-                    errorMessage = if (pendingDraftClearAction != null) copy.draftDiscardFailed else state.error,
+                    errorMessage = if (pendingDraftClearRequest != null) copy.draftDiscardFailed else state.error,
                     successMessage = state.successMessage,
                     retryLabel = copy.retry,
-                    onRetry = pendingDraftClearAction?.let { action ->
-                        { requestDraftClear(action) }
+                    onRetry = pendingDraftClearRequest?.let { request ->
+                        { scope.launch { completeDraftClear(request) } }
                     } ?: state.lastFailedSubmitType?.let { type -> { viewModel.submit(type) } },
                 )
                 ComposerBackButtonContent(copy.back, {
@@ -600,6 +616,37 @@ private sealed interface PostComposerDraftClearAction {
     data class PublishSuccess(val createdPostId: String?) : PostComposerDraftClearAction
     data object Discard : PostComposerDraftClearAction
 }
+
+private data class PostComposerDraftClearRequest(
+    val actorProfileId: String?,
+    val action: PostComposerDraftClearAction,
+)
+
+internal sealed interface PostComposerDraftClearAttempt {
+    data object NotRequired : PostComposerDraftClearAttempt
+    data class Cleared(val lease: PostComposerDraftActorLease) : PostComposerDraftClearAttempt
+    data object Failed : PostComposerDraftClearAttempt
+}
+
+internal suspend fun attemptPostComposerDraftClear(
+    actorProfileId: String?,
+    clear: suspend (String?) -> PostComposerDraftActorLease?,
+): PostComposerDraftClearAttempt {
+    if (actorProfileId == null) return PostComposerDraftClearAttempt.NotRequired
+    return try {
+        clear(actorProfileId)?.let(PostComposerDraftClearAttempt::Cleared)
+            ?: PostComposerDraftClearAttempt.Failed
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Throwable) {
+        PostComposerDraftClearAttempt.Failed
+    }
+}
+
+internal fun isPostComposerDraftClearActorCurrent(
+    requestedActorProfileId: String?,
+    currentActorProfileId: String?,
+): Boolean = requestedActorProfileId == currentActorProfileId
 
 internal fun shouldPersistPostComposerDraft(
     ready: Boolean,

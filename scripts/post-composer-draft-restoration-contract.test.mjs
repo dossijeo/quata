@@ -25,9 +25,10 @@ test("the common root restores before persistence and clears publish discard and
   assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restore\(lease\.actorProfileId, durableMediaReferenceAvailable\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
   assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.save\(lease, durableSnapshot\)/);
-  assert.match(root, /suspend fun completeDraftClear[\s\S]*?store\.clear\(draftActorProfileId\)[\s\S]*?clearedLease == null[\s\S]*?pendingDraftClearAction = action[\s\S]*?return[\s\S]*?durablePersistedSnapshot = null/);
+  assert.match(root, /suspend fun completeDraftClear[\s\S]*?attemptPostComposerDraftClear\(request\.actorProfileId, store::clear\)[\s\S]*?!isPostComposerDraftClearActorCurrent\(request\.actorProfileId, currentDraftActorProfileId\)[\s\S]*?PostComposerDraftClearAttempt\.Failed[\s\S]*?pendingDraftClearRequest = request[\s\S]*?durablePersistedSnapshot = null/);
+  assert.match(root, /attemptPostComposerDraftClear[\s\S]*?catch \(cancelled: CancellationException\)[\s\S]*?throw cancelled[\s\S]*?catch \(_: Throwable\)[\s\S]*?PostComposerDraftClearAttempt\.Failed/);
   assert.match(root, /PostComposerDraftClearAction\.Reset[\s\S]*?lastResetToken = action\.token[\s\S]*?PostComposerDraftClearAction\.PublishSuccess[\s\S]*?onPostCreated[\s\S]*?PostComposerDraftClearAction\.Discard[\s\S]*?dispatchCreatePostBack/);
-  assert.match(root, /errorMessage = if \(pendingDraftClearAction != null\) copy\.draftDiscardFailed[\s\S]*?onRetry = pendingDraftClearAction/);
+  assert.match(root, /errorMessage = if \(pendingDraftClearRequest != null\) copy\.draftDiscardFailed[\s\S]*?onRetry = pendingDraftClearRequest/);
 });
 
 test("Android Web and iOS inject the same store and validate platform media references", async () => {
@@ -60,6 +61,11 @@ test("Android process-restart evidence scrolls to discard and verifies durable r
   assert.match(testSource, /waitForPersistedDraftCleared\(initialSession\?\.userId\.orEmpty\(\)\)/);
   assert.match(testSource, /restored_draft_persistent_record_cleared_after_discard/);
   assert.match(testSource, /store\.restore\(actorProfileId\) \{ false \} == null/);
+  const runner = await source("scripts/create-post-postflight-android-evidence.mjs");
+  const preflightClear = runner.indexOf('await run(adb, ["shell", "pm", "clear", "com.quata"]);');
+  const credentialWrite = runner.indexOf("await adbRunAsWrite(");
+  assert.ok(preflightClear >= 0 && preflightClear < credentialWrite);
+  assert.match(runner, /android_app_data_cleared_before_evidence/);
 });
 
 test("session transitions retire the previous actor draft on every platform", async () => {
@@ -89,5 +95,7 @@ test("the executable common tests cover isolation corruption cleanup and unavail
     "failedAtomicClearKeepsTheDraftAndReturnsNoReplacementLease",
     "delayedMediaRepairCannotOverwriteANewerDraftFromAnotherStore",
     "rejectedRestoreDoesNotTriggerAnInitialEmptyAutosaveOverTheNewerDraft",
+    "clearAttemptTurnsStorageFailuresIntoRetryableResultsAndPreservesCancellation",
+    "clearCompletionIsRejectedAfterTheAuthenticatedActorChanges",
   ]) assert.match(tests, new RegExp(`fun ${name}\\(`));
 });

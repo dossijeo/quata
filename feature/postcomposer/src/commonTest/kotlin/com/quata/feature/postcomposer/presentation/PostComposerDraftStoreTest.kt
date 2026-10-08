@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.presentation
 import com.quata.core.platform.AtomicPreferenceStore
 import com.quata.core.platform.PreferenceStore
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -10,11 +11,38 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PostComposerDraftStoreTest {
+    @Test
+    fun clearAttemptTurnsStorageFailuresIntoRetryableResultsAndPreservesCancellation() = runTest {
+        assertEquals(
+            PostComposerDraftClearAttempt.Failed,
+            attemptPostComposerDraftClear("actor-a") { error("disk-write-failed") },
+        )
+        assertEquals(
+            PostComposerDraftClearAttempt.Failed,
+            attemptPostComposerDraftClear("actor-a") { null },
+        )
+        assertEquals(
+            PostComposerDraftClearAttempt.NotRequired,
+            attemptPostComposerDraftClear(null) { error("must-not-run") },
+        )
+        assertFailsWith<CancellationException> {
+            attemptPostComposerDraftClear("actor-a") { throw CancellationException("cancelled") }
+        }
+    }
+
+    @Test
+    fun clearCompletionIsRejectedAfterTheAuthenticatedActorChanges() {
+        assertTrue(isPostComposerDraftClearActorCurrent("actor-a", "actor-a"))
+        assertFalse(isPostComposerDraftClearActorCurrent("actor-a", "actor-b"))
+        assertFalse(isPostComposerDraftClearActorCurrent("actor-a", null))
+    }
+
     @Test
     fun actorSwitchResetsExistingContentButPreservesTheLoginContinuation() {
         assertTrue(shouldResetDraftForActorTransition(true, "actor-a", "actor-b", false))
