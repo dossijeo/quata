@@ -280,6 +280,7 @@ fun CreatePostRoot(
         durableActorResolved = true
         durableActorProfileId = actor
         val baseline = viewModel.snapshot(step)
+        val baselineMutationRevision = viewModel.draftMutationRevision()
         val lease = store.activateActor(actor)
         durableDraftActorLease = lease
         val restoration = if (lease != null && initialStep == null && !resetForActorChange) {
@@ -290,7 +291,7 @@ fun CreatePostRoot(
         val appliedRestoration = if (
             restoration != null &&
             store.isCurrent(restoration) &&
-            viewModel.snapshot(step) == baseline
+            viewModel.draftMutationRevision() == baselineMutationRevision
         ) {
             val restored = restoration.snapshot
             viewModel.restore(restored)

@@ -219,6 +219,32 @@ class CreatePostRootContractTest {
     }
 
     @Test
+    fun destinationHydrationDoesNotMasqueradeAsAUserDraftMutation() = runTest {
+        val viewModel = CreatePostViewModel(
+            repository = object : PostComposerRepository {
+                override suspend fun loadDestinations() = Result.success(
+                    listOf(PostComposerDestination("wall-1", "Centro", isDefault = true)),
+                )
+
+                override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) =
+                    Result.success<String?>(null)
+            },
+            dispatchers = AppDispatchers(default = StandardTestDispatcher(testScheduler)),
+        )
+
+        val beforeHydration = viewModel.draftMutationRevision()
+        advanceUntilIdle()
+        assertEquals(beforeHydration, viewModel.draftMutationRevision())
+        assertEquals("wall-1", viewModel.uiState.value.selectedDestinationWallId)
+
+        viewModel.onEvent(CreatePostUiEvent.TextChanged("manual edit"))
+        assertEquals(beforeHydration + 1, viewModel.draftMutationRevision())
+        viewModel.restore(viewModel.snapshot(CreatePostStep.Text))
+        assertEquals(beforeHydration + 2, viewModel.draftMutationRevision())
+        viewModel.close()
+    }
+
+    @Test
     fun destinationLoadFailureIsVisibleRetryableAndBlocksSubmitBeforeRepositoryMutation() = runTest {
         var loadCalls = 0
         var createCalls = 0
