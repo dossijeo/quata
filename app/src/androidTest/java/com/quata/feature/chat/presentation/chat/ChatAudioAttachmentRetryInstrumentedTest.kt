@@ -30,11 +30,11 @@ class ChatAudioAttachmentRetryInstrumentedTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun renderedFailureRetriesTheSameAttachmentThroughTheVisibleControl() {
+    fun renderedFailureInvokesVisibleRetryAndRendersLoading() {
         val attachmentName = "retry-audio-fixture.m4a"
         var hasError by mutableStateOf(true)
         var loading by mutableStateOf(false)
-        var retriedAttachment: String? = null
+        var retryInvocations = 0
 
         compose.setContent {
             QuataTheme {
@@ -49,7 +49,7 @@ class ChatAudioAttachmentRetryInstrumentedTest {
                     playPauseDescription = "Play audio",
                     retryDescription = "Retry audio",
                     onTogglePlayback = {
-                        retriedAttachment = attachmentName
+                        retryInvocations += 1
                         hasError = false
                         loading = true
                     },
@@ -72,7 +72,7 @@ class ChatAudioAttachmentRetryInstrumentedTest {
             .assertHasClickAction()
             .performClick()
 
-        compose.runOnIdle { assertEquals(attachmentName, retriedAttachment) }
+        compose.runOnIdle { assertEquals(1, retryInvocations) }
         compose.onNodeWithTag(ChatAudioAttachmentToggleTestTag)
             .assertIsDisplayed()
             .assert(
@@ -81,5 +81,13 @@ class ChatAudioAttachmentRetryInstrumentedTest {
                         ?.startsWith(ChatAudioAttachmentStateLoading) == true
                 },
             )
+        compose.onNodeWithTag(ChatAudioAttachmentPlayerTestTag)
+            .assert(
+                SemanticsMatcher("audio identity remains rendered") { node ->
+                    node.config.getOrNull(SemanticsProperties.ContentDescription)
+                        ?.any { description -> description.contains(attachmentName) } == true
+                },
+            )
+            .assertIsDisplayed()
     }
 }

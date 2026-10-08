@@ -1900,7 +1900,7 @@ test("Web and iOS audio evidence prove finite consecutive playback, not just sec
   assert.match(iosWrapper, /missing\.append\(f"\{next_audio_name\}:progress>0"\)/);
 });
 
-test("CHAT-AUDIO renders a failed player and retries the exact attachment through the visible control", () => {
+test("CHAT-AUDIO renders a failed player and invokes its visible Retry callback", () => {
   for (const uiTest of [commonAudioRetryUiTest, androidAudioRetryUiTest]) {
     assert.match(uiTest, /ChatAudioAttachmentPlayerContent\(/);
     assert.match(uiTest, /hasError = hasError/);
@@ -1909,11 +1909,12 @@ test("CHAT-AUDIO renders a failed player and retries the exact attachment throug
     assert.match(uiTest, /onNodeWithTag\(ChatAudioAttachmentToggleTestTag\)/);
     assert.match(uiTest, /assertHasClickAction\(\)/);
     assert.match(uiTest, /performClick\(\)/);
-    assert.match(uiTest, /retriedAttachment = attachmentName/);
-    assert.match(uiTest, /assertEquals\(attachmentName, retriedAttachment\)/);
+    assert.match(uiTest, /retryInvocations \+= 1/);
+    assert.match(uiTest, /assertEquals\(1, retryInvocations\)/);
     assert.match(uiTest, /(?:assertStateStartsWith|startsWith)\(ChatAudioAttachmentStateLoading\)/);
   }
   assert.match(commonAudioRetryUiTest, /runComposeUiTest/);
   assert.match(commonAudioRetryUiTest, /hasAudioAttachmentDescription\(attachmentName\)/);
   assert.match(androidAudioRetryUiTest, /createAndroidComposeRule/);
+  assert.match(androidAudioRetryUiTest, /description\.contains\(attachmentName\)/);
 });

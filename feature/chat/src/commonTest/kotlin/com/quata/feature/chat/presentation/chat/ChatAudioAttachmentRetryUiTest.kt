@@ -24,11 +24,11 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 class ChatAudioAttachmentRetryUiTest {
     @Test
-    fun renderedFailureRetriesTheSameAttachmentThroughTheVisibleControl() = runComposeUiTest {
+    fun renderedFailureInvokesVisibleRetryAndRendersLoading() = runComposeUiTest {
         val attachmentName = "retry-audio-fixture.m4a"
         var hasError by mutableStateOf(true)
         var loading by mutableStateOf(false)
-        var retriedAttachment: String? = null
+        var retryInvocations = 0
 
         setContent {
             QuataTheme {
@@ -43,7 +43,7 @@ class ChatAudioAttachmentRetryUiTest {
                     playPauseDescription = "Play audio",
                     retryDescription = "Retry audio",
                     onTogglePlayback = {
-                        retriedAttachment = attachmentName
+                        retryInvocations += 1
                         hasError = false
                         loading = true
                     },
@@ -62,7 +62,7 @@ class ChatAudioAttachmentRetryUiTest {
             .assertStateStartsWith(ChatAudioAttachmentStateFailed)
             .performClick()
 
-        runOnIdle { assertEquals(attachmentName, retriedAttachment) }
+        runOnIdle { assertEquals(1, retryInvocations) }
         onNodeWithTag(ChatAudioAttachmentToggleTestTag)
             .assertIsDisplayed()
             .assertStateStartsWith(ChatAudioAttachmentStateLoading)
