@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "6cec2376bc0f622e8848304f374940f83586f2e0",
-  "certification": "same-attachment-transport-retry-platform-focal-complete-rebase-review-pending",
+  "certification": "same-attachment-transport-retry-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_RETRY_SEMANTICS_AND_PLATFORM_ADAPTER_RECOVERY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -87,7 +87,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "66dcd6d37be7b03edb6c0dbcaa027d19a41407d8",
+    "reviewedSha": "45cbf9cec556c0669fe3777083c2f66339ae51c5",
     "blockingFindings": [],
     "resolvedFindings": [],
     "scopeLimit": "This focal attestation closes the shared Retry semantics contract and exact same-attachment recovery through the Android, Web and iOS Chat playback adapters. A rendered Compose failure surface and native Retry click, physical microphone, routing and exhaustive outage matrices remain separate."
@@ -99,7 +99,8 @@
     "iOS retries the same descriptor through its authenticated bounded downloader and discards only the recovered temporary file after successful native stop.",
     "The platform execution head f9a2f4b34e3f5c97b991b848edf2a845468af42a and product head 6cec2376bc0f622e8848304f374940f83586f2e0 differ by the reviewed Node source contract, certified inventory boundary and patch-equivalent recomposition over the Feed and Official position units. All Chat common, Android, Web and iOS production and platform-test blobs are byte-identical, so platform matrices were not repeated solely for the amended commit identity.",
     "Independent exact-head review of 66dcd6d3 returned GO with no P0-P3 findings and confirmed the Product boundary, historical custody, focal UI limits and independence from inherited Feed, Official and logout changes.",
-    "The six-commit Chat audio series was replayed without conflict over frozen Official candidate ea8087ae. Comparing old Product fdbd8c39 with recomposed Product 6cec2376 changes only the three inherited Official custody documents; all Chat runtime, platform tests, report and contract blobs remain byte-identical. A renewed exact-head review is required after this custody reanchor.",
+    "The six-commit Chat audio series was replayed without conflict over frozen Official candidate ea8087ae. Comparing old Product fdbd8c39 with recomposed Product 6cec2376 changes only the three inherited Official custody documents; all Chat runtime, platform tests, report and contract blobs remain byte-identical.",
+    "Independent exact-head review of 45cbf9ce returned GO with no P0-P3 findings. It confirmed 6/6 equivalent commits, unchanged Chat runtime/tests/contract/report blobs, contract 43/43, validator, diff-check and a clean worktree. This final documentation-only commit records that review without attributing a new platform execution.",
     "No backend, credentials, database row, Storage object or remote product state was used or mutated."
   ]
 }
