@@ -51,6 +51,7 @@ fun NeighborhoodUserRowContent(
     nameModifier: Modifier = Modifier,
     followModifier: Modifier = Modifier,
     chatModifier: Modifier = Modifier,
+    chatProgressModifier: Modifier = Modifier,
 ) {
     val template = quataTheme()
     Column(modifier.fillMaxWidth().background(template.colors.surface.copy(alpha = 0.42f), RoundedCornerShape(18.dp)).border(1.dp, template.colors.divider, RoundedCornerShape(18.dp)).padding(12.dp)) {
@@ -70,7 +71,7 @@ fun NeighborhoodUserRowContent(
                 Text(if (user.isFollowing) strings.following else strings.follow, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
             }
             OutlinedButton(onClick = onOpenPrivateChat, enabled = !isOwnUser && isChatEnabled && !isOpeningChat, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.accent), modifier = chatModifier) {
-                if (isOpeningChat) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = template.colors.accent) else CompactIcon(Icons.AutoMirrored.Filled.Message, null, modifier = Modifier.size(16.dp))
+                if (isOpeningChat) CircularProgressIndicator(modifier = Modifier.size(16.dp).then(chatProgressModifier), strokeWidth = 2.dp, color = template.colors.accent) else CompactIcon(Icons.AutoMirrored.Filled.Message, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(strings.chat, fontSize = 14.sp, maxLines = 1)
             }
