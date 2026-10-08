@@ -79,6 +79,12 @@ scripts/build-ios-intel-simulator-signed.sh
     report.evidence.copyWarning = safeFailure(error);
     report.status = "failed";
   });
+  await cleanupRemoteSimulatorState(options).then(() => {
+    report.cleanup.simulatorAppContainerRemoved = true;
+  }).catch((error) => {
+    report.cleanup.simulatorAppContainerCleanupError = safeFailure(error);
+    report.status = "failed";
+  });
   if (remoteRuntimeBackup) {
     await restoreRemotePublicRuntimeConfig(options, remoteRuntimeBackup).catch((error) => {
       report.cleanup.runtimeConfigRestoreError = safeFailure(error);
@@ -258,6 +264,22 @@ if [ -d "$generated_project" ]; then
   if git status --porcelain -- "$generated_project" | grep -q '^?? '; then
     rm -rf "$generated_project"
   fi
+fi
+`);
+}
+
+async function cleanupRemoteSimulatorState({ host, simulatorUdid }) {
+  await runSshScript(host, `
+set -euo pipefail
+udid=${shellQuote(simulatorUdid)}
+bundle_id=com.quata.ios
+if xcrun simctl get_app_container "$udid" "$bundle_id" data >/dev/null 2>&1; then
+  xcrun simctl terminate "$udid" "$bundle_id" >/dev/null 2>&1 || true
+  xcrun simctl uninstall "$udid" "$bundle_id"
+fi
+if xcrun simctl get_app_container "$udid" "$bundle_id" data >/dev/null 2>&1; then
+  echo "Simulator app container still exists after cleanup." >&2
+  exit 1
 fi
 `);
 }

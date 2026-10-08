@@ -44,10 +44,13 @@ test("Android postflight restores an exact draft after a real process restart wi
   assert.doesNotMatch(uiTest, /composer-publish|ComposerPublishButtonTestTag|onPostCreated/);
   assert.match(uiTest, /seedAuthenticatedTextDraftForProcessRestart/);
   assert.match(uiTest, /restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
-  assert.match(uiTest, /waitForText\(ComposerTextInputTestTag, marker\.orEmpty\(\)\)/);
+  assert.match(uiTest, /waitForExactText\(ComposerTextInputTestTag, marker\.orEmpty\(\)\)/);
+  assert.match(uiTest, /SemanticsProperties\.EditableText\)\?\.text == expected/);
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart/);
   assert.match(coordinator, /am", "force-stop", "com\.quata/);
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
+  assert.match(coordinator, /pm", "clear", "com\.quata/);
+  assert.match(coordinator, /report\.cleanup\.appDataCleared = true/);
   assert.match(coordinator, /publishCallbacksInvoked !== false/);
 });
 
@@ -82,6 +85,9 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(coordinator, /bash scripts\/run-ios-create-post-postflight-ui-test\.sh/);
   assert.match(coordinator, /publishCallbacksInvoked: false/);
+  assert.match(coordinator, /cleanupRemoteSimulatorState\(options\)/);
+  assert.match(coordinator, /simulatorAppContainerRemoved = true/);
+  assert.match(coordinator, /simctl uninstall/);
 });
 
 test("Create Post postflight gates are registered in focal and fast entry points", async () => {

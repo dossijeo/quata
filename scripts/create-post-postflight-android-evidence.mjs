@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const CHECK = "CREATE-POST-POSTFLIGHT-ANDROID-001";
@@ -20,6 +20,7 @@ const report = {
   attempts: [],
   evidence: {},
   steps: [],
+  cleanup: { appDataCleared: false, localCredentialsRemoved: false },
 };
 
 const adb = process.env.ADB?.trim() || "adb";
@@ -92,13 +93,39 @@ try {
   report.errorDetail = typeof error?.message === "string" ? redactedTail(error.message) : String(error);
   await copyDeviceEvidence(resolve(options.evidenceDir)).catch(() => {});
 } finally {
-  await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `${appFilesDir}/${deviceCredentialsFileName}`]).catch(() => {});
-  await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
-  await rm(localCredentials ?? "", { force: true }).catch(() => {});
+  try {
+    await run(adb, ["shell", "pm", "clear", "com.quata"]);
+    await run(adb, ["shell", "run-as", "com.quata", "test", "!", "-e", `${appFilesDir}/${deviceCredentialsFileName}`]);
+    await run(adb, ["shell", "run-as", "com.quata", "test", "!", "-e", deviceEvidencePath]);
+    report.cleanup.appDataCleared = true;
+  } catch (error) {
+    report.cleanup.appDataCleanupError = safeFailure(error);
+    report.status = "failed";
+  }
+  try {
+    if (localCredentials) {
+      await rm(localCredentials, { force: true });
+      await assertMissing(localCredentials);
+    }
+    report.cleanup.localCredentialsRemoved = true;
+  } catch (error) {
+    report.cleanup.localCredentialsCleanupError = safeFailure(error);
+    report.status = "failed";
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Create Post postflight Android evidence written: ${options.output}`);
+}
+
+async function assertMissing(path) {
+  try {
+    await stat(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error(`cleanup_path_still_exists:${path}`);
 }
 
 if (report.status !== "passed") {

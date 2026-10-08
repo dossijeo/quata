@@ -8,7 +8,6 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
@@ -110,7 +109,7 @@ class CreatePostPostflightInstrumentedTest {
             tap("composer-type-text")
             waitFor(ComposerTextInputTestTag)
             compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).performTextInput(marker.orEmpty())
-            waitForText(ComposerTextInputTestTag, marker.orEmpty())
+            waitForExactText(ComposerTextInputTestTag, marker.orEmpty())
             screenshot("android-create-post-draft-before-process-restart")
         }
         File(evidenceDir(), "android-create-post-draft-seeded.json").writeText(
@@ -143,7 +142,7 @@ class CreatePostPostflightInstrumentedTest {
             tapPrefix("feed.action.publish.")
             waitFor(CreatePostCommonRootTestTag)
             waitFor(ComposerTextInputTestTag)
-            waitForText(ComposerTextInputTestTag, marker.orEmpty())
+            waitForExactText(ComposerTextInputTestTag, marker.orEmpty())
             steps += "exact_text_draft_restored_after_process_restart"
             screenshots += screenshot("android-create-post-draft-after-process-restart")
 
@@ -191,11 +190,11 @@ class CreatePostPostflightInstrumentedTest {
         }
     }
 
-    private fun waitForText(tag: String, expected: String) {
+    private fun waitForExactText(tag: String, expected: String) {
         compose.waitUntil(20_000) {
             runCatching {
-                compose.onNodeWithTag(tag, useUnmergedTree = true).assertTextContains(expected)
-                true
+                compose.onNodeWithTag(tag, useUnmergedTree = true)
+                    .fetchSemanticsNode().config.getOrNull(SemanticsProperties.EditableText)?.text == expected
             }.getOrDefault(false)
         }
     }
