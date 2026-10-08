@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-AUDIO"
+  ],
+  "status": "passed",
+  "productSha": "7518a81acb00322d96839361d921f21fbc1928d2",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
+  "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "7518a81acb00322d96839361d921f21fbc1928d2",
+      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
+      "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
+      "reportStatus": "passed",
+      "reportGitHead": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "rendered_audio_player_exposes_failed_state",
+        "visible_retry_control_has_click_action",
+        "retry_click_invokes_component_callback_once",
+        "retry_click_transitions_player_to_loading"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "rendered-local-state-no-backend"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "7518a81acb00322d96839361d921f21fbc1928d2",
+      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
+      "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
+      "reportStatus": "passed",
+      "reportGitHead": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "rendered_audio_player_exposes_failed_state",
+        "visible_retry_control_has_click_action",
+        "retry_click_invokes_component_callback_once",
+        "retry_click_transitions_player_to_loading",
+        "attachment_identity_remains_rendered_after_retry"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "rendered-local-state-no-backend"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "7518a81acb00322d96839361d921f21fbc1928d2",
+      "report": "docs/candidate-attestations/evidence/chat-audio-retry-ui-2eff439b.json",
+      "reportSha256": "a7f3f28459e7b7d9b1159ff8a3e5f4e54f5d8d6285dfce9bbacdd8bf48e4eaf2",
+      "reportStatus": "passed",
+      "reportGitHead": "2eff439bcabe00a8e1786871153cdaa1f6a8361f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "rendered_audio_player_exposes_failed_state",
+        "visible_retry_control_has_click_action",
+        "retry_click_invokes_component_callback_once",
+        "retry_click_transitions_player_to_loading",
+        "temporary_mac_checkout_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "rendered-local-state-no-backend"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/chat-attachments-audio-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryInstrumentedTest' --no-daemon --console=plain",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureInvokesVisibleRetryAndRendersLoading --no-daemon --console=plain",
+    "JAVA_HOME=<JBR_21_HOME> PATH=$JAVA_HOME/bin:$PATH bash ./gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.presentation.chat.ChatAudioAttachmentRetryUiTest.renderedFailureInvokesVisibleRetryAndRendersLoading --no-configure-on-demand --max-workers=1 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-retry-ui.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "bae5dae85c1320c1da7479c0459521ff64f258da",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "P2 corrected: the UI evidence now claims only one component callback invocation, the supplied loading render and preserved visible label; exact descriptor recovery remains bound to chat-audio-transport-retry.json.",
+      "P2 corrected: trailing CR/blank EOF bytes were removed and the full changed range passes diff --check."
+    ],
+    "scopeLimit": "This focal attestation closes the rendered Compose failure surface and visible Retry callback activation on Android, Web/Wasm and iOS x64. Exact descriptor selection and platform transport recovery remain certified by chat-audio-transport-retry.json; this UI test does not execute the adapter. Physical microphone, routing, prolonged background playback, exhaustive network matrices and audio outside Chat remain separate."
+  },
+  "notes": [
+    "The common test renders the production ChatAudioAttachmentPlayerContent, verifies failed semantics and click action, activates Retry once, preserves the same rendered attachment label and observes the supplied loading state on Web/Wasm and iOS x64.",
+    "Android repeats the same interaction through Compose instrumentation on API 35.",
+    "No backend, credentials, database row, Storage object or remote product state was used or mutated.",
+    "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings.",
+    "The eight-commit UI series was replayed over frozen Chat transport candidate f492d6b7. The conflict adaptations preserve the newer transport Product eb9cd3c3 while all UI runtime, platform-test and report blobs remain byte-identical.",
+    "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. The recomposed exact-head review of 195eecb5 returned GO with no P0-P3 and confirmed unchanged UI runtime, tests and report blobs without attributing a new platform execution.",
+    "The ten-commit UI series was replayed over integrated transport squash 740c2301, whose tree is identical to frozen candidate f492d6b7. All UI-owned runtime, platform-test, contract and report blobs remain byte-identical; no platform execution is attributed to this parent replacement.",
+    "Independent exact-head review of bae5dae85 returned GO with no P0-P3 findings. It confirmed Product e51bfe97 and 7518a81a are content-identical, preserved hermetic UI custody and scope, contract 44/44, validator, diff-check and clean tree. This final documentation-only commit records that review."
+  ]
+}
