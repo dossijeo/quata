@@ -49,6 +49,7 @@ test("Android postflight restores an exact draft after a real process restart wi
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart/);
   assert.match(coordinator, /am", "force-stop", "com\.quata/);
   assert.match(coordinator, /CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
+  assert.match(uiTest, /tap\("composer-back"\)[\s\S]*waitForGone\(CreatePostCommonRootTestTag\)[\s\S]*waitForPrefix\("feed\.action\.publish\."\)/);
   assert.match(coordinator, /pm", "clear", "com\.quata/);
   assert.match(coordinator, /report\.cleanup\.appDataCleared = true/);
   assert.match(coordinator, /publishCallbacksInvoked !== false/);
@@ -81,6 +82,7 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.match(uiTest, /quata-ios-profile-sos-host/);
   assert.match(uiTest, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(uiTest, /assertTextInput\(restoredInput, equals: marker/);
+  assert.match(uiTest, /tapIdentifier\("composer-back"[\s\S]*quata-ios-feed-host[\s\S]*waitForNonExistence/);
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);

@@ -1,7 +1,10 @@
 package com.quata.feature.postcomposer.presentation
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -48,6 +51,7 @@ class CreatePostPostflightInstrumentedTest {
         )
         val credentials = credentialsFromFile(credentialsFile.orEmpty())
         suppressStartupPrompts()
+        grantOptionalNotificationPermission()
         app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
         val initialSession = app.container.sessionManager.currentSession()
         assertTrue("android_create_post_postflight_real_session_missing", initialSession?.isSupabaseAuthenticated() == true)
@@ -98,6 +102,7 @@ class CreatePostPostflightInstrumentedTest {
         )
         val credentials = credentialsFromFile(credentialsFile.orEmpty())
         suppressStartupPrompts()
+        grantOptionalNotificationPermission()
         app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
         assertTrue(app.container.sessionManager.currentSession()?.isSupabaseAuthenticated() == true)
 
@@ -125,6 +130,7 @@ class CreatePostPostflightInstrumentedTest {
             !marker.isNullOrBlank() && optionalArgument("quataCreatePostPostflightEvidence") == "1",
         )
         suppressStartupPrompts()
+        grantOptionalNotificationPermission()
         val initialSession = app.container.sessionManager.currentSession()
         assertTrue("android_create_post_draft_session_missing_after_restart", initialSession?.isSupabaseAuthenticated() == true)
         val screenshots = mutableListOf<String>()
@@ -147,11 +153,9 @@ class CreatePostPostflightInstrumentedTest {
             screenshots += screenshot("android-create-post-draft-after-process-restart")
 
             tap("composer-back")
-            waitFor("composer-type-picker")
-            steps += "restored_draft_explicitly_discarded"
-            tap("navigation.primary.feed")
             waitForGone(CreatePostCommonRootTestTag)
             waitForPrefix("feed.action.publish.")
+            steps += "restored_draft_explicitly_discarded"
             steps += "create_post_returned_to_feed_without_publish"
             screenshots += screenshot("android-create-post-postflight-returned")
         }
@@ -248,6 +252,14 @@ class CreatePostPostflightInstrumentedTest {
     private fun suppressStartupPrompts() {
         targetContext.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)
             .edit().putBoolean("app_links_prompt_seen", true).commit()
+    }
+
+    private fun grantOptionalNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        if (targetContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        instrumentation.uiAutomation.executeShellCommand(
+            "pm grant ${targetContext.packageName} ${Manifest.permission.POST_NOTIFICATIONS}",
+        ).close()
     }
 
     private fun optionalArgument(name: String): String? = arguments.getString(name)?.trim()?.takeIf(String::isNotEmpty)

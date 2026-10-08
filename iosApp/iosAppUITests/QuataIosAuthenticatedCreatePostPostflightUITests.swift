@@ -28,9 +28,11 @@ final class QuataIosAuthenticatedCreatePostPostflightUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-create-post-draft-after-relaunch")
 
         tapIdentifier("composer-back", in: relaunched, context: "discard restored draft")
-        assertVisible("composer-type-picker", in: relaunched, context: "empty composer after discard")
-        tapIdentifier("navigation.primary.feed", in: relaunched, context: "return to Feed without publishing")
         assertVisible("quata-ios-feed-host", in: relaunched, context: "Feed after draft discard")
+        XCTAssertTrue(
+            relaunched.descendants(matching: .any).matching(identifier: "create-post-common-root").firstMatch.waitForNonExistence(timeout: 12),
+            "Discarding the restored draft must dismiss the common Create Post root."
+        )
         print("IOS_CREATE_POST_DRAFT_RESTORATION_UI_GATE_PASSED")
     }
 
