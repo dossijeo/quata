@@ -87,6 +87,82 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
     }
 
     @Test
+    fun stopTerminalOutcomesDoNotResolveOrLoad() = runBlocking {
+        val outcomes: List<Pair<PlatformResult<Unit>, String>> = listOf(
+            PlatformResult.Failure("native_stop_failed") to "native_stop_failed",
+            PlatformResult.Cancelled to "android_chat_audio_stop_cancelled",
+            PlatformResult.Unsupported to "android_chat_audio_stop_unsupported",
+        )
+        outcomes.forEach { (outcome, expectedReason) ->
+            val events = mutableListOf<String>()
+            val delegate = FakeAudioPlayer(events).apply { stopResult = outcome }
+            val service = AndroidChatAttachmentAudioPlayerService(
+                delegate = delegate,
+                resolver = AndroidChatAttachmentFileResolver {
+                    events += "resolve"
+                    PlatformResult.Success(localFile("must-not-resolve.m4a"))
+                },
+            )
+
+            val result = service.load(remoteFile("voice.m4a"))
+
+            assertTrue(result is PlatformResult.Failure)
+            assertEquals(expectedReason, (result as PlatformResult.Failure).reason)
+            assertEquals(listOf("stop"), events)
+        }
+    }
+
+    @Test
+    fun resolverTerminalOutcomesDoNotInvokeNativeLoad() = runBlocking {
+        val outcomes: List<Pair<PlatformResult<PlatformFile>, String>> = listOf(
+            PlatformResult.Failure("resolver_failed") to "resolver_failed",
+            PlatformResult.Cancelled to "android_chat_audio_resolve_cancelled",
+            PlatformResult.Unsupported to "android_chat_audio_resolve_unsupported",
+        )
+        outcomes.forEach { (outcome, expectedReason) ->
+            val events = mutableListOf<String>()
+            val service = AndroidChatAttachmentAudioPlayerService(
+                delegate = FakeAudioPlayer(events),
+                resolver = AndroidChatAttachmentFileResolver {
+                    events += "resolve"
+                    outcome
+                },
+            )
+
+            val result = service.load(remoteFile("voice.m4a"))
+
+            assertTrue(result is PlatformResult.Failure)
+            assertEquals(expectedReason, (result as PlatformResult.Failure).reason)
+            assertEquals(listOf("stop", "resolve"), events)
+        }
+    }
+
+    @Test
+    fun delegateLoadTerminalOutcomesAreReturnedWithoutRepeatingResolution() = runBlocking {
+        val outcomes = listOf<PlatformResult<AudioPlaybackState>>(
+            PlatformResult.Failure("native_load_failed"),
+            PlatformResult.Cancelled,
+            PlatformResult.Unsupported,
+        )
+        outcomes.forEach { outcome ->
+            val events = mutableListOf<String>()
+            val delegate = FakeAudioPlayer(events).apply { loadResult = outcome }
+            val service = AndroidChatAttachmentAudioPlayerService(
+                delegate = delegate,
+                resolver = AndroidChatAttachmentFileResolver { file ->
+                    events += "resolve:${file.displayName}"
+                    PlatformResult.Success(localFile("resolved.m4a"))
+                },
+            )
+
+            val result = service.load(remoteFile("voice.m4a"))
+
+            assertEquals(outcome, result)
+            assertEquals(listOf("stop", "resolve:voice.m4a", "load:file:///cache/resolved.m4a"), events)
+        }
+    }
+
+    @Test
     fun stopPausePlaySeekAndEventsRemainNativeDelegateOwned() = runBlocking {
         val events = mutableListOf<String>()
         val delegate = FakeAudioPlayer(events)
@@ -192,11 +268,13 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
     }
 
     private class FakeAudioPlayer(private val calls: MutableList<String>) : AudioPlayerService {
+        var stopResult: PlatformResult<Unit> = PlatformResult.Success(Unit)
+        var loadResult: PlatformResult<AudioPlaybackState> = PlatformResult.Success(AudioPlaybackState(isLoaded = true))
         override val events: Flow<AudioPlaybackEvent> = emptyFlow()
 
         override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
             calls += "load:${file.reference}"
-            return PlatformResult.Success(AudioPlaybackState(isLoaded = true))
+            return loadResult
         }
 
         override suspend fun play(): PlatformResult<AudioPlaybackState> {
@@ -216,7 +294,7 @@ class AndroidChatAttachmentAudioPlayerServiceTest {
 
         override suspend fun stop(): PlatformResult<Unit> {
             calls += "stop"
-            return PlatformResult.Success(Unit)
+            return stopResult
         }
 
         override suspend fun state(): AudioPlaybackState = AudioPlaybackState(isLoaded = true)

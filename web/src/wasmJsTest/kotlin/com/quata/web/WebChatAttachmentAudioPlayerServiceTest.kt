@@ -102,18 +102,107 @@ class WebChatAttachmentAudioPlayerServiceTest {
         assertEquals(1, releases)
     }
 
+    @Test
+    fun materializerTerminalOutcomesDoNotInvokeNativeLoad() = runTest {
+        val outcomes = listOf<PlatformResult<MaterializedMediaFileLease>>(
+            PlatformResult.Failure("materialization_failed"),
+            PlatformResult.Cancelled,
+            PlatformResult.Unsupported,
+        )
+        outcomes.forEach { outcome ->
+            val delegate = RecordingPlayer()
+            val service = WebChatAttachmentAudioPlayerService(
+                delegate = delegate,
+                materializer = MediaFileMaterializer { outcome },
+            )
+
+            val result = service.load(remote)
+
+            when (outcome) {
+                is PlatformResult.Failure ->
+                    assertEquals(outcome.reason, assertIs<PlatformResult.Failure>(result).reason)
+                PlatformResult.Cancelled -> assertEquals(PlatformResult.Cancelled, result)
+                PlatformResult.Unsupported -> assertEquals(PlatformResult.Unsupported, result)
+                is PlatformResult.Success -> error("terminal outcome matrix must not contain success")
+            }
+            assertEquals(listOf("stop"), delegate.calls)
+        }
+    }
+
+    @Test
+    fun nativeLoadTerminalOutcomesReleaseMaterializedBlobLease() = runTest {
+        val outcomes = listOf<PlatformResult<AudioPlaybackState>>(
+            PlatformResult.Failure("native_load_failed"),
+            PlatformResult.Cancelled,
+            PlatformResult.Unsupported,
+        )
+        outcomes.forEach { outcome ->
+            var releases = 0
+            val delegate = RecordingPlayer().apply { loadResult = outcome }
+            val service = WebChatAttachmentAudioPlayerService(
+                delegate = delegate,
+                materializer = MediaFileMaterializer {
+                    PlatformResult.Success(
+                        MaterializedMediaFileLease(
+                            PlatformFile("blob:https://localhost/terminal-audio", remote.displayName, remote.mimeType),
+                        ) { releases += 1 },
+                    )
+                },
+            )
+
+            val result = service.load(remote)
+
+            assertEquals(outcome, result)
+            assertEquals(1, releases)
+            assertEquals(listOf("stop", "load:blob:https://localhost/terminal-audio"), delegate.calls)
+        }
+    }
+
+    @Test
+    fun stopTerminalOutcomesRetainOwnedLeaseAndDoNotMaterializeReplacement() = runTest {
+        val outcomes = listOf<Pair<PlatformResult<Unit>, String>>(
+            PlatformResult.Failure("native_stop_failed") to "native_stop_failed",
+            PlatformResult.Cancelled to "web_chat_audio_stop_cancelled",
+            PlatformResult.Unsupported to "web_chat_audio_stop_unsupported",
+        )
+        outcomes.forEach { (outcome, expectedReason) ->
+            var materializations = 0
+            var releases = 0
+            val delegate = RecordingPlayer()
+            val service = WebChatAttachmentAudioPlayerService(
+                delegate = delegate,
+                materializer = MediaFileMaterializer {
+                    materializations += 1
+                    PlatformResult.Success(
+                        MaterializedMediaFileLease(
+                            PlatformFile("blob:https://localhost/owned-$materializations", remote.displayName, remote.mimeType),
+                        ) { releases += 1 },
+                    )
+                },
+            )
+            assertIs<PlatformResult.Success<AudioPlaybackState>>(service.load(remote))
+            delegate.stopResult = outcome
+
+            val result = service.load(remote.copy(displayName = "replacement.m4a"))
+
+            assertEquals(expectedReason, assertIs<PlatformResult.Failure>(result).reason)
+            assertEquals(1, materializations)
+            assertEquals(0, releases)
+        }
+    }
+
     private class RecordingPlayer : AudioPlayerService {
         val calls = mutableListOf<String>()
         var stopResult: PlatformResult<Unit> = PlatformResult.Success(Unit)
+        var loadResult: PlatformResult<AudioPlaybackState> =
+            PlatformResult.Success(AudioPlaybackState(isLoaded = true, phase = AudioPlaybackPhase.Ready, sessionId = 1L))
         var loadThrowable: Throwable? = null
         override val events: Flow<AudioPlaybackEvent> = emptyFlow()
 
         override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
             calls += "load:${file.reference}"
             loadThrowable?.let { throw it }
-            return PlatformResult.Success(
-                AudioPlaybackState(isLoaded = true, phase = AudioPlaybackPhase.Ready, sessionId = 1L),
-            )
+            return loadResult
         }
 
         override suspend fun play(): PlatformResult<AudioPlaybackState> =

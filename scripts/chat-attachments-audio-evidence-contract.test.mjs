@@ -71,6 +71,9 @@ const [
   pickerAttestationJson,
   androidAttachmentFileCache,
   androidChatAttachmentAudioPlayerService,
+  androidChatAttachmentAudioPlayerServiceTest,
+  webChatAttachmentAudioPlayerServiceTest,
+  iosChatAttachmentAudioPlayerServiceTest,
   iosProjectConfig,
   iosSignedBuildScript,
 ] = await Promise.all([
@@ -139,6 +142,9 @@ const [
   source("docs/candidate-attestations/chat-attachment-picker.json"),
   source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
   source("app/src/main/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerService.kt"),
+  source("app/src/test/java/com/quata/feature/chat/data/AndroidChatAttachmentAudioPlayerServiceTest.kt"),
+  source("web/src/wasmJsTest/kotlin/com/quata/web/WebChatAttachmentAudioPlayerServiceTest.kt"),
+  source("feature/chat/src/iosTest/kotlin/com/quata/feature/chat/data/IosChatAttachmentAudioPlayerServiceTest.kt"),
   source("iosApp/project.yml"),
   source("scripts/build-ios-intel-simulator-signed.sh"),
 ]);
@@ -616,6 +622,40 @@ test("remote Chat attachment media is materialized before native players/viewers
   assert.doesNotMatch(androidDocumentReaderFallback, /http/i);
   assert.match(androidDocumentReaderFallback, /FLAG_GRANT_READ_URI_PERMISSION/);
   assert.match(androidDocumentReaderFallback, /activity\.finish\(\)/);
+});
+
+test("Chat audio adapters cover every non-success PlatformResult boundary", () => {
+  for (const testName of [
+    "stopTerminalOutcomesDoNotResolveOrLoad",
+    "resolverTerminalOutcomesDoNotInvokeNativeLoad",
+    "delegateLoadTerminalOutcomesAreReturnedWithoutRepeatingResolution",
+  ]) {
+    assert.match(androidChatAttachmentAudioPlayerServiceTest, new RegExp(`fun ${testName}\\(`));
+  }
+  for (const testName of [
+    "materializerTerminalOutcomesDoNotInvokeNativeLoad",
+    "nativeLoadTerminalOutcomesReleaseMaterializedBlobLease",
+    "stopTerminalOutcomesRetainOwnedLeaseAndDoNotMaterializeReplacement",
+  ]) {
+    assert.match(webChatAttachmentAudioPlayerServiceTest, new RegExp(`fun ${testName}\\(`));
+  }
+  for (const testName of [
+    "stop_failureCancelledAndUnsupportedRetainCachedFile",
+    "downloaderTerminalOutcomesDoNotInvokeDelegateLoad",
+    "delegateLoadTerminalOutcomesDiscardDownloadedFile",
+  ]) {
+    assert.match(iosChatAttachmentAudioPlayerServiceTest, new RegExp(`fun ${testName}\\(`));
+  }
+
+  for (const source of [
+    androidChatAttachmentAudioPlayerServiceTest,
+    webChatAttachmentAudioPlayerServiceTest,
+    iosChatAttachmentAudioPlayerServiceTest,
+  ]) {
+    assert.match(source, /PlatformResult\.Failure/);
+    assert.match(source, /PlatformResult\.Cancelled/);
+    assert.match(source, /PlatformResult\.Unsupported/);
+  }
 });
 
 test("Android internal reader late render failures fall back to the system chooser", () => {
