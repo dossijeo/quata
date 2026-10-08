@@ -23,6 +23,7 @@ class ChatChromeStringsTest {
         assertEquals("Grabando 00:08", strings.recording("00:08"))
         assertEquals("No se pudo abrir la cámara.", strings.cameraError)
         assertEquals("La grabación de audio no está disponible.", strings.audioUnsupported)
+        assertEquals("No se pudo reproducir el audio.", strings.audioPlaybackFailed)
         assertEquals("Reproducir vídeo", strings.playVideo)
         assertEquals("Reproducir audio", strings.playAudio)
         assertEquals("Pausar audio", strings.pauseAudio)

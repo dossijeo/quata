@@ -679,14 +679,16 @@ test("audio attachment player exposes stable common playback anchors", () => {
     }
   }
   assert.match(commonAudioPlayer, /playPauseDescription/);
-  assert.match(commonAudioPlayer, /val toggleDescription = if \(isLoading\) "Loading \$displayText" else "\$playPauseDescription \$displayText"/);
+  assert.match(commonAudioPlayer, /retryDescription: String = playPauseDescription/);
+  assert.match(commonAudioPlayer, /val toggleActionDescription = if \(hasError\) retryDescription else playPauseDescription/);
+  assert.match(commonAudioPlayer, /val toggleDescription = if \(isLoading\) "Loading \$displayText" else "\$toggleActionDescription \$displayText"/);
   assert.match(commonAudioPlayer, /contentDescription = toggleDescription/);
   assert.match(commonAudioPlayer, /val progressStateDescription = "\$playbackStateDescription \$progressPercent%"/);
   assert.match(commonAudioPlayer, /stateDescription = progressStateDescription/);
   assert.match(commonAudioPlayer, /errorText/);
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
-  assert.match(commonAudioPlayer, /onClick\(label = playPauseDescription\) \{\s*onTogglePlayback\(\)\s*true\s*\}/);
+  assert.match(commonAudioPlayer, /onClick\(label = toggleActionDescription\) \{\s*onTogglePlayback\(\)\s*true\s*\}/);
   assert.match(commonAudioPlayer, /\.clickable\(\s*enabled = true,\s*role = Role\.Button,\s*onClick = onTogglePlayback,\s*\)/);
   assert.doesNotMatch(commonAudioPlayer, /if \(!hasError\) \{\s*onClick/);
   assert.match(commonAudioPlayer, /onSeekToFraction/);
@@ -700,6 +702,11 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /bringIntoViewRequester\(bringIntoViewRequester\)/);
   assert.match(commonAudioPlayer, /requestFocusIntoView: Boolean = false/);
   assert.match(commonHost, /requestFocusIntoView = requestFocusIntoView/);
+  assert.match(commonHost, /retryAudioLabel = chromeStrings\.retry/);
+  assert.match(commonHost, /audioErrorText = chromeStrings\.audioPlaybackFailed/);
+  assert.match(commonHost, /errorText = audioErrorText/);
+  assert.doesNotMatch(commonHost, /errorText = audioState\.failureReason/);
+  assert.match(commonHost, /retryDescription = retryAudioLabel/);
   assert.doesNotMatch(iosUiTest, /QUATA_IOS_CHAT_AUDIO_ATTACHMENT_E2E/);
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=toggle/);
   assert.doesNotMatch(iosUiTest, /#chat-audio-e2e\?action=seek/);

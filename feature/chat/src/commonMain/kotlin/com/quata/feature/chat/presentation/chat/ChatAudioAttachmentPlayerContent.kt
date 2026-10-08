@@ -76,6 +76,7 @@ fun ChatAudioAttachmentPlayerContent(
     errorText: String,
     textColor: Color,
     playPauseDescription: String,
+    retryDescription: String = playPauseDescription,
     onTogglePlayback: () -> Unit,
     onSeekToFraction: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -86,7 +87,8 @@ fun ChatAudioAttachmentPlayerContent(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val boundedProgress = progress.coerceIn(0f, 1f)
     val progressPercent = (boundedProgress * 100f).toInt().coerceIn(0, 100)
-    val toggleDescription = if (isLoading) "Loading $displayText" else "$playPauseDescription $displayText"
+    val toggleActionDescription = if (hasError) retryDescription else playPauseDescription
+    val toggleDescription = if (isLoading) "Loading $displayText" else "$toggleActionDescription $displayText"
     val playbackStateDescription = when {
         hasError -> "$ChatAudioAttachmentStateFailed $errorText"
         isLoading -> ChatAudioAttachmentStateLoading
@@ -134,7 +136,7 @@ fun ChatAudioAttachmentPlayerContent(
                         contentDescription = toggleDescription
                         stateDescription = progressStateDescription
                         role = Role.Button
-                        onClick(label = playPauseDescription) {
+                        onClick(label = toggleActionDescription) {
                             onTogglePlayback()
                             true
                         }

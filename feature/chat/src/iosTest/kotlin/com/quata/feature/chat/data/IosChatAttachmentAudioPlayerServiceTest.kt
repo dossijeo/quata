@@ -81,6 +81,35 @@ class IosChatAttachmentAudioPlayerServiceTest {
     }
 
     @Test
+    fun downloadFailureCanRetryTheSameAttachmentAndOwnOnlyRecoveredFile() = runBlocking {
+        val events = mutableListOf<String>()
+        val downloads = FakeDownloads(events, listOf(null, localFile("recovered")))
+        val player = FakePlayer(events)
+        val service = service(player, downloads)
+        val attachment = remoteFile("same")
+
+        val failed = service.load(attachment)
+        val recovered = service.load(attachment)
+        val stopped = service.stop()
+
+        assertIs<PlatformResult.Failure>(failed)
+        assertIs<PlatformResult.Success<AudioPlaybackState>>(recovered)
+        assertIs<PlatformResult.Success<Unit>>(stopped)
+        assertEquals(
+            listOf(
+                "stop",
+                "download:same",
+                "stop",
+                "download:same",
+                "load:recovered",
+                "stop",
+                "discard:recovered",
+            ),
+            events,
+        )
+    }
+
+    @Test
     fun stop_releasesCachedFileOnlyOnSuccess() = runBlocking {
         val events = mutableListOf<String>(); val downloads = FakeDownloads(events, listOf(localFile("first")))
         val player = FakePlayer(events); val service = service(player, downloads)
