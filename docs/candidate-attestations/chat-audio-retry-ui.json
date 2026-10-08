@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "e51bfe9794532a3004285531ed7180fc1b23c072",
-  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-pending-final-CI-pending",
+  "certification": "rendered-failure-visible-retry-cross-platform-focal-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "CHAT_AUDIO_RENDERED_FAILURE_AND_VISIBLE_RETRY_ANDROID_WEB_IOS",
   "evidence": {
     "android": {
@@ -87,8 +87,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-retry-ui.json --head HEAD"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "195eecb54f631a4aa59248461b9d0f01ba7436c4",
     "blockingFindings": [],
     "resolvedFindings": [
       "P2 corrected: the UI evidence now claims only one component callback invocation, the supplied loading render and preserved visible label; exact descriptor recovery remains bound to chat-audio-transport-retry.json.",
@@ -102,6 +102,6 @@
     "No backend, credentials, database row, Storage object or remote product state was used or mutated.",
     "Independent exact-head review of 40bd4cda returned GO with no P0-P3 findings.",
     "The eight-commit UI series was replayed over frozen Chat transport candidate f492d6b7. The conflict adaptations preserve the newer transport Product eb9cd3c3 while all UI runtime, platform-test and report blobs remain byte-identical.",
-    "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. A new exact-head review is required after this candidate reanchor without attributing a new platform execution."
+    "Independent exact-head review of fb4368ec returned GO with no material P0-P3 findings. The recomposed exact-head review of 195eecb5 returned GO with no P0-P3 and confirmed unchanged UI runtime, tests and report blobs without attributing a new platform execution."
   ]
 }
