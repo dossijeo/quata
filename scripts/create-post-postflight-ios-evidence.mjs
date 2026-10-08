@@ -313,7 +313,11 @@ async function gitMetadata() {
 }
 
 async function runSshScript(host, script) {
-  return runCapture("ssh", [host, "bash", "-s"], { input: script });
+  return runCapture(
+    "ssh",
+    ["-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=20", host, "bash", "-s"],
+    { input: script },
+  );
 }
 
 function shellQuote(value) {
