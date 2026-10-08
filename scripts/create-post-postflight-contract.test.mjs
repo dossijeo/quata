@@ -58,12 +58,13 @@ test("Web postflight restores an exact draft after document reload and observes 
   const runner = await source("scripts/create-post-postflight-web-evidence.mjs");
   assert.match(runner, /\[id\^='feed\.action\.publish\.'\]/);
   assert.match(runner, /data-quata-shell-route"\) === "composer"/);
-  assert.ok(runner.includes('#navigation\\\\.primary\\\\.feed'));
+  assert.match(runner, /clickSemanticElement\(page, "composer-back"\)/);
+  assert.match(runner, /data-quata-shell-route"\) === "feed"/);
+  assert.match(runner, /restored_draft_explicitly_discarded/);
   assert.match(runner, /publishRequests\.length/);
   assert.match(runner, /storedActor !== session\.userId/);
   assert.match(runner, /page\.reload/);
   assert.match(runner, /expectSemanticInputValue\(page, "composer-text-input", draftMarker\)/);
-  assert.match(runner, /#composer-back/);
   assert.doesNotMatch(runner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION|composer-publish/);
 });
 
