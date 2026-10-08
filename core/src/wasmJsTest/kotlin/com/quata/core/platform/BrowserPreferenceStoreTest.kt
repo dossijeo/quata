@@ -59,6 +59,10 @@ private fun browserPreferenceLocksAvailable(): Boolean =
     js("typeof globalThis.navigator?.locks?.request === 'function' && !!globalThis.localStorage")
 
 private fun browserPreferenceTestInstallEnvironment(): Unit = js("""(() => {
+    if (typeof globalThis.navigator?.locks?.request === 'function' && !!globalThis.localStorage) {
+      globalThis.__quataPreferenceTestEnvironment = { simulated: false };
+      return;
+    }
     const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
     const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
     const originalNavigator = globalThis.navigator;
@@ -109,6 +113,7 @@ private fun browserPreferenceTestInstallEnvironment(): Unit = js("""(() => {
       value: locks,
     });
     globalThis.__quataPreferenceTestEnvironment = {
+      simulated: true,
       storageDescriptor,
       navigatorDescriptor,
       originalNavigator,
@@ -120,7 +125,7 @@ private fun browserPreferenceTestRestoreEnvironment(): Unit = js("""(() => {
     const environment = globalThis.__quataPreferenceTestEnvironment;
     delete globalThis.__quataPreferenceTestEnvironment;
     delete globalThis.__quataPreferenceTestLocks;
-    if (!environment) return;
+    if (!environment?.simulated) return;
     if (environment.storageDescriptor) {
       Object.defineProperty(globalThis, 'localStorage', environment.storageDescriptor);
     } else {
