@@ -2,12 +2,12 @@
   "version": 1,
   "units": ["PROF-SAFETY-PERMISSIONS"],
   "status": "passed",
-  "productSha": "29882bc38e22d2547461c667eaa86de3a9939228",
+  "productSha": "6c819953fbc0f178cc5d1bf8d39af316a3278df4",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "29882bc38e22d2547461c667eaa86de3a9939228",
+      "sha": "6c819953fbc0f178cc5d1bf8d39af316a3278df4",
       "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-20d6d710.json",
       "reportSha256": "091f12638371defbcb6b1e2eeaa9296757140add5c640e10fc6d5aa012f38685",
       "reportStatus": "passed",
@@ -52,7 +52,7 @@
     "Production had drifted to broad anon/authenticated table privileges and anonymous EXECUTE on the three profile-safety RPCs even though the original moderation migration intended authenticated RPC-only mutation.",
     "The successor revokes anonymous RPC execution, preserves authenticated RPC execution, denies direct report/block table mutation to untrusted roles, preserves authenticated RLS-filtered reads and removes direct sequence use.",
     "The production probe used two temporary active profiles inside one transaction. Anonymous calls, actor spoofing and self-targeting were rejected; a spoofed unblock preserved the foreign edge, while the bound actor could report, block and unblock the peer; the transaction was rolled back and residue was zero.",
-    "The current recomposed Product 29882bc3 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 9182d6ea; the only tree differences belong to reanchored predecessor documentation. Product 9182d6ea preserves every profile-safety permission blob byte-for-byte from reviewed Product 00687113; its only tree differences belong to reviewed predecessor documentation. Product 00687113 preserves its two own runner and contract blobs byte-for-byte from reviewed Product d4248a91; that reviewed Product preserves the validated release and evidence lineage from execution 20d6d710. No migration or platform matrix was repeated solely for ancestry.",
+    "The current recomposed Product 6c819953 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 29882bc3; the only tree differences belong to reanchored predecessor documentation. Product 29882bc3 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 9182d6ea; the only tree differences belong to reanchored predecessor documentation. Product 9182d6ea preserves every profile-safety permission blob byte-for-byte from reviewed Product 00687113; its only tree differences belong to reviewed predecessor documentation. Product 00687113 preserves its two own runner and contract blobs byte-for-byte from reviewed Product d4248a91; that reviewed Product preserves the validated release and evidence lineage from execution 20d6d710. No migration or platform matrix was repeated solely for ancestry.",
     "This unit closes the backend permission-negative boundary for profile report/block/unblock. It does not claim hosted Auth/API gateway/Realtime availability, UI report-failure acceptance or unrelated profile races."
   ]
 }
