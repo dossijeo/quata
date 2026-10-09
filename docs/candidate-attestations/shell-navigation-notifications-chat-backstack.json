@@ -4,13 +4,13 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "afd2273d4212733cf7cebe7fba5f652bdb0aa0cd",
-  "certification": "local-affected-runtime-exact-conversation-backstack-independent-final-review-complete-final-CI-pending",
+  "productSha": "248835582e42a19b14db0bd75029b94c323d4837",
+  "certification": "local-affected-runtime-exact-conversation-backstack-rebased-review-pending-final-CI-pending",
   "evidenceKind": "NOTIFICATIONS_EXACT_CHAT_DURABLE_BACKSTACK",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "afd2273d4212733cf7cebe7fba5f652bdb0aa0cd",
+      "sha": "248835582e42a19b14db0bd75029b94c323d4837",
       "report": "docs/candidate-attestations/evidence/shell-navigation-notifications-chat-backstack-d710da07.json",
       "reportSha256": "a6c351263e064854d979afd430e210f8082529dfa67b1a7f8437e4118cce293f",
       "reportStatus": "passed-local-candidate",
@@ -43,9 +43,9 @@
     "macOS: xcodebuild three selected QuataFeedFrameworkTests on booted iOS 26.5 Intel Simulator with CODE_SIGNING_ALLOWED=NO"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "767f9bf9c2b21794feac6af83f1dc0487aca58ae",
-    "reviewedProductSha": "e48a3a32d04fc07fcd00abc458160c37ed9dd976",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "reviewedProductSha": "248835582e42a19b14db0bd75029b94c323d4837",
     "blockingFindings": [],
     "resolvedFindings": [
       "Android clears the notification return marker on route exit and authentication loss, with focal negative coverage.",
@@ -60,6 +60,6 @@
     "iOS preserves byte-identical runtime and focal-test blobs from the passing 29089031 execution, so its matrix was not repeated for the Android-only runtime correction and Web test-name correction.",
     "The first macOS link attempt exhausted the VM system volume. The unchanged iOS bytes passed after moving the isolated build and cache to the external capacity volume.",
     "This closes only Notifications to exact Chat to Notifications. Other arbitrary secondary stacks, scroll, editor state, backend delivery, APNs, provider behavior and physical-device behavior remain outside this focal unit.",
-    "The seven-commit unit was recomposed over frozen #580 native-media head 9187b444 with an identical complete runtime delta; the execution report remains bound to runtime d710da07, the capability matrix records the raw-byte hashes for the recomposed Web and iOS composition sources, and no platform matrix was repeated solely for ancestry."
+    "The seven-commit unit was recomposed over the verified byte-identical #580 squash 287ee85c; the complete runtime delta is unchanged. The execution report remains bound to runtime d710da07, the capability matrix records raw-byte hashes for the recomposed Web and iOS composition sources, and no platform matrix was repeated solely for ancestry."
   ]
 }
