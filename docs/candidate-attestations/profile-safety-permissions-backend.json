@@ -2,12 +2,12 @@
   "version": 1,
   "units": ["PROF-SAFETY-PERMISSIONS"],
   "status": "passed",
-  "productSha": "d2163154d72ba1f2140f509dd065258cbe10a6f4",
+  "productSha": "d4248a91705ba4aeedda5ca7610ce6ceb82f5642",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "d2163154d72ba1f2140f509dd065258cbe10a6f4",
+      "sha": "d4248a91705ba4aeedda5ca7610ce6ceb82f5642",
       "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-20d6d710.json",
       "reportSha256": "091f12638371defbcb6b1e2eeaa9296757140add5c640e10fc6d5aa012f38685",
       "reportStatus": "passed",
