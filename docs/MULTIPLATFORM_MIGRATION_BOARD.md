@@ -317,7 +317,7 @@ integrados: #448 serializa las carreras de creación, #467 acredita rollback del
 reintento, #450 cierra la recuperación repetida tras pérdida de red y #469 acredita paginación
 profunda real. #467 integró el head `afe218d3` mediante merge `f14287d2` después de que sus gates
 finales Web/Android, iOS y CodeQL terminasen SUCCESS. Su cierre de rollback es hermético y se limita
-al estado cliente: no acredita rollback transaccional backend. Product SHA `5e7e2a0a` añade ahora
+al estado cliente: no acredita rollback transaccional backend. Product SHA `1de24d53` añade ahora
 la interacción visual de fallo y retry para creación privada y grupal: Web/Wasm y Android conservan
 estado visible y un solo callback, e iOS SimulatorSigned atraviesa el picker compartido, el ViewModel
 y el transporte Chat autenticado, reutiliza el hilo privado y termina con residuo cero.
