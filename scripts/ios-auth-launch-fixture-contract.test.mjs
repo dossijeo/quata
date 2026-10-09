@@ -137,6 +137,15 @@ test("auth-launch recovery fixture resolves the same common Recovery surface and
   }
 });
 
+test("iOS opens Spanish recovery from the normal shared Login surface", () => {
+  assert.match(uiTests, /testAuthLaunchFixtureOpensSpanishRecoveryFromNormalLogin/);
+  assert.match(uiTests, /fixtureApp\("auth-launch", authDestination: "login", spanishLocale: true\)/);
+  assert.match(uiTests, /waitForLabelOrValue\(containing: "Olvidé mi contraseña", timeout: 5\)/);
+  assert.match(uiTests, /forgotPassword\.tap\(\)[\s\S]*identifier: "auth\.recovery\.root"/);
+  assert.match(uiTests, /waitForLabelOrValue\(containing: "Volver", timeout: 5\)/);
+  assert.match(uiTests, /back\.tap\(\)[\s\S]*identifier: "auth\.submit"/);
+});
+
 test("real iOS recovery fixture is opt-in, uses the production repository and keeps screenshots", () => {
   assert.match(iosAuthHost, /createIosAuthHostDependenciesForDestination/);
   assert.match(iosAuthHost, /"recovery" -> AuthProductDestination\.Recovery/);
