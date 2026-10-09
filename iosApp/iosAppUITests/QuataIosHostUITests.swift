@@ -132,6 +132,71 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates() {
+        let app = fixtureApp("auth-failure-retry", authDestination: "register", spanishLocale: true)
+        app.launch()
+
+        typePrivateText("Synthetic User", into: "auth.register.display-name", in: app)
+        typePrivateText("Synthetic District", into: "auth.register.neighborhood", in: app)
+        tapAfterDismissingKeyboard("auth.register.country-prefix", in: app)
+        enterText("240", into: "auth.register.country-prefix.search", in: app)
+        dismissKeyboardWithReturn(from: "auth.register.country-prefix.search", in: app)
+        tapVisibleElement("auth.register.country-prefix.option.240", in: app)
+        typePrivatePhone("799000000000", into: "auth.register.phone.input", in: app)
+        typePrivateText("Synthetic-password-7!", into: "auth.register.password", in: app)
+        tapAfterDismissingKeyboard("auth.register.secret-question", in: app)
+        tapAfterDismissingKeyboard("auth.register.secret-question.option.madre", in: app)
+        typePrivateText("Synthetic answer", into: "auth.register.secret-answer", in: app)
+        tapAfterDismissingKeyboard("auth.register.submit", in: app)
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-register-attempt-1")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The first native Register submit must reach the deterministic transport once.",
+        )
+        let error = app.descendants(matching: .any)
+            .matching(identifier: "auth.register.error")
+            .firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 10))
+        XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-registration-rejected", timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.register.display-name")
+                .firstMatch.waitForLabelOrValue(containing: "Synthetic User", timeout: 5)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.register.neighborhood")
+                .firstMatch.waitForLabelOrValue(containing: "Synthetic District", timeout: 5)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.register.phone.input")
+                .firstMatch.waitForLabelOrValue(containing: "799000000000", timeout: 5)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.register.secret-answer")
+                .firstMatch.waitForLabelOrValue(containing: "Synthetic answer", timeout: 5)
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-register-failure-preserved")
+
+        tapAfterDismissingKeyboard("auth.register.submit", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-register-attempt-2")
+                .firstMatch.waitForExistence(timeout: 10),
+            "One explicit native retry must issue the second transport attempt.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-register-success")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The retry succeeds only when all seven Register fields match the first request.",
+        )
+    }
+
     func testAuthLaunchFixtureCanColdStartSharedRecoverySurface() {
         let app = fixtureApp("auth-launch", authDestination: "recovery")
         app.launch()
