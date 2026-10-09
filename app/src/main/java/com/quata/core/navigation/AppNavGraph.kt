@@ -135,6 +135,7 @@ import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.AndroidPreferenceStore
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.core.session.AuthState
@@ -191,6 +192,7 @@ import com.quata.feature.official.presentation.OfficialFeedScreen
 import com.quata.feature.official.presentation.OfficialPostEditorRoute
 import com.quata.feature.postcomposer.presentation.CreatePostScreen
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.UserProfile
 import com.quata.feature.profile.presentation.EmergencyContactsDialog
@@ -240,6 +242,12 @@ fun AppNavGraph(
     val currentUserId = (authState as? AuthState.LoggedIn)?.userId
     val isAuthenticated = currentUserId != null
     val appContext = LocalContext.current
+    val postComposerDraftStore = remember(appContext) {
+        PostComposerDraftStore(AndroidPreferenceStore(appContext, commitWrites = true))
+    }
+    LaunchedEffect(currentUserId, postComposerDraftStore) {
+        postComposerDraftStore.activateActor(currentUserId)
+    }
     val documentRetryEvidenceRepository = remember(appContext) {
         androidDocumentRetryEvidenceRepositoryOrNull(appContext)
     }
@@ -529,7 +537,6 @@ fun AppNavGraph(
         if (route.requiresQuataAppDestinationAuthentication() && !isAuthenticated) {
             requestAuthentication(route = route)
         } else if (route == AppDestinations.CreatePost.route) {
-            createPostResetToken += 1
             navController.navigate(AppDestinations.CreatePost.route) {
                 popUpTo(AppDestinations.Feed.route) { saveState = false }
                 launchSingleTop = false
@@ -555,7 +562,6 @@ fun AppNavGraph(
                 navigateToFeed()
             }
             AppDestinations.CreatePost.route -> {
-                createPostResetToken += 1
                 navController.navigate(AppDestinations.CreatePost.route) {
                     popUpTo(AppDestinations.Feed.route) { saveState = false }
                     launchSingleTop = false
@@ -1068,6 +1074,8 @@ fun AppNavGraph(
                         evidencePickerSource = postComposerPickerEvidenceSource,
                         evidencePickerOutcome = postComposerPickerEvidenceOutcome,
                         evidencePickerPath = postComposerPickerEvidencePath,
+                        durableDraftStore = postComposerDraftStore,
+                        draftActorProfileId = container.sessionManager.currentSession()?.userId,
                         onBack = {
                             postComposerAuthenticationCoordinator.clear()
                             navController.navigate(AppDestinations.Feed.route) {

@@ -67,8 +67,10 @@ scripts/build-ios-intel-simulator-signed.sh
   report.attempts.push(await runAttempt());
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.error ?? "unknown"}`);
-  report.steps.push("ios_create_post_opened_from_feed_and_common_types_verified");
-  report.steps.push("ios_create_post_returned_without_publish_and_session_preserved_after_relaunch");
+  report.steps.push("ios_exclusive_text_draft_entered_without_publish");
+  report.steps.push("ios_exact_text_draft_restored_after_app_relaunch");
+  report.steps.push("ios_restored_draft_explicitly_discarded_and_returned_to_feed");
+  report.steps.push("ios_discarded_draft_absent_after_second_app_relaunch");
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -76,6 +78,12 @@ scripts/build-ios-intel-simulator-signed.sh
 } finally {
   await copyRemoteEvidence(options).catch((error) => {
     report.evidence.copyWarning = safeFailure(error);
+    report.status = "failed";
+  });
+  await cleanupRemoteSimulatorState(options).then(() => {
+    report.cleanup.simulatorAppContainerRemoved = true;
+  }).catch((error) => {
+    report.cleanup.simulatorAppContainerCleanupError = safeFailure(error);
     report.status = "failed";
   });
   if (remoteRuntimeBackup) {
@@ -258,6 +266,30 @@ if [ -d "$generated_project" ]; then
     rm -rf "$generated_project"
   fi
 fi
+`);
+}
+
+async function cleanupRemoteSimulatorState({ host, simulatorUdid }) {
+  await runSshScript(host, `
+set -euo pipefail
+udid=${shellQuote(simulatorUdid)}
+bundle_id=com.quata.ios
+xcrun simctl bootstatus "$udid" -b >/dev/null
+simulator_home="$(xcrun simctl getenv "$udid" HOME)"
+test -n "$simulator_home"
+if xcrun simctl get_app_container "$udid" "$bundle_id" data >/dev/null 2>&1; then
+  xcrun simctl terminate "$udid" "$bundle_id" >/dev/null 2>&1 || true
+  xcrun simctl uninstall "$udid" "$bundle_id"
+fi
+set +e
+absence="$(xcrun simctl get_app_container "$udid" "$bundle_id" data 2>&1)"
+absence_status=$?
+set -e
+test "$absence_status" -ne 0
+case "$absence" in
+  *"No such file or directory"*|*"No such app"*|*"not installed"*) ;;
+  *) echo "Unexpected get_app_container failure after cleanup: $absence" >&2; exit 1 ;;
+esac
 `);
 }
 

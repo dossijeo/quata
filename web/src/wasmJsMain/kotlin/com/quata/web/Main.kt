@@ -75,6 +75,7 @@ import com.quata.feature.profile.domain.SosActorProvider
 import com.quata.feature.profile.domain.SosDispatchCoordinator
 import com.quata.feature.profile.domain.SosDispatchOutcome
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
 import com.quata.feature.whatsnew.presentation.startupRouteKind
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
@@ -311,6 +312,12 @@ private fun QuataWebApp(
     val pendingAuthenticationContinuation by authenticationContinuationCoordinator.pending.collectAsState()
     val postComposerAuthenticationCoordinator = remember { PostComposerAuthenticationContinuationCoordinator() }
     val pendingPostComposerAuthentication by postComposerAuthenticationCoordinator.pending.collectAsState()
+    val postComposerDraftStore = remember(platformServices.preferences) {
+        PostComposerDraftStore(platformServices.preferences)
+    }
+    LaunchedEffect(currentUserId, isSessionResolved, postComposerDraftStore) {
+        if (isSessionResolved) postComposerDraftStore.activateActor(currentUserId)
+    }
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
     var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
@@ -937,6 +944,8 @@ private fun QuataWebApp(
                             platformServices = platformServices,
                             runtimeConfiguration = runtimeConfiguration,
                             authRepository = authRepository,
+                            durableDraftStore = postComposerDraftStore,
+                            draftActorProfileId = currentUserId,
                             onBack = { navigation.navigate("") },
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             authenticationContinuationCoordinator = postComposerAuthenticationCoordinator,

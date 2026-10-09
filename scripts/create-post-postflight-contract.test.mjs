@@ -31,7 +31,7 @@ test("Android, Web and iOS keep the authenticated Create Post route wired to the
   assert.match(ios, /installAuthenticatedComposerIfAvailable\(\)/);
 });
 
-test("Android postflight opens from Feed and returns without publishing", async () => {
+test("Android postflight restores an exact draft after a real process restart without publishing", async () => {
   const [uiTest, coordinator] = await Promise.all([
     source("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/CreatePostPostflightInstrumentedTest.kt"),
     source("scripts/create-post-postflight-android-evidence.mjs"),
@@ -42,21 +42,40 @@ test("Android postflight opens from Feed and returns without publishing", async 
   assert.match(uiTest, /tap\("navigation\.primary\.feed"\)/);
   assert.match(uiTest, /"publishCallbacksInvoked", false/);
   assert.doesNotMatch(uiTest, /composer-publish|ComposerPublishButtonTestTag|onPostCreated/);
-  assert.match(coordinator, /CreatePostPostflightInstrumentedTest#authenticatedCreatePostRootOpensAndReturnsWithoutPublishing/);
+  assert.match(uiTest, /seedAuthenticatedTextDraftForProcessRestart/);
+  assert.match(uiTest, /restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
+  assert.match(uiTest, /waitForExactText\(ComposerTextInputTestTag, marker\.orEmpty\(\)\)/);
+  assert.match(uiTest, /SemanticsProperties\.EditableText\)\?\.text == expected/);
+  assert.match(coordinator, /CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart/);
+  assert.match(uiTest, /waitForPersistedTextDraft\(initialSession\?\.userId\.orEmpty\(\), marker\.orEmpty\(\)\)/);
+  assert.match(uiTest, /store\.restore\(actorProfileId\)[\s\S]*restored\?\.step == CreatePostStep\.Text[\s\S]*restored\.text == expected/);
+  assert.match(coordinator, /am", "force-stop", "com\.quata/);
+  assert.match(coordinator, /CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard/);
+  assert.match(uiTest, /restore\(initialSession\?\.userId\.orEmpty\(\)\)[\s\S]*android_create_post_draft_step_missing_after_restart[\s\S]*android_create_post_draft_payload_missing_after_restart/);
+  assert.match(uiTest, /onNodeWithTag\("composer-back"[\s\S]*performScrollTo\(\)[\s\S]*performClick\(\)[\s\S]*waitForGone\(CreatePostCommonRootTestTag\)[\s\S]*waitForPrefix\("feed\.action\.publish\."\)/);
+  assert.match(uiTest, /waitForPersistedDraftCleared\(initialSession\?\.userId\.orEmpty\(\)\)/);
+  assert.match(coordinator, /pm", "clear", "com\.quata/);
+  assert.match(coordinator, /report\.cleanup\.appDataCleared = true/);
   assert.match(coordinator, /publishCallbacksInvoked !== false/);
 });
 
-test("Web postflight uses the real Feed entry and observes zero publish requests", async () => {
+test("Web postflight restores an exact draft after document reload and observes zero publish requests", async () => {
   const runner = await source("scripts/create-post-postflight-web-evidence.mjs");
   assert.match(runner, /\[id\^='feed\.action\.publish\.'\]/);
   assert.match(runner, /data-quata-shell-route"\) === "composer"/);
-  assert.ok(runner.includes('#navigation\\\\.primary\\\\.feed'));
+  assert.match(runner, /clickSemanticElement\(page, "composer-back"\)/);
+  assert.match(runner, /data-quata-shell-route"\) === "feed"/);
+  assert.match(runner, /restored_draft_explicitly_discarded/);
+  assert.match(runner, /restored_draft_persistent_record_absent_after_reload/);
+  assert.match(runner, /web_create_post_discarded_draft_restored_again/);
   assert.match(runner, /publishRequests\.length/);
   assert.match(runner, /storedActor !== session\.userId/);
+  assert.match(runner, /page\.reload/);
+  assert.match(runner, /expectSemanticInputValue\(page, "composer-text-input", draftMarker\)/);
   assert.doesNotMatch(runner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION|composer-publish/);
 });
 
-test("iOS postflight runs one authenticated non-publishing XCTest", async () => {
+test("iOS postflight restores an exact draft after app relaunch without publishing", async () => {
   const [uiTest, shell, coordinator] = await Promise.all([
     source("iosApp/iosAppUITests/QuataIosAuthenticatedCreatePostPostflightUITests.swift"),
     source("scripts/run-ios-create-post-postflight-ui-test.sh"),
@@ -67,11 +86,27 @@ test("iOS postflight runs one authenticated non-publishing XCTest", async () => 
   assert.match(uiTest, /create-post-common-root/);
   assert.match(uiTest, /dismissStartupWhatsNewIfPresent/);
   assert.match(uiTest, /quata-ios-profile-sos-host/);
+  assert.match(uiTest, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
+  assert.match(uiTest, /assertTextInput\(restoredInput, equals: marker/);
+  assert.match(uiTest, /tapScrollableIdentifier\([\s\S]*"composer-back"[\s\S]*inside: "create-post-common-root"[\s\S]*quata-ios-feed-host[\s\S]*waitForNonExistence/);
+  assert.match(uiTest, /A discarded draft must not reappear after another app relaunch/);
+  assert.match(coordinator, /ios_discarded_draft_absent_after_second_app_relaunch/);
+  assert.match(uiTest, /while !element\.isHittable && remainingScrolls > 0[\s\S]*container\.swipeUp\(\)[\s\S]*XCTAssertTrue\(element\.isHittable/);
   assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
   assert.match(shell, /-only-testing:"\$selected"/);
-  assert.match(shell, /testAuthenticatedCreatePostRootOpensAndReturnsWithoutPublishing/);
+  assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
+  assert.match(shell, /testClearAuthenticatedSessionAfterVisualGates/);
+  assert.match(shell, /trap cleanup_on_exit EXIT/);
+  assert.match(shell, /-only-testing:"\$selected" \|\| return 1/);
+  assert.match(shell, /--require-terminal-success-marker \|\| return 1/);
   assert.match(coordinator, /bash scripts\/run-ios-create-post-postflight-ui-test\.sh/);
   assert.match(coordinator, /publishCallbacksInvoked: false/);
+  assert.match(coordinator, /cleanupRemoteSimulatorState\(options\)/);
+  assert.match(coordinator, /simulatorAppContainerRemoved = true/);
+  assert.match(coordinator, /simctl uninstall/);
+  assert.match(coordinator, /simctl bootstatus/);
+  assert.match(coordinator, /simctl getenv/);
+  assert.match(coordinator, /No such file or directory/);
 });
 
 test("Create Post postflight gates are registered in focal and fast entry points", async () => {

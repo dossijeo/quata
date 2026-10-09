@@ -25,6 +25,7 @@ class CreatePostViewModel(
     private val _uiState = MutableStateFlow(CreatePostUiState())
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
     private var submitJob: Job? = null
+    private var draftMutationRevision: Long = 0
 
     init {
         loadDestinations()
@@ -32,25 +33,31 @@ class CreatePostViewModel(
 
     fun onEvent(event: CreatePostUiEvent) {
         when (event) {
-            is CreatePostUiEvent.TextChanged -> _uiState.value = _uiState.value.copy(
-                text = event.value.take(CreatePostTextLimit),
-                error = null,
-                lastFailedSubmitType = null,
-                successMessage = null
-            )
-            is CreatePostUiEvent.TextPatternSelected -> _uiState.value = _uiState.value.copy(
-                textPatternId = event.patternId,
-                error = null,
-                lastFailedSubmitType = null,
-                successMessage = null
-            )
-            is CreatePostUiEvent.DestinationSelected -> _uiState.value = _uiState.value.copy(
-                selectedDestinationWallId = event.wallId.takeIf(String::isNotBlank),
-                error = null,
-                lastFailedSubmitType = null,
-                successMessage = null
-            )
-            is CreatePostUiEvent.ImageSelected -> {
+            is CreatePostUiEvent.TextChanged -> mutateDraft {
+                _uiState.value = _uiState.value.copy(
+                    text = event.value.take(CreatePostTextLimit),
+                    error = null,
+                    lastFailedSubmitType = null,
+                    successMessage = null,
+                )
+            }
+            is CreatePostUiEvent.TextPatternSelected -> mutateDraft {
+                _uiState.value = _uiState.value.copy(
+                    textPatternId = event.patternId,
+                    error = null,
+                    lastFailedSubmitType = null,
+                    successMessage = null,
+                )
+            }
+            is CreatePostUiEvent.DestinationSelected -> mutateDraft {
+                _uiState.value = _uiState.value.copy(
+                    selectedDestinationWallId = event.wallId.takeIf(String::isNotBlank),
+                    error = null,
+                    lastFailedSubmitType = null,
+                    successMessage = null,
+                )
+            }
+            is CreatePostUiEvent.ImageSelected -> mutateDraft {
                 val current = _uiState.value
                 val keepLocation = event.preserveLocation && !event.uri.isNullOrBlank()
                 _uiState.value = current.copy(
@@ -65,34 +72,40 @@ class CreatePostViewModel(
                     successMessage = null,
                 )
             }
-            is CreatePostUiEvent.VideoSelected -> _uiState.value = _uiState.value.copy(
-                videoUri = event.uri,
-                error = null,
-                mediaError = null,
-                lastFailedSubmitType = null,
-                successMessage = null
-            )
+            is CreatePostUiEvent.VideoSelected -> mutateDraft {
+                _uiState.value = _uiState.value.copy(
+                    videoUri = event.uri,
+                    error = null,
+                    mediaError = null,
+                    lastFailedSubmitType = null,
+                    successMessage = null,
+                )
+            }
             is CreatePostUiEvent.MediaSelectionFailed -> _uiState.value = _uiState.value.copy(
                 mediaError = event.message.takeIf { it.isNotBlank() },
                 error = null,
                 lastFailedSubmitType = null,
                 successMessage = null,
             )
-            is CreatePostUiEvent.LocationResolved -> applyResolvedLocation(event)
-            is CreatePostUiEvent.LocationLabelChanged -> _uiState.value = _uiState.value.copy(
-                locationLabel = event.value.takeIf { it.isNotBlank() },
-                locationOrigin = CreatePostLocationOrigin.Manual,
-                error = null,
-                lastFailedSubmitType = null,
-                successMessage = null,
-            )
+            is CreatePostUiEvent.LocationResolved -> if (applyResolvedLocation(event)) markDraftMutation()
+            is CreatePostUiEvent.LocationLabelChanged -> mutateDraft {
+                _uiState.value = _uiState.value.copy(
+                    locationLabel = event.value.takeIf { it.isNotBlank() },
+                    locationOrigin = CreatePostLocationOrigin.Manual,
+                    error = null,
+                    lastFailedSubmitType = null,
+                    successMessage = null,
+                )
+            }
             CreatePostUiEvent.ReloadDestinations -> loadDestinations()
-            CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState(
-                destinations = _uiState.value.destinations,
-                selectedDestinationWallId = _uiState.value.selectedDestinationWallId,
-                destinationsLoading = _uiState.value.destinationsLoading,
-                destinationsError = _uiState.value.destinationsError,
-            )
+            CreatePostUiEvent.ClearDraft -> mutateDraft {
+                _uiState.value = CreatePostUiState(
+                    destinations = _uiState.value.destinations,
+                    selectedDestinationWallId = _uiState.value.selectedDestinationWallId,
+                    destinationsLoading = _uiState.value.destinationsLoading,
+                    destinationsError = _uiState.value.destinationsError,
+                )
+            }
             CreatePostUiEvent.ClearMediaError -> _uiState.value = _uiState.value.copy(mediaError = null)
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
             CreatePostUiEvent.RetrySubmit -> _uiState.value.lastFailedSubmitType?.let(::submit)
@@ -108,13 +121,13 @@ class CreatePostViewModel(
         }
     }
 
-    private fun applyResolvedLocation(event: CreatePostUiEvent.LocationResolved) {
+    private fun applyResolvedLocation(event: CreatePostUiEvent.LocationResolved): Boolean {
         val current = _uiState.value
         if (event.imageUri != null) {
-            if (current.imageUri != event.imageUri) return
+            if (current.imageUri != event.imageUri) return false
             when (event.origin) {
-                CreatePostLocationOrigin.Device -> if (current.locationOrigin != null) return
-                CreatePostLocationOrigin.ImageMetadata -> if (current.locationOrigin == CreatePostLocationOrigin.Manual) return
+                CreatePostLocationOrigin.Device -> if (current.locationOrigin != null) return false
+                CreatePostLocationOrigin.ImageMetadata -> if (current.locationOrigin == CreatePostLocationOrigin.Manual) return false
                 CreatePostLocationOrigin.Manual -> Unit
             }
         }
@@ -127,6 +140,18 @@ class CreatePostViewModel(
             lastFailedSubmitType = null,
             successMessage = null,
         )
+        return true
+    }
+
+    fun draftMutationRevision(): Long = draftMutationRevision
+
+    private fun markDraftMutation() {
+        draftMutationRevision += 1
+    }
+
+    private inline fun mutateDraft(mutation: () -> Unit) {
+        mutation()
+        markDraftMutation()
     }
 
     fun loadDestinations() {
@@ -194,6 +219,7 @@ class CreatePostViewModel(
             createdPostId = null,
             authenticationRequiredSubmitType = null,
         )
+        markDraftMutation()
     }
 
     fun submit(type: PostComposerType) {

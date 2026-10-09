@@ -477,6 +477,9 @@ private final class IosAppCompositionRoot {
     private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
     private let authenticationContinuationCoordinator = AuthenticationContinuationCoordinator()
     private let postComposerAuthenticationCoordinator = PostComposerAuthenticationContinuationCoordinator()
+    private lazy var postComposerDraftStore = PostComposerDraftStore(
+        preferences: platformServices.services.preferences
+    )
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
     private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
         IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap(
@@ -2016,6 +2019,12 @@ private final class IosAppCompositionRoot {
                         self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         self.authenticatedHost.presentAuthRequiredPrompt()
                     },
+                    durableDraftStore: self?.postComposerDraftStore ?? PostComposerDraftStore(
+                        preferences: services.preferences
+                    ),
+                    actorProfileId: { [weak self] in
+                        self?.runtimeBootstrap?.authSessionForInteractiveLogin().restoredSession()?.userId
+                    },
                 ),
             )
         }
@@ -2286,6 +2295,9 @@ private final class IosAppCompositionRoot {
                 self?.setValidatedAuthenticatedSession(false)
                 self?.authenticationContinuationCoordinator.clearAll()
                 self?.postComposerAuthenticationCoordinator.clear()
+                if let draftStore = self?.postComposerDraftStore {
+                    IosComposerHostKt.retireIosPostComposerDraft(store: draftStore)
+                }
                 self?.memberProfileRouteStore.clear()
                 self?.notificationReplyRuntime?.sessionEnded()
                 self?.notificationRecipientGate.sessionEnded()

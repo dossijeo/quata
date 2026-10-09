@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const CHECK = "CREATE-POST-POSTFLIGHT-ANDROID-001";
@@ -20,6 +20,7 @@ const report = {
   attempts: [],
   evidence: {},
   steps: [],
+  cleanup: { appDataCleared: false, localCredentialsRemoved: false },
 };
 
 const adb = process.env.ADB?.trim() || "adb";
@@ -45,6 +46,8 @@ try {
 
   await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  await run(adb, ["shell", "pm", "clear", "com.quata"]);
+  report.steps.push("android_app_data_cleared_before_evidence");
   await run(adb, ["shell", "cmd", "package", "compile", "-m", "speed", "-f", "com.quata"]);
   report.steps.push("android_target_apk_precompiled_for_instrumentation");
   await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", appFilesDir]);
@@ -54,23 +57,34 @@ try {
   );
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
-  const instrumentationOutput = await runCapture(adb, [
+  const draftMarker = `QUATA-DRAFT-ANDROID-${randomUUID()}`;
+  const seedOutput = await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#authenticatedCreatePostRootOpensAndReturnsWithoutPublishing",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#seedAuthenticatedTextDraftForProcessRestart",
     "-e", "quataCreatePostPostflightCredentialsFile", deviceCredentialsPath,
     "-e", "quataCreatePostPostflightEvidence", "1",
+    "-e", "quataCreatePostDraftMarker", draftMarker,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
-  const attempt = { source: "create-post-postflight", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
-  if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
-    report.attempts.push({ ...attempt, status: "failed" });
-    throw new Error("android_instrumentation_not_ok");
-  }
-  if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
-    report.attempts.push({ ...attempt, status: "failed" });
-    throw new Error("android_instrumentation_semantic_failure");
-  }
-  report.attempts.push({ ...attempt, status: "passed" });
+  const seedAttempt = { source: "draft-seed", outcome: "completed", status: "failed", instrumentationTail: redactedTail(seedOutput) };
+  report.attempts.push(seedAttempt);
+  requireInstrumentationSuccess(seedOutput, "draft-seed");
+  seedAttempt.status = "passed";
+  await run(adb, ["shell", "am", "force-stop", "com.quata"]);
+  report.steps.push("target_process_force_stopped");
+
+  const instrumentationOutput = await runCapture(adb, [
+    "shell", "am", "instrument", "-w", "-r",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.CreatePostPostflightInstrumentedTest#restoreAuthenticatedTextDraftAfterProcessRestartAndDiscard",
+    "-e", "quataCreatePostPostflightCredentialsFile", deviceCredentialsPath,
+    "-e", "quataCreatePostPostflightEvidence", "1",
+    "-e", "quataCreatePostDraftMarker", draftMarker,
+    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+  ]);
+  const attempt = { source: "draft-restore", outcome: "completed", status: "failed", instrumentationTail: redactedTail(instrumentationOutput) };
+  report.attempts.push(attempt);
+  requireInstrumentationSuccess(instrumentationOutput, "draft-restore");
+  attempt.status = "passed";
 
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
@@ -84,13 +98,39 @@ try {
   report.errorDetail = typeof error?.message === "string" ? redactedTail(error.message) : String(error);
   await copyDeviceEvidence(resolve(options.evidenceDir)).catch(() => {});
 } finally {
-  await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `${appFilesDir}/${deviceCredentialsFileName}`]).catch(() => {});
-  await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
-  await rm(localCredentials ?? "", { force: true }).catch(() => {});
+  try {
+    await run(adb, ["shell", "pm", "clear", "com.quata"]);
+    await run(adb, ["shell", "run-as", "com.quata", "test", "!", "-e", `${appFilesDir}/${deviceCredentialsFileName}`]);
+    await run(adb, ["shell", "run-as", "com.quata", "test", "!", "-e", deviceEvidencePath]);
+    report.cleanup.appDataCleared = true;
+  } catch (error) {
+    report.cleanup.appDataCleanupError = safeFailure(error);
+    report.status = "failed";
+  }
+  try {
+    if (localCredentials) {
+      await rm(localCredentials, { force: true });
+      await assertMissing(localCredentials);
+    }
+    report.cleanup.localCredentialsRemoved = true;
+  } catch (error) {
+    report.cleanup.localCredentialsCleanupError = safeFailure(error);
+    report.status = "failed";
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Create Post postflight Android evidence written: ${options.output}`);
+}
+
+async function assertMissing(path) {
+  try {
+    await stat(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error(`cleanup_path_still_exists:${path}`);
 }
 
 if (report.status !== "passed") {
@@ -143,6 +183,11 @@ async function verifyAndroidCreatePostPostflight(evidenceDir) {
     "authenticated_feed_entry_visible",
     "create_post_opened_from_feed_publish_action",
     "common_create_post_types_visible",
+    "exclusive_text_draft_entered_without_publish",
+    "target_process_force_stopped",
+    "exact_text_draft_restored_after_process_restart",
+    "restored_draft_explicitly_discarded",
+    "restored_draft_persistent_record_cleared_after_discard",
     "create_post_returned_to_feed_without_publish",
     "authenticated_session_preserved_after_relaunch",
   ];
@@ -154,6 +199,13 @@ async function verifyAndroidCreatePostPostflight(evidenceDir) {
   }
   report.steps.push(...expectedSteps);
   report.evidence.platformReport = platformReportPath;
+}
+
+function requireInstrumentationSuccess(output, source) {
+  if (!/OK \(\d+ tests?\)/.test(output)) throw new Error(`android_instrumentation_not_ok:${source}`);
+  if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(output)) {
+    throw new Error(`android_instrumentation_semantic_failure:${source}`);
+  }
 }
 
 async function adbRunAsCat(devicePath, localPath) {

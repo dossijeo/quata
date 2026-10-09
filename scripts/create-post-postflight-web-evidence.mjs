@@ -31,7 +31,7 @@ try {
     headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
   });
-  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 1_280, height: 930 }, deviceScaleFactor: 1 });
   await context.addInitScript((state) => {
     localStorage.setItem("quata_web_access_token", state.accessToken);
     localStorage.setItem("quata_web_refresh_token", state.refreshToken);
@@ -87,14 +87,49 @@ try {
   report.steps.push("common_create_post_types_visible");
   report.evidence.opened = await screenshot(page, "web-create-post-postflight-opened");
 
-  await page.locator("#navigation\\.primary\\.feed").first().click({ force: true, timeout: 10_000 });
+  const draftMarker = `QUATA-DRAFT-WEB-${randomUUID()}`;
+  await page.locator("#composer-type-text").first().click({ force: true, timeout: 10_000 });
+  await fillSemanticInput(page, "composer-text-input", draftMarker);
+  await expectSemanticInputValue(page, "composer-text-input", draftMarker);
+  report.steps.push("exclusive_text_draft_entered_without_publish");
+  report.evidence.beforeReload = await screenshot(page, "web-create-post-draft-before-reload");
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-shell-route") === "composer" &&
+    localStorage.getItem("web.auth.session_ready") === "true",
+  null, { timeout: 45_000 });
+  await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 30_000 });
+  await expectSemanticInputValue(page, "composer-text-input", draftMarker);
+  report.steps.push("exact_text_draft_restored_after_document_reload");
+  report.evidence.afterReload = await screenshot(page, "web-create-post-draft-after-reload");
+
+  await clickSemanticElement(page, "composer-back");
   await page.waitForFunction(() =>
     document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
     !document.querySelector("#create-post-common-root"),
   null, { timeout: 30_000 });
+  report.steps.push("restored_draft_explicitly_discarded");
   await page.locator("[id^='feed.action.publish.']").first().waitFor({ state: "attached", timeout: 30_000 });
   report.steps.push("create_post_returned_to_feed_without_publish");
   report.evidence.returned = await screenshot(page, "web-create-post-postflight-returned");
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-shell-route") === "feed" &&
+    localStorage.getItem("web.auth.session_ready") === "true",
+  null, { timeout: 45_000 });
+  const reopenedPublishAction = page.locator("[id^='feed.action.publish.']").first();
+  await reopenedPublishAction.waitFor({ state: "attached", timeout: 30_000 });
+  await reopenedPublishAction.click({ force: true, timeout: 10_000 });
+  await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 30_000 });
+  await page.locator("#composer-type-text").first().waitFor({ state: "attached", timeout: 15_000 });
+  if (await page.locator("#composer-text-input").count()) {
+    throw new Error("web_create_post_discarded_draft_restored_again");
+  }
+  report.steps.push("restored_draft_persistent_record_absent_after_reload");
 
   const storedActor = await page.evaluate(() => localStorage.getItem("quata_web_user_id"));
   if (storedActor !== session.userId) throw new Error("web_create_post_postflight_actor_changed");
@@ -154,6 +189,93 @@ async function passUgcTermsGate(page) {
     });
   }
   await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-ugc-terms-state") === "accepted", null, { timeout: 20_000 });
+}
+
+async function fillSemanticInput(page, id, value) {
+  const locator = page.locator(`#${cssEscape(id)}`).first();
+  await locator.waitFor({ state: "attached", timeout: 20_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => {});
+  await locator.click({ force: true, timeout: 5_000 });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+  await page.keyboard.insertText(value);
+}
+
+async function clickSemanticElement(page, id) {
+  const locator = page.locator(`#${cssEscape(id)}`).first();
+  await locator.waitFor({ state: "attached", timeout: 20_000 });
+  await locator.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" }));
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 350));
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const [box, viewport] = await Promise.all([locator.boundingBox(), Promise.resolve(page.viewportSize())]);
+    if (box && viewport && box.y >= 0 && box.y + box.height <= viewport.height) {
+      await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
+        await locator.evaluate((node) => node.click());
+      });
+      return;
+    }
+    if (attempt === 0 && box && viewport && box.y >= viewport.height) {
+      const requiredHeight = Math.min(4_000, Math.ceil(box.y + box.height + 80));
+      if (requiredHeight > viewport.height) {
+        await page.setViewportSize({ width: viewport.width, height: requiredHeight });
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 350));
+        continue;
+      }
+    }
+    const deltaY = box && box.y < 0 ? -Math.max(250, Math.abs(box.y) + 100) : 900;
+    if (viewport) await page.mouse.move(viewport.width / 2, viewport.height / 2);
+    await page.mouse.wheel(0, deltaY);
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+  }
+  const diagnostic = await locator.evaluate((node) => {
+    const ancestors = [];
+    for (let current = node; current && ancestors.length < 8; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      ancestors.push({
+        tag: current.tagName,
+        id: current.id,
+        clientHeight: current.clientHeight,
+        scrollHeight: current.scrollHeight,
+        scrollTop: current.scrollTop,
+        overflowY: style.overflowY,
+        pointerEvents: style.pointerEvents,
+      });
+    }
+    return { ancestors, rect: node.getBoundingClientRect().toJSON() };
+  });
+  throw new Error(`semantic_element_outside_viewport:${id}:${JSON.stringify(diagnostic)}`);
+}
+
+async function expectSemanticInputValue(page, id, expected) {
+  const locator = page.locator(`#${cssEscape(id)}`).first();
+  await locator.waitFor({ state: "attached", timeout: 20_000 });
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const actuals = await locator.evaluate((node) => {
+    const candidates = [node, ...node.querySelectorAll("input, textarea, [contenteditable='true']")];
+    return candidates.flatMap((candidate) => {
+      const directText = [...candidate.childNodes]
+        .filter((child) => child.nodeType === 3)
+        .map((child) => child.textContent ?? "")
+        .join("");
+      return [
+        "value" in candidate ? candidate.value : null,
+        candidate.getAttribute("value"),
+        candidate.getAttribute("aria-valuetext"),
+        directText.trim(),
+      ];
+    });
+    }).catch(() => []);
+    if (actuals.some((actual) => actual === expected)) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  const diagnostic = await locator.evaluate((node) => ({
+      directText: [...node.childNodes].filter((child) => child.nodeType === 3).map((child) => child.textContent ?? "").join(""),
+      outerHtml: node.outerHTML.slice(0, 2_000),
+      value: "value" in node ? node.value : null,
+      ariaValueText: node.getAttribute("aria-valuetext"),
+      textContent: node.textContent,
+  })).catch(() => null);
+  throw new Error(`semantic_input_value_mismatch:${JSON.stringify({ expected, diagnostic })}`);
 }
 
 function parseArgs(args) {

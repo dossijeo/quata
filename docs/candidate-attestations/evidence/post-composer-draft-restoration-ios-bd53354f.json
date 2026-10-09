@@ -1,0 +1,45 @@
+{
+  "check": "CREATE-POST-POSTFLIGHT-IOS-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-10-08T16:17:59.113Z",
+  "git": {
+    "head": "bd53354feb6eb3d094a945b6735944e5004a680d",
+    "branch": "codex/post-composer-draft-restoration",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "source": "create-post-postflight",
+      "outcome": "success",
+      "status": "passed",
+      "remoteLogDir": "build/reports/ios/CREATE-POST-POSTFLIGHT-ui"
+    }
+  ],
+  "evidence": {
+    "directory": "build-reports/ios/create-post-postflight-evidence"
+  },
+  "cleanup": {
+    "temporaryCredentialsRemoved": true,
+    "runtimeConfigRestored": true,
+    "publishCallbacksInvoked": false,
+    "simulatorAppContainerRemoved": true
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "mac_checkout_clean",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "ios_exclusive_text_draft_entered_without_publish",
+    "ios_exact_text_draft_restored_after_app_relaunch",
+    "ios_restored_draft_explicitly_discarded_and_returned_to_feed",
+    "ios_discarded_draft_absent_after_second_app_relaunch"
+  ],
+  "mac": {
+    "host": "private-macos-validation-host",
+    "project": "private-macos-checkout",
+    "head": "bd53354feb6eb3d094a945b6735944e5004a680d",
+    "workingTreeDirty": false
+  },
+  "finishedAt": "2026-10-08T16:23:50.692Z"
+}

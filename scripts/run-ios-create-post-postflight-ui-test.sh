@@ -8,6 +8,7 @@ set -euo pipefail
 : "${QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR:=build/reports/ios/CREATE-POST-POSTFLIGHT-ui}"
 : "${QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_TIMEOUT_SECONDS:=300}"
 : "${QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_RESULT_BUNDLE_DIR:=}"
+: "${QUATA_IOS_CREATE_POST_DRAFT_MARKER:=QUATA-DRAFT-IOS-$(date +%s)-$$}"
 
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
@@ -38,9 +39,9 @@ run_bounded() {
 run_bounded bootstatus 120 "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/bootstatus.log" \
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CREATE_POST_DRAFT_MARKER" <<'PY'
 import plistlib, sys
-path, credentials = sys.argv[1:]
+path, credentials, marker = sys.argv[1:]
 with open(path, 'rb') as stream:
     data = plistlib.load(stream)
 matched = set()
@@ -52,6 +53,7 @@ def patch(target, hint=''):
         matched.add('seed')
     if 'QuataIosUITests' in name:
         env['QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_E2E'] = '1'
+        env['QUATA_IOS_CREATE_POST_DRAFT_MARKER'] = marker
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):
@@ -76,14 +78,31 @@ run_and_require() {
   fi
   run_bounded "$method" "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_TIMEOUT_SECONDS" "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
-    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
+    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected" || return 1
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
-    --method "$method" --log "$log" --require-terminal-success-marker
+    --method "$method" --log "$log" --require-terminal-success-marker || return 1
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
-ui='QuataIosUITests/QuataIosAuthenticatedCreatePostPostflightUITests/testAuthenticatedCreatePostRootOpensAndReturnsWithoutPublishing'
+ui='QuataIosUITests/QuataIosAuthenticatedCreatePostPostflightUITests/testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing'
+cleanup='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testClearAuthenticatedSessionAfterVisualGates'
+cleanup_required=1
+cleanup_on_exit() {
+  local original_status=$?
+  trap - EXIT
+  if [[ "$cleanup_required" == "1" ]]; then
+    cleanup_required=0
+    run_and_require "$cleanup" testClearAuthenticatedSessionAfterVisualGates \
+      "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/cleanup.log" || original_status=1
+  fi
+  exit "$original_status"
+}
+trap cleanup_on_exit EXIT
+
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/seed.log"
-run_and_require "$ui" testAuthenticatedCreatePostRootOpensAndReturnsWithoutPublishing "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/ui.log"
+run_and_require "$ui" testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/ui.log"
+run_and_require "$cleanup" testClearAuthenticatedSessionAfterVisualGates "$QUATA_IOS_CREATE_POST_POSTFLIGHT_UI_LOG_DIR/cleanup.log"
+cleanup_required=0
+trap - EXIT
 echo "IOS_CREATE_POST_POSTFLIGHT_UI_GATE_PASSED" >&2

@@ -27,6 +27,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,6 +47,8 @@ import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
 import com.quata.feature.postcomposer.domain.PostComposerType
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 enum class CreatePostStep { TypePicker, Text, Image, Video }
 const val CreatePostCommonRootTestTag = "create-post-common-root"
@@ -106,6 +110,7 @@ data class CreatePostRootCopy(
     val back: String,
     val publicationCreated: String,
     val publicationFailed: String,
+    val draftDiscardFailed: String,
     val mediaSelectionFailed: String,
     val mediaUnsupported: String,
     val mediaPermissionDenied: String,
@@ -135,6 +140,7 @@ val SpanishCreatePostRootCopy = CreatePostRootCopy(
     videoPreviewEmpty = "Selecciona o graba un vídeo para previsualizarlo.", publish = "Publicar",
     publishing = "Publicando…", retry = "Reintentar", back = "Volver al feed",
     publicationCreated = "Publicación creada", publicationFailed = "No se pudo publicar",
+    draftDiscardFailed = "No se pudo descartar el borrador. Inténtalo de nuevo.",
     mediaSelectionFailed = "No se pudo cargar el archivo. Inténtalo de nuevo.",
     mediaUnsupported = "Esta fuente de medios no está disponible en este dispositivo.",
     mediaPermissionDenied = "Permiso denegado. Activa el acceso a cámara, micrófono o galería para continuar.",
@@ -153,6 +159,7 @@ val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     descriptionPlaceholder = "Add a title or description…", videoPreviewEmpty = "Choose or record a video to preview it.",
     publish = "Publish", publishing = "Publishing…", retry = "Retry", back = "Back to feed",
     publicationCreated = "Post created", publicationFailed = "Could not publish", feed = "Feed",
+    draftDiscardFailed = "The draft could not be discarded. Try again.",
     mediaSelectionFailed = "The file could not be loaded. Try again.",
     mediaUnsupported = "This media source is not available on this device.",
     mediaPermissionDenied = "Permission denied. Enable camera, microphone or gallery access to continue.",
@@ -179,6 +186,7 @@ val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     videoPreviewEmpty = "Choisissez ou enregistrez une vidéo pour l'aperçu.", publish = "Publier",
     publishing = "Publication…", retry = "Réessayer", back = "Retour au fil",
     publicationCreated = "Publication créée", publicationFailed = "Impossible de publier", feed = "Fil",
+    draftDiscardFailed = "Impossible de supprimer le brouillon. Réessayez.",
     mediaSelectionFailed = "Impossible de charger le fichier. Réessayez.",
     mediaUnsupported = "Cette source média n'est pas disponible sur cet appareil.",
     mediaPermissionDenied = "Autorisation refusée. Activez l'accès caméra, micro ou galerie pour continuer.",
@@ -231,6 +239,9 @@ fun CreatePostRoot(
     cancelUploadToken: Int = 0,
     copy: CreatePostRootCopy = SpanishCreatePostRootCopy,
     initialStep: CreatePostStep? = null,
+    durableDraftStore: PostComposerDraftStore? = null,
+    draftActorProfileId: String? = null,
+    durableMediaReferenceAvailable: suspend (String) -> Boolean = { false },
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -241,17 +252,174 @@ fun CreatePostRoot(
     var locationOpen by rememberSaveable { mutableStateOf(false) }
     var lastResetToken by rememberSaveable { mutableStateOf(0) }
     var lastCancelUploadToken by rememberSaveable { mutableStateOf(0) }
+    var durableDraftReady by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf(durableDraftStore == null || draftActorProfileId == null)
+    }
+    var durableDraftActorLease by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf<PostComposerDraftActorLease?>(null)
+    }
+    var durablePersistedSnapshot by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf<PostComposerDraftSnapshot?>(null)
+    }
+    var durableActorResolution by remember(durableDraftStore) {
+        mutableStateOf(PostComposerDraftActorResolution())
+    }
+    var pendingDraftClearRequest by remember(durableDraftStore) {
+        mutableStateOf<PostComposerDraftClearRequest?>(null)
+    }
+    val currentDraftActorProfileId by rememberUpdatedState(draftActorProfileId)
+    val currentDraftActorLease by rememberUpdatedState(durableDraftActorLease)
+    val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
 
-    LaunchedEffect(resetToken) {
-        if (resetToken > 0 && resetToken != lastResetToken) {
-            slots.clearOwnedMedia?.invoke()
+    LaunchedEffect(durableDraftStore, draftActorProfileId) {
+        val store = durableDraftStore ?: return@LaunchedEffect
+        pendingDraftClearRequest = null
+        durableDraftReady = false
+        val actor = draftActorProfileId
+        val resetForActorChange = shouldResetDraftForActorTransition(
+            wasResolved = durableActorResolution.wasResolved,
+            previousActorProfileId = durableActorResolution.actorProfileId,
+            nextActorProfileId = actor,
+            hasAuthenticationContinuation = initialStep != null,
+        )
+        if (resetForActorChange) {
             viewModel.onEvent(CreatePostUiEvent.ClearDraft)
             step = CreatePostStep.TypePicker
             textValue = TextFieldValue("")
             emojiOpen = false
             locationOpen = false
-            lastResetToken = resetToken
+        }
+        val baseline = viewModel.snapshot(step)
+        val baselineMutationRevision = viewModel.draftMutationRevision()
+        if (actor == null) {
+            // Authentication can be restored after the first composition. An unresolved actor is
+            // not evidence of logout and must never rotate away an existing actor-bound draft.
+            // Session owners retire the stored actor explicitly when logout is authoritative.
+            durableDraftActorLease = null
+            durablePersistedSnapshot = baseline
+            durableDraftReady = false
+            return@LaunchedEffect
+        }
+        durableActorResolution = durableActorResolution.afterObservation(actor)
+        val lease = store.activateActor(actor)
+        durableDraftActorLease = lease
+        val restoration = if (lease != null && initialStep == null && !resetForActorChange) {
+            store.restore(lease.actorProfileId, durableMediaReferenceAvailable)
+        } else {
+            null
+        }
+        val appliedRestoration = if (
+            restoration != null &&
+            store.isCurrent(restoration) &&
+            viewModel.draftMutationRevision() == baselineMutationRevision
+        ) {
+            val restored = restoration.snapshot
+            viewModel.restore(restored)
+            step = restored.step
+            textValue = TextFieldValue(restored.text)
+            restored
+        } else {
+            null
+        }
+        durablePersistedSnapshot = appliedRestoration ?: baseline
+        durableDraftReady = true
+    }
+    val durableSnapshot = viewModel.snapshot(step)
+    LaunchedEffect(durableDraftStore, durableDraftActorLease, durableDraftReady, durableSnapshot, durablePersistedSnapshot) {
+        val store = durableDraftStore ?: return@LaunchedEffect
+        val lease = durableDraftActorLease ?: return@LaunchedEffect
+        if (shouldPersistPostComposerDraft(durableDraftReady, durableSnapshot, durablePersistedSnapshot)) {
+            if (store.save(lease, durableSnapshot)) durablePersistedSnapshot = durableSnapshot
+        }
+    }
+
+    fun select(next: CreatePostStep) {
+        slots.clearOwnedMedia?.invoke()
+        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+        textValue = TextFieldValue("")
+        emojiOpen = false
+        locationOpen = false
+        step = next
+    }
+
+    suspend fun completeDraftClear(request: PostComposerDraftClearRequest) {
+        durableDraftReady = false
+        val store = durableDraftStore
+        val clearAttempt = if (store == null) {
+            PostComposerDraftClearAttempt.NotRequired
+        } else {
+            attemptPostComposerDraftClear(request.actorProfileId, request.actorLease, store::clear)
+        }
+        if (!isPostComposerDraftClearRequestCurrent(
+                request.actorProfileId,
+                request.actorLease,
+                currentDraftActorProfileId,
+                currentDraftActorLease,
+            )
+        ) {
+            pendingDraftClearRequest = null
+            return
+        }
+        if (clearAttempt is PostComposerDraftClearAttempt.Failed) {
+            pendingDraftClearRequest = request
+            return
+        }
+        val clearedLease = (clearAttempt as? PostComposerDraftClearAttempt.Cleared)?.lease
+        durableDraftActorLease = clearedLease
+        durablePersistedSnapshot = null
+        pendingDraftClearRequest = null
+        when (val action = request.action) {
+            is PostComposerDraftClearAction.Reset -> {
+                slots.clearOwnedMedia?.invoke()
+                viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+                step = CreatePostStep.TypePicker
+                textValue = TextFieldValue("")
+                emojiOpen = false
+                locationOpen = false
+                lastResetToken = action.token
+                durableDraftReady = true
+            }
+            is PostComposerDraftClearAction.PublishSuccess -> {
+                focusManager.clearFocus(force = true)
+                slots.clearOwnedMedia?.invoke()
+                step = CreatePostStep.TypePicker
+                textValue = TextFieldValue("")
+                emojiOpen = false
+                locationOpen = false
+                onPostCreated(action.createdPostId)
+                viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+            }
+            PostComposerDraftClearAction.Discard -> {
+                dispatchCreatePostBack(
+                    state.isLoading,
+                    viewModel::cancelSubmit,
+                    { select(CreatePostStep.TypePicker) },
+                    onBack,
+                )
+            }
+        }
+    }
+
+    fun requestDraftClear(action: PostComposerDraftClearAction) {
+        val request = PostComposerDraftClearRequest(
+            actorProfileId = currentDraftActorProfileId,
+            actorLease = currentDraftActorLease,
+            action = action,
+        )
+        durableDraftReady = false
+        scope.launch { completeDraftClear(request) }
+    }
+
+    LaunchedEffect(resetToken) {
+        if (resetToken > 0 && resetToken != lastResetToken) {
+            completeDraftClear(
+                PostComposerDraftClearRequest(
+                    currentDraftActorProfileId,
+                    currentDraftActorLease,
+                    PostComposerDraftClearAction.Reset(resetToken),
+                ),
+            )
         }
     }
     LaunchedEffect(cancelUploadToken) {
@@ -280,14 +448,13 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
-            focusManager.clearFocus(force = true)
-            slots.clearOwnedMedia?.invoke()
-            step = CreatePostStep.TypePicker
-            textValue = TextFieldValue("")
-            emojiOpen = false
-            locationOpen = false
-            onPostCreated(state.createdPostId)
-            viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+            completeDraftClear(
+                PostComposerDraftClearRequest(
+                    currentDraftActorProfileId,
+                    currentDraftActorLease,
+                    PostComposerDraftClearAction.PublishSuccess(state.createdPostId),
+                ),
+            )
         }
     }
     LaunchedEffect(state.authenticationRequiredSubmitType) {
@@ -300,14 +467,6 @@ fun CreatePostRoot(
         } else {
             onAuthRequired()
         }
-    }
-    fun select(next: CreatePostStep) {
-        slots.clearOwnedMedia?.invoke()
-        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
-        textValue = TextFieldValue("")
-        emojiOpen = false
-        locationOpen = false
-        step = next
     }
     fun publish(type: PostComposerType) {
         if (canPublishNow?.invoke() ?: canPublish) {
@@ -432,13 +591,15 @@ fun CreatePostRoot(
             }
             if (step != CreatePostStep.TypePicker) {
                 ComposerSubmissionFeedbackContent(
-                    errorMessage = state.error,
+                    errorMessage = if (pendingDraftClearRequest != null) copy.draftDiscardFailed else state.error,
                     successMessage = state.successMessage,
                     retryLabel = copy.retry,
-                    onRetry = state.lastFailedSubmitType?.let { type -> { viewModel.submit(type) } },
+                    onRetry = pendingDraftClearRequest?.let { request ->
+                        { scope.launch { completeDraftClear(request) } }
+                    } ?: state.lastFailedSubmitType?.let { type -> { viewModel.submit(type) } },
                 )
                 ComposerBackButtonContent(copy.back, {
-                    dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
+                    requestDraftClear(PostComposerDraftClearAction.Discard)
                 }, accessibility = accessibility)
             }
         },
@@ -446,6 +607,74 @@ fun CreatePostRoot(
         modifier = modifier.fillMaxSize().testTag(CreatePostCommonRootTestTag),
     )
 }
+
+internal fun shouldResetDraftForActorTransition(
+    wasResolved: Boolean,
+    previousActorProfileId: String?,
+    nextActorProfileId: String?,
+    hasAuthenticationContinuation: Boolean,
+): Boolean {
+    if (!wasResolved || previousActorProfileId == nextActorProfileId) return false
+    val completingAuthenticationContinuation =
+        previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation
+    return !completingAuthenticationContinuation
+}
+
+internal data class PostComposerDraftActorResolution(
+    val wasResolved: Boolean = false,
+    val actorProfileId: String? = null,
+) {
+    fun afterObservation(nextActorProfileId: String?): PostComposerDraftActorResolution =
+        if (nextActorProfileId == null) this else PostComposerDraftActorResolution(true, nextActorProfileId)
+}
+
+private sealed interface PostComposerDraftClearAction {
+    data class Reset(val token: Int) : PostComposerDraftClearAction
+    data class PublishSuccess(val createdPostId: String?) : PostComposerDraftClearAction
+    data object Discard : PostComposerDraftClearAction
+}
+
+private data class PostComposerDraftClearRequest(
+    val actorProfileId: String?,
+    val actorLease: PostComposerDraftActorLease?,
+    val action: PostComposerDraftClearAction,
+)
+
+internal sealed interface PostComposerDraftClearAttempt {
+    data object NotRequired : PostComposerDraftClearAttempt
+    data class Cleared(val lease: PostComposerDraftActorLease) : PostComposerDraftClearAttempt
+    data object Failed : PostComposerDraftClearAttempt
+}
+
+internal suspend fun attemptPostComposerDraftClear(
+    actorProfileId: String?,
+    actorLease: PostComposerDraftActorLease?,
+    clear: suspend (PostComposerDraftActorLease) -> PostComposerDraftActorLease?,
+): PostComposerDraftClearAttempt {
+    if (actorProfileId == null) return PostComposerDraftClearAttempt.NotRequired
+    if (actorLease?.actorProfileId != actorProfileId) return PostComposerDraftClearAttempt.Failed
+    return try {
+        clear(actorLease)?.let(PostComposerDraftClearAttempt::Cleared)
+            ?: PostComposerDraftClearAttempt.Failed
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Throwable) {
+        PostComposerDraftClearAttempt.Failed
+    }
+}
+
+internal fun isPostComposerDraftClearRequestCurrent(
+    requestedActorProfileId: String?,
+    requestedActorLease: PostComposerDraftActorLease?,
+    currentActorProfileId: String?,
+    currentActorLease: PostComposerDraftActorLease?,
+): Boolean = requestedActorProfileId == currentActorProfileId && requestedActorLease == currentActorLease
+
+internal fun shouldPersistPostComposerDraft(
+    ready: Boolean,
+    snapshot: PostComposerDraftSnapshot,
+    lastPersistedSnapshot: PostComposerDraftSnapshot?,
+): Boolean = ready && snapshot != lastPersistedSnapshot
 
 const val CreatePostTextLimit = 500
 

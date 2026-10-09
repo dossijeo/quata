@@ -21,6 +21,7 @@ import com.quata.feature.postcomposer.presentation.CreatePostUiEvent
 import com.quata.feature.postcomposer.presentation.CreatePostViewModel
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
+import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
 import com.quata.feature.postcomposer.presentation.createPostStepFor
 import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
 import com.quata.feature.postcomposer.presentation.viewModelMessages
@@ -57,6 +58,8 @@ fun WebPostComposerHost(
     authenticationContinuationCoordinator: PostComposerAuthenticationContinuationCoordinator? = null,
     pendingAuthenticationContinuation: PostComposerAuthenticationContinuation? = null,
     onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
+    durableDraftStore: PostComposerDraftStore? = null,
+    draftActorProfileId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
@@ -155,6 +158,9 @@ fun WebPostComposerHost(
         onPostCreated = onPostCreated,
         canPublish = canPublish,
         initialStep = retainedDraft?.step,
+        durableDraftStore = durableDraftStore,
+        draftActorProfileId = draftActorProfileId,
+        durableMediaReferenceAvailable = ::webComposerDraftMediaReferenceAvailable,
         copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
@@ -213,6 +219,10 @@ fun WebPostComposerHost(
         )
     }
 }
+
+internal fun webComposerDraftMediaReferenceAvailable(reference: String): Boolean =
+    reference.startsWith("https://", ignoreCase = true) ||
+        reference.startsWith("http://", ignoreCase = true)
 
 private fun stateUri(viewModel: CreatePostViewModel, image: Boolean): String? =
     if (image) viewModel.uiState.value.imageUri else viewModel.uiState.value.videoUri
