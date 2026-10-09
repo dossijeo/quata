@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "2558f62056d6d3ab4bef7861f073946bdeec417f",
+  "certification": "deployed-private-open-idempotency-and-committed-result-replay-passed-independent-review-go",
+  "evidenceKind": "CONVERSATION_CREATE_UNCERTAIN_RESPONSE_RECOVERY",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "2558f62056d6d3ab4bef7861f073946bdeec417f",
+      "report": "docs/candidate-attestations/evidence/conversation-create-uncertain-response-c3e77078.json",
+      "reportSha256": "790b57b0aaab47b95219a065a7b5727945e0028f66136af417b9ff2e3fee9000",
+      "reportStatus": "passed",
+      "reportGitHead": "c3e770784428690bc0fc767f7cc8b598fde21c66",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "exact_migration_bytes_validated_in_disposable_postgresql_17",
+        "encrypted_full_backup_created_and_focal_restore_passed",
+        "snapshot_package_dry_run_authorization_and_apply_passed",
+        "migration_ledger_function_identity_and_definition_postflight_passed",
+        "private_committed_result_replayed_to_the_same_thread_with_one_open_event",
+        "group_committed_result_replayed_to_the_same_thread_with_one_start_event",
+        "disposable_retry_used_a_new_backend_after_the_first_transaction_committed",
+        "production_postdeploy_probe_rolled_back_and_left_zero_residue",
+        "mandatory_fast_contracts_passed_887_of_887"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "production-probe-transaction-rollback-and-zero-residue-verification"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversation-create-uncertain-response-contract.test.mjs",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-conversation-create-uncertain-response.ps1",
+    "node --check scripts/conversation-create-uncertain-response-remote-probe.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversation-create-uncertain-response.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "2558f62056d6d3ab4bef7861f073946bdeec417f",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The disposable PostgreSQL proof now commits both first calls and reconnects to a new backend before replay, separating committed-response evidence from the production rollback probe."
+    ]
+  },
+  "notes": [
+    "Migration 20261009070000 emits private_thread_opened only when the private thread is newly inserted; a retry after a committed response reuses the exact thread without duplicating the event.",
+    "Group creation retains its existing request key and deduplication contract; the disposable and production probes replay both RPCs and prove exact durable cardinalities.",
+    "The release ran from 9dde46eb; the final Product SHA adds the postdeploy probe, its static contract and a disposable two-session proof that commits the first result before retrying from a new PostgreSQL backend. The versioned migration and rollback bytes are identical at both commits.",
+    "A fresh encrypted full logical backup and focal restore preceded dry-run, authorization and the committed apply. The production postdeploy probe verifies the deployed definition and repeat-call cardinalities inside rollback custody; the disposable two-session probe is the evidence for the committed-response boundary.",
+    "This unit closes the documented CONV-NEW unknown-response-after-commit limit without changing client semantics or claiming unrelated SCR-CONVERSATIONS coverage.",
+    "The current recomposed Product 2558f620 preserves every uncertain-response blob byte-for-byte from previously reviewed Product 35caa419; the only tree differences belong to reanchored predecessor atomicity documentation. Product 35caa419 preserves every uncertain-response blob byte-for-byte from previously reviewed Product ed26a8b5; the only tree differences belong to reanchored predecessor atomicity documentation. Product ed26a8b5 preserves every uncertain-response blob byte-for-byte from previously reviewed Product c0b5ee8a; the only tree differences belong to the reanchored predecessor atomicity documentation. Product c0b5ee8a preserves every uncertain-response blob byte-for-byte from reviewed Product b3537522; its only tree differences belong to the already reviewed predecessor atomicity documentation. Product b3537522 preserves its two own blobs byte-for-byte from Product e97b4d5c; that Product preserves all nine decisive blobs and imported dependencies byte-for-byte from historical execution Product c3e77078. Migration 20261009070000 is already committed in production and must not be reapplied; its executor fails closed when the ledger version is present. No platform matrix was repeated solely for ancestry."
+  ]
+}
