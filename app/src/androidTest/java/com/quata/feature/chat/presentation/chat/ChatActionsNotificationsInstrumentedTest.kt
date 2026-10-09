@@ -574,7 +574,8 @@ class ChatActionsNotificationsInstrumentedTest {
         if (stage == "profile-follow-negative") ProfileFollowEvidenceFaults.requestFailureOnce()
         if (stage == "profile-entry-error-deep") ProfileLoadEvidenceFaults.requestFailureOnce()
         if (stage == "menu-mute-negative") ChatMuteEvidenceFaults.requestFailureOnce()
-        ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
+        val scenario = ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty()))
+        try {
             when (stage) {
                 "messages-lifecycle" -> runMessagesLifecycleStage(ownProbe.orEmpty(), peerProbe.orEmpty())
                 "network-recovery" -> runNetworkRecoveryStage(ownProbe.orEmpty(), networkRecoveryProbe.orEmpty())
@@ -641,6 +642,15 @@ class ChatActionsNotificationsInstrumentedTest {
                     runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 }
                 else -> error("unknown_chat_actions_stage:$stage")
+            }
+        } finally {
+            if (stage == "profile-safety-negative") {
+                // API 35 can leave the evidence activity RESUMED after every product assertion
+                // has completed. The host force-stops the package immediately after instrumentation,
+                // so a teardown-only ActivityScenario timeout must not replace the focal result.
+                runCatching { scenario.close() }
+            } else {
+                scenario.close()
             }
         }
 

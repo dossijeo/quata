@@ -86,6 +86,8 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same
     assert.match(ui, /public-profile\.safety\.dialog\.confirm\.report/);
   }
   assert.match(androidUi, /requestReportFailureOnce\(\)/);
+  assert.match(androidUi, /if \(stage == "profile-safety-negative"\)[\s\S]*runCatching \{ scenario\.close\(\) \}[\s\S]*else \{[\s\S]*scenario\.close\(\)/);
+  assert.match(androidRunner, /android-chat-profile-safety-report-negative-loading\.png[\s\S]*android-chat-profile-safety-report-negative-failed\.png[\s\S]*android-chat-profile-safety-report-negative-retry-succeeded\.png/);
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__/);
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__/);
   assert.match(androidRunner, /!profileFollowNegativeOnly && !profileSafetyNegativeOnly/);
