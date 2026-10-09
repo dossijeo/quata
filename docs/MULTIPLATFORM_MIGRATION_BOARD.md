@@ -367,7 +367,7 @@ SUCCESS. El cierre no promociona ACCOUNT-DETAILS ni unidades vecinas.
 
 Se conservan los límites de navegación Android: reabre Cuenta por entrada de evidencia y no certifica
 Feed/continuidad tras Save ni localización española; Web abre Login explícitamente. La aceptación focal
-iOS `dfd1e39e` recorre en Simulator el Login común, verifica y pulsa «Olvidé mi contraseña», abre la
+iOS `a038f4b3` recorre en Simulator el Login común, verifica y pulsa «Olvidé mi contraseña», abre la
 raíz Recovery, verifica «Volver» y retorna al Login. El alcance lingüístico se limita a esas dos acciones
 observadas y no certifica una localización exhaustiva de Recovery. Se compone con la mutación remota histórica sin repetirla;
 manifest `docs/candidate-attestations/account-recovery-login-entry-ios.json`. Las evidencias históricas
