@@ -1300,6 +1300,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch.value as? String, candidateQuery)
                 attachScreenshot(app, name: "ios-conversation-private-create-failed-retained")
                 tapTaggedButton(candidateAction, in: app, context: "retry private conversation creation")
+                XCTAssertTrue(
+                    app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 20),
+                    "A successful private retry must close the retained picker before Chat is accepted."
+                )
             }
             let chat = chatHost(in: app, context: "private conversation created from picker \(index + 1)")
             let route = chat.value as? String
@@ -1350,6 +1354,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
             attachScreenshot(app, name: "ios-conversation-group-create-failed-retained")
             tapTaggedButton("conversation.picker.confirm", in: app, context: "retry group conversation creation")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 20),
+                "A successful group retry must close the retained picker before Chat is accepted."
+            )
         }
         let groupChat = chatHost(in: app, context: "group conversation created from picker")
         XCTAssertTrue((groupChat.value as? String)?.hasPrefix("chat:sb:") == true, "The picker must open a real group Chat route.")

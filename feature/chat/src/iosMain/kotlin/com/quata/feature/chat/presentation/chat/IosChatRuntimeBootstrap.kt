@@ -161,13 +161,9 @@ private fun iosConversationCreateRetryEvidenceRepositoryIfRequested(
         "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
     ) return delegate
     return object : ChatRepository by delegate {
-        private var privateFailurePending = true
-        private var groupFailurePending = true
-        private var failedGroupRequestKey: String? = null
-
         override suspend fun openPrivateConversation(peerProfileId: String): Result<String> =
-            if (privateFailurePending) {
-                privateFailurePending = false
+            if (IosConversationCreateRetryEvidenceState.privateFailurePending) {
+                IosConversationCreateRetryEvidenceState.privateFailurePending = false
                 Result.failure(IllegalStateException("conversation_private_create_e2e_forced_failure"))
             } else {
                 delegate.openPrivateConversation(peerProfileId)
@@ -177,16 +173,22 @@ private fun iosConversationCreateRetryEvidenceRepositoryIfRequested(
             participantIds: List<String>,
             title: String?,
             requestKey: String,
-        ): Result<String> = if (groupFailurePending) {
-            groupFailurePending = false
-            failedGroupRequestKey = requestKey
+        ): Result<String> = if (IosConversationCreateRetryEvidenceState.groupFailurePending) {
+            IosConversationCreateRetryEvidenceState.groupFailurePending = false
+            IosConversationCreateRetryEvidenceState.failedGroupRequestKey = requestKey
             Result.failure(IllegalStateException("conversation_group_create_e2e_forced_failure"))
-        } else if (requestKey != failedGroupRequestKey) {
+        } else if (requestKey != IosConversationCreateRetryEvidenceState.failedGroupRequestKey) {
             Result.failure(IllegalStateException("conversation_group_create_e2e_request_key_changed"))
         } else {
             delegate.openGroupConversationForRequest(participantIds, title, requestKey)
         }
     }
+}
+
+private object IosConversationCreateRetryEvidenceState {
+    var privateFailurePending = true
+    var groupFailurePending = true
+    var failedGroupRequestKey: String? = null
 }
 
 private data class IosChatDocumentRetryLocalFixture(

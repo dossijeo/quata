@@ -387,7 +387,7 @@ test("rendered conversation-create failures retain drafts and retry through each
   assert.match(iosBootstrap, /iosConversationCreateRetryEvidenceRepositoryIfRequested/);
   assert.match(iosBootstrap, /privateFailurePending = false[\s\S]*?conversation_private_create_e2e_forced_failure/);
   assert.match(iosBootstrap, /failedGroupRequestKey = requestKey/);
-  assert.match(iosBootstrap, /requestKey != failedGroupRequestKey/);
+  assert.match(iosBootstrap, /requestKey != IosConversationCreateRetryEvidenceState\.failedGroupRequestKey/);
   assert.match(iosBootstrap, /delegate\.openGroupConversationForRequest\(participantIds, title, requestKey\)/);
   assert.match(iosCoordinator, /--conversation-create-retry/);
   assert.match(iosCoordinator, /QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E/);
@@ -401,5 +401,7 @@ test("rendered conversation-create failures retain drafts and retry through each
   assert.match(iosUi, /ios-conversation-group-create-failed-retained/);
   assert.match(iosUi, /retry private conversation creation/);
   assert.match(iosUi, /retry group conversation creation/);
+  assert.match(iosUi, /successful private retry must close the retained picker before Chat is accepted/);
+  assert.match(iosUi, /successful group retry must close the retained picker before Chat is accepted/);
   assert.match(iosUi, /retained two-member selection must keep group retry enabled/);
 });
