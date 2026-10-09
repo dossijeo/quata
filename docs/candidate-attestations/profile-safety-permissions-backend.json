@@ -2,14 +2,14 @@
   "version": 1,
   "units": ["PROF-SAFETY-PERMISSIONS"],
   "status": "passed",
-  "productSha": "dd6e3792e7faf0538b38e2c84e820fcb7cf8f1f4",
+  "productSha": "a43a10073b318985a0992cba008eff257e965970",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "dd6e3792e7faf0538b38e2c84e820fcb7cf8f1f4",
-      "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-dd6e3792.json",
-      "reportSha256": "657e1142a2c240a61a215cc11d5862c4310cf609371af7b6b935a2201b3d95fe",
+      "sha": "a43a10073b318985a0992cba008eff257e965970",
+      "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-a43a1007.json",
+      "reportSha256": "9ca5c3a6e449afc2f24b04d1e270347ea6f9cc0d8742bccff186b0821abe5f60",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requiredObservations": [
@@ -18,6 +18,8 @@
         "selfTargetDenied",
         "authenticatedActorOwnedReportAccepted",
         "authenticatedActorOwnedBlockAccepted",
+        "spoofedActorUnblockDeniedAndForeignEdgePreserved",
+        "authenticatedActorOwnedUnblockAccepted",
         "directReportTableMutationDenied"
       ],
       "cleanup": {"verified": true, "transactionRolledBack": true, "residueZero": true}
@@ -49,7 +51,7 @@
   "notes": [
     "Production had drifted to broad anon/authenticated table privileges and anonymous EXECUTE on the three profile-safety RPCs even though the original moderation migration intended authenticated RPC-only mutation.",
     "The successor revokes anonymous RPC execution, preserves authenticated RPC execution, denies direct report/block table mutation to untrusted roles, preserves authenticated RLS-filtered reads and removes direct sequence use.",
-    "The production probe used two temporary active profiles inside one transaction. Anonymous calls, actor spoofing and self-targeting were rejected; the bound actor could report and block the peer; the transaction was rolled back and residue was zero.",
+    "The production probe used two temporary active profiles inside one transaction. Anonymous calls, actor spoofing and self-targeting were rejected; a spoofed unblock preserved the foreign edge, while the bound actor could report, block and unblock the peer; the transaction was rolled back and residue was zero.",
     "This unit closes the backend permission-negative boundary for profile report/block/unblock. It does not claim hosted Auth/API gateway/Realtime availability, UI report-failure acceptance or unrelated profile races."
   ]
 }
