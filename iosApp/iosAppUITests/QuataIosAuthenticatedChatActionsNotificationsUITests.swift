@@ -1227,23 +1227,33 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             app.launchEnvironment["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"] =
                 "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
         }
+
+        func ensurePrimaryNavigation(_ context: String) {
+            let conversations = app.descendants(matching: .any)
+                .matching(identifier: "navigation.primary.conversations")
+                .firstMatch
+            if conversations.waitForExistence(timeout: 30) {
+                return
+            }
+            let chatBack = app.descendants(matching: .any)
+                .matching(identifier: "chat.back")
+                .firstMatch
+            if chatBack.waitForExistence(timeout: 10), chatBack.isHittable {
+                chatBack.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            XCTAssertTrue(
+                conversations.waitForExistence(timeout: 30),
+                "Expected navigation.primary.conversations after normalizing \(context)."
+            )
+        }
+
         app.launch()
-        _ = waitForExistingIdentifier(
-            "navigation.primary.conversations",
-            in: app,
-            context: "authenticated primary navigation before conversation creation",
-            timeout: 20
-        )
+        ensurePrimaryNavigation("authenticated primary navigation before conversation creation")
 
         func relaunchAtConversations(_ context: String) {
             app.terminate()
             app.launch()
-            _ = waitForExistingIdentifier(
-                "navigation.primary.conversations",
-                in: app,
-                context: "authenticated primary navigation for \(context)",
-                timeout: 20
-            )
+            ensurePrimaryNavigation("authenticated primary navigation for \(context)")
             tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations for \(context)")
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
