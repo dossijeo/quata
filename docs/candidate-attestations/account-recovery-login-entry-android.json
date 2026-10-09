@@ -3,12 +3,12 @@
   "units": [
     "ACCOUNT-RECOVERY-SECRET"
   ],
-  "productSha": "fef709555ab0c6d5dfeb3443d1729c804b217f8d",
+  "productSha": "554f1063eb44c38fe56bf0a1953713b87b4d08c8",
   "testHead": "46f3c7161251d497be58a7a7de5f1545e7df5daa",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "fef709555ab0c6d5dfeb3443d1729c804b217f8d",
+      "sha": "554f1063eb44c38fe56bf0a1953713b87b4d08c8",
       "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-android-46f3c716.json",
       "reportSha256": "08cf95113759b7bbe0cb82500a00e8c02bc1c29370afdd830467fedcf7f8d9c2",
       "requireReportArtifact": true,
@@ -28,7 +28,7 @@
   "notes": [
     "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
     "The Android focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
-    "The current recomposed Product fef70955 preserves the Android focal test and contract byte-for-byte from previously reviewed Product bef166af; the only tree differences belong to reanchored predecessor documentation. Product bef166af preserves the same focal blobs from previously reviewed Product cc22cb6b, which in turn preserves the reviewed Product cde8e4d2 focal blobs. The accepted execution remains bound to testHead 46f3c716, so no platform matrix was repeated solely for ancestry.",
+    "The current recomposed Product 554f1063 preserves the Android focal test and contract byte-for-byte from previously reviewed Product f9d9c153; the only tree differences belong to the reviewed iOS Recovery and PROF-SAFETY predecessor chain. Product f9d9c153 preserves the Android focal test and contract byte-for-byte from previously reviewed Product c864fd12; the only tree differences belong to reanchored predecessor documentation. Product c864fd12 preserves those blobs from Product fef70955, which preserves them from previously reviewed Product bef166af; the accepted execution remains bound to testHead 46f3c716, so no platform matrix was repeated solely for ancestry.",
     "No product runtime, backend, migration, credentials or historical evidence were changed."
   ]
 }
