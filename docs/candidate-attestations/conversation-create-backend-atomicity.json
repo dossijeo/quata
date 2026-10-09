@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "5d620be55621bf44ee62eb4c0bcd810c7c72c608",
+  "certification": "disposable-postgresql-deployed-rpc-post-mutation-atomicity-complete-independent-review-pending",
+  "evidenceKind": "CONVERSATION_CREATE_DEPLOYED_RPC_POST_MUTATION_ATOMICITY",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "5d620be55621bf44ee62eb4c0bcd810c7c72c608",
+      "report": "docs/candidate-attestations/evidence/conversation-create-backend-atomicity-5d620be5.json",
+      "reportSha256": "d605975815b76f91a7e3fbc68410785366846f2e84581d05c6beb33c3865ceac",
+      "reportStatus": "passed",
+      "reportGitHead": "5d620be55621bf44ee62eb4c0bcd810c7c72c608",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "versioned_chat_schema_and_rpc_migrations_imported",
+        "private_creation_forced_to_fail_after_thread_and_participant_mutations",
+        "failed_private_creation_left_zero_thread_pair_participant_and_event_rows",
+        "private_retry_created_one_pair_two_participants_and_one_open_event",
+        "group_creation_forced_to_fail_after_thread_participant_and_message_mutations",
+        "failed_group_creation_left_zero_thread_participant_message_and_event_rows",
+        "group_retry_created_one_thread_three_participants_one_message_and_one_start_event",
+        "outer_transaction_rolled_back_and_disposable_container_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "outer-transaction-rollback-and-disposable-container-removal"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversation-create-backend-atomicity-contract.test.mjs",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-conversation-create-backend-atomicity.ps1",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversation-create-backend-atomicity.json --head HEAD"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The probe imports the exact versioned chat schema and RPC migrations used by the product into PostgreSQL 17.",
+    "A temporary trigger raises P0001 on the final chat event effect, after the preceding thread, participant and message mutations have occurred inside each RPC.",
+    "Both private and group failures leave zero rows from their attempted creation, and an immediate retry produces the exact expected cardinalities.",
+    "The outer transaction is rolled back and the disposable container is removed. No production database or credential is used.",
+    "This unit does not claim recovery from an unknown transport response after the server committed successfully or close non-CONV-NEW scopes in SCR-CONVERSATIONS."
+  ]
+}
