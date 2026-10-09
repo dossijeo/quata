@@ -1579,7 +1579,7 @@ private final class IosAppCompositionRoot {
                 notificationPermissionActionLabel: notificationPermissionActionLabel(for: authorizationStatus),
                 onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenConversation: { [weak self] conversationId in
-                    self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                    self?.authenticatedHost.showNotificationsChat(conversationId: conversationId)
                 },
                 onNotificationPermissionAction: { [weak self] in
                     self?.performNotificationPermissionAction(for: authorizationStatus)
@@ -1589,7 +1589,7 @@ private final class IosAppCompositionRoot {
                 onHandleDeepLink: { _ in },
                 canMutate: authenticated,
                 onAuthenticationRequired: { [weak self] item in
-                    self?.authenticatedHost.showChat(conversationId: item.conversationId, messageId: nil)
+                    self?.authenticatedHost.showNotificationsChat(conversationId: item.conversationId)
                 },
                 onDismissAuthenticationRequired: { [weak self] _ in
                     self?.authenticatedHost.presentAuthRequiredPrompt()
@@ -2800,6 +2800,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private static var startupSplashDisabledForTesting = false
     private static let persistedPrimaryRouteKey = "quata.ios.shell.primary-route"
     private static let persistedSecondaryRouteKey = "quata.ios.shell.secondary-route"
+    private static let persistedChatReturnKey = "quata.ios.shell.chat-return"
     private static let persistedChatRoutePrefix = "chat-v1:"
     private static let persistedFeedPostRoutePrefix = "feed-v1:"
     private static let persistedOfficialPostRoutePrefix = "official-v1:"
@@ -2809,6 +2810,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
     private struct PersistedPostRoute: Codable {
         let postId: String
+    }
+    private enum PersistedChatReturnParent: String, Codable {
+        case communities
+        case notifications
+    }
+    private struct PersistedChatReturn: Codable, Equatable {
+        let conversationId: String
+        let parent: PersistedChatReturnParent
     }
     private let platformServices: IosPlatformServiceComposition
     private let routeSelectionDefaults: UserDefaults
@@ -2849,7 +2858,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
     private var visibleRoute: PendingRoute?
-    private var communityChatReturnConversationId: String?
+    private var chatReturn: PersistedChatReturn?
     private var routeToRestoreAfterAuthenticationUpgrade: PendingRoute?
     private var routeSelectionRevision: UInt = 0
     private var routeSelectionRevisionAtAuthenticationUpgrade: UInt?
@@ -2986,13 +2995,21 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         platformServices: IosPlatformServiceComposition,
         routeSelectionDefaults: UserDefaults = .standard
     ) {
-        self.platformServices = platformServices
-        self.routeSelectionDefaults = routeSelectionDefaults
-        self.pendingRoute = Self.restorableSecondaryRoute(
+        let restoredRoute = Self.restorableSecondaryRoute(
             storedValue: routeSelectionDefaults.string(forKey: Self.persistedSecondaryRouteKey)
         ) ?? Self.primaryRoute(
             storedValue: routeSelectionDefaults.string(forKey: Self.persistedPrimaryRouteKey)
         )
+        self.platformServices = platformServices
+        self.routeSelectionDefaults = routeSelectionDefaults
+        self.pendingRoute = restoredRoute
+        self.chatReturn = Self.restorableChatReturn(
+            data: routeSelectionDefaults.data(forKey: Self.persistedChatReturnKey),
+            route: restoredRoute
+        )
+        if self.chatReturn == nil {
+            routeSelectionDefaults.removeObject(forKey: Self.persistedChatReturnKey)
+        }
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -3025,6 +3042,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     static func clearPersistedPrimaryRouteForTesting(in defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: persistedPrimaryRouteKey)
         defaults.removeObject(forKey: persistedSecondaryRouteKey)
+        defaults.removeObject(forKey: persistedChatReturnKey)
     }
 
     override func viewDidLayoutSubviews() {
@@ -3258,6 +3276,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     ) {
         if clearPendingRoute {
             pendingRoute = nil
+            clearChatReturn()
             pendingSosDispatchAfterAuthentication = false
             onAuthenticationContinuationAbandoned?()
         }
@@ -3396,6 +3415,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Cancelling Auth abandons the protected intent and restores the anonymous Feed shell.
     @objc private func cancelAuthentication() {
         pendingRoute = nil
+        clearChatReturn()
         pendingSosDispatchAfterAuthentication = false
         onAuthenticationContinuationAbandoned?()
         dismiss(animated: authModalTransitionsAnimated) { [weak self] in
@@ -3691,27 +3711,34 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func showChat(conversationId: String, messageId: String?) {
-        communityChatReturnConversationId = nil
+        clearChatReturn()
         route(.chat(conversationId: conversationId, messageId: messageId))
     }
 
     func showCommunityChat(conversationId: String) {
-        communityChatReturnConversationId = conversationId
+        persistChatReturn(conversationId: conversationId, parent: .communities)
         route(.chat(conversationId: conversationId, messageId: nil))
     }
 
+    func showNotificationsChat(conversationId: String, messageId: String? = nil) {
+        persistChatReturn(conversationId: conversationId, parent: .notifications)
+        route(.chat(conversationId: conversationId, messageId: messageId))
+    }
+
     func returnFromChat() {
-        let returnsToCommunities: Bool
-        if case let .chat(conversationId, _)? = visibleRoute {
-            returnsToCommunities = conversationId == communityChatReturnConversationId
+        let exactReturn: PersistedChatReturn?
+        if case let .chat(conversationId, _)? = visibleRoute,
+           let conversationId,
+           chatReturn?.conversationId == conversationId {
+            exactReturn = chatReturn
         } else {
-            returnsToCommunities = false
+            exactReturn = nil
         }
-        communityChatReturnConversationId = nil
-        if returnsToCommunities {
-            showCommunities()
-        } else {
-            openChatList()
+        clearChatReturn()
+        switch exactReturn?.parent {
+        case .communities: showCommunities()
+        case .notifications: showNotifications()
+        case nil: openChatList()
         }
     }
 
@@ -4071,6 +4098,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         whatsNewFactory = nil
         releaseHistoryFactory = nil
         pendingRoute = nil
+        clearChatReturn()
         onAuthenticationContinuationAbandoned?()
         persistPrimaryRoute("feed")
         logoutAction = nil
@@ -4098,6 +4126,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func route(_ route: PendingRoute) {
         routeSelectionRevision &+= 1
+        if case let .chat(conversationId, _) = route,
+           let conversationId,
+           chatReturn?.conversationId == conversationId {
+            // The exact child keeps its parent marker until Back consumes it.
+        } else {
+            clearChatReturn()
+        }
         if !hasAuthenticatedSession, route.isAuthenticationRequired {
             // Retain the target, but follow Android: anonymous browsing remains on Feed while
             // the common capability dialog is presented above the shared shell.
@@ -4260,6 +4295,36 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     private func persistSecondaryRoute(_ route: String) {
         routeSelectionDefaults.set(route, forKey: Self.persistedSecondaryRouteKey)
+    }
+
+    private func persistChatReturn(conversationId: String, parent: PersistedChatReturnParent) {
+        guard !conversationId.isEmpty else {
+            clearChatReturn()
+            return
+        }
+        let snapshot = PersistedChatReturn(conversationId: conversationId, parent: parent)
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            clearChatReturn()
+            return
+        }
+        chatReturn = snapshot
+        routeSelectionDefaults.set(data, forKey: Self.persistedChatReturnKey)
+    }
+
+    private func clearChatReturn() {
+        chatReturn = nil
+        routeSelectionDefaults.removeObject(forKey: Self.persistedChatReturnKey)
+    }
+
+    private static func restorableChatReturn(data: Data?, route: PendingRoute?) -> PersistedChatReturn? {
+        guard let data,
+              let snapshot = try? JSONDecoder().decode(PersistedChatReturn.self, from: data),
+              !snapshot.conversationId.isEmpty,
+              case let .chat(conversationId, _)? = route,
+              conversationId == snapshot.conversationId else {
+            return nil
+        }
+        return snapshot
     }
 
     private static func persistedPrimaryRoute(for route: PendingRoute) -> String? {

@@ -142,7 +142,7 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(main, /pendingAuthenticationFragment/);
   assert.match(main, /onAuthRequired = ::requestAuthenticationForCurrentRoute/);
   assert.match(main, /clearWebNavigationShellMarker\(\)/);
-  assert.match(main, /fun completeLogin\(\)[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
+  assert.match(main, /fun completeLogin\(\)[\s\S]*?val destination = pendingAuthenticationFragment[\s\S]*?val returnFragment = pendingAuthenticationReturnFragment[\s\S]*?if \(chat != null && returnFragment != null\)[\s\S]*?navigation\.navigateConversation\([\s\S]*?conversationId = chat\.conversationId,[\s\S]*?messageId = chat\.messageId,[\s\S]*?returnFragment = returnFragment,[\s\S]*?\)[\s\S]*?else \{[\s\S]*?navigation\.navigate\(destination \?: ""\)[\s\S]*?pendingAuthenticationFragment = null[\s\S]*?pendingAuthenticationReturnFragment = null/);
   assert.match(main, /fun completeLogout[\s\S]*?navigation\.navigate\(""\)/);
   assert.match(main, /onLoginSuccess = ::completeLogin/);
   assert.match(main, /var isSessionResolved by remember/);

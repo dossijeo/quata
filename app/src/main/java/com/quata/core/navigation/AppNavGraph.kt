@@ -398,6 +398,8 @@ fun AppNavGraph(
     var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var persistedChatFocusConversationId by rememberSaveable { mutableStateOf<String?>(null) }
     var persistedChatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    var persistedChatReturnConversationId by rememberSaveable { mutableStateOf<String?>(null) }
+    var persistedChatReturnRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var activeChatFocusConversationId by remember { mutableStateOf(persistedChatFocusConversationId) }
     var activeChatFocusedMessageId by remember { mutableStateOf(persistedChatFocusedMessageId) }
     var lastObservedRoute by remember { mutableStateOf(currentRoute) }
@@ -405,6 +407,7 @@ fun AppNavGraph(
     var pendingAuthenticationRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAuthenticationConversationId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingAuthenticationFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingAuthenticationChatReturnRoute by rememberSaveable { mutableStateOf<String?>(null) }
     val authenticationContinuationCoordinator = remember { AuthenticationContinuationCoordinator() }
     val postComposerAuthenticationCoordinator = remember { PostComposerAuthenticationContinuationCoordinator() }
     val pendingPostComposerAuthentication by postComposerAuthenticationCoordinator.pending.collectAsState()
@@ -455,6 +458,7 @@ fun AppNavGraph(
         route: String? = null,
         conversationId: String? = null,
         focusedMessageId: String? = null,
+        chatReturnRoute: String? = null,
         continuation: AuthenticationContinuationIntent? = null,
     ) {
         if (continuation == null) authenticationContinuationCoordinator.clearAll()
@@ -462,6 +466,7 @@ fun AppNavGraph(
         pendingAuthenticationRoute = route
         pendingAuthenticationConversationId = conversationId
         pendingAuthenticationFocusedMessageId = focusedMessageId
+        pendingAuthenticationChatReturnRoute = chatReturnRoute
         isAuthRequiredPromptOpen = true
     }
 
@@ -469,6 +474,7 @@ fun AppNavGraph(
         pendingAuthenticationRoute = null
         pendingAuthenticationConversationId = null
         pendingAuthenticationFocusedMessageId = null
+        pendingAuthenticationChatReturnRoute = null
     }
 
     LaunchedEffect(currentRoute, isAuthenticated, isAuthRequiredPromptOpen) {
@@ -513,13 +519,18 @@ fun AppNavGraph(
         }
     }
 
-    fun navigateToChat(conversationId: String, focusedMessageId: String? = null) {
+    fun navigateToChat(
+        conversationId: String,
+        focusedMessageId: String? = null,
+        returnRoute: String? = null,
+    ) {
         val hasLocalDocumentRetryAccess =
             documentRetryEvidenceRepository != null && conversationId == DocumentRetryEvidenceConversationId
         if (!isAuthenticated && !hasLocalDocumentRetryAccess) {
             requestAuthentication(
                 conversationId = conversationId,
                 focusedMessageId = focusedMessageId,
+                chatReturnRoute = returnRoute,
             )
             navigateToFeed()
             return
@@ -528,6 +539,12 @@ fun AppNavGraph(
         persistedChatFocusedMessageId = focusedMessageId
         activeChatFocusConversationId = persistedChatFocusConversationId
         activeChatFocusedMessageId = focusedMessageId
+        persistedChatReturnConversationId = conversationId.takeIf {
+            returnRoute == AppDestinations.Notifications.route
+        }
+        persistedChatReturnRoute = returnRoute.takeIf {
+            it == AppDestinations.Notifications.route
+        }
         navController.navigate(AppDestinations.Chat.createRoute(conversationId)) {
             launchSingleTop = true
         }
@@ -581,6 +598,7 @@ fun AppNavGraph(
     fun navigateAfterAuthentication() {
         val pendingConversationId = pendingAuthenticationConversationId
         val pendingFocusedMessageId = pendingAuthenticationFocusedMessageId
+        val pendingChatReturnRoute = pendingAuthenticationChatReturnRoute
         val pendingRoute = pendingAuthenticationRoute
         clearPendingAuthenticationDestination()
         if (pendingConversationId != null) {
@@ -588,6 +606,12 @@ fun AppNavGraph(
             persistedChatFocusedMessageId = pendingFocusedMessageId
             activeChatFocusConversationId = persistedChatFocusConversationId
             activeChatFocusedMessageId = pendingFocusedMessageId
+            persistedChatReturnConversationId = pendingConversationId.takeIf {
+                pendingChatReturnRoute == AppDestinations.Notifications.route
+            }
+            persistedChatReturnRoute = pendingChatReturnRoute.takeIf {
+                it == AppDestinations.Notifications.route
+            }
             navController.navigate(AppDestinations.Chat.createRoute(pendingConversationId)) {
                 popUpTo(AppDestinations.Feed.route) { saveState = false }
                 launchSingleTop = true
@@ -665,12 +689,14 @@ fun AppNavGraph(
         container.userPresenceRepository.setAppForeground(isAppForeground)
     }
 
-    LaunchedEffect(currentRoute) {
-        if (lastObservedRoute == AppDestinations.Chat.route && currentRoute != AppDestinations.Chat.route) {
+    LaunchedEffect(currentRoute, isAuthenticated) {
+        if (shouldClearNotificationChatReturn(lastObservedRoute, currentRoute, isAuthenticated)) {
             persistedChatFocusConversationId = null
             persistedChatFocusedMessageId = null
             activeChatFocusConversationId = null
             activeChatFocusedMessageId = null
+            persistedChatReturnConversationId = null
+            persistedChatReturnRoute = null
         }
         lastObservedRoute = currentRoute
         if (currentRoute != null && currentRoute in bottomRoutes) {
@@ -1155,7 +1181,22 @@ fun AppNavGraph(
                             onOpenMessageConversation = { targetConversationId, messageId ->
                                 navigateToChat(targetConversationId, focusedMessageId = messageId)
                             },
-                            onBack = { navController.popBackStack() },
+                            onBack = {
+                                val returnRoute = notificationChatReturnRoute(
+                                    currentConversationId = conversationId,
+                                    storedConversationId = persistedChatReturnConversationId,
+                                    storedRoute = persistedChatReturnRoute,
+                                )
+                                persistedChatReturnConversationId = null
+                                persistedChatReturnRoute = null
+                                if (returnRoute == null || !navController.popBackStack(returnRoute, inclusive = false)) {
+                                    if (returnRoute == null) {
+                                        navController.popBackStack()
+                                    } else {
+                                        navController.navigate(returnRoute) { launchSingleTop = true }
+                                    }
+                                }
+                            },
                             compactHeader = isLandscapeLayout
                         )
                     }
@@ -1167,7 +1208,7 @@ fun AppNavGraph(
                         repository = container.notificationsRepository,
                         onBack = { navController.popBackStack() },
                         onOpenConversation = { id ->
-                            navigateToChat(id)
+                            navigateToChat(id, returnRoute = AppDestinations.Notifications.route)
                         }
                     )
                 }
@@ -1646,6 +1687,23 @@ fun AppNavGraph(
     }
     }
 }
+
+internal fun notificationChatReturnRoute(
+    currentConversationId: String,
+    storedConversationId: String?,
+    storedRoute: String?,
+): String? = AppDestinations.Notifications.route.takeIf {
+    currentConversationId.isNotBlank() &&
+        storedConversationId == currentConversationId &&
+        storedRoute == AppDestinations.Notifications.route
+}
+
+internal fun shouldClearNotificationChatReturn(
+    previousRoute: String?,
+    currentRoute: String?,
+    isAuthenticated: Boolean,
+): Boolean = !isAuthenticated ||
+    (previousRoute == AppDestinations.Chat.route && currentRoute != AppDestinations.Chat.route)
 
 private fun android.os.LocaleList.languageTags(): List<String> =
     List(size()) { index -> get(index).toLanguageTag() }

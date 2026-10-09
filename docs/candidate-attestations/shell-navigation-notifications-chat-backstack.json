@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "d90ee80dae4da1706801c5b483ea2f675488e225",
+  "certification": "local-affected-runtime-exact-conversation-backstack-independent-final-review-complete-final-CI-pending",
+  "evidenceKind": "NOTIFICATIONS_EXACT_CHAT_DURABLE_BACKSTACK",
+  "evidence": {
+    "crossPlatform": {
+      "status": "passed",
+      "sha": "d90ee80dae4da1706801c5b483ea2f675488e225",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-notifications-chat-backstack-d710da07.json",
+      "reportSha256": "a6c351263e064854d979afd430e210f8082529dfa67b1a7f8437e4118cce293f",
+      "reportStatus": "passed-local-candidate",
+      "reportGitHead": "d710da0755dba789e19f5e31568498c836bf5479",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_exact_notification_conversation_return_contract_passed",
+        "android_focal_jvm_test_passed",
+        "web_controller_recreation_with_persisted_storage_exact_notification_chat_backstack_passed",
+        "web_mismatched_conversation_and_auth_cancellation_cleanup_passed",
+        "ios_swift_parse_passed",
+        "ios_x64_framework_link_passed",
+        "ios_unsigned_intel_simulator_host_build_passed",
+        "ios_notification_chat_backstack_xctests_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-backend-or-remote-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.core.navigation.NotificationChatReturnRouteTest --no-daemon",
+    ".\\gradlew.bat :web:wasmJsTest --no-daemon",
+    "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs",
+    "macOS: xcrun swiftc -frontend -parse iosApp/iosApp/QuataIosApp.swift iosApp/iosAppTests/QuataFeedFrameworkTests.swift",
+    "macOS: iosX64 framework link and unsigned Intel Simulator host build with isolated external build/cache",
+    "macOS: xcodebuild three selected QuataFeedFrameworkTests on booted iOS 26.5 Intel Simulator with CODE_SIGNING_ALLOWED=NO"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "d90ee80dae4da1706801c5b483ea2f675488e225",
+    "reviewedProductSha": "d90ee80dae4da1706801c5b483ea2f675488e225",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Android clears the notification return marker on route exit and authentication loss, with focal negative coverage.",
+      "Web claims are limited to controller recreation over injected persistent storage rather than a browser document reload.",
+      "The seven-commit series was recomposed over the byte-identical #580 squash; complete pre-attestation trees match and runtime, tests, matrix and historical evidence remain byte-identical.",
+      "The two Web login contracts now assert the notification-return branch, generic fallback and cleanup of both pending fragments; the Product repair changes no runtime."
+    ]
+  },
+  "notes": [
+    "Notifications records a return parent only when opening one exact Chat conversation; Back consumes the marker and returns to Notifications on Android, Web/Wasm and iOS.",
+    "Conversation mismatch, unrelated Chat replacement, leaving Chat, canceled or dismissed authentication and logout clear the marker.",
+    "The snapshot contains only route identity and the exact conversation identifier; it stores no notification or message content.",
+    "Android and Web passed their affected focal suites on the exact Product SHA. The Web proof recreates the controller over injected persistent storage and does not claim a real document reload or direct sessionStorage execution.",
+    "iOS preserves byte-identical runtime and focal-test blobs from the passing 29089031 execution, so its matrix was not repeated for the Android-only runtime correction and Web test-name correction.",
+    "The first macOS link attempt exhausted the VM system volume. The unchanged iOS bytes passed after moving the isolated build and cache to the external capacity volume.",
+    "This closes only Notifications to exact Chat to Notifications. Other arbitrary secondary stacks, scroll, editor state, backend delivery, APNs, provider behavior and physical-device behavior remain outside this focal unit.",
+    "The seven-commit unit was recomposed over the verified byte-identical #580 squash 287ee85c; the complete runtime delta is unchanged. The execution report remains bound to runtime d710da07, the capability matrix records raw-byte hashes for the recomposed Web and iOS composition sources, and no platform matrix was repeated solely for ancestry.",
+    "The candidate-final CI failure was caused by two stale static Web login assertions that still required direct navigation of the pending fragment. Product d90ee80d updates only those contracts to require the already-reviewed notification return behavior; the exact affected suites pass 33/33 and the broader fast contract group passes 227/227. No platform E2E was repeated for this test-only correction."
+  ]
+}

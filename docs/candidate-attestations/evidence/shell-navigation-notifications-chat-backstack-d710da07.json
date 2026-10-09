@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "unit": "FLOW-SHELL-NAV",
+  "status": "passed-local-candidate",
+  "executedAt": "2026-10-09",
+  "productSha": "d710da0755dba789e19f5e31568498c836bf5479",
+  "git": {
+    "head": "d710da0755dba789e19f5e31568498c836bf5479",
+    "workingTreeDirty": false
+  },
+  "scope": "Durable Notifications to exact Chat to Notifications back stack on Android, Web/Wasm and iOS",
+  "steps": [
+    "android_exact_notification_conversation_return_contract_passed",
+    "android_focal_jvm_test_passed",
+    "web_controller_recreation_with_persisted_storage_exact_notification_chat_backstack_passed",
+    "web_mismatched_conversation_and_auth_cancellation_cleanup_passed",
+    "ios_swift_parse_passed",
+    "ios_x64_framework_link_passed",
+    "ios_unsigned_intel_simulator_host_build_passed",
+    "ios_notification_chat_backstack_xctests_passed"
+  ],
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "rememberSaveable keeps the Notifications parent only for the exact conversation",
+        "Back consumes the marker and returns to Notifications, recreating that parent only when it is absent",
+        "leaving Chat through another route or losing authentication clears the persisted return marker",
+        "NotificationChatReturnRouteTest passed on the exact Product SHA, including route-exit and logout negatives"
+      ],
+      "sourceSha256": {
+        "AppNavGraph.kt": "e3e1a82265e848d3acd4a22c865ac55ca920ec40a1e11fd926655c488b48ab74",
+        "NotificationChatReturnRouteTest.kt": "239b1d510808f82fbc37bcc5a69a3238421164dd64fbad44aa790396353dede2"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "injected persistent storage keeps the Notifications parent only for the exact conversation",
+        "controller recreation over the persisted storage restores exact Chat and Back returns to Notifications",
+        "conversation mismatch and canceled or dismissed authentication clear the pending return marker",
+        "the exact Product SHA passed the full wasmJsTest task"
+      ],
+      "sourceSha256": {
+        "Main.kt": "98bd4536b541f52282b1254966d15a3a63762e67f827a4687f9e4f783a24717e",
+        "WebNavigationTest.kt": "7ae6e76e0db9c0b31a1fca253d6309aed3c83bb1276c4dd380a8f337ee68a9dd"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "simulatorOnly": true,
+      "steps": [
+        "UserDefaults stores only the parent route and exact conversation identifier, never message content",
+        "router recreation restores exact Chat and Back returns to Notifications",
+        "conversation replacement and authentication dismissal clear the return marker",
+        "Swift parse, x86_64 framework link and unsigned Intel Simulator host build passed",
+        "three selected QuataFeedFrameworkTests passed on the booted iOS 26.5 Intel Simulator"
+      ],
+      "sourceSha256": {
+        "QuataIosApp.swift": "f31a4dd33416f01ca1c3eab5866d024ade2a13733be47c00091ca8048ac02cba",
+        "QuataFeedFrameworkTests.swift": "b6c3c4f8c6a065c95426971851000a8501ba7222ec0dea84f3e8c236aa860b00"
+      },
+      "environment": {
+        "xcode": "26.6 (17F113)",
+        "sdk": "iPhoneOS 26.5",
+        "simulator": "Quata-SOS-Candidate-85f98524",
+        "simulatorUdid": "0506CC31-D3CF-401D-B275-444BEE5F69B6",
+        "device": "iPhone 16 Pro x86_64",
+        "runtime": "iOS 26.5 (23F77)",
+        "tests": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "expectedFailures": 0
+        },
+        "resultBundle": "/Volumes/QuataMigrationCapacity/quata-shell-nav-final-29089031/reports/QuataIos-notifications-chat-backstack-tests.xcresult"
+      }
+    }
+  },
+  "assertions": [
+    "a notification opens the exact conversation and records Notifications as its parent",
+    "Back consumes that exact marker and returns to Notifications",
+    "an unrelated or mismatched Chat route cannot inherit the notification parent",
+    "authentication cancellation, dismissal and logout clear pending return state",
+    "the persisted marker contains route identity only and no notification or message content"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "no backend fixture, credential, push delivery or remote mutation used"
+  },
+  "limitations": [
+    "This closes only the Notifications to exact Chat to Notifications route; arbitrary secondary stacks, scroll, editor state and unrelated internal state retain their own units.",
+    "The focal interaction does not claim backend delivery, APNs, provider behavior or a physical iOS device.",
+    "iOS verification uses the authorized Intel Simulator and an unsigned host test build.",
+    "GitHub final jobs retain clean-runner integrated certification."
+  ],
+  "validationProvenance": {
+    "android": "The exact Product SHA passed the affected JVM test, including explicit negatives for leaving Chat and losing authentication.",
+    "web": "The exact Product SHA passed the complete wasmJsTest task. The focal test recreates WebNavigationController over injected persistent-storage lambdas; it does not claim a real browser document reload or direct sessionStorage execution.",
+    "ios": "The iOS runtime and focal-test blobs are byte-identical to Product SHA 29089031, which was bundled to the macOS VM, parsed by swiftc, linked as an iosX64 framework, built as an unsigned Intel Simulator host and ran the three selected XCTest methods successfully. The iOS matrix was not repeated for the Android-only runtime correction and Web test-name correction.",
+    "diagnostic": "The first Kotlin/Native link attempt ended with ld errno 28 because the VM system volume was full. The unchanged exact Product SHA passed after moving the isolated build and cache to /Volumes/QuataMigrationCapacity; this was an environment-capacity failure, not a product failure."
+  },
+  "independentReviewCorrections": [
+    "Android now clears the notification return marker when Chat is left through any route or authentication is lost, with focal negatives for both transitions.",
+    "Web evidence is limited to controller recreation over injected persistent storage; it does not claim a browser document reload or direct sessionStorage execution."
+  ]
+}
