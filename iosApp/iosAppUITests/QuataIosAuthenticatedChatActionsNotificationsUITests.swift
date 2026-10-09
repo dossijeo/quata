@@ -1220,6 +1220,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
+        let seededChatRoute = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]).map { "chat:\($0)" }
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
@@ -1271,6 +1272,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
 
+        func waitForOpenedChat(excluding excludedRoute: String?, context: String) -> XCUIElement {
+            let host = app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch
+            let deadline = Date().addingTimeInterval(30)
+            while Date() < deadline {
+                if host.exists,
+                   let route = host.value as? String,
+                   route.hasPrefix("chat:sb:"),
+                   route != excludedRoute {
+                    return host
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            }
+            XCTFail("Expected a newly opened Chat route for \(context), excluding \(excludedRoute ?? "none").")
+            return host
+        }
+
         var firstRoute: String?
         for index in 0..<2 {
             if index > 0 {
@@ -1313,7 +1330,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                     "A successful private retry must close the retained picker before Chat is accepted."
                 )
             }
-            let chat = chatHost(in: app, context: "private conversation created from picker \(index + 1)")
+            let chat = retryEvidence && index == 0
+                ? waitForOpenedChat(excluding: seededChatRoute, context: "private conversation retry")
+                : chatHost(in: app, context: "private conversation created from picker \(index + 1)")
             let route = chat.value as? String
             XCTAssertTrue(route?.hasPrefix("chat:sb:") == true, "The picker must open a real private Chat route.")
             if let firstRoute {
@@ -1374,7 +1393,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "A successful group retry must close the retained picker before Chat is accepted."
             )
         }
-        let groupChat = chatHost(in: app, context: "group conversation created from picker")
+        let groupChat = retryEvidence
+            ? waitForOpenedChat(excluding: firstRoute, context: "group conversation retry")
+            : chatHost(in: app, context: "group conversation created from picker")
         XCTAssertTrue((groupChat.value as? String)?.hasPrefix("chat:sb:") == true, "The picker must open a real group Chat route.")
         XCTAssertTrue(app.staticTexts[groupTitle].waitForExistence(timeout: 20), "The created group title must be visible in Chat.")
         attachScreenshot(app, name: "ios-conversation-group-created")
