@@ -1228,11 +1228,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
         }
 
-        func ensurePrimaryNavigation(_ context: String) {
+        func openConversationsFromCurrentRoute(_ context: String) {
+            let conversationList = app.descendants(matching: .any)
+                .matching(identifier: "conversation.list")
+                .firstMatch
+            if conversationList.waitForExistence(timeout: 10) {
+                return
+            }
             let conversations = app.descendants(matching: .any)
                 .matching(identifier: "navigation.primary.conversations")
                 .firstMatch
             if conversations.waitForExistence(timeout: 30) {
+                conversations.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                XCTAssertTrue(
+                    conversationList.waitForExistence(timeout: 30),
+                    "Expected the conversations list after opening \(context)."
+                )
                 return
             }
             let chatBack = app.descendants(matching: .any)
@@ -1242,19 +1253,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 chatBack.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             }
             XCTAssertTrue(
-                conversations.waitForExistence(timeout: 30),
-                "Expected navigation.primary.conversations after normalizing \(context)."
+                conversationList.waitForExistence(timeout: 30),
+                "Expected the conversations list after normalizing \(context)."
             )
         }
 
         app.launch()
-        ensurePrimaryNavigation("authenticated primary navigation before conversation creation")
+        openConversationsFromCurrentRoute("authenticated conversation creation")
 
         func relaunchAtConversations(_ context: String) {
             app.terminate()
             app.launch()
-            ensurePrimaryNavigation("authenticated primary navigation for \(context)")
-            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations for \(context)")
+            openConversationsFromCurrentRoute(context)
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
                 "The shared conversations list must be visible for \(context)."
@@ -1263,9 +1273,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         var firstRoute: String?
         for index in 0..<2 {
-            if index == 0 {
-                tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation")
-            } else {
+            if index > 0 {
                 relaunchAtConversations("private conversation reuse")
             }
             XCTAssertTrue(
