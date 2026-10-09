@@ -4,14 +4,14 @@
     "OVR-POST-DETAIL-PUBLIC-PROFILE-SCROLL"
   ],
   "status": "passed",
-  "productSha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+  "productSha": "7c2d3bf221fbe9bc561988acd8efd82c909f1ad5",
   "certification": "focused-multiplatform-complete-independent-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "sha": "7c2d3bf221fbe9bc561988acd8efd82c909f1ad5",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
-      "reportSha256": "e7db4080045ffc5c455aa4a3ed89575753e497d318984c616ed5543d750f722f",
+      "reportSha256": "99fc4256ab29e12a4f29aed01ff10fb44d1c960c1fd4c9201388d9f27e00c69b",
       "reportStatus": "passed",
       "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "reportWorkingTreeDirty": false,
@@ -29,9 +29,9 @@
     },
     "android": {
       "status": "passed",
-      "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "sha": "7c2d3bf221fbe9bc561988acd8efd82c909f1ad5",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
-      "reportSha256": "e7db4080045ffc5c455aa4a3ed89575753e497d318984c616ed5543d750f722f",
+      "reportSha256": "99fc4256ab29e12a4f29aed01ff10fb44d1c960c1fd4c9201388d9f27e00c69b",
       "reportStatus": "passed",
       "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "reportWorkingTreeDirty": false,
@@ -48,9 +48,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "sha": "7c2d3bf221fbe9bc561988acd8efd82c909f1ad5",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
-      "reportSha256": "e7db4080045ffc5c455aa4a3ed89575753e497d318984c616ed5543d750f722f",
+      "reportSha256": "99fc4256ab29e12a4f29aed01ff10fb44d1c960c1fd4c9201388d9f27e00c69b",
       "reportStatus": "passed",
       "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "reportWorkingTreeDirty": false,
@@ -80,9 +80,10 @@
     "The common public-profile detail stores a stable post ID and exact pixel offset, restores only the matching post and clamps invalid negative offsets.",
     "Closing and reopening the same detail preserves its observed deep position; selecting another post cannot inherit that position.",
     "Android performs a real Compose scroll and restores the exact nonzero VerticalScrollAxisRange value through saved-instance-state recreation. Web/Wasm executes the five-test focal suite on the Product runtime SHA.",
-    "The iOS x64 execution remains bound to f1010a81: the common runtime and focal test blobs are byte-identical at the final Product SHA, whose only later product delta is the Android-only instrumented test. The matrix was not repeated solely for a SHA change.",
+    "The iOS x64 execution remains bound to f1010a81: the common runtime and focal test blobs are byte-identical at the final Product SHA, whose later product deltas are the Android-only instrumented test and the static post-detail parity contract; neither changes the iOS runtime or focal common test. The matrix was not repeated solely for a SHA change.",
     "Independent review of caf612fa returned GO with no P0-P3 findings.",
     "This focal closure removes only the public-profile deep-scroll limit. Integrated comments and exhaustive visual or media lifecycle coverage remain separate units.",
+    "The recomposed Product 7c2d3bf2 preserves the runtime, focal tests and Android instrumented-test blobs byte-for-byte from historical execution Product dca11d97. No platform matrix was repeated solely for ancestry.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }

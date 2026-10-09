@@ -47,7 +47,7 @@
       "kotlinNativeHome": "/Volumes/QuataMigrationCapacity/archived-caches/konan-da90c065/kotlin-native-prebuilt-macos-x86_64-2.2.21",
       "productRuntimeBlob": "9038eaed253c0db4dbc3f7c78720d4ca38d5640e",
       "productTestBlob": "e361eaff2fb056c974abb227861d38bfdfd3feed",
-      "exactShaVerification": "The final Product SHA has byte-identical common runtime and focal common test blobs to the iOS execution SHA. The only later product change is the Android-only instrumented test, so iOS was not repeated solely for a commit SHA change."
+      "exactShaVerification": "The final Product SHA has byte-identical common runtime and focal common test blobs to the iOS execution SHA. The later product changes are the Android-only instrumented test and the static post-detail parity contract; neither changes the iOS runtime or focal common test, so iOS was not repeated solely for a commit SHA change."
     }
   },
   "independentReview": {
