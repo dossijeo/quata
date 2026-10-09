@@ -343,7 +343,7 @@ la interacción visual de fallo y retry para creación privada y grupal: Web/Was
 estado visible y un solo callback, e iOS SimulatorSigned atraviesa el picker compartido, el ViewModel
 y el transporte Chat autenticado, reutiliza el hilo privado y termina con residuo cero.
 [Rendered retry attestation](./candidate-attestations/conversation-create-rendered-retry.json).
-Product SHA `87d19804` (ejecución focal `5d620be5`) acredita además la atomicidad backend de creación privada y grupal sobre las migraciones versionadas reales en PostgreSQL 17: un fallo forzado en el efecto final revierte hilo, participantes, pareja privada, mensaje y evento, y el retry inmediato produce las cardinalidades exactas. [Backend atomicity attestation](./candidate-attestations/conversation-create-backend-atomicity.json). Estos cierres no convierten `SCR-CONVERSATIONS` en GO global ni acreditan recuperación de una respuesta de transporte desconocida después de un commit correcto del servidor.
+Product SHA recompuesto `830e2532` (ejecución focal `5d620be5`) acredita además la atomicidad backend de creación privada y grupal sobre las migraciones versionadas reales en PostgreSQL 17: un fallo forzado en el efecto final revierte hilo, participantes, pareja privada, mensaje y evento, y el retry inmediato produce las cardinalidades exactas. [Backend atomicity attestation](./candidate-attestations/conversation-create-backend-atomicity.json). Estos cierres no convierten `SCR-CONVERSATIONS` en GO global ni acreditan recuperación de una respuesta de transporte desconocida después de un commit correcto del servidor.
 
 ## Directiva de testing para las siguientes unidades
 
