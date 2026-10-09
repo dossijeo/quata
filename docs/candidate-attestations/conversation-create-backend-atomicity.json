@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "442566c19986a83b2281411cf222398ca541c253",
+  "productSha": "1b4be486d3d57801351c95143d94f4e3ccc8655a",
   "certification": "disposable-postgresql-deployed-rpc-post-mutation-atomicity-complete-independent-review-go",
   "evidenceKind": "CONVERSATION_CREATE_DEPLOYED_RPC_POST_MUTATION_ATOMICITY",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "442566c19986a83b2281411cf222398ca541c253",
+      "sha": "1b4be486d3d57801351c95143d94f4e3ccc8655a",
       "report": "docs/candidate-attestations/evidence/conversation-create-backend-atomicity-5d620be5.json",
       "reportSha256": "d605975815b76f91a7e3fbc68410785366846f2e84581d05c6beb33c3865ceac",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "442566c19986a83b2281411cf222398ca541c253",
+    "reviewedSha": "1b4be486d3d57801351c95143d94f4e3ccc8655a",
     "blockingFindings": [],
     "resolvedFindings": [
       "Cleanup now verifies through Docker that the disposable container is absent and emits PASS only afterward.",
@@ -55,6 +55,6 @@
     "Both private and group failures leave zero rows from their attempted creation, and an immediate retry produces the exact expected cardinalities.",
     "The outer transaction is rolled back and the disposable container is removed. No production database or credential is used.",
     "This unit does not claim recovery from an unknown transport response after the server committed successfully or close non-CONV-NEW scopes in SCR-CONVERSATIONS.",
-    "The current recomposed Product 442566c1 is tree-identical to previously reviewed Product 8f60d5b7. Product 8f60d5b7 is tree-identical to reviewed Product 830e2532, which preserves the four unit blobs and all three imported versioned SQL inputs byte-identically from historical execution Product 5d620be5. The PostgreSQL 17 probe had already been reproduced with PASS and zero remaining containers, so it was not repeated solely for ancestry."
+    "The current recomposed Product 1b4be486 is tree-identical to previously reviewed Product 442566c1. Product 442566c1 is tree-identical to previously reviewed Product 8f60d5b7. Product 8f60d5b7 is tree-identical to reviewed Product 830e2532, which preserves the four unit blobs and all three imported versioned SQL inputs byte-identically from historical execution Product 5d620be5. The PostgreSQL 17 probe had already been reproduced with PASS and zero remaining containers, so it was not repeated solely for ancestry."
   ]
 }
