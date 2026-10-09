@@ -154,8 +154,12 @@ exigen Retry antes del visor.
 
 La evidencia integrada de `PROF-SHARED-CHAT-DOCUMENTS` sigue siendo la autoridad para el productor
 de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos porque no producen
-adjuntos documentales. Quedan fuera de esta aceptación positiva la elección de destinos externos,
-formatos no soportados, comportamiento específico de proveedores y fallos reales de red.
+adjuntos documentales. La atestación `chat-attachment-http-boundary.json` cierra además la matriz
+productiva de estados y transporte: Android atraviesa TLS local real con bytes y headers exactos;
+Web e iOS ejercitan de forma determinista sus decisiones productivas para
+401/403/404/408/429/500/503, redirect, transporte, respuesta ausente, vacío y sobrelímite. Quedan
+fuera la elección de destinos externos, formatos no soportados, comportamiento específico de
+proveedores y topologías OS de proxy, portal cautivo o corte físico de red.
 
 ## OVR-COMMENTS / FLOW-EMOJI — reconciliación 2026-10-02
 
