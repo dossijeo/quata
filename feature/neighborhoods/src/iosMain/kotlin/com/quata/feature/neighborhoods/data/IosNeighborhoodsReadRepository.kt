@@ -75,6 +75,7 @@ class IosNeighborhoodsReadRepository(
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
     private var profileFollowEvidenceFailureConsumed = false
     private var profileRolesEvidenceFailureConsumed = false
+    private var profileSafetyReportEvidenceFailureConsumed = false
     private var profileSafetyBlockEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceFailureConsumed = false
     private var profilePrivateChatEvidenceRemoteOpenCompleted = false
@@ -169,6 +170,11 @@ class IosNeighborhoodsReadRepository(
         ).toggleLike(postId)
 
     override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
+        if (iosProfileSafetyReportEvidenceFailureRequested() && !profileSafetyReportEvidenceFailureConsumed) {
+            profileSafetyReportEvidenceFailureConsumed = true
+            delay(2_000)
+            error("profile_safety_report_e2e_forced_failure")
+        }
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = userId.requireIosNeighborhoodIdentifier()
         feedTransport.reportUgcRpc(
@@ -470,6 +476,9 @@ class IosNeighborhoodsReadRepository(
 
 private fun iosProfileSafetyBlockEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] as? String) == "1"
+
+private fun iosProfileSafetyReportEvidenceFailureRequested(): Boolean =
+    (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_SAFETY_REPORT_FORCE_FAILURE"] as? String) == "1"
 
 private fun iosProfileFollowEvidenceFailureRequested(): Boolean =
     (NSProcessInfo.processInfo.environment["QUATA_IOS_PROFILE_FOLLOW_FORCE_FAILURE"] as? String) == "1"

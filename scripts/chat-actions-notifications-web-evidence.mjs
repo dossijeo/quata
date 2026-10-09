@@ -3097,6 +3097,43 @@ async function verifyProfileRolesPermissionsFromOpenProfile(page, profile, evide
 async function verifyProfileSafetyNegativeFromOpenProfile(page, profile, fixture, evidenceDir, report) {
   const profileId = profile.profileId;
   await scrollProfileHeaderIntoView(page);
+  await assertVisibleTagOrText(page, `public-profile.safety.report.${profileId}`, [/Reportar|Report/i], "profile_report_anchor_missing");
+  await clickProfileSafetyAction(page, `public-profile.safety.report.${profileId}`, [/Reportar|Report/i], "report", report);
+  await assertVisibleAriaTag(page, "public-profile.safety.dialog.report", "profile_report_dialog_missing");
+  await page.evaluate(() => {
+    globalThis.__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__ = true;
+  });
+  try {
+    await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.report", [/Reportar|Report/i], "profile_report_confirm_not_clickable");
+    await assertVisibleAriaTag(page, `public-profile.safety.loading.${profileId}`, "profile_report_loading_missing");
+    report.evidence.profileSafetyReportNegativeLoading = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-report-negative-loading");
+    await assertVisibleAriaTag(page, `public-profile.error.${profileId}`, "profile_report_error_missing");
+    await assertVisibleTagOrText(page, `public-profile.safety.retry.report.${profileId}`, [/Reintentar|Retry/i], "profile_report_retry_missing");
+    report.evidence.profileSafetyReportNegativeFailed = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-report-negative-failed");
+    await clickProfileAnchorOrText(
+      page,
+      `public-profile.safety.retry.report.${profileId}`,
+      [/Reintentar|Retry/i],
+      "profile_report_retry_not_clickable",
+    );
+    await page.waitForFunction((retryTag) => {
+      const root = document.querySelector("#quata-root");
+      const scope = root?.shadowRoot ?? root ?? document;
+      return ![...scope.querySelectorAll("[aria-label]")].some((element) =>
+        (element.getAttribute("aria-label") ?? "").includes(retryTag));
+    }, `public-profile.safety.retry.report.${profileId}`, { timeout: 20_000 });
+    report.evidence.profileSafetyReportNegativeRetrySucceeded = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-report-negative-retry-succeeded");
+    report.evidence.profileReportPersisted = await pollProfileReport({
+      fixture,
+      withDatabase: withPoolerClient,
+      delay,
+    });
+  } finally {
+    await page.evaluate(() => {
+      delete globalThis.__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__;
+    }).catch(() => {});
+  }
+
   await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_anchor_missing");
   await clickProfileSafetyAction(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "block", report);
   await assertVisibleAriaTag(page, "public-profile.safety.dialog.block", "profile_block_dialog_missing");
@@ -8474,6 +8511,7 @@ try {
       report.steps.push("profile_safety_initial_state_snapshot_and_absent_block_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-safety-negative");
       await verifyProfileSafetyNegativeFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report);
+      report.steps.push("profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified");
       report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
     } else {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);

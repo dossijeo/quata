@@ -55,10 +55,14 @@ test("PROF-SAFETY retry preserves the exact failed action across all three hosts
 });
 
 test("PROF-SAFETY fault hooks are debug or localhost scoped, one-shot and fail before remote mutation", () => {
+  assert.match(androidRepository, /BuildConfig\.DEBUG && ProfileSafetyEvidenceFaults\.consumeReportFailure\(\)[\s\S]*error\("profile_safety_report_e2e_forced_failure"\)[\s\S]*sessionManager\.currentSession\(\)/);
   assert.match(androidRepository, /BuildConfig\.DEBUG && ProfileSafetyEvidenceFaults\.consumeBlockFailure\(\)[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*sessionManager\.currentSession\(\)/);
-  assert.match(androidFault, /AtomicBoolean/);
+  assert.match(androidFault, /failNextReportMutation = AtomicBoolean\(false\)[\s\S]*requestReportFailureOnce\(\)[\s\S]*consumeReportFailure\(\).*compareAndSet\(true, false\)/);
+  assert.match(iosRepository, /iosProfileSafetyReportEvidenceFailureRequested\(\) && !profileSafetyReportEvidenceFailureConsumed[\s\S]*profileSafetyReportEvidenceFailureConsumed = true[\s\S]*error\("profile_safety_report_e2e_forced_failure"\)[\s\S]*authenticatedSession\(\)/);
   assert.match(iosRepository, /iosProfileSafetyBlockEvidenceFailureRequested\(\) && !profileSafetyBlockEvidenceFailureConsumed[\s\S]*profileSafetyBlockEvidenceFailureConsumed = true[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*authenticatedSession\(\)/);
+  assert.match(webRepository, /webProfileSafetyReportEvidenceFailureRequested\(\)[\s\S]*error\("profile_safety_report_e2e_forced_failure"\)[\s\S]*authenticatedUserId\(\)/);
   assert.match(webRepository, /webProfileSafetyBlockEvidenceFailureRequested\(\)[\s\S]*error\("profile_safety_block_e2e_forced_failure"\)[\s\S]*authenticatedUserId\(\)/);
+  assert.match(webRepository, /__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__ !== true\) return false;[\s\S]*__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__ = false/);
   assert.match(webRepository, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ !== true\) return false;[\s\S]*__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__ = false/);
   assert.match(webRepository, /\['localhost', '127\.0\.0\.1'\]\.includes/);
 });
@@ -68,6 +72,8 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same
     assert.match(runner, /profile-safety-negative-only/);
     assert.match(runner, /expectedBlocked: true/);
     assert.match(runner, /profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified/);
+    assert.match(runner, /profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified/);
+    assert.match(runner, /pollProfileReport/);
     assert.match(runner, /cleanupProfileRolesSafetyFixture/);
   }
   for (const ui of [androidUi, iosUi]) {
@@ -76,7 +82,13 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same
     assert.match(ui, /public-profile\.safety\.retry\.block\./);
     assert.match(ui, /public-profile\.error\./);
     assert.match(ui, /public-profile\.safety\.block\./);
+    assert.match(ui, /public-profile\.safety\.retry\.report\./);
+    assert.match(ui, /public-profile\.safety\.dialog\.confirm\.report/);
   }
+  assert.match(androidUi, /requestReportFailureOnce\(\)/);
+  assert.match(androidUi, /if \(stage == "profile-safety-negative"\)[\s\S]*runCatching \{ scenario\.close\(\) \}[\s\S]*else \{[\s\S]*scenario\.close\(\)/);
+  assert.match(androidRunner, /android-chat-profile-safety-report-negative-loading\.png[\s\S]*android-chat-profile-safety-report-negative-failed\.png[\s\S]*android-chat-profile-safety-report-negative-retry-succeeded\.png/);
+  assert.match(webRunner, /__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__/);
   assert.match(webRunner, /__QUATA_PROFILE_SAFETY_BLOCK_FORCE_FAILURE__/);
   assert.match(androidRunner, /!profileFollowNegativeOnly && !profileSafetyNegativeOnly/);
   assert.match(androidRunner, /native_loopback_auth_rest_facade_accepted_for_profile_safety_retry/);
@@ -85,6 +97,7 @@ test("PROF-SAFETY focal runners prove optimistic state, error, rollback and same
   assert.match(iosRunner, /!profileFollowNegativeOnly && !profileSafetyNegativeOnly/);
   assert.match(iosRunner, /native_loopback_auth_rest_facade_accepted_for_ios_profile_safety_retry/);
   assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE/);
+  assert.match(iosWrapper, /QUATA_IOS_PROFILE_SAFETY_REPORT_FORCE_FAILURE/);
   assert.match(iosUi, /QUATA_IOS_NATIVE_FACADE_AUTHORIZATION[\s\S]*app\.launchEnvironment\[key\] = value/);
   assert.match(iosUi, /if profileSafetyNegative \|\| verifiesNonAdminPermissions \|\| verifiesRoleErrorRetry \{[\s\S]*quata-ios-authenticated-top-chrome[\s\S]*authenticatedChrome\.waitForExistence/);
   assert.match(iosUi, /\} else \{[\s\S]*feed\.waitForExistence\(timeout: 20\)[\s\S]*The seeded normal launch must restore Feed/);

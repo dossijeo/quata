@@ -1,0 +1,68 @@
+{
+  "check": "CHAT-ACTIONS-NOTIFICATIONS-IOS-001",
+  "status": "passed",
+  "startedAt": "2026-10-09T10:08:41.885Z",
+  "git": {
+    "head": "c43a4f8c35987d17b3abee41e6180c9147445272",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_group_thread_ready",
+    "unique_seed_and_peer_messages_ready",
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+    "ios_xctest_profile_safety_failed_block_optimistic_state_error_and_exact_rollback_verified",
+    "profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified",
+    "profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified"
+  ],
+  "evidence": {
+    "profileReportPersisted": {
+      "status": "pending",
+      "reason": "other"
+    },
+    "profileBlockPersisted": {
+      "blocked": true
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "conversation_unmuted",
+      "seed_favorite_removed",
+      "test_messages_deleted",
+      "peer_message_deleted_by_owner",
+      "cleanup_verified_messages_absent_for_a",
+      "cleanup_verified_messages_absent_for_b",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "cleanup_verified_favorite_absent",
+      "cleanup_verified_thread_absent_for_a",
+      "cleanup_verified_thread_absent_for_b",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "profile_roles_safety_fixture_restored",
+      "cleanup_verified_profile_roles_safety_restored"
+    ],
+    "hardCleanup": {
+      "uniqueKeySha256": "1db88caa8132bd336c8b872fb322f8f4795e01a9f8d077fb218f9f6bf1696c75",
+      "residueCounts": {
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_attachments": 0,
+        "chat_message_states": 0,
+        "chat_profile_blocks": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    },
+    "profileRolesSafety": {
+      "status": "cleanup_verified_profile_roles_safety_restored",
+      "restored": true
+    }
+  },
+  "finishedAt": "2026-10-09T10:11:34.886Z"
+}

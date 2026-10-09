@@ -186,6 +186,9 @@ const evidenceFiles = [
   "android-chat-profile-safety-negative-optimistic.png",
   "android-chat-profile-safety-negative-restored.png",
   "android-chat-profile-safety-negative-return.png",
+  "android-chat-profile-safety-report-negative-loading.png",
+  "android-chat-profile-safety-report-negative-failed.png",
+  "android-chat-profile-safety-report-negative-retry-succeeded.png",
   "android-chat-profile-roles-permissions-denied.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
@@ -3213,12 +3216,18 @@ try {
       report.steps.push("official_comments_emoji_selector_empty_state_visible_without_cells");
     }
     if (profileSafetyNegativeOnly) {
+      report.evidence.profileReportPersisted = await pollProfileReport({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        delay,
+      });
       report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
         fixture: state.profileRolesSafety,
         withDatabase,
         expectedBlocked: true,
         delay,
       });
+      report.steps.push("profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified");
       report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
       report.steps.push("profile_safety_retry_block_persisted_verified_by_db");
     }

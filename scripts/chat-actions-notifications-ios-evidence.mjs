@@ -603,6 +603,7 @@ export QUATA_IOS_CONVERSATION_GROUP_CREATE_QUERY=${shellQuote(state.conversation
 export QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE=${shellQuote(state.conversationGroupTitle ?? "conversation-group-create")}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesPermissionsOnly ? "permissions" : profileRolesErrorRetryOnly ? "error-retry" : (profileRolesSafetyOnly || profileSafetyNegativeOnly) ? "1" : "0"}
 export QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE=${profileSafetyNegativeOnly ? "1" : "0"}
+export QUATA_IOS_PROFILE_SAFETY_REPORT_FORCE_FAILURE=${profileSafetyNegativeOnly ? "1" : "0"}
 export QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE=${profileRolesErrorRetryOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
@@ -982,12 +983,18 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("flow_emoji_selector_empty_and_error_states_verified_with_common_tags");
     }
     if (profileSafetyNegativeOnly) {
+      report.evidence.profileReportPersisted = await pollProfileReport({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        delay,
+      });
       report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
         fixture: state.profileRolesSafety,
         withDatabase,
         expectedBlocked: true,
         delay,
       });
+      report.steps.push("profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified");
       report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
     }
     if (profileRolesSafetyOnly) {

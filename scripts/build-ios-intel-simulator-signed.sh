@@ -17,10 +17,39 @@ if [[ -z "${JAVA_HOME:-}" || ! -x "$JAVA_HOME/bin/java" || -z "${JBR_HOME:-}" ||
   exit 2
 fi
 
-export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.java.installations.paths=$JAVA_HOME,$JBR_HOME -Dorg.gradle.java.installations.auto-download=false"
+gradle_user_home="${GRADLE_USER_HOME:-$HOME/.gradle}"
+raster_init_source="$HOME/.gradle/init.d/hyperv-compose-raster.init.gradle"
+raster_init_target="$gradle_user_home/init.d/hyperv-compose-raster.init.gradle"
+raster_repository="${HYPERV_RASTER_REPOSITORY:-$HOME/.local/share/macos-hyperv-builder/raster-m2/repository}"
+if [[ ! -f "$raster_init_target" ]]; then
+  [[ -f "$raster_init_source" ]] || {
+    echo "Hyper-V raster init script is unavailable: $raster_init_source" >&2
+    exit 2
+  }
+  mkdir -p "$(dirname "$raster_init_target")"
+  cp "$raster_init_source" "$raster_init_target"
+fi
+[[ -d "$raster_repository" ]] || {
+  echo "Hyper-V raster repository is unavailable: $raster_repository" >&2
+  exit 2
+}
+export GRADLE_USER_HOME="$gradle_user_home"
+export HYPERV_RASTER_REPOSITORY="$raster_repository"
+export GRADLE_OPTS="${GRADLE_OPTS:-} -Dos.arch=x86_64 -Dorg.gradle.java.installations.paths=$JAVA_HOME,$JBR_HOME -Dorg.gradle.java.installations.auto-download=false"
 derived_data_path="${QUATA_IOS_SIGNED_DERIVED_DATA_PATH:-build/ios-intel-simulator-signed-derived-data}"
 result_bundle_path="${QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH:-build/reports/ios/QuataIos-intel-signed-build.xcresult}"
 rm -rf "$derived_data_path" "$result_bundle_path"
+
+raster_resolution="$(bash ./gradlew \
+  :ios-shared:dependencyInsight \
+  --dependency skiko-iosx64 \
+  --configuration iosX64CompileKlibraries \
+  --console=plain \
+  --no-daemon)"
+grep -Fqx 'org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT' <<<"$raster_resolution" || {
+  echo "Intel simulator build did not resolve the required Hyper-V raster Skiko artifact." >&2
+  exit 2
+}
 
 bash ./gradlew :ios-shared:compileKotlinIosX64 :ios-shared:linkDebugFrameworkIosX64 --configure-on-demand --stacktrace --warning-mode all --console=plain
 intel_framework="ios-shared/build/bin/iosX64/debugFramework/QuataShared.framework"
