@@ -4,12 +4,12 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "82c3cc039c74aa9d39b906f6dcedb862d479d75f",
+  "productSha": "b627b51a4daaa8715590b43442cd701de88dbbdd",
   "certification": "focal-android-exact-feed-official-post-process-death-complete-independent-review-complete-final-ci-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "82c3cc039c74aa9d39b906f6dcedb862d479d75f",
+      "sha": "b627b51a4daaa8715590b43442cd701de88dbbdd",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-post-android-9c618342d.json",
       "reportSha256": "483b65f4ad1ade923b86687e5757e6f25e68c2cb493b885b68ed57536bf9b63d",
       "reportStatus": "passed",
@@ -58,6 +58,17 @@
     "This closes only Android exact Feed/Official restoration after process death. Web document reload, scroll, media position, drafts, editor state and arbitrary secondary back stacks remain separate scopes.",
     "The documentation reanchor changes no runtime, runner, tests, workflow or configuration. The Android execution remains bound to reportGitHead 9c618342 and its byte-identified report; the reanchored Product SHA contains the same executable product tree.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs.",
-    "The five-commit exact-post unit was recomposed over reviewed Notifications-to-Chat head 71aebfb3 with an identical complete delta; execution remains bound to reportGitHead 9c618342 and was not repeated solely for ancestry."
-  ]
+    "The six-commit exact-post Product was recomposed over repaired Notifications-to-Chat head ac138dd78. MainActivity, its JVM test, the runner, the contract and the accepted report remain byte-identical to reviewed Product 534044e2; execution stays bound to reportGitHead 9c618342 and was not repeated solely for ancestry or the base contract-only correction."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "b627b51a4daaa8715590b43442cd701de88dbbdd",
+    "reviewedProductSha": "b627b51a4daaa8715590b43442cd701de88dbbdd",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The general inventory no longer carries the stale non-ancestral Android exact-post Product SHA ef73e8c8; historical execution 9c618342 is linked to this authoritative manifest.",
+      "MainActivity, its JVM test, the runner and the contract remain byte-identical to reviewed Product 534044e2 after rebasing over repaired #581 head ac138dd78.",
+      "The accepted report remains bound separately to reportGitHead 9c618342 and SHA-256 483b65f4ad1ade923b86687e5757e6f25e68c2cb493b885b68ed57536bf9b63d."
+    ]
+  }
 }
