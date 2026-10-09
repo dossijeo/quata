@@ -1221,6 +1221,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
         let seededChatRoute = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]).map { "chat:\($0)" }
+        let privateRetentionMarker = "QADATA private retry \(groupTitle)"
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
@@ -1345,6 +1346,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 XCTAssertEqual(route, firstRoute, "Opening the same candidate twice must reuse the same private thread.")
             } else {
                 firstRoute = route
+                if retryEvidence {
+                    // Empty private threads are deliberately removed when their host is disposed.
+                    // Persist one custodied message before relaunching so this step proves reuse of
+                    // an established private conversation instead of creating another empty draft.
+                    typeText(privateRetentionMarker, into: "chat.composer.input", in: app)
+                    tapTaggedButton("chat.composer.send", in: app, context: "retain private retry conversation")
+                    XCTAssertTrue(
+                        messageText(privateRetentionMarker, in: app).waitForExistence(timeout: 30),
+                        "The private retry conversation must persist its custodied marker before reuse."
+                    )
+                }
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
         }

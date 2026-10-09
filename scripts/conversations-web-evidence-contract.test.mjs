@@ -401,6 +401,9 @@ test("rendered conversation-create failures retain drafts and retry through each
   assert.match(iosUi, /ios-conversation-group-create-failed-retained/);
   assert.match(iosUi, /retry private conversation creation/);
   assert.match(iosUi, /retry group conversation creation/);
+  assert.match(iosUi, /privateRetentionMarker[\s\S]*?chat\.composer\.send[\s\S]*?persist its custodied marker before reuse/);
+  assert.match(iosUi, /relaunchAtConversations\("private conversation reuse", retryFixtureEnabled: false\)/);
+  assert.match(iosUi, /relaunchAtConversations\("group conversation creation", retryFixtureEnabled: true\)/);
   assert.match(iosUi, /successful private retry must close the retained picker before Chat is accepted/);
   assert.match(iosUi, /successful group retry must close the retained picker before Chat is accepted/);
   assert.match(iosUi, /retained two-member selection must keep group retry enabled/);
