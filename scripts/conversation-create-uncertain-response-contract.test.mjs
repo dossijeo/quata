@@ -26,6 +26,7 @@ test('private conversation replay emits its creation effect only for a newly ins
 test('uncertain-response probe replays both product RPCs and proves exact durable cardinalities', () => {
   assert.match(sql, /20261009070000_chat_private_thread_open_idempotency\.sql/);
   assert.match(sql, /first committed result is deliberately ignored/);
+  assert.match(sql, /quata_chat_start_thread[\s\S]*commit;[\s\S]*\\connect postgres postgres[\s\S]*quata_chat_get_or_create_private_thread/);
   assert.match(sql, /private retry duplicated its open event/);
   assert.match(sql, /group retry duplicated its first message/);
   assert.match(sql, /group retry duplicated its start event/);
@@ -59,7 +60,7 @@ test('selective release binds the migration bytes and verifies the deployed func
   assert.match(releaseExecutor, /selective_release_private_open_idempotency_postcondition_failed/);
 });
 
-test('postdeploy probe replays both committed results inside rollback custody and proves zero residue', () => {
+test('postdeploy probe verifies repeat-call cardinalities inside rollback custody and proves zero residue', () => {
   assert.match(remoteProbe, /20261009070000[\s\S]*chat_private_thread_open_idempotency/);
   assert.match(remoteProbe, /client\.query\('begin'\)[\s\S]*fixture = await probe\(client\)[\s\S]*client\.query\('rollback'\)/);
   assert.match(remoteProbe, /quata_chat_get_or_create_private_thread/);
