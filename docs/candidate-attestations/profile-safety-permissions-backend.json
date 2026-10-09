@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "units": ["PROF-SAFETY-PERMISSIONS"],
+  "status": "passed",
+  "productSha": "e45de2c404c6057d6ac612a975dc7d8853b7891d",
+  "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "e45de2c404c6057d6ac612a975dc7d8853b7891d",
+      "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-20d6d710.json",
+      "reportSha256": "091f12638371defbcb6b1e2eeaa9296757140add5c640e10fc6d5aa012f38685",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "requiredObservations": [
+        "anonymousRpcDenied",
+        "spoofedActorDenied",
+        "selfTargetDenied",
+        "authenticatedActorOwnedReportAccepted",
+        "authenticatedActorOwnedBlockAccepted",
+        "spoofedActorUnblockDeniedAndForeignEdgePreserved",
+        "authenticatedActorOwnedUnblockAccepted",
+        "directReportTableMutationDenied"
+      ],
+      "cleanup": {"verified": true, "transactionRolledBack": true, "residueZero": true}
+    }
+  },
+  "databaseRelease": {
+    "migration": "20261009073000_profile_safety_actor_permissions.sql",
+    "migrationSha256": "089e1a720afda2c6f6a38951b179293106f8dfad719060d79c1413cb55f64011",
+    "backup": "release-20261009T074025Z-d6ee6763",
+    "backupScope": "full encrypted logical backup",
+    "restoreDrill": "profile-safety focal restore passed with ugc_reports=16 and chat_profile_blocks=2",
+    "dryRun": "passed",
+    "apply": "passed",
+    "commitStatus": "committed",
+    "postflight": "passed"
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/profile-safety-permissions-backend-evidence.mjs scripts/selective-db-release-executor.mjs",
+    "node --test scripts/profile-safety-permissions-backend-contract.test.mjs scripts/profile-safety-negative-contract.test.mjs scripts/db-migration-reconciliation-contract.test.mjs",
+    "scripts/new-db-logical-backup.ps1 -Scope Full",
+    "scripts/restore-db-logical-backup-drill.ps1 -ProfileSafetyScope",
+    "scripts/run-db-release-safety.ps1 -Phase snapshot",
+    "scripts/run-selective-db-release.ps1 -Action dry-run",
+    "scripts/run-selective-db-release.ps1 -Action apply",
+    "scripts/run-db-release-safety.ps1 -Phase postflight",
+    "node scripts/profile-safety-permissions-backend-evidence.mjs"
+  ],
+  "notes": [
+    "Production had drifted to broad anon/authenticated table privileges and anonymous EXECUTE on the three profile-safety RPCs even though the original moderation migration intended authenticated RPC-only mutation.",
+    "The successor revokes anonymous RPC execution, preserves authenticated RPC execution, denies direct report/block table mutation to untrusted roles, preserves authenticated RLS-filtered reads and removes direct sequence use.",
+    "The production probe used two temporary active profiles inside one transaction. Anonymous calls, actor spoofing and self-targeting were rejected; a spoofed unblock preserved the foreign edge, while the bound actor could report, block and unblock the peer; the transaction was rolled back and residue was zero.",
+    "The current recomposed Product e45de2c4 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 94fdf630; the only tree difference belongs to the integrated #592 predecessor documentation. Product 94fdf630 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 2e8e74f6; the only tree differences belong to the integrated #591 and #592 predecessor chain. Product 2e8e74f6 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 6c819953; the only tree differences belong to reanchored predecessor documentation. Product 6c819953 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 29882bc3; the only tree differences belong to reanchored predecessor documentation. Product 29882bc3 preserves every profile-safety permission blob byte-for-byte from previously reviewed Product 9182d6ea; the only tree differences belong to reanchored predecessor documentation. Product 9182d6ea preserves every profile-safety permission blob byte-for-byte from reviewed Product 00687113; its only tree differences belong to reviewed predecessor documentation. Product 00687113 preserves its two own runner and contract blobs byte-for-byte from reviewed Product d4248a91; that reviewed Product preserves the validated release and evidence lineage from execution 20d6d710. No migration or platform matrix was repeated solely for ancestry.",
+    "This unit closes the backend permission-negative boundary for profile report/block/unblock. It does not claim hosted Auth/API gateway/Realtime availability, UI report-failure acceptance or unrelated profile races."
+  ]
+}

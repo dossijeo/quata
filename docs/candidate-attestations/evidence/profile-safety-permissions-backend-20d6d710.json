@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "candidateSha": "20d6d71013a85f909ce87bf16e717b5c5cf1556f",
+  "startedAt": "2026-10-09T07:53:27.477Z",
+  "completedAt": "2026-10-09T07:53:37.863Z",
+  "databaseFingerprintSha256": "6968365f0aef21e4c4c3e4f329be570ebc75f8811109773f13bbfa8578cfc0c5",
+  "fixtureMarkerSha256": "7b52e3fae17aa9fbcac40a8aa654e5eca50c834cd3c7746bb4fb21e26fbcbf38",
+  "observations": {
+    "anonymousRpcDenied": true,
+    "spoofedActorDenied": true,
+    "selfTargetDenied": true,
+    "authenticatedActorOwnedReportAccepted": true,
+    "authenticatedActorOwnedBlockAccepted": true,
+    "spoofedActorUnblockDeniedAndForeignEdgePreserved": true,
+    "authenticatedActorOwnedUnblockAccepted": true,
+    "directReportTableMutationDenied": true
+  },
+  "cleanup": {
+    "state": "completed",
+    "transactionRolledBack": true,
+    "residueZero": true
+  },
+  "migrationPreview": false
+}

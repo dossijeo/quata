@@ -146,6 +146,12 @@ const approvedReleases = [
       ["20261009070000", "71bba05c73b6f1af7284c279e6ebb40b0e3deb2e13a55d82e6a4d6622ee26495"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261009073000", "089e1a720afda2c6f6a38951b179293106f8dfad719060d79c1413cb55f64011"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -1186,6 +1192,26 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
         || !/v_created := true/i.test(definition)
         || !/if v_created then[\s\S]*private_thread_opened[\s\S]*end if/i.test(definition)) {
       throw new Error("selective_release_private_open_idempotency_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261009073000")) {
+    const privileges = (await client.query(`
+      select
+        not has_function_privilege('anon', 'public.quata_ugc_report(uuid,text,text,text,text)', 'EXECUTE') as anon_report_denied,
+        not has_function_privilege('anon', 'public.quata_profile_block(uuid,uuid)', 'EXECUTE') as anon_block_denied,
+        not has_function_privilege('anon', 'public.quata_profile_unblock(uuid,uuid)', 'EXECUTE') as anon_unblock_denied,
+        has_function_privilege('authenticated', 'public.quata_ugc_report(uuid,text,text,text,text)', 'EXECUTE') as authenticated_report_allowed,
+        has_function_privilege('authenticated', 'public.quata_profile_block(uuid,uuid)', 'EXECUTE') as authenticated_block_allowed,
+        has_function_privilege('authenticated', 'public.quata_profile_unblock(uuid,uuid)', 'EXECUTE') as authenticated_unblock_allowed,
+        not has_table_privilege('anon', 'public.ugc_reports', 'INSERT,UPDATE,DELETE') as anon_report_table_denied,
+        not has_table_privilege('authenticated', 'public.ugc_reports', 'INSERT,UPDATE,DELETE') as authenticated_report_table_denied,
+        not has_table_privilege('anon', 'public.chat_profile_blocks', 'INSERT,UPDATE,DELETE') as anon_block_table_denied,
+        not has_table_privilege('authenticated', 'public.chat_profile_blocks', 'INSERT,UPDATE,DELETE') as authenticated_block_table_denied,
+        not has_sequence_privilege('anon', 'public.ugc_reports_id_seq', 'USAGE,SELECT,UPDATE') as anon_report_sequence_denied,
+        not has_sequence_privilege('authenticated', 'public.ugc_reports_id_seq', 'USAGE,SELECT,UPDATE') as authenticated_report_sequence_denied
+    `)).rows[0] ?? {};
+    if (Object.values(privileges).some((value) => value !== true)) {
+      throw new Error("selective_release_profile_safety_permissions_postcondition_failed");
     }
   }
 }
