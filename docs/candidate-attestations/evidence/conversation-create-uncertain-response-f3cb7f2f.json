@@ -1,0 +1,68 @@
+{
+  "check": "CONVERSATION-CREATE-UNCERTAIN-RESPONSE-001",
+  "status": "passed",
+  "git": {
+    "head": "f3cb7f2f3da23b433489b19d3ffca8c6bb164d66",
+    "workingTreeDirty": false
+  },
+  "release": {
+    "migrationVersion": "20261009070000",
+    "migrationSha256": "71bba05c73b6f1af7284c279e6ebb40b0e3deb2e13a55d82e6a4d6622ee26495",
+    "rollbackSha256": "69134a3f3aeb691fa8171917e1cc52236c214abf41f31b96777fffeea0172a80",
+    "sourceCommit": "9dde46eb276368cf0595e2ecd601a416b2387e3c",
+    "finalProductMigrationBytesIdentical": true,
+    "packageManifestSha256": "003af937fd8409ed7bd31ee51b5ed96c8138ec086fe9133ac5774b3ec8c4f64b",
+    "databaseProjectFingerprintSha256": "8315fb0b077bbea8b804a8ec1177b9e4b4e6841b9a2c2f5040970a66e298867c",
+    "snapshotSha256": "6c82eb6567694670355c05bb2713da7630b77ac2e1d0cef79c5567bd2f404832",
+    "postflightSha256": "4daf9f2cadee10a2a48a37322dd19c4b4b8ef0dae07931e55a91e63d405ce017",
+    "dryRun": "passed",
+    "apply": "committed",
+    "postflight": "passed"
+  },
+  "backup": {
+    "kind": "encrypted-full-logical-backup",
+    "manifestSha256": "5b61131d282ee4f00d31de0808cd7d9b450a05e51b193ddef22642c33f03b15d",
+    "focalRestore": "passed",
+    "plaintextRemoved": true
+  },
+  "steps": [
+    "exact_migration_bytes_validated_in_disposable_postgresql_17",
+    "encrypted_full_backup_created_and_focal_restore_passed",
+    "snapshot_package_dry_run_authorization_and_apply_passed",
+    "migration_ledger_function_identity_and_definition_postflight_passed",
+    "private_committed_result_replayed_to_the_same_thread_with_one_open_event",
+    "group_committed_result_replayed_to_the_same_thread_with_one_start_event",
+    "production_postdeploy_probe_rolled_back_and_left_zero_residue",
+    "mandatory_fast_contracts_passed_887_of_887"
+  ],
+  "assertions": {
+    "contract": "8/8",
+    "fastContracts": "887/887",
+    "privateReplay": {
+      "threadRows": 1,
+      "pairRows": 1,
+      "participantRows": 2,
+      "eventRows": 1
+    },
+    "groupReplay": {
+      "threadRows": 1,
+      "participantRows": 3,
+      "messageRows": 1,
+      "eventRows": 1
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "residueCounts": {
+      "privateThreads": 0,
+      "privatePairs": 0,
+      "privateParticipants": 0,
+      "privateEvents": 0,
+      "groupThreads": 0,
+      "groupParticipants": 0,
+      "groupMessages": 0,
+      "groupEvents": 0
+    },
+    "persistentProbeMutation": false
+  }
+}

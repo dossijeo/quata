@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "f3cb7f2f3da23b433489b19d3ffca8c6bb164d66",
+  "certification": "deployed-private-open-idempotency-and-committed-result-replay-passed-independent-review-pending",
+  "evidenceKind": "CONVERSATION_CREATE_UNCERTAIN_RESPONSE_RECOVERY",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "f3cb7f2f3da23b433489b19d3ffca8c6bb164d66",
+      "report": "docs/candidate-attestations/evidence/conversation-create-uncertain-response-f3cb7f2f.json",
+      "reportSha256": "8c061a222bcf23c3cd5102dd61b7e963d8d1855e4551be894717661e621f020a",
+      "reportStatus": "passed",
+      "reportGitHead": "f3cb7f2f3da23b433489b19d3ffca8c6bb164d66",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "exact_migration_bytes_validated_in_disposable_postgresql_17",
+        "encrypted_full_backup_created_and_focal_restore_passed",
+        "snapshot_package_dry_run_authorization_and_apply_passed",
+        "migration_ledger_function_identity_and_definition_postflight_passed",
+        "private_committed_result_replayed_to_the_same_thread_with_one_open_event",
+        "group_committed_result_replayed_to_the_same_thread_with_one_start_event",
+        "production_postdeploy_probe_rolled_back_and_left_zero_residue",
+        "mandatory_fast_contracts_passed_887_of_887"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "production-probe-transaction-rollback-and-zero-residue-verification"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversation-create-uncertain-response-contract.test.mjs",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-conversation-create-uncertain-response.ps1",
+    "node --check scripts/conversation-create-uncertain-response-remote-probe.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversation-create-uncertain-response.json --head HEAD"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "resolvedFindings": []
+  },
+  "notes": [
+    "Migration 20261009070000 emits private_thread_opened only when the private thread is newly inserted; a retry after a committed response reuses the exact thread without duplicating the event.",
+    "Group creation retains its existing request key and deduplication contract; the disposable and production probes replay both RPCs and prove exact durable cardinalities.",
+    "The release ran from 9dde46eb; the final Product SHA adds only the postdeploy probe and its static contract. The versioned migration and rollback bytes are identical at both commits.",
+    "A fresh encrypted full logical backup and focal restore preceded dry-run, authorization and the committed apply. The production postdeploy probe used a rollback transaction and verified zero residue.",
+    "This unit closes the documented CONV-NEW unknown-response-after-commit limit without changing client semantics or claiming unrelated SCR-CONVERSATIONS coverage."
+  ]
+}
