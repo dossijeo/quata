@@ -854,7 +854,7 @@ private final class IosAppCompositionRoot {
                 }
             }
             container = IosAuthLaunchFixtureContainerViewController {
-                IosAuthLaunchFixtureHostKt.QuataAuthFailureRetryFixtureViewControllerForDestination(
+                IosAuthFailureRetryFixtureHostKt.QuataAuthFailureRetryFixtureViewControllerForDestination(
                     destination: destination,
                     languageCode: Locale.preferredLanguages.first,
                     onAttempt: publishMarker,
