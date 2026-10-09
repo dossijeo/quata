@@ -380,7 +380,7 @@ test("rendered conversation-create failures retain drafts and retry through each
     assert.match(rendered, /groupConversationCreateFailure|groupCreateFailure/);
     assert.match(rendered, /ConversationPickerErrorTestTag/);
     assert.match(rendered, /assertEquals\(listOf\([^\n]+, [^\n]+\), model\.privateAttempts\)/);
-    assert.match(rendered, /assertEquals\(listOf\(requestKey, requestKey\), model\.groupRequestKeys\)/);
+    assert.match(rendered, /assertEquals\(2, model\.groupRetryCount\)/);
     assert.match(rendered, /assertEquals\(listOf\([^\n]+-retry-conversation"\), opened\)/);
   }
 

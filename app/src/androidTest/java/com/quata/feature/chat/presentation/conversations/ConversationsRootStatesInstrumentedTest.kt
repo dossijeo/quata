@@ -104,10 +104,9 @@ class ConversationsRootStatesInstrumentedTest {
     }
 
     @Test
-    fun groupConversationCreateFailureRendersDraftAndReusesStableKey() {
+    fun groupConversationCreateFailureRendersDraftAndRetriesOnce() {
         val first = androidRenderedCandidate("android-group-first")
         val second = androidRenderedCandidate("android-group-second")
-        val requestKey = "android-stable-group-request"
         val model = AndroidRenderedRetryConversationsModel(
             ConversationsUiState(
                 isNewConversationPickerOpen = true,
@@ -118,8 +117,7 @@ class ConversationsRootStatesInstrumentedTest {
                 newGroupTitle = "Android retained group",
                 candidateError = "android-group-create-error",
             ),
-            initialGroupRequestKeys = listOf(requestKey),
-            groupRequestKey = requestKey,
+            initialGroupRetryCount = 1,
         )
         val opened = mutableListOf<String>()
         compose.setContent { AndroidConversationsRootFixture(model, opened::add) }
@@ -128,7 +126,7 @@ class ConversationsRootStatesInstrumentedTest {
         compose.onNodeWithTag(ConversationPickerGroupTitleTestTag).assertTextContains("Android retained group")
         compose.onNodeWithTag(ConversationPickerErrorTestTag).assertIsDisplayed()
         compose.runOnIdle {
-            assertEquals(listOf(requestKey), model.groupRequestKeys)
+            assertEquals(1, model.groupRetryCount)
             assertEquals(emptyList<String>(), opened)
         }
 
@@ -137,7 +135,7 @@ class ConversationsRootStatesInstrumentedTest {
         compose.onAllNodesWithTag(ConversationPickerRootTestTag).assertCountEquals(0)
         compose.onAllNodesWithTag(ConversationPickerErrorTestTag).assertCountEquals(0)
         compose.runOnIdle {
-            assertEquals(listOf(requestKey, requestKey), model.groupRequestKeys)
+            assertEquals(2, model.groupRetryCount)
             assertEquals(listOf("android-group-retry-conversation"), opened)
         }
     }
@@ -168,12 +166,11 @@ private fun AndroidConversationsRootFixture(
 private class AndroidRenderedRetryConversationsModel(
     initial: ConversationsUiState,
     initialPrivateAttempts: List<String> = emptyList(),
-    initialGroupRequestKeys: List<String> = emptyList(),
-    private val groupRequestKey: String = "android-stable-group-request",
+    initialGroupRetryCount: Int = 0,
 ) : ConversationsScreenModel {
     val state = MutableStateFlow(initial)
     val privateAttempts = initialPrivateAttempts.toMutableList()
-    val groupRequestKeys = initialGroupRequestKeys.toMutableList()
+    var groupRetryCount = initialGroupRetryCount
     override val uiState = state
     override fun onEvent(event: ConversationsUiEvent) = Unit
     override fun openNewConversationPicker() = Unit
@@ -190,7 +187,7 @@ private class AndroidRenderedRetryConversationsModel(
     override fun toggleNewConversationCandidate(candidate: ChatConversationCandidate) = Unit
     override fun onNewGroupTitleChanged(title: String) = Unit
     override fun openSelectedGroupConversation(onOpened: (String) -> Unit) {
-        groupRequestKeys += groupRequestKey
+        groupRetryCount += 1
         state.value = state.value.copy(
             isNewConversationPickerOpen = false,
             selectedNewConversationProfileIds = emptySet(),
