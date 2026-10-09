@@ -4,12 +4,12 @@
     "PROF-SAFETY-REPORT-RETRY"
   ],
   "status": "passed",
-  "productSha": "ecf7471c43b681b94900a1e2488046a2cbdf6203",
+  "productSha": "ccdc3c06e0fea2b79ca591d96c22f7aaa2aa9fe7",
   "certification": "candidate-awaiting-final-pr-gates",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "ecf7471c43b681b94900a1e2488046a2cbdf6203",
+      "sha": "ccdc3c06e0fea2b79ca591d96c22f7aaa2aa9fe7",
       "report": "docs/candidate-attestations/evidence/profile-safety-report-retry-web-8d7319d4.json",
       "reportSha256": "ec299815e98783bb1e59fc4410bd5e5d81def9d31630539eebe3f3eb34477873",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "ecf7471c43b681b94900a1e2488046a2cbdf6203",
+      "sha": "ccdc3c06e0fea2b79ca591d96c22f7aaa2aa9fe7",
       "report": "docs/candidate-attestations/evidence/profile-safety-report-retry-android-c43a4f8c.json",
       "reportSha256": "a2e5994fc949f8e703227e7fb672846daea1f748b79310279c85f444c3618a42",
       "reportStatus": "passed",
@@ -51,7 +51,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "ecf7471c43b681b94900a1e2488046a2cbdf6203",
+      "sha": "ccdc3c06e0fea2b79ca591d96c22f7aaa2aa9fe7",
       "report": "docs/candidate-attestations/evidence/profile-safety-report-retry-ios-c43a4f8c.json",
       "reportSha256": "d7b02914a28d34db2e1d732c971d217381a71fc9b4243742672fc43bcbf9dd92",
       "reportStatus": "passed",
@@ -87,7 +87,7 @@
     "Web/Wasm, Android and iOS Simulator drive the real public-profile Report action through a forced pre-transport failure, keep the exact target and report reason, expose the same retry action, retry once and verify the resulting report in the production database.",
     "The same focal runs retain the previously accepted block failure, rollback and retry assertions. Every run restores its profile-safety and Chat fixtures and finishes with zero physical residue.",
     "Hosted Supabase Auth remained unavailable with HTTP 402. The accepted runs use the already hardened and explicitly authorized loopback facade while retaining the production database, RLS and RPC behavior; they do not certify the hosted Auth/API gateway or Realtime transport.",
-    "Web passed on clean head 8d7319d4. Android and iOS passed on clean head c43a4f8c. Product SHA ecf7471c preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product f2ef7105; the only tree differences belong to reanchored predecessor documentation. Product f2ef7105 preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product b4cb8670; the only tree differences belong to reanchored predecessor documentation. Product b4cb8670 preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product 35f17736; the only tree differences belong to reanchored predecessor documentation. Product 35f17736 preserves every profile-safety report retry blob byte-for-byte from reviewed Product fd8ad691; its only tree differences belong to reviewed predecessor documentation. Product fd8ad691 preserves the same blobs from reviewed Product d2825772, which retains the same product and evidence-runner behavior as the accepted execution heads and adds only capability hashes, Android focal teardown tolerance and the iOS Hyper-V raster preflight plus its exact literal-coordinate contract. Platform matrices were not repeated solely for ancestry.",
+    "Web passed on clean head 8d7319d4. Android and iOS passed on clean head c43a4f8c. Product SHA ccdc3c06 preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product bcbbd4f8; the only tree differences belong to the integrated predecessor chain through #592 and the reviewed PROF-SAFETY permissions candidate. Product bcbbd4f8 preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product f2ef7105; the only tree differences belong to reanchored predecessor documentation. Product f2ef7105 preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product b4cb8670; the only tree differences belong to reanchored predecessor documentation. Product b4cb8670 preserves every profile-safety report retry blob byte-for-byte from previously reviewed Product 35f17736; the only tree differences belong to reanchored predecessor documentation. Product 35f17736 preserves every profile-safety report retry blob byte-for-byte from reviewed Product fd8ad691; its only tree differences belong to reviewed predecessor documentation. Product fd8ad691 preserves the same blobs from reviewed Product d2825772, which retains the same product and evidence-runner behavior as the accepted execution heads and adds only capability hashes, Android focal teardown tolerance and the iOS Hyper-V raster preflight plus its exact literal-coordinate contract. Platform matrices were not repeated solely for ancestry.",
     "The iOS evidence was repeated after a clean SimulatorSigned raster build resolved org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT in the shared isolated Gradle home. The accepted evidence run reused that clean build and passed on the explicit iOS 18.3 simulator.",
     "The committed reports are sanitized projections. The private raw-report SHA-256 values are 7ae0134b4b4bdc6812a3ddd1aaa64a33f09cb04393c0edb27f64bb146c7094c0 for Web, d2f0409a5d014bd667234b236a842a4bbe04f29e0127e565918be530c62fa798 for Android and 8ef988af6b08b1f58aad8501f4b20af978a62dcc5217b2350bc5a3f94e2d07be for iOS. Local paths, credentials, identifiers, screenshots and command output are omitted.",
     "This unit closes the documented report-failure and same-action retry UI limit. It does not broaden acceptance to unrelated moderation actions, hosted authentication or concurrent report races."
