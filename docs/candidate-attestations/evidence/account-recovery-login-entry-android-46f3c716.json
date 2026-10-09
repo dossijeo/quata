@@ -1,0 +1,38 @@
+{
+  "check": "ACCOUNT-RECOVERY-LOGIN-ENTRY-ANDROID-001",
+  "status": "passed",
+  "testHead": "46f3c7161251d497be58a7a7de5f1545e7df5daa",
+  "productSha": "46f3c7161251d497be58a7a7de5f1545e7df5daa",
+  "execution": {
+    "baseHead": "4b8d96ef9c4d206bdfbfdd211fde59c8903f0552",
+    "sourceBlob": "4e111d8b84b0e0a2dd142d74f8be905fd0687442",
+    "sourcePath": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRecoveryProductBridgeInstrumentedTest.kt",
+    "contractBlob": "745307e83dffc6dfccbe844fd7f2e414830c538f",
+    "contractPath": "scripts/android-auth-recovery-login-entry-contract.test.mjs",
+    "device": {
+      "avd": "QuataLivePr336Api35",
+      "api": 35,
+      "model": "sdk_gphone64_x86_64"
+    },
+    "test": "AuthRecoveryProductBridgeInstrumentedTest.sharedLoginOpensSpanishRecoveryAndReturnsToLogin",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "runtimeCustody": {
+    "authProductHostBlob": "70ca853ebcff957647939df29be095f12029a353",
+    "authCatalogBlob": "33c9320c84fec7430757bedc661bf33b4375cbac"
+  },
+  "verified": [
+    "normal shared Login renders the observed Spanish Olvidé mi contraseña action",
+    "the visible recovery action opens auth.recovery.root through the Android Compose host",
+    "the Recovery surface renders the observed Spanish Volver action",
+    "Volver returns to the normal shared Login surface"
+  ],
+  "externalEvidence": {
+    "summarySha256": "cdaa259d492be527514aaeee7b9e988b2554609ad10e8c18a6ec664851c2c4a6",
+    "testResultSha256": "ff74eee1ae329fbc83ae6178271c994a251194a2ee8fc072c69ae0b0ac997b56",
+    "logcatSha256": "2b401bdd4d8bfd2feba9159f1ec65a3a201e0ac1ace7b729f036286239f286ce"
+  },
+  "limits": "This hermetic Android navigation acceptance does not repeat or replace the real password-reset/backend evidence at b9fae4bd, does not certify exhaustive Recovery localization and does not attribute iOS or Web execution."
+}

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-RECOVERY-SECRET"
+  ],
+  "productSha": "cde8e4d28eda695298d45522162ec86b34b553d3",
+  "testHead": "46f3c7161251d497be58a7a7de5f1545e7df5daa",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "cde8e4d28eda695298d45522162ec86b34b553d3",
+      "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-android-46f3c716.json",
+      "reportSha256": "08cf95113759b7bbe0cb82500a00e8c02bc1c29370afdd830467fedcf7f8d9c2",
+      "requireReportArtifact": true,
+      "executedTests": 1,
+      "failedTests": 0,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_backend_or_persistent_actor_state"
+      }
+    }
+  },
+  "composition": {
+    "realRecoveryEvidence": "docs/candidate-attestations/account-recovery-secret.json",
+    "iosNavigationEvidence": "docs/candidate-attestations/account-recovery-login-entry-ios.json",
+    "androidNavigationEvidence": "docs/candidate-attestations/evidence/account-recovery-login-entry-android-46f3c716.json"
+  },
+  "notes": [
+    "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
+    "The Android focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
+    "No product runtime, backend, migration, credentials or historical evidence were changed."
+  ]
+}
