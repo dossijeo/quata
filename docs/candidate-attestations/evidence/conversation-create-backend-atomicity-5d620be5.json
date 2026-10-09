@@ -1,0 +1,40 @@
+{
+  "check": "CONVERSATION-CREATE-BACKEND-ATOMICITY-001",
+  "status": "passed",
+  "git": {
+    "head": "5d620be55621bf44ee62eb4c0bcd810c7c72c608",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "database": "PostgreSQL 17 disposable container",
+    "repositoryMount": "read-only"
+  },
+  "steps": [
+    "versioned_chat_schema_and_rpc_migrations_imported",
+    "private_creation_forced_to_fail_after_thread_and_participant_mutations",
+    "failed_private_creation_left_zero_thread_pair_participant_and_event_rows",
+    "private_retry_created_one_pair_two_participants_and_one_open_event",
+    "group_creation_forced_to_fail_after_thread_participant_and_message_mutations",
+    "failed_group_creation_left_zero_thread_participant_message_and_event_rows",
+    "group_retry_created_one_thread_three_participants_one_message_and_one_start_event",
+    "outer_transaction_rolled_back_and_disposable_container_removed"
+  ],
+  "assertions": {
+    "contract": "3/3",
+    "privateRetry": {
+      "pairRows": 1,
+      "participantRows": 2,
+      "eventRows": 1
+    },
+    "groupRetry": {
+      "threadRows": 1,
+      "participantRows": 3,
+      "messageRows": 1,
+      "eventRows": 1
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "persistentDatabaseMutation": false
+  }
+}
