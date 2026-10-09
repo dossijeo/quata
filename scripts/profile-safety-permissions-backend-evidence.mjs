@@ -206,6 +206,27 @@ async function main() {
     if (acceptedReport.rows[0]?.payload?.ok !== true || acceptedBlock.rows[0]?.payload?.ok !== true) {
       throw new Error("permission_contract_failed:actor_owned_mutation");
     }
+    await expectRejected(
+      client,
+      "spoofed_unblock_actor",
+      "select public.quata_profile_unblock($1::uuid, $2::uuid)",
+      [profileB, profileA],
+      ["42501"],
+    );
+    const preservedAfterSpoof = await client.query(
+      "select count(*)::int as count from public.chat_profile_blocks where thread_id is null and blocker_profile_id = $1 and blocked_profile_id = $2",
+      [profileA, profileB],
+    );
+    if (Number(preservedAfterSpoof.rows[0]?.count) !== 1) {
+      throw new Error("permission_contract_failed:spoofed_unblock_changed_foreign_edge");
+    }
+    const acceptedUnblock = await client.query(
+      "select public.quata_profile_unblock($1::uuid, $2::uuid) as payload",
+      [profileA, profileB],
+    );
+    if (acceptedUnblock.rows[0]?.payload?.ok !== true) {
+      throw new Error("permission_contract_failed:actor_owned_unblock");
+    }
 
     stage = "inside_transaction_snapshot";
     await client.query("reset role");
@@ -215,7 +236,7 @@ async function main() {
          (select count(*)::int from public.chat_profile_blocks where thread_id is null and blocker_profile_id = $1 and blocked_profile_id = $2::uuid) as blocks`,
       [profileA, profileB],
     );
-    if (Number(inside.rows[0]?.reports) !== 1 || Number(inside.rows[0]?.blocks) !== 1) {
+    if (Number(inside.rows[0]?.reports) !== 1 || Number(inside.rows[0]?.blocks) !== 0) {
       throw new Error("permission_contract_failed:actor_owned_rows");
     }
 
@@ -247,6 +268,8 @@ async function main() {
         selfTargetDenied: true,
         authenticatedActorOwnedReportAccepted: true,
         authenticatedActorOwnedBlockAccepted: true,
+        spoofedActorUnblockDeniedAndForeignEdgePreserved: true,
+        authenticatedActorOwnedUnblockAccepted: true,
         directReportTableMutationDenied: true,
       },
       cleanup: { state: "completed", transactionRolledBack: true, residueZero: true },

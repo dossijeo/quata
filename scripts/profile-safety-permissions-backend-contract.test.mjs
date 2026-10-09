@@ -42,6 +42,7 @@ test("PROF-SAFETY rejects self-targeting and proves actor-owned mutations transa
   assert.match(migration, /v_reported = v_actor[\s\S]*You cannot report your own content/);
   assert.match(migration, /v_actor = p_profile_id[\s\S]*You cannot block yourself/);
   assert.match(runner, /self_report[\s\S]*self_block[\s\S]*actor_owned_mutation[\s\S]*rollback/);
+  assert.match(runner, /spoofed_unblock_actor[\s\S]*spoofed_unblock_changed_foreign_edge[\s\S]*actor_owned_unblock/);
   assert.match(runner, /cleanup: \{ state: "completed", transactionRolledBack: true, residueZero: true \}/);
   assert.match(runner, /--migration-preview[\s\S]*20261009073000_profile_safety_actor_permissions\.sql[\s\S]*transactionalBody/);
 });
