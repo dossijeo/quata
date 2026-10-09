@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "248835582e42a19b14db0bd75029b94c323d4837",
-  "certification": "local-affected-runtime-exact-conversation-backstack-rebased-review-pending-final-CI-pending",
+  "certification": "local-affected-runtime-exact-conversation-backstack-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "NOTIFICATIONS_EXACT_CHAT_DURABLE_BACKSTACK",
   "evidence": {
     "crossPlatform": {
@@ -43,13 +43,14 @@
     "macOS: xcodebuild three selected QuataFeedFrameworkTests on booted iOS 26.5 Intel Simulator with CODE_SIGNING_ALLOWED=NO"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "c18a88c9e70d438a6fa246d588c716adc32da596",
     "reviewedProductSha": "248835582e42a19b14db0bd75029b94c323d4837",
     "blockingFindings": [],
     "resolvedFindings": [
       "Android clears the notification return marker on route exit and authentication loss, with focal negative coverage.",
-      "Web claims are limited to controller recreation over injected persistent storage rather than a browser document reload."
+      "Web claims are limited to controller recreation over injected persistent storage rather than a browser document reload.",
+      "The seven-commit series was recomposed over the byte-identical #580 squash; complete pre-attestation trees match and runtime, tests, matrix and historical evidence remain byte-identical."
     ]
   },
   "notes": [
