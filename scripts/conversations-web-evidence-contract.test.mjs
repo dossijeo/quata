@@ -54,7 +54,7 @@ test("conversation root contract stays in mandatory fast suites", async () => {
 });
 
 test("Web and iOS mount explicit contact pickers and the common invitation channel", async () => {
-  const [commonAdapters, commonHost, commonModel, commonPicker, permissionPrompt, web, ios, webServices, iosServices] = await Promise.all([
+  const [commonAdapters, commonHost, commonModel, commonPicker, permissionPrompt, web, ios, webServices, iosServices, runner] = await Promise.all([
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationInvitePlatformAdapters.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
     source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsViewModel.kt"),
@@ -64,6 +64,7 @@ test("Web and iOS mount explicit contact pickers and the common invitation chann
     source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
     source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserContactPickerService.wasm.kt"),
     source("core/src/iosMain/kotlin/com/quata/core/platform/IosContactPickerService.kt"),
+    source("scripts/chat-actions-notifications-web-evidence.mjs"),
   ]);
 
   assert.match(commonHost, /fun loadInviteContacts\(contacts: List<ChatInviteContact>\? = null\)/);
@@ -86,9 +87,44 @@ test("Web and iOS mount explicit contact pickers and the common invitation chann
 
   assert.match(web, /PlatformResult\.Unsupported -> showGenericInviteSheet = true/);
   assert.match(webServices, /navigator\?\.contacts\?\.select/);
+  assert.match(runner, /--conversations-contact-picker-only/);
+  assert.match(runner, /Object\.defineProperty\(globalThis\.navigator, "contacts"/);
+  assert.match(runner, /properties: Array\.from\(properties \?\? \[\]\)/);
+  assert.match(runner, /multiple: pickerOptions\?\.multiple === true/);
+  assert.match(runner, /conversations_invite_contact_picker_selected_row_missing/);
+  assert.match(runner, /expectedRowLabel = `\$\{pickedContactRowTag\} \$\{contactPickerFixture\.displayName\} \$\{contactPickerFixture\.phone\}`/);
+  assert.match(runner, /observedRowLabel !== expectedRowLabel/);
+  assert.match(runner, /selectedContactIdSha256: sha256\(pickedContactId\)/);
+  assert.match(runner, /selectedContactNameSha256: sha256\(observedContactName\)/);
+  assert.match(runner, /selectedContactPhoneSha256: sha256\(contactPickerFixture\.phone\)/);
+  assert.match(runner, /QADATA invite no match web/);
+  assert.match(runner, /conversations_web_contact_picker_supported_path_selected_contact_and_dispatched_platform_share_once/);
+  assert.match(runner, /CONV-INVITES-WEB-CONTACT-PICKER-001/);
   assert.match(webServices, /PlatformResult\.Unsupported/);
   assert.match(iosServices, /CNContactPickerViewController\(\)/);
   assert.match(iosServices, /didSelectContacts: List<\*>/);
+});
+
+test("Web Contact Picker supported-path evidence stays bound to the clean exact head", async () => {
+  const manifest = JSON.parse(await source("docs/candidate-attestations/conversation-invites-web-contact-picker.json"));
+  const lane = manifest.evidence.web;
+  const evidence = JSON.parse(await source(lane.report));
+
+  const historicalReportGitHead = "5edf661f8c5f8e84587874671bf7736f87d53415";
+  assert.equal(lane.sha, manifest.productSha);
+  assert.equal(lane.reportGitHead, historicalReportGitHead);
+  assert.equal(lane.reportWorkingTreeDirty, false);
+  assert.equal(evidence.git.head, historicalReportGitHead);
+  assert.equal(evidence.git.workingTreeDirty, false);
+  assert.deepEqual(evidence.evidence.contactPicker.properties, ["name", "tel", "email"]);
+  assert.equal(evidence.evidence.contactPicker.apiCalls, 1);
+  assert.equal(evidence.evidence.contactPicker.multiple, true);
+  assert.match(evidence.evidence.contactPicker.selectedContactIdSha256, /^[a-f0-9]{64}$/);
+  assert.match(evidence.evidence.contactPicker.selectedContactNameSha256, /^[a-f0-9]{64}$/);
+  assert.match(evidence.evidence.contactPicker.selectedContactPhoneSha256, /^[a-f0-9]{64}$/);
+  assert.equal(evidence.evidence.contactPicker.sharePayloadCount, 1);
+  assert.equal(evidence.cleanup.state, "completed");
+  assert.ok(Object.values(evidence.cleanup.residueCounts).every((value) => value === 0));
 });
 
 test("Web focal evidence filters two custodied rows and opens real common destinations", async () => {

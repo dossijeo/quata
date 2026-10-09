@@ -78,6 +78,7 @@ function parseArgs(argv) {
     profileEntryOnly: false,
     profileEntryErrorDeepOnly: false,
     conversationsOnly: false,
+    conversationsContactPickerOnly: false,
     conversationsColdSearchOnly: false,
     conversationCreateOnly: false,
     messagesLifecycleOnly: false,
@@ -153,6 +154,13 @@ function parseArgs(argv) {
       result.conversationsOnly = true;
       result.output = resolve("build-reports/web/conversations-evidence.json");
       result.evidenceDir = resolve("build-reports/web/conversations-evidence");
+      continue;
+    }
+    if (key === "--conversations-contact-picker-only") {
+      result.conversationsOnly = true;
+      result.conversationsContactPickerOnly = true;
+      result.output = resolve("build-reports/web/conversation-invites-contact-picker-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/conversation-invites-contact-picker-evidence");
       continue;
     }
     if (key === "--conversations-cold-search-only") {
@@ -1640,6 +1648,25 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
       configurable: true,
       value: () => true,
     });
+    if (storage.contactPickerFixture) {
+      globalThis.__quataContactPickerCalls = [];
+      Object.defineProperty(globalThis.navigator, "contacts", {
+        configurable: true,
+        value: {
+          select: async (properties, pickerOptions) => {
+            globalThis.__quataContactPickerCalls.push({
+              properties: Array.from(properties ?? []),
+              multiple: pickerOptions?.multiple === true,
+            });
+            return [{
+              name: [storage.contactPickerFixture.displayName],
+              tel: [storage.contactPickerFixture.phone],
+              email: [storage.contactPickerFixture.email],
+            }];
+          },
+        },
+      });
+    }
   }, {
     storage: {
       quata_web_access_token: session.accessToken,
@@ -1649,6 +1676,7 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
       quata_web_expires_at: String(session.expiresAt),
       "web.auth.session_ready": "true",
       quata_web_client_instance_id: `chat-actions-notifications-${randomUUID()}`,
+      contactPickerFixture: options.contactPickerFixture ?? null,
     },
   });
   const page = await context.newPage();
@@ -4148,7 +4176,17 @@ async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir
   report.steps.push("feed_official_communities_and_conversations_profile_entry_anchors_opened_common_profile");
 }
 
-async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report, faults, coldSearchOnly = false) {
+async function verifyConversationsWeb(
+  page,
+  origin,
+  fixture,
+  evidenceDir,
+  report,
+  faults,
+  coldSearchOnly = false,
+  contactPickerPositiveOnly = false,
+  contactPickerFixture = null,
+) {
   const conversationId = `sb:${fixture.threadId}`;
   const controlConversationId = `sb:${fixture.controlThreadId}`;
   const rowTag = `conversation.row.${conversationId}`;
@@ -4333,21 +4371,93 @@ async function verifyConversationsWeb(page, origin, fixture, evidenceDir, report
   }
   const pickerSearch = await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker.search"))], 5_000);
   if (!pickerSearch) throw new Error("conversations_picker_search_missing");
-  await pickerSearch.fill(fixture.peerDisplayName, { timeout: 10_000 });
-  const candidateTag = `conversation.picker.candidate.${fixture.peerProfileId}`;
-  if (!(await visibleAriaLocatorWithWheelOnly(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
-    throw new Error("conversations_picker_expected_candidate_missing");
+  if (!contactPickerPositiveOnly) {
+    await pickerSearch.fill(fixture.peerDisplayName, { timeout: 10_000 });
+    const candidateTag = `conversation.picker.candidate.${fixture.peerProfileId}`;
+    if (!(await visibleAriaLocatorWithWheelOnly(page, [new RegExp(escapeRegExp(candidateTag))], 20_000))) {
+      throw new Error("conversations_picker_expected_candidate_missing");
+    }
+    report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
   }
-  report.evidence.conversationsPicker = await attachScreenshot(page, evidenceDir, "web-conversations-picker");
   await pickerSearch.fill("QADATA invite no match web", { timeout: 10_000 });
   report.steps.push("conversations_invite_no_match_query_requested_terminal_candidate_page");
   const contactPickerAction = await visibleAriaLocatorWithWheelOnly(page, [/(Permitir|Autoriser|Allow)/i], 30_000);
   if (!contactPickerAction) throw new Error("conversations_invite_contact_picker_action_missing");
   await clickLocatorPreferDom(page, contactPickerAction, "conversations_invite_contact_picker_action_not_clickable");
-  const copyInviteAction = await visibleAriaLocator(page, [/(Copiar texto|Copier le texte|Copy text)/i], 10_000);
-  if (!copyInviteAction) throw new Error("conversations_invite_fallback_sheet_missing");
-  report.evidence.conversationsInviteFallback = await attachScreenshot(page, evidenceDir, "web-conversations-invite-fallback");
-  report.steps.push("conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet");
+  if (contactPickerPositiveOnly) {
+    if (!contactPickerFixture) throw new Error("conversations_invite_contact_picker_fixture_missing");
+    const phoneKey = contactPickerFixture.phone.replaceAll(/\D/g, "");
+    const pickedContactId = `platform-contact:${phoneKey}`;
+    const pickedContactRowTag = `conversation.picker.invite.row.${pickedContactId}`;
+    const pickedContactActionTag = `conversation.picker.invite.action.${pickedContactId}`;
+    const pickedContactRow = await visibleAriaLocatorWithWheelOnly(
+      page,
+      [new RegExp(escapeRegExp(pickedContactRowTag))],
+      20_000,
+    );
+    if (!pickedContactRow) throw new Error("conversations_invite_contact_picker_selected_row_missing");
+    const observedRowLabel = await pickedContactRow.getAttribute("aria-label");
+    const expectedRowLabel = `${pickedContactRowTag} ${contactPickerFixture.displayName} ${contactPickerFixture.phone}`;
+    if (observedRowLabel !== expectedRowLabel) {
+      throw new Error(`conversations_invite_contact_picker_selected_row_identity_invalid:${JSON.stringify(observedRowLabel)}`);
+    }
+    const observedContactName = observedRowLabel
+      .slice(pickedContactRowTag.length + 1, -(contactPickerFixture.phone.length + 1));
+    if (observedContactName !== contactPickerFixture.displayName) {
+      throw new Error(`conversations_invite_contact_picker_selected_name_invalid:${JSON.stringify(observedContactName)}`);
+    }
+    const pickedContact = await visibleAriaLocatorWithWheelOnly(
+      page,
+      [new RegExp(`${escapeRegExp(pickedContactActionTag)} ${escapeRegExp(observedContactName)}(?: |$)`) ],
+      20_000,
+    );
+    if (!pickedContact) throw new Error("conversations_invite_contact_picker_selected_action_missing");
+    const pickerCalls = await page.evaluate(() => globalThis.__quataContactPickerCalls ?? []);
+    if (pickerCalls.length !== 1 || pickerCalls[0]?.multiple !== true) {
+      throw new Error(`conversations_invite_contact_picker_call_invalid:${JSON.stringify(pickerCalls)}`);
+    }
+    if (JSON.stringify(pickerCalls[0]?.properties) !== JSON.stringify(["name", "tel", "email"])) {
+      throw new Error(`conversations_invite_contact_picker_properties_invalid:${JSON.stringify(pickerCalls)}`);
+    }
+    report.evidence.conversationsInviteSelectedContact = await attachScreenshot(
+      page,
+      evidenceDir,
+      "web-conversations-invite-contact-picker-selected",
+    );
+    await clickLocatorPreferDom(page, pickedContact, "conversations_invite_selected_contact_not_clickable");
+    const copyInviteAction = await visibleAriaLocator(page, [/(Copiar texto|Copier le texte|Copy text)/i], 10_000);
+    const platformShareAction = await visibleAriaLocator(
+      page,
+      [new RegExp(escapeRegExp("conversation.invite.target.platform-share"))],
+      10_000,
+    );
+    if (!copyInviteAction || !platformShareAction) throw new Error("conversations_invite_selected_contact_sheet_missing");
+    report.evidence.conversationsInviteSelectedContactSheet = await attachScreenshot(
+      page,
+      evidenceDir,
+      "web-conversations-invite-selected-contact-sheet",
+    );
+    await clickLocatorPreferDom(page, platformShareAction, "conversations_invite_platform_share_not_clickable");
+    await page.waitForFunction(() => (globalThis.__quataSharePayloads?.length ?? 0) === 1, undefined, { timeout: 10_000 });
+    const sharePayloads = await page.evaluate(() => globalThis.__quataSharePayloads ?? []);
+    if (sharePayloads.length !== 1 || typeof sharePayloads[0]?.text !== "string" || !sharePayloads[0].text.includes("Qüata")) {
+      throw new Error(`conversations_invite_platform_share_payload_invalid:${JSON.stringify(sharePayloads)}`);
+    }
+    report.evidence.conversationsInviteContactPicker = {
+      apiCalls: pickerCalls,
+      selectedContactIdSha256: sha256(pickedContactId),
+      selectedContactNameSha256: sha256(observedContactName),
+      selectedContactPhoneSha256: sha256(contactPickerFixture.phone),
+      sharePayloadCount: sharePayloads.length,
+      shareTextSha256: sha256(sharePayloads[0].text),
+    };
+    report.steps.push("conversations_web_contact_picker_supported_path_selected_contact_and_dispatched_platform_share_once");
+  } else {
+    const copyInviteAction = await visibleAriaLocator(page, [/(Copiar texto|Copier le texte|Copy text)/i], 10_000);
+    if (!copyInviteAction) throw new Error("conversations_invite_fallback_sheet_missing");
+    report.evidence.conversationsInviteFallback = await attachScreenshot(page, evidenceDir, "web-conversations-invite-fallback");
+    report.steps.push("conversations_web_explicit_contact_picker_unsupported_fallback_opened_common_share_copy_sheet");
+  }
   await openAuthenticatedRoute(page, origin, "chat", "chat", { forceReload: true });
   if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("conversation.picker"))], 2_000)) {
     throw new Error("conversations_picker_survived_route_reset");
@@ -7710,6 +7820,11 @@ try {
     report.steps.push("sos_location_and_unavailable_messages_seeded");
   }
 
+  const contactPickerFixture = options.conversationsContactPickerOnly ? {
+    displayName: "QADATA invite no match web",
+    phone: `+240 998 ${runId.replaceAll("-", "").slice(0, 6)}`,
+    email: "qadata-invite@example.test",
+  } : null;
   distribution = await configuredDistribution(options.distribution, config);
   server = await startServer(distribution);
   browser = await chromium.launch({
@@ -7732,6 +7847,7 @@ try {
   }
   pageContext = await openAuthenticatedChatPage(browser, server.origin, uiSession, `sb:${state.thread}`, faults, {
     grantMicrophone: options.attachmentsAudioOnly,
+    contactPickerFixture,
   });
   const page = pageContext.page;
   if (options.groupSosOnly) {
@@ -8013,8 +8129,11 @@ try {
       verifyInjected: async (marker) => {
         await pollMessage(config, state.a, state.conversations.controlThreadId, (message) => messageText(message) === marker);
       },
-    }, options.evidenceDir, report, faults, options.conversationsColdSearchOnly);
+    }, options.evidenceDir, report, faults, options.conversationsColdSearchOnly, options.conversationsContactPickerOnly, contactPickerFixture);
     report.status = "passed";
+    if (options.conversationsContactPickerOnly) {
+      report.check = "CONV-INVITES-WEB-CONTACT-PICKER-001";
+    }
     report.fixture = {
       threadId: state.thread,
       conversationId: `sb:${state.thread}`,
@@ -8025,6 +8144,7 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
       controlUniqueKeySha256: sha256(state.conversations.controlUniqueKey),
       peerProfileIdSha256: sha256(state.conversations.peerProfileId),
+      contactPickerSupportedPath: options.conversationsContactPickerOnly,
     };
     throw new EvidenceCompleted();
   }
