@@ -1,10 +1,10 @@
 {
   "status": "passed",
-  "candidateSha": "a43a10073b318985a0992cba008eff257e965970",
-  "startedAt": "2026-10-09T07:51:39.656Z",
-  "completedAt": "2026-10-09T07:51:49.862Z",
+  "candidateSha": "20d6d71013a85f909ce87bf16e717b5c5cf1556f",
+  "startedAt": "2026-10-09T07:53:27.477Z",
+  "completedAt": "2026-10-09T07:53:37.863Z",
   "databaseFingerprintSha256": "6968365f0aef21e4c4c3e4f329be570ebc75f8811109773f13bbfa8578cfc0c5",
-  "fixtureMarkerSha256": "b539f2da71da9d23785dc5491e40ed66f15d3876f428f057bd8d2363ae0d6646",
+  "fixtureMarkerSha256": "7b52e3fae17aa9fbcac40a8aa654e5eca50c834cd3c7746bb4fb21e26fbcbf38",
   "observations": {
     "anonymousRpcDenied": true,
     "spoofedActorDenied": true,

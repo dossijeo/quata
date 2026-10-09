@@ -2,14 +2,14 @@
   "version": 1,
   "units": ["PROF-SAFETY-PERMISSIONS"],
   "status": "passed",
-  "productSha": "a43a10073b318985a0992cba008eff257e965970",
+  "productSha": "d2163154d72ba1f2140f509dd065258cbe10a6f4",
   "certification": "candidate-awaiting-independent-review-and-final-pr-gates",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "a43a10073b318985a0992cba008eff257e965970",
-      "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-a43a1007.json",
-      "reportSha256": "9ca5c3a6e449afc2f24b04d1e270347ea6f9cc0d8742bccff186b0821abe5f60",
+      "sha": "d2163154d72ba1f2140f509dd065258cbe10a6f4",
+      "report": "docs/candidate-attestations/evidence/profile-safety-permissions-backend-20d6d710.json",
+      "reportSha256": "091f12638371defbcb6b1e2eeaa9296757140add5c640e10fc6d5aa012f38685",
       "reportStatus": "passed",
       "requireReportArtifact": true,
       "requiredObservations": [
