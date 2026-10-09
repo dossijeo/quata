@@ -1383,7 +1383,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         dismissKeyboardWithoutLeavingPanel(in: app)
         for candidate in groupCandidates {
-            candidate.tap()
+            if candidate.isHittable {
+                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            } else {
+                XCTAssertTrue(
+                    tapVisibleCenter(of: candidate, constrainedTo: nil, in: app),
+                    "Each exact group candidate must expose visible bounds for selection."
+                )
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
         typePickerText(groupTitle, into: "conversation.picker.groupTitle", in: app)
         attachScreenshot(app, name: "ios-conversation-group-create-picker")
