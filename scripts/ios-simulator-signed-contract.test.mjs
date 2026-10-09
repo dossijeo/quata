@@ -27,6 +27,8 @@ test('SimulatorSigned is isolated from Debug and Release production signing', as
   assert.match(script, /:ios-shared:dependencyInsight/);
   assert.match(script, /--configuration iosX64CompileKlibraries/);
   assert.match(script, /org\.jetbrains\.skiko:skiko-iosx64:0\.9\.37\.3-hyperv-raster\.1-SNAPSHOT/);
+  assert.match(script, /grep -Fqx 'org\.jetbrains\.skiko:skiko-iosx64:0\.9\.37\.3-hyperv-raster\.1-SNAPSHOT'/);
+  assert.doesNotMatch(script, /grep -qx 'org\.jetbrains\.skiko:skiko-iosx64:/);
   assert.match(script, /codesign --verify --deep --strict/);
   assert.match(script, /-name '\*\.xctest'/);
   assert.match(script, /-name '\*\.appex'/);

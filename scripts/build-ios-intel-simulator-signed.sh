@@ -46,7 +46,7 @@ raster_resolution="$(bash ./gradlew \
   --configuration iosX64CompileKlibraries \
   --console=plain \
   --no-daemon)"
-grep -qx 'org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT' <<<"$raster_resolution" || {
+grep -Fqx 'org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT' <<<"$raster_resolution" || {
   echo "Intel simulator build did not resolve the required Hyper-V raster Skiko artifact." >&2
   exit 2
 }
