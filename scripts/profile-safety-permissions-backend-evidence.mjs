@@ -123,6 +123,10 @@ async function main() {
         [profileId, authUserId, `${marker}-${suffix}`, `+240 ${phoneLocal}`, `${marker}-no-login`, `240${phoneLocal}`, phoneLocal, `+240${phoneLocal}`],
       );
     }
+    await client.query(
+      "insert into public.chat_profile_blocks(thread_id, blocker_profile_id, blocked_profile_id) values (null, $1, $2)",
+      [profileB, profileA],
+    );
 
     stage = "acl_snapshot";
     const acl = await client.query(
@@ -215,7 +219,7 @@ async function main() {
     );
     const preservedAfterSpoof = await client.query(
       "select count(*)::int as count from public.chat_profile_blocks where thread_id is null and blocker_profile_id = $1 and blocked_profile_id = $2",
-      [profileA, profileB],
+      [profileB, profileA],
     );
     if (Number(preservedAfterSpoof.rows[0]?.count) !== 1) {
       throw new Error("permission_contract_failed:spoofed_unblock_changed_foreign_edge");
