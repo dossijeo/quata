@@ -4,12 +4,12 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
+  "productSha": "769b51f27875b1c5d4adbebe4e4b74cb7a73de5b",
   "certification": "focal-web-exact-feed-official-post-document-reload-complete-independent-product-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
+      "sha": "769b51f27875b1c5d4adbebe4e4b74cb7a73de5b",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-post-web-0cc3f707.json",
       "reportSha256": "da4c198447237f5181ed6c7a4be3edf718815c03753c2abef8a6b53b05e6b6a6",
       "reportStatus": "passed",
@@ -50,15 +50,15 @@
     "An earlier full-run pilot completed both exact reload checks and cleanup, then failed at the unrelated official media browser-viewer assertion. That later failure is retained as uncredited context and the focused accepted run stops after the exact reload and Back checks.",
     "Independent Product review returned GO with no P0-P3 after fixture UUIDs were removed from the checked-in projection.",
     "This closes only exact Feed and Official post identity across a real Web document reload and Back to each retained root. Media viewers, video position, scroll, editor state, authentication, arbitrary secondary backstacks and other platforms remain separate scopes.",
-    "The three-commit Web exact-post Product was recomposed over final reviewed Android exact-post head 776c2dc53 with an equivalent complete delta. Runner, contract and accepted report remain byte-identical to reviewed Product 5be323de; execution stays bound to reportGitHead 0cc3f707 and was not repeated solely for ancestry or the base contract-only correction."
+    "The three-commit Web exact-post Product was recomposed over frozen Android exact-post candidate 6a2de52e5 with an equivalent complete delta. Runner, contract and accepted report remain byte-identical to reviewed historical Product 5be323de; execution stays bound to reportGitHead 0cc3f707 and was not repeated solely for ancestry or the base contract-only correction."
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
-    "reviewedProductSha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
+    "reviewedSha": "769b51f27875b1c5d4adbebe4e4b74cb7a73de5b",
+    "reviewedProductSha": "769b51f27875b1c5d4adbebe4e4b74cb7a73de5b",
     "blockingFindings": [],
     "resolvedFindings": [
-      "The rebased runner, contract and accepted evidence report remain byte-identical to reviewed Product 5be323de and historical Product fa3b6fa1.",
+      "The rebased runner, contract and accepted evidence report remain byte-identical to reviewed historical Product 5be323de and historical Product fa3b6fa1.",
       "Notifications-to-Chat and Android exact-post references were reconciled to their current ancestral Products before this Web unit.",
       "The accepted report remains bound separately to reportGitHead 0cc3f707 and SHA-256 da4c198447237f5181ed6c7a4be3edf718815c03753c2abef8a6b53b05e6b6a6."
     ]
