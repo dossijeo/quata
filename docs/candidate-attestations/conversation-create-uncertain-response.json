@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "bf30e7a509a9730abc246202aefbfd8e71759901",
+  "productSha": "e97b4d5c1b12c5026e42e72683a9f5903ecc3d59",
   "certification": "deployed-private-open-idempotency-and-committed-result-replay-passed-independent-review-go",
   "evidenceKind": "CONVERSATION_CREATE_UNCERTAIN_RESPONSE_RECOVERY",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "bf30e7a509a9730abc246202aefbfd8e71759901",
+      "sha": "e97b4d5c1b12c5026e42e72683a9f5903ecc3d59",
       "report": "docs/candidate-attestations/evidence/conversation-create-uncertain-response-c3e77078.json",
       "reportSha256": "790b57b0aaab47b95219a065a7b5727945e0028f66136af417b9ff2e3fee9000",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "bf30e7a509a9730abc246202aefbfd8e71759901",
+    "reviewedSha": "e97b4d5c1b12c5026e42e72683a9f5903ecc3d59",
     "blockingFindings": [],
     "resolvedFindings": [
       "The disposable PostgreSQL proof now commits both first calls and reconnects to a new backend before replay, separating committed-response evidence from the production rollback probe."
@@ -58,6 +58,6 @@
     "The release ran from 9dde46eb; the final Product SHA adds the postdeploy probe, its static contract and a disposable two-session proof that commits the first result before retrying from a new PostgreSQL backend. The versioned migration and rollback bytes are identical at both commits.",
     "A fresh encrypted full logical backup and focal restore preceded dry-run, authorization and the committed apply. The production postdeploy probe verifies the deployed definition and repeat-call cardinalities inside rollback custody; the disposable two-session probe is the evidence for the committed-response boundary.",
     "This unit closes the documented CONV-NEW unknown-response-after-commit limit without changing client semantics or claiming unrelated SCR-CONVERSATIONS coverage.",
-    "The recomposed Product bf30e7a5 preserves all nine decisive blobs and imported dependencies byte-for-byte from historical execution Product c3e77078. Migration 20261009070000 is already committed in production and must not be reapplied; its executor fails closed when the ledger version is present. No platform matrix was repeated solely for ancestry."
+    "The recomposed Product e97b4d5c preserves all nine decisive blobs and imported dependencies byte-for-byte from historical execution Product c3e77078. Migration 20261009070000 is already committed in production and must not be reapplied; its executor fails closed when the ledger version is present. No platform matrix was repeated solely for ancestry."
   ]
 }
