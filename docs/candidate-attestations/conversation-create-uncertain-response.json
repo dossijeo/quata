@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "f624f6bbe9ca9c48113990a36e7f4d0aa649431c",
+  "productSha": "b3537522fe5f706560348c2efde9e52e25422ddd",
   "certification": "deployed-private-open-idempotency-and-committed-result-replay-passed-independent-review-go",
   "evidenceKind": "CONVERSATION_CREATE_UNCERTAIN_RESPONSE_RECOVERY",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "f624f6bbe9ca9c48113990a36e7f4d0aa649431c",
+      "sha": "b3537522fe5f706560348c2efde9e52e25422ddd",
       "report": "docs/candidate-attestations/evidence/conversation-create-uncertain-response-c3e77078.json",
       "reportSha256": "790b57b0aaab47b95219a065a7b5727945e0028f66136af417b9ff2e3fee9000",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "f624f6bbe9ca9c48113990a36e7f4d0aa649431c",
+    "reviewedSha": "b3537522fe5f706560348c2efde9e52e25422ddd",
     "blockingFindings": [],
     "resolvedFindings": [
       "The disposable PostgreSQL proof now commits both first calls and reconnects to a new backend before replay, separating committed-response evidence from the production rollback probe."
