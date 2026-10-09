@@ -145,6 +145,24 @@ async function verifyFeedDetail(page, origin, state) {
     await verifyFeedVideoPositionSurvivesReload(page, state);
     await waitForAnchor(page, "feed.detail.chrome");
     await waitForAnchor(page, mediaOpenAnchor);
+  } else {
+    await verifyExactPostSurvivesDocumentReload(page, {
+      fragment: `post-${encodeURIComponent(state.feed.postId)}`,
+      route: `post/${state.feed.postId}`,
+      markerName: "data-quata-feed-detail",
+      markerValue: state.feed.postId,
+      label: "feed",
+    });
+    await waitForAnchor(page, "feed.detail.chrome");
+    await waitForAnchor(page, mediaOpenAnchor);
+  }
+  if (options.exactPostReloadOnly) {
+    report.evidence.feedExactPostReload = await screenshot(page, "web-shell-exact-feed-post-reload");
+    await clickAnchor(page, "feed.detail.back");
+    await waitForRoute(page, "feed", "feed_back_route_missing_after_exact_reload");
+    await waitForAttribute(page, "data-quata-feed-detail", "", "feed_detail_marker_not_cleared_after_exact_reload");
+    report.steps.push("exact_feed_post_back_returned_to_feed_after_document_reload");
+    return;
   }
   const bodyVisibleInAccessibility = await visibleText(page, state.feed.postBody, 2_000);
   report.anchors.push("feed.detail.chrome", "feed.detail.back", `feed.post.media.${state.feed.postId}`, mediaOpenAnchor);
@@ -250,6 +268,22 @@ async function verifyOfficialDetail(page, origin, state) {
   if (options.officialVideoPositionLifecycle) {
     await verifyOfficialVideoPositionSurvivesReload(page, state);
     await waitForAnchor(page, "official.detail.chrome");
+  } else {
+    await verifyExactPostSurvivesDocumentReload(page, {
+      fragment: `official-${encodeURIComponent(state.official.postId)}`,
+      route: `official/${state.official.postId}`,
+      markerName: "data-quata-official-detail-title",
+      markerValue: state.official.title,
+      label: "official",
+    });
+    await waitForAnchor(page, "official.detail.chrome");
+  }
+  if (options.exactPostReloadOnly) {
+    report.evidence.officialExactPostReload = await screenshot(page, "web-shell-exact-official-post-reload");
+    await clickAnchor(page, "official.detail.back");
+    await waitForRoute(page, "official", "official_back_route_missing_after_exact_reload");
+    report.steps.push("exact_official_post_back_returned_to_official_after_document_reload");
+    return;
   }
   const titleVisibleInAccessibility = await visibleText(page, state.official.title, 2_000);
   await clickAnchor(page, `official.detail.read-more.${state.official.postId}`);
@@ -407,6 +441,29 @@ async function waitForRoute(page, expectedRoute, error, timeout = 15_000) {
   ).catch(() => {
     throw new Error(error);
   });
+}
+
+async function verifyExactPostSurvivesDocumentReload(page, { fragment, route, markerName, markerValue, label }) {
+  const beforeTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  const expectedHash = `#${fragment}`;
+  if (new URL(page.url()).hash !== expectedHash) throw new Error(`${label}_exact_post_hash_missing_before_reload`);
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await waitForRoute(page, route, `${label}_exact_post_route_missing_after_reload`, 35_000);
+  await waitForAttribute(page, markerName, markerValue, `${label}_exact_post_marker_missing_after_reload`, 35_000);
+
+  const afterTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+  if (afterTimeOrigin === beforeTimeOrigin) throw new Error(`${label}_document_was_not_recreated`);
+  if (new URL(page.url()).hash !== expectedHash) throw new Error(`${label}_exact_post_hash_changed_after_reload`);
+
+  report.evidence[`${label}ExactPostDocumentReload`] = {
+    beforeTimeOrigin,
+    afterTimeOrigin,
+    fragmentSha256: sha256(fragment),
+    route,
+    markerSha256: sha256(markerValue),
+  };
+  report.steps.push(`exact_${label}_post_restored_after_real_web_document_reload_without_route_replay`);
 }
 
 async function waitForAttribute(page, name, value, error, timeout = 15_000) {
@@ -683,6 +740,7 @@ function parseArgs(args) {
     feedVideo: false,
     officialVideo: false,
     officialVideoPositionLifecycle: false,
+    exactPostReloadOnly: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -707,6 +765,12 @@ function parseArgs(args) {
       parsed.officialVideoPositionLifecycle = true;
       parsed.output = resolve("build-reports/web/official-video-position-lifecycle-evidence.json");
       parsed.evidenceDir = resolve("build-reports/web/official-video-position-lifecycle-evidence");
+      continue;
+    }
+    if (key === "--exact-post-reload-only") {
+      parsed.exactPostReloadOnly = true;
+      parsed.output = resolve("build-reports/web/shell-navigation-exact-post-web-reload.json");
+      parsed.evidenceDir = resolve("build-reports/web/shell-navigation-exact-post-web-reload");
       continue;
     }
     const value = args[index + 1];

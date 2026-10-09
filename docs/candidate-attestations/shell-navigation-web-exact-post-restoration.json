@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "cd7d07b63abaafae3d73b136960eddd1f2b8c64f",
+  "certification": "focal-web-exact-feed-official-post-document-reload-complete-independent-product-review-complete-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "cd7d07b63abaafae3d73b136960eddd1f2b8c64f",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-exact-post-web-0cc3f707.json",
+      "reportSha256": "da4c198447237f5181ed6c7a4be3edf718815c03753c2abef8a6b53b05e6b6a6",
+      "reportStatus": "passed",
+      "reportGitHead": "0cc3f7077a61af75a8d79c4a24e4f9fb37b2db51",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "authenticated_profiles_loaded_without_logging_credentials",
+        "shared_feed_official_fixture_seeded",
+        "exact_feed_post_restored_after_real_web_document_reload_without_route_replay",
+        "exact_feed_post_back_returned_to_feed_after_document_reload",
+        "exact_official_post_restored_after_real_web_document_reload_without_route_replay",
+        "exact_official_post_back_returned_to_official_after_document_reload",
+        "post_detail_media_storage_cleanup_verified_absent",
+        "shared_fixture_cleanup_verified_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-focal-fixture-database-and-storage-cleanup-zero-residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/post-detail-web-evidence.mjs",
+    "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    "node scripts/post-detail-web-evidence.mjs --exact-post-reload-only --dist web/build/dist/wasmJs/productionExecutable --out <private-report> --evidence-dir <private-directory>",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/shell-navigation-web-exact-post-restoration.json"
+  ],
+  "notes": [
+    "The focal Web execution opened exact Feed and Official post routes, created a new browser document with page.reload, and verified a changed performance.timeOrigin plus the exact URL hash, shell route and exclusive content marker without replaying the route.",
+    "Back returned to Feed after the Feed reload and to Official after the Official reload.",
+    "The accepted execution removed all seeded database rows and its tracked storage object. The checked-in projection records completed cleanup, zero database residue and zero storage errors without credentials, fixture identifiers or private paths.",
+    "The production Web distribution was built at 0dda85f806a89273a9e5a9659a2512631baf4f86. The only files changed before the accepted execution at 0cc3f7077a61af75a8d79c4a24e4f9fb37b2db51 were the evidence runner and its static contract; Web runtime and distribution inputs were unchanged.",
+    "An earlier full-run pilot completed both exact reload checks and cleanup, then failed at the unrelated official media browser-viewer assertion. That later failure is retained as uncredited context and the focused accepted run stops after the exact reload and Back checks.",
+    "Independent Product review returned GO with no P0-P3 after fixture UUIDs were removed from the checked-in projection.",
+    "This closes only exact Feed and Official post identity across a real Web document reload and Back to each retained root. Media viewers, video position, scroll, editor state, authentication, arbitrary secondary backstacks and other platforms remain separate scopes.",
+    "The three-commit Web exact-post Product was recomposed over merged Android exact-post squash 2f78016a2 with an equivalent complete delta. Runner, contract and accepted report remain byte-identical to reviewed historical Product 5be323de; execution stays bound to reportGitHead 0cc3f707 and was not repeated solely for ancestry or the base contract-only correction."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "cd7d07b63abaafae3d73b136960eddd1f2b8c64f",
+    "reviewedProductSha": "cd7d07b63abaafae3d73b136960eddd1f2b8c64f",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The rebased runner, contract and accepted evidence report remain byte-identical to reviewed historical Product 5be323de and historical Product fa3b6fa1.",
+      "Notifications-to-Chat and Android exact-post references were reconciled to their current ancestral Products before this Web unit.",
+      "The accepted report remains bound separately to reportGitHead 0cc3f707 and SHA-256 da4c198447237f5181ed6c7a4be3edf718815c03753c2abef8a6b53b05e6b6a6."
+    ]
+  }
+}
