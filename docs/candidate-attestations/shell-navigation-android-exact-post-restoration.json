@@ -62,13 +62,14 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "f43b3261254c1abff3e8953ada7b4673d10b2e96",
+    "reviewedSha": "81d4f7b9cfda196075f2eb605321980024c0010b",
     "reviewedProductSha": "f43b3261254c1abff3e8953ada7b4673d10b2e96",
     "blockingFindings": [],
     "resolvedFindings": [
       "The general inventory no longer carries the stale non-ancestral Android exact-post Product SHA ef73e8c8; historical execution 9c618342 is linked to this authoritative manifest.",
       "MainActivity, its JVM test, the runner and the contract remain byte-identical to reviewed Product 534044e2 after rebasing over the tree-identical integrated #581 squash 91809612.",
-      "The accepted report remains bound separately to reportGitHead 9c618342 and SHA-256 483b65f4ad1ade923b86687e5757e6f25e68c2cb493b885b68ed57536bf9b63d."
+      "The accepted report remains bound separately to reportGitHead 9c618342 and SHA-256 483b65f4ad1ade923b86687e5757e6f25e68c2cb493b885b68ed57536bf9b63d.",
+      "Independent review of exact head 81d4f7b9 returned GO with no P0-P3 after the tree-identical #581 squash rebase."
     ]
   }
 }
