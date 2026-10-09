@@ -35,7 +35,7 @@ dispositivo físico, distribución pagada ni el destino propio de Ajustes que pe
 segmento Web de Reply integrado por #428 pertenece a `FLOW-NOTIFICATION-REPLY`; no amplía registro,
 rotación o baja del lifecycle. Los intentos fallidos y los recibos originales se conservan.
 
-## OVR-LIVE-RANKING — navegación focal #539 y completitud remota #544/#545 integradas
+## OVR-LIVE-RANKING — navegación, completitud remota y aceptación nativa integradas
 
 Product SHA `256ffbf54c87bdc5bb33686409a57150873f7473`. Android, Web/Wasm e iOS
 acreditan que un cambio de identidad dentro del detalle enfocado abre la publicación Official Live
@@ -51,9 +51,16 @@ navegación exacta, estados loading/error/retry, backup/restore drill y apply/po
 La sonda PostgREST pública de #545 conserva el límite externo `402 exceed_egress_quota` y no se contó
 como evidencia positiva.
 
-El cierre sigue siendo focal. No acredita E2E nativo de los paneles, media ni un E2E global de
-Live/Ranking; esos alcances conservan sus unidades propias. [Atestación Official](./candidate-attestations/official-ranking-completeness.json),
-[#544](https://github.com/dossijeo/quata/pull/544) y [#545](https://github.com/dossijeo/quata/pull/545).
+#551 cierra el hueco nativo de los paneles Ranking. Android e iOS Simulator recorren Feed y
+Official sobre los ViewModels y hosts de producto, agotan 101 publicaciones en páginas 50/50/1,
+mantienen el pager inicial durante un fallo tardío, ejecutan el Retry visible, publican el ranking
+completo y abren el destino exacto que no estaba en la página inicial. Las ejecuciones focales
+pasaron 2/2 en ambas plataformas y los gates finales Web/Android, iOS y CodeQL terminaron SUCCESS.
+
+El cierre sigue siendo focal: #551 no acredita media dentro del recorrido ni un E2E global no focal
+de Live/Ranking. [Atestación Official](./candidate-attestations/official-ranking-completeness.json),
+[#544](https://github.com/dossijeo/quata/pull/544), [#545](https://github.com/dossijeo/quata/pull/545)
+y [#551](https://github.com/dossijeo/quata/pull/551).
 
 ## OVR-MEDIA / visor de vídeo Official — integrado por #389 el 20 de septiembre de 2026
 
