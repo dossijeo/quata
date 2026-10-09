@@ -140,6 +140,12 @@ const approvedReleases = [
       ["20261007090000", "f7d3f63da639fafb4162b5057195bb7db65bcf9d8cfbc771270023b5005b8756"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261009070000", "71bba05c73b6f1af7284c279e6ebb40b0e3deb2e13a55d82e6a4d6622ee26495"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -1156,6 +1162,30 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
         || !/update public\.web_client_sessions/i.test(definition)
         || !/where auth_user_id = p_auth_user_id/i.test(definition)) {
       throw new Error("selective_release_auth_global_logout_definition_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261009070000")) {
+    const rows = (await client.query(`
+      select p.prosecdef as security_definer,
+             p.provolatile as volatility,
+             p.proconfig as configuration,
+             pg_get_functiondef(p.oid) as definition
+        from pg_proc p
+        join pg_namespace n on n.oid=p.pronamespace
+       where n.nspname='public'
+         and p.oid=to_regprocedure('public.quata_chat_get_or_create_private_thread(uuid,uuid)')
+    `)).rows;
+    const privateOpen = rows[0];
+    if (rows.length !== 1 || !privateOpen.security_definer || privateOpen.volatility !== "v"
+        || JSON.stringify(privateOpen.configuration) !== JSON.stringify(["search_path=public"])) {
+      throw new Error("selective_release_private_open_identity_postcondition_failed");
+    }
+    const definition = privateOpen.definition ?? "";
+    if (!/pg_advisory_xact_lock/i.test(definition)
+        || !/v_created boolean := false/i.test(definition)
+        || !/v_created := true/i.test(definition)
+        || !/if v_created then[\s\S]*private_thread_opened[\s\S]*end if/i.test(definition)) {
+      throw new Error("selective_release_private_open_idempotency_postcondition_failed");
     }
   }
 }
