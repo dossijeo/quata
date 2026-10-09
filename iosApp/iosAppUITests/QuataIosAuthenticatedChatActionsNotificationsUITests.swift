@@ -1274,7 +1274,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         var firstRoute: String?
         for index in 0..<2 {
             if index > 0 {
-                relaunchAtConversations("private conversation reuse")
+                if retryEvidence {
+                    tapTaggedButton("chat.back", in: app, context: "return before private conversation reuse")
+                    XCTAssertTrue(
+                        app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
+                        "The shared conversations list must be restored before private reuse."
+                    )
+                } else {
+                    relaunchAtConversations("private conversation reuse")
+                }
             }
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
@@ -1314,10 +1322,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 firstRoute = route
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
-            if retryEvidence { break }
         }
 
-        relaunchAtConversations("group conversation creation")
+        if retryEvidence {
+            tapTaggedButton("chat.back", in: app, context: "return before group conversation creation")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
+                "The shared conversations list must be restored before group creation."
+            )
+        } else {
+            relaunchAtConversations("group conversation creation")
+        }
         tapTaggedButton("conversation.new", in: app, context: "open shared group conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
