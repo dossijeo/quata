@@ -3438,6 +3438,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
         }
         app.launchEnvironment["QUATA_IOS_PROFILE_SAFETY_BLOCK_FORCE_FAILURE"] = profileSafetyNegative ? "1" : "0"
+        app.launchEnvironment["QUATA_IOS_PROFILE_SAFETY_REPORT_FORCE_FAILURE"] = profileSafetyNegative ? "1" : "0"
         app.launchEnvironment["QUATA_IOS_PROFILE_ROLES_FORCE_FAILURE"] = verifiesRoleErrorRetry ? "1" : "0"
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
@@ -3517,6 +3518,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         if profileSafetyNegative {
+            profileElement("public-profile.safety.report.\(peerProfileId)", in: app, context: "profile negative report")
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            _ = profileElement("public-profile.safety.dialog.report", in: app, context: "profile negative report dialog")
+            profileElement("public-profile.safety.dialog.confirm.report", in: app, context: "profile negative report confirm")
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            _ = profileElement("public-profile.safety.loading.\(peerProfileId)", in: app, context: "profile negative report loading")
+            attachScreenshot(app, name: "ios-chat-profile-safety-report-negative-loading")
+            _ = profileElement("public-profile.error.\(peerProfileId)", in: app, context: "profile negative report error")
+            let reportRetry = profileElement("public-profile.safety.retry.report.\(peerProfileId)", in: app, context: "profile negative report retry")
+            attachScreenshot(app, name: "ios-chat-profile-safety-report-negative-failed")
+            reportRetry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(reportRetry.waitForNonExistence(timeout: 20), "Retrying the report must clear its report-specific retry control.")
+            attachScreenshot(app, name: "ios-chat-profile-safety-report-negative-retry-succeeded")
+
             profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile negative block")
                 .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 .tap()

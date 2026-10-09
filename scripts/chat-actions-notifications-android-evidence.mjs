@@ -3213,12 +3213,18 @@ try {
       report.steps.push("official_comments_emoji_selector_empty_state_visible_without_cells");
     }
     if (profileSafetyNegativeOnly) {
+      report.evidence.profileReportPersisted = await pollProfileReport({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        delay,
+      });
       report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
         fixture: state.profileRolesSafety,
         withDatabase,
         expectedBlocked: true,
         delay,
       });
+      report.steps.push("profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified");
       report.steps.push("profile_safety_failed_block_optimistic_state_error_exact_rollback_and_same_control_retry_verified");
       report.steps.push("profile_safety_retry_block_persisted_verified_by_db");
     }

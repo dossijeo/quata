@@ -3548,6 +3548,43 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun runProfileSafetyNegativeStage(peerProbe: String, profileId: String) {
         openPeerProfile(peerProbe, profileId)
+        scrollPublicProfileToTag("public-profile.safety.report.$profileId")
+        compose.onNodeWithTag("public-profile.safety.report.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("public-profile.safety.dialog.report", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        ProfileSafetyEvidenceFaults.requestReportFailureOnce()
+        compose.onNodeWithTag("public-profile.safety.dialog.confirm.report", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(5_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.safety.loading.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-safety-report-negative-loading")
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.error.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                compose.onNodeWithTag("public-profile.safety.retry.report.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-safety-report-negative-failed")
+        compose.onNodeWithTag("public-profile.safety.retry.report.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.safety.loading.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure && runCatching {
+                compose.onNodeWithTag("public-profile.error.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+        saveScreenshot("android-chat-profile-safety-report-negative-retry-succeeded")
+
         scrollPublicProfileToTag("public-profile.safety.block.$profileId")
         compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
             .performClick()

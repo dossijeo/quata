@@ -220,6 +220,10 @@ class NeighborhoodRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
+        if (BuildConfig.DEBUG && ProfileSafetyEvidenceFaults.consumeReportFailure()) {
+            delay(2_000)
+            error("profile_safety_report_e2e_forced_failure")
+        }
         if (!AppConfig.USE_MOCK_BACKEND) {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
             supabaseApi.reportUgc(session.userId, "profile", userId, "other")

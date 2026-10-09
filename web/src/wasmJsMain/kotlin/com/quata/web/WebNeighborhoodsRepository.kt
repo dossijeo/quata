@@ -132,6 +132,10 @@ class WebNeighborhoodsRepository(
         feedRepository.toggleLike(postId)
 
     override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
+        if (webProfileSafetyReportEvidenceFailureRequested()) {
+            delay(2_000)
+            error("profile_safety_report_e2e_forced_failure")
+        }
         val actorId = authenticatedUserId().requireWebCommunityIdentifier()
         val targetId = userId.requireWebCommunityIdentifier()
         client.rpc(
@@ -452,6 +456,13 @@ class WebNeighborhoodsRepository(
   return true;
 }""")
 private external fun webProfileSafetyBlockEvidenceFailureRequested(): Boolean
+
+@JsFun("""() => {
+  if (!['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) || globalThis.__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__ !== true) return false;
+  globalThis.__QUATA_PROFILE_SAFETY_REPORT_FORCE_FAILURE__ = false;
+  return true;
+}""")
+private external fun webProfileSafetyReportEvidenceFailureRequested(): Boolean
 
 @JsFun("""() => ['localhost', '127.0.0.1'].includes(globalThis.location?.hostname) && globalThis.__QUATA_PROFILE_FOLLOW_FORCE_FAILURE__ === true""")
 private external fun webProfileFollowEvidenceFailureRequested(): Boolean
