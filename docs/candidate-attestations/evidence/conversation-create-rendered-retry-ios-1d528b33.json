@@ -1,0 +1,59 @@
+{
+  "check": "CONVERSATION-CREATE-RENDERED-RETRY-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "1d528b33d3d51fca62249d464fcefb04f47425da",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "lane": "SimulatorSigned",
+    "simulator": "iOS 26.5 Intel Simulator"
+  },
+  "steps": [
+    "two_authorized_profiles_logged_in",
+    "temporary_private_candidate_prepared_without_existing_private_thread",
+    "private_creation_failed_once_with_query_candidate_and_error_retained",
+    "private_retry_reused_the_candidate_and_opened_the_exact_thread",
+    "private_thread_was_reopened_with_exactly_one_active_private_thread",
+    "temporary_group_candidates_prepared",
+    "group_creation_failed_once_with_selection_title_and_error_retained",
+    "group_retry_opened_the_exact_group_with_title_and_members",
+    "simulator_signed_build_and_selected_xctest_passed"
+  ],
+  "evidence": {
+    "selectedXctestPassed": 1,
+    "selectedXctestFailed": 0,
+    "activePrivateThreadCount": 1,
+    "activeGroupThreadCount": 1
+  },
+  "cleanup": {
+    "state": "completed",
+    "privateCandidate": {
+      "recoveredThreadCount": 1,
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0
+      }
+    },
+    "groupCandidate": {
+      "residueCounts": {
+        "community_profiles": 0,
+        "chat_threads": 0,
+        "chat_messages": 0,
+        "chat_participants": 0,
+        "chat_private_threads": 0,
+        "chat_message_states": 0,
+        "chat_events": 0,
+        "conversation_user_state": 0
+      }
+    }
+  },
+  "notes": [
+    "The accepted journey crossed the shared picker, the production iOS runtime bootstrap and the authenticated Chat transport; it did not call a repository handler directly.",
+    "One synthetic marker message retained the successfully created private thread so the subsequent picker retry could prove reuse without changing the product rule that removes abandoned empty private threads.",
+    "No credential values, local paths, XCTest output or temporary identifiers are included in this sanitized report."
+  ]
+}

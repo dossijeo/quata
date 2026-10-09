@@ -1,0 +1,49 @@
+{
+  "check": "CONVERSATION-CREATE-RENDERED-RETRY-WEB-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "e4f0dddd37a9d78572e216c7fae0760bca9d1be8",
+    "workingTreeDirty": false
+  },
+  "platforms": {
+    "webWasm": {
+      "command": ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.conversations.ConversationsRootStatesTest",
+      "passed": 4,
+      "failed": 0,
+      "steps": [
+        "private_failure_rendered_with_query_candidate_and_error_retained",
+        "private_retry_invoked_exactly_once_and_opened_exact_conversation",
+        "group_failure_rendered_with_selection_title_and_error_retained",
+        "group_retry_invoked_exactly_once_and_opened_exact_conversation"
+      ]
+    },
+    "android": {
+      "command": ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.conversations.ConversationsRootStatesInstrumentedTest",
+      "device": "API 35 emulator",
+      "passed": 3,
+      "failed": 0,
+      "steps": [
+        "private_failure_and_single_retry_rendered_in_android_compose",
+        "group_failure_and_single_retry_rendered_in_android_compose",
+        "shared_conversations_root_state_regression_passed"
+      ]
+    }
+  },
+  "cleanup": {
+    "state": "completed",
+    "mode": "hermetic-rendered-models-no-backend-mutation"
+  },
+  "notes": [
+    "The rendered fixtures verify retained visible state and exactly one additional retry callback.",
+    "Stable group request-key reuse is enforced by the production ViewModel and the authenticated iOS fixture; the rendered fake models do not claim that guarantee."
+  ],
+  "steps": [
+    "private_failure_rendered_with_query_candidate_and_error_retained",
+    "private_retry_invoked_exactly_once_and_opened_exact_conversation",
+    "group_failure_rendered_with_selection_title_and_error_retained",
+    "group_retry_invoked_exactly_once_and_opened_exact_conversation",
+    "private_failure_and_single_retry_rendered_in_android_compose",
+    "group_failure_and_single_retry_rendered_in_android_compose",
+    "shared_conversations_root_state_regression_passed"
+  ]
+}
