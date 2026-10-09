@@ -4,12 +4,12 @@
     "OVR-POST-DETAIL-PUBLIC-PROFILE-SCROLL"
   ],
   "status": "passed",
-  "productSha": "2cba264bb5e2caef967c2a753edf2218d8e2f37b",
+  "productSha": "bcc06d3bfdcbd7cd8d93db7f2eea44f25183c663",
   "certification": "focused-multiplatform-complete-independent-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2cba264bb5e2caef967c2a753edf2218d8e2f37b",
+      "sha": "bcc06d3bfdcbd7cd8d93db7f2eea44f25183c663",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
       "reportSha256": "99fc4256ab29e12a4f29aed01ff10fb44d1c960c1fd4c9201388d9f27e00c69b",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "2cba264bb5e2caef967c2a753edf2218d8e2f37b",
+      "sha": "bcc06d3bfdcbd7cd8d93db7f2eea44f25183c663",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
       "reportSha256": "99fc4256ab29e12a4f29aed01ff10fb44d1c960c1fd4c9201388d9f27e00c69b",
       "reportStatus": "passed",
@@ -48,7 +48,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2cba264bb5e2caef967c2a753edf2218d8e2f37b",
+      "sha": "bcc06d3bfdcbd7cd8d93db7f2eea44f25183c663",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
       "reportSha256": "99fc4256ab29e12a4f29aed01ff10fb44d1c960c1fd4c9201388d9f27e00c69b",
       "reportStatus": "passed",
@@ -83,7 +83,7 @@
     "The iOS x64 execution remains bound to f1010a81: the common runtime and focal test blobs are byte-identical at the final Product SHA, whose later product deltas are the Android-only instrumented test and the static post-detail parity contract; neither changes the iOS runtime or focal common test. The matrix was not repeated solely for a SHA change.",
     "Independent review of caf612fa returned GO with no P0-P3 findings.",
     "This focal closure removes only the public-profile deep-scroll limit. Integrated comments and exhaustive visual or media lifecycle coverage remain separate units.",
-    "The recomposed Product 2cba264b preserves the runtime, focal tests and Android instrumented-test blobs byte-for-byte from historical execution Product dca11d97. No platform matrix was repeated solely for ancestry.",
+    "The current recomposed Product bcc06d3b preserves every public-profile scroll blob byte-for-byte from reviewed Product 2cba264b; the only tree differences belong to reviewed predecessor documentation. Product 2cba264b preserves the runtime, focal tests and Android instrumented-test blobs byte-for-byte from historical execution Product dca11d97. No platform matrix was repeated solely for ancestry.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
 }
