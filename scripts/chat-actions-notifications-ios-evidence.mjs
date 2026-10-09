@@ -77,6 +77,7 @@ const conversationsOnly = options.conversationsOnly;
 const conversationsLifecycleOnly = options.conversationsLifecycleOnly;
 const conversationsColdSearchOnly = options.conversationsColdSearchOnly;
 const conversationCreateOnly = options.conversationCreateOnly;
+const conversationCreateRetry = options.conversationCreateRetry;
 const messagesLifecycleOnly = options.messagesLifecycleOnly;
 const messageMutationRollbackOnly = options.messageMutationRollbackOnly;
 const messagePermissionsOnly = options.messagePermissionsOnly || messageMutationRollbackOnly;
@@ -588,6 +589,8 @@ export QUATA_IOS_CONVERSATIONS_UI_E2E=${conversationsOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_LIFECYCLE_ONLY=${conversationsLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATIONS_COLD_SEARCH_ONLY=${conversationsColdSearchOnly ? "1" : "0"}
 export QUATA_IOS_CONVERSATION_CREATE_UI_E2E=${conversationCreateOnly ? "1" : "0"}
+export QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E=${conversationCreateRetry ? "1" : "0"}
+export QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN=${conversationCreateRetry ? "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE" : ""}
 export QUATA_IOS_CHAT_MESSAGES_LIFECYCLE_UI_E2E=${messagesLifecycleOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGE_PERMISSIONS_UI_E2E=${messagePermissionsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_MESSAGE_MUTATION_ROLLBACK_UI_E2E=${messageMutationRollbackOnly ? "1" : "0"}
@@ -1619,6 +1622,7 @@ function parseArgs(argv) {
     conversationsLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_LIFECYCLE_ONLY === "1",
     conversationsColdSearchOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATIONS_COLD_SEARCH_ONLY === "1",
     conversationCreateOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATION_CREATE_ONLY === "1",
+    conversationCreateRetry: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_CONVERSATION_CREATE_RETRY === "1",
     messagesLifecycleOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGES_LIFECYCLE_ONLY === "1",
     messagePermissionsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_PERMISSIONS_ONLY === "1",
     messageMutationRollbackOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MESSAGE_MUTATION_ROLLBACK_ONLY === "1",
@@ -1818,6 +1822,15 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/conversation-create-evidence");
       result.remoteLogDir = "build/reports/ios/conversation-create";
       result.remoteResultBundleDir = "build/reports/ios/conversation-create/xcresults";
+      continue;
+    }
+    if (key === "--conversation-create-retry") {
+      result.conversationCreateOnly = true;
+      result.conversationCreateRetry = true;
+      result.output = resolve("build-reports/ios/conversation-create-retry-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/conversation-create-retry-evidence");
+      result.remoteLogDir = "build/reports/ios/conversation-create-retry";
+      result.remoteResultBundleDir = "build/reports/ios/conversation-create-retry/xcresults";
       continue;
     }
     if (key === "--messages-lifecycle-only") {

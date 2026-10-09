@@ -196,7 +196,7 @@ test("conversation creation serializes private and group requests and rejects st
   assert.match(picker, /val conversationOpenPending = state\.openingCandidateProfileId != null \|\| state\.isOpeningGroupConversation/);
   assert.match(picker, /actionsEnabled = !conversationOpenPending/);
   assert.match(picker, /enabled = confirmEnabled && !conversationOpenPending/);
-  assert.match(picker, /state\.candidateError\?\.let \{ Text\(it, color = MaterialTheme\.colorScheme\.error/);
+  assert.match(picker, /state\.candidateError\?\.let \{ error ->[\s\S]*?errorTestTag[\s\S]*?contentDescription = "\$tag \$error"/);
   assert.match(candidateCard, /clickable\(enabled = isSelectionMode && actionsEnabled\)/);
   assert.match(candidateCard, /Checkbox\(checked = isSelected, enabled = actionsEnabled/);
 
@@ -361,4 +361,44 @@ test("Android and iOS conversation creation prove private reuse and exact group 
   assert.match(iosUi, /conversation\.picker\.groupTitle/);
   assert.match(iosUi, /conversation\.picker\.confirm/);
   assert.match(iosUi, /ios-conversation-group-created/);
+});
+
+test("rendered conversation-create failures retain drafts and retry through each native host", async () => {
+  const [host, commonUi, androidUi, iosBootstrap, iosCoordinator, iosRunner, iosUi] = await Promise.all([
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt"),
+    source("feature/chat/src/commonTest/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsRootStatesTest.kt"),
+    source("app/src/androidTest/java/com/quata/feature/chat/presentation/conversations/ConversationsRootStatesInstrumentedTest.kt"),
+    source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt"),
+    source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+    source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  ]);
+
+  assert.match(host, /ConversationPickerErrorTestTag = "conversation\.picker\.error"/);
+  for (const rendered of [commonUi, androidUi]) {
+    assert.match(rendered, /privateConversationCreateFailure|privateCreateFailure/);
+    assert.match(rendered, /groupConversationCreateFailure|groupCreateFailure/);
+    assert.match(rendered, /ConversationPickerErrorTestTag/);
+    assert.match(rendered, /assertEquals\(listOf\([^\n]+, [^\n]+\), model\.privateAttempts\)/);
+    assert.match(rendered, /assertEquals\(listOf\(requestKey, requestKey\), model\.groupRequestKeys\)/);
+    assert.match(rendered, /assertEquals\(listOf\([^\n]+-retry-conversation"\), opened\)/);
+  }
+
+  assert.match(iosBootstrap, /iosConversationCreateRetryEvidenceRepositoryIfRequested/);
+  assert.match(iosBootstrap, /privateFailurePending = false[\s\S]*?conversation_private_create_e2e_forced_failure/);
+  assert.match(iosBootstrap, /failedGroupRequestKey = requestKey/);
+  assert.match(iosBootstrap, /requestKey != failedGroupRequestKey/);
+  assert.match(iosBootstrap, /delegate\.openGroupConversationForRequest\(participantIds, title, requestKey\)/);
+  assert.match(iosCoordinator, /--conversation-create-retry/);
+  assert.match(iosCoordinator, /QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E/);
+  assert.match(iosCoordinator, /QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN/);
+  assert.match(iosRunner, /QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E/);
+  assert.match(iosRunner, /QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN/);
+  assert.match(iosUi, /QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E/);
+  assert.match(iosUi, /conversation\.picker\.error/);
+  assert.match(iosUi, /ios-conversation-private-create-failed-retained/);
+  assert.match(iosUi, /ios-conversation-group-create-failed-retained/);
+  assert.match(iosUi, /retry private conversation creation/);
+  assert.match(iosUi, /retry group conversation creation/);
+  assert.match(iosUi, /retained two-member selection must keep group retry enabled/);
 });

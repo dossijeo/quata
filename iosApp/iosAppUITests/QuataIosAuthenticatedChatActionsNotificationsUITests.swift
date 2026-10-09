@@ -1209,6 +1209,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testConversationCreateUsesSharedPickerAndReusesPrivateThread() throws {
         let environment = ProcessInfo.processInfo.environment
+        let retryEvidence = environment["QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E"] == "1"
         guard environment["QUATA_IOS_CONVERSATION_CREATE_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated conversation creation UI gate is opt-in.")
         }
@@ -1270,6 +1271,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
             dismissKeyboardWithoutLeavingPanel(in: app)
             tapTaggedButton(candidateAction, in: app, context: "open private conversation \(index + 1)")
+            if retryEvidence && index == 0 {
+                let error = app.descendants(matching: .any).matching(identifier: "conversation.picker.error").firstMatch
+                XCTAssertTrue(error.waitForExistence(timeout: 20), "A failed private create must expose the rendered error in the retained picker.")
+                XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.exists)
+                XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch.value as? String, candidateQuery)
+                attachScreenshot(app, name: "ios-conversation-private-create-failed-retained")
+                tapTaggedButton(candidateAction, in: app, context: "retry private conversation creation")
+            }
             let chat = chatHost(in: app, context: "private conversation created from picker \(index + 1)")
             let route = chat.value as? String
             XCTAssertTrue(route?.hasPrefix("chat:sb:") == true, "The picker must open a real private Chat route.")
@@ -1279,6 +1288,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 firstRoute = route
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
+            if retryEvidence { break }
         }
 
         relaunchAtConversations("group conversation creation")
@@ -1304,6 +1314,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         typePickerText(groupTitle, into: "conversation.picker.groupTitle", in: app)
         attachScreenshot(app, name: "ios-conversation-group-create-picker")
         tapTaggedButton("conversation.picker.confirm", in: app, context: "confirm group conversation creation")
+        if retryEvidence {
+            let error = app.descendants(matching: .any).matching(identifier: "conversation.picker.error").firstMatch
+            XCTAssertTrue(error.waitForExistence(timeout: 20), "A failed group create must expose the rendered error in the retained picker.")
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.exists)
+            XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "conversation.picker.groupTitle").firstMatch.value as? String, groupTitle)
+            for candidate in groupCandidates {
+                XCTAssertTrue(candidate.exists, "The failed group create must retain both selected candidates.")
+            }
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker.confirm").firstMatch.isEnabled,
+                "The retained two-member selection must keep group retry enabled."
+            )
+            attachScreenshot(app, name: "ios-conversation-group-create-failed-retained")
+            tapTaggedButton("conversation.picker.confirm", in: app, context: "retry group conversation creation")
+        }
         let groupChat = chatHost(in: app, context: "group conversation created from picker")
         XCTAssertTrue((groupChat.value as? String)?.hasPrefix("chat:sb:") == true, "The picker must open a real group Chat route.")
         XCTAssertTrue(app.staticTexts[groupTitle].waitForExistence(timeout: 20), "The created group title must be visible in Chat.")

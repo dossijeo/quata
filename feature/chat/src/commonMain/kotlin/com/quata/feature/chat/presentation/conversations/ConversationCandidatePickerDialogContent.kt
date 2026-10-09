@@ -117,6 +117,7 @@ fun ConversationCandidatePickerDialogContent(
     candidateActionTestTagPrefix: String? = null,
     confirmTestTag: String? = null,
     dismissTestTag: String? = null,
+    errorTestTag: String? = null,
     dismissEnabled: Boolean = true,
 ) {
     val labels = CandidateDisplayLabels(strings.contacts, strings.following, strings.followers, strings.recent, strings.otherNeighborhoods, strings.unknownNeighborhood)
@@ -140,6 +141,7 @@ fun ConversationCandidatePickerDialogContent(
             groupTitle, onGroupTitleChange, groupTitlePlaceholder, groupTitleTestTag,
             panelModifier.padding(start = 20.dp, top = if (isLandscape) 18.dp else 10.dp, end = 20.dp, bottom = if (isLandscape) 18.dp else 24.dp),
             rootTestTag, searchTestTag, candidateTestTagPrefix, candidateActionTestTagPrefix, confirmTestTag, dismissTestTag,
+            errorTestTag,
             dismissEnabled,
         )
     }
@@ -156,6 +158,7 @@ private fun CandidatePickerPanel(
     showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit,
     groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, groupTitleTestTag: String?, modifier: Modifier,
     rootTestTag: String?, searchTestTag: String?, candidateTestTagPrefix: String?, candidateActionTestTagPrefix: String?, confirmTestTag: String?, dismissTestTag: String?,
+    errorTestTag: String?,
     dismissEnabled: Boolean,
 ) {
     val template = quataTheme()
@@ -209,7 +212,18 @@ private fun CandidatePickerPanel(
             modifier = searchModifier,
             shape = RoundedCornerShape(16.dp),
         )
-        state.candidateError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)) }
+        state.candidateError?.let { error ->
+            val errorModifier = errorTestTag?.let { tag -> Modifier.semantics {
+                testTag = tag
+                contentDescription = "$tag $error"
+            } } ?: Modifier
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold,
+                modifier = errorModifier.padding(top = 8.dp),
+            )
+        }
         Spacer(Modifier.padding(top = 12.dp))
         when {
             state.isCandidateInitialLoading && state.conversationCandidates.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = template.colors.accent) }
