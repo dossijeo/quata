@@ -1223,6 +1223,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        if retryEvidence {
+            app.launchEnvironment["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"] =
+                "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
+        }
         app.launch()
         _ = waitForExistingIdentifier(
             "navigation.primary.conversations",

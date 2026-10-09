@@ -395,6 +395,7 @@ test("rendered conversation-create failures retain drafts and retry through each
   assert.match(iosRunner, /QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E/);
   assert.match(iosRunner, /QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN/);
   assert.match(iosUi, /QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E/);
+  assert.match(iosUi, /app\.launchEnvironment\["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"\]/);
   assert.match(iosUi, /conversation\.picker\.error/);
   assert.match(iosUi, /ios-conversation-private-create-failed-retained/);
   assert.match(iosUi, /ios-conversation-group-create-failed-retained/);
