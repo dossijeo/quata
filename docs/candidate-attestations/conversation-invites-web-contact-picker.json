@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-INVITES"
+  ],
+  "status": "passed",
+  "productSha": "2447a90b0efe8b8b37204c35969929441975da3c",
+  "certification": "web-contact-picker-supported-path-complete-independent-review-pending-final-CI",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "2447a90b0efe8b8b37204c35969929441975da3c",
+      "report": "docs/candidate-attestations/evidence/conversation-invites-web-contact-picker-5edf661f.json",
+      "reportSha256": "8672e16ed6b05e1956ba7652d44941c7eca7d8ceefcc49e614ae10120e60354d",
+      "reportStatus": "passed",
+      "reportGitHead": "5edf661f8c5f8e84587874671bf7736f87d53415",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "conversations_invite_no_match_query_requested_terminal_candidate_page",
+        "conversations_web_contact_picker_supported_path_selected_contact_and_dispatched_platform_share_once",
+        "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-backend-reversible-browser-fixture-with-controlled-standard-api-provider"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-actions-notifications-web-evidence.mjs",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --conversations-contact-picker-only",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversation-invites-web-contact-picker.json"
+  ],
+  "notes": [
+    "A controlled implementation of the standard navigator.contacts.select boundary returns one contact after the real explicit user action. BrowserContactPickerService requests name, telephone and email with multiple selection enabled; the focal verifies the exact rendered row identity derived from the returned name and normalized phone; the common mapper and registered-phone filter render the platform-contact invitation row; the common channel dispatches exactly one invitation through BrowserShareService.",
+    "The controlled provider replaces only the unavailable desktop address-book UI. The run uses the product adapter, common mapping and filtering, rendered invitation action, share service and authenticated reversible backend fixture.",
+    "The full original report had SHA-256 35d26f9f388b430e2446f9cabb2d9908314e0f45c85af946f4fc4cb327b4e415. The committed report omits local paths, raw thread identifiers and screenshots while retaining the exact clean head, API request, observed identity digests, share payload digest, required steps and zero-residue cleanup.",
+    "Android and iOS runtime did not change. Their accepted platform-picker evidence remains in conversation-invites-parity.json and was not repeated solely for this Web runner change.",
+    "This closes the previously unexercised supported Contact Picker branch. Third-party receipt and installation remain external effects beyond the application boundary.",
+    "The focused supported-path acceptance was renewed on clean Product head 5edf661f after recomposition; no unrelated platform matrix was repeated.",
+    "The Contact Picker runtime/runner pair was recomposed over #584 squash 3ccefca9 and remains byte-identical to the reviewed pre-squash delta and patch-equivalent to historical execution Product 5edf661f. Product 2447a90b is the current recomposed custody head; the sanitized report remains bound separately to historical clean execution 5edf661f, so no E2E matrix was repeated solely for ancestry. Affected contracts pass 50/50 after the attestation files are restored."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "5023756dea72f37c1958dfe898d604f6906eb45a",
+    "reviewedProductSha": "5023756dea72f37c1958dfe898d604f6906eb45a",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The six-commit runtime/runner series remains patch-equivalent to historical Product 5edf661f; the sanitized report and runner are byte-identical, while the reviewed contract change binds the recomposed Product and historical execution head separately and exactly.",
+      "The controlled provider replaces only unavailable desktop address-book UI while product adapters, common mapping/filtering, rendered invitation action and BrowserShareService remain exercised.",
+      "The accepted report stays bound separately to clean reportGitHead 5edf661f and its sanitized SHA-256 8672e16ed6b05e1956ba7652d44941c7eca7d8ceefcc49e614ae10120e60354d."
+    ],
+    "currentRecomposition": "Final exact-head review required after the attestation commit over Product 2447a90b."
+  }
+}

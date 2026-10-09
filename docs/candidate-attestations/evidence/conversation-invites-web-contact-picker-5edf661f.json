@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "check": "CONV-INVITES-WEB-CONTACT-PICKER-001",
+  "git": {
+    "head": "5edf661f8c5f8e84587874671bf7736f87d53415",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "temporary_profile_hash_window_opened",
+    "two_authorized_profiles_logged_in",
+    "isolated_thread_and_two_messages_ready",
+    "conversations_primary_and_control_threads_ready_with_independent_custody",
+    "real_backend_inbox_cursor_crossed_two_distinct_pages",
+    "thread_rendered_with_own_and_peer_messages",
+    "conversations_list_and_two_custodied_rows_visible",
+    "conversations_web_visibility_hidden_visible_resumed_and_refreshed_real_backend_row",
+    "conversations_search_filtered_exact_custodied_control",
+    "conversations_exact_row_opened_real_authenticated_chat_route",
+    "conversations_favorites_opened_from_common_list_action",
+    "conversations_invite_no_match_query_requested_terminal_candidate_page",
+    "conversations_web_contact_picker_supported_path_selected_contact_and_dispatched_platform_share_once",
+    "conversations_new_picker_search_candidate_and_route_reset_verified_without_mutation"
+  ],
+  "evidence": {
+    "contactPicker": {
+      "apiCalls": 1,
+      "properties": [
+        "name",
+        "tel",
+        "email"
+      ],
+      "multiple": true,
+      "selectedContactIdSha256": "7d2b6bce770e0880bd24fef01ddcb461bbaebd2e35e7c67f80eec16114a46c1a",
+      "selectedContactNameSha256": "a064b54753da6eedf51eafa50cffe124b02e10c82585a6ad232a36bc94e7133d",
+      "selectedContactPhoneSha256": "5f515fd4e0dc01a40be39e143768ceab1af1cf0c6e3265af225418a3fc8f1362",
+      "sharePayloadCount": 1,
+      "shareTextSha256": "57a87daabce8f72d53aef3aec074146f1584d0dedd73bda7786e1dfd1ef02836"
+    },
+    "originalReportSha256": "35d26f9f388b430e2446f9cabb2d9908314e0f45c85af946f4fc4cb327b4e415"
+  },
+  "cleanup": {
+    "state": "completed",
+    "actions": [
+      "temporary_profile_hash_window_restored",
+      "favorite_removed",
+      "conversation_unmuted",
+      "own_message_deleted",
+      "peer_message_deleted",
+      "thread_removed_from_a_inbox",
+      "thread_removed_from_b_inbox",
+      "hard_deleted_temporary_thread",
+      "cleanup_verified_physical_residue_absent",
+      "hard_deleted_conversations_control_thread",
+      "cleanup_verified_conversations_control_physical_residue_absent"
+    ],
+    "residueCounts": {
+      "chat_threads": 0,
+      "chat_messages": 0,
+      "chat_participants": 0,
+      "chat_attachments": 0,
+      "chat_message_states": 0,
+      "chat_profile_blocks": 0,
+      "chat_events": 0,
+      "conversation_user_state": 0
+    }
+  }
+}

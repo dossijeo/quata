@@ -188,14 +188,20 @@ por un cambio exclusivo del transporte de lectura.
 Candidate Product SHA `c2d5f215db2562c9fde0597713e75bc7b5fb7fcc`; evidencia iOS focal
 en el mismo SHA. El host común conserva
 matching, filtrado y canal externo. Web acreditó la acción explícita y el fallback común de
-compartir/copiar cuando Contact Picker no está disponible. iOS acreditó el flujo real de ContactsUI
+compartir/copiar cuando Contact Picker no está disponible. Product SHA `2447a90b` (ejecución focal `5edf661f`) acredita además la
+rama soportada: el adaptador real solicita `name`/`tel`/`email` con selección múltiple a un proveedor
+controlado de la API estándar, la fila exacta derivada del nombre y teléfono devueltos atraviesa el mapeo y filtro comunes y el canal despacha
+exactamente un payload mediante el servicio Web de compartir. iOS acreditó el flujo real de ContactsUI
 de dos etapas en Simulator, regresó al picker común, materializó a John Appleseed como fila de
 invitación utilizable y abrió la hoja común con copiar y `platform-share`, sin efectuar un envío
 externo. La corrección resuelve el presentador UIKit activo desde el hijo Compose hasta su ancestro,
 evitando que ContactsUI quede detrás de la ruta autenticada. Android reutiliza su evidencia real de
 agenda y canal porque este cambio no alteró su adaptador de runtime. Las fixtures focales terminaron
 con topología backend inalterada y residuo físico cero. No se acredita recepción, instalación ni
-entrega externa por un tercero. [Attestation](./candidate-attestations/conversation-invites-parity.json).
+entrega externa por un tercero. El proveedor controlado sustituye sólo la agenda del sistema ausente
+en Chrome de escritorio; no sustituye el adaptador, la UI, el mapeo, el filtro ni el servicio de share.
+[Platform attestation](./candidate-attestations/conversation-invites-parity.json) ·
+[Web Contact Picker attestation](./candidate-attestations/conversation-invites-web-contact-picker.json).
 
 Tras integrar el cambio concurrente de `CONV-NEW`, el focal iOS se repitió sobre `c2d5f215`: el
 picker compacto se expande una vez si el teclado de búsqueda sigue visible antes de activar la misma
