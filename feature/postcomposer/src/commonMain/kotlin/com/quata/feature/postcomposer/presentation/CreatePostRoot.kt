@@ -242,6 +242,15 @@ fun CreatePostRoot(
     durableDraftStore: PostComposerDraftStore? = null,
     draftActorProfileId: String? = null,
     durableMediaReferenceAvailable: suspend (String) -> Boolean = { false },
+    durableMediaReferenceForPersistence: suspend (String, PostComposerDraftMediaKind) -> PostComposerDraftMediaPersistence? = { reference, _ ->
+        PostComposerDraftMediaPersistence(reference, created = false)
+    },
+    durableMediaDiscardPersistence: suspend (PostComposerDraftMediaPersistence, PostComposerDraftMediaKind) -> Unit = { _, _ -> },
+    durableMediaReferenceForRestoration: suspend (String, PostComposerDraftMediaKind) -> String? = { reference, _ ->
+        reference.takeIf { durableMediaReferenceAvailable(it) }
+    },
+    durableMediaReconcile: suspend (String?, String?) -> Boolean = { _, _ -> true },
+    durableMediaClear: suspend () -> Boolean = { true },
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -305,7 +314,7 @@ fun CreatePostRoot(
         val lease = store.activateActor(actor)
         durableDraftActorLease = lease
         val restoration = if (lease != null && initialStep == null && !resetForActorChange) {
-            store.restore(lease.actorProfileId, durableMediaReferenceAvailable)
+            store.restoreWithMediaResolution(lease.actorProfileId, durableMediaReferenceForRestoration)
         } else {
             null
         }
@@ -330,7 +339,20 @@ fun CreatePostRoot(
         val store = durableDraftStore ?: return@LaunchedEffect
         val lease = durableDraftActorLease ?: return@LaunchedEffect
         if (shouldPersistPostComposerDraft(durableDraftReady, durableSnapshot, durablePersistedSnapshot)) {
-            if (store.save(lease, durableSnapshot)) durablePersistedSnapshot = durableSnapshot
+            val save = store.saveWithMediaPersistenceResult(
+                lease,
+                durableSnapshot,
+                durableMediaReferenceForPersistence,
+                durableMediaDiscardPersistence,
+            )
+            val persistedSnapshot = save.persistedSnapshot
+            if (
+                save.committed &&
+                persistedSnapshot != null &&
+                durableMediaReconcile(persistedSnapshot.imageUri, persistedSnapshot.videoUri)
+            ) {
+                durablePersistedSnapshot = durableSnapshot
+            }
         }
     }
 
@@ -368,6 +390,27 @@ fun CreatePostRoot(
         val clearedLease = (clearAttempt as? PostComposerDraftClearAttempt.Cleared)?.lease
         durableDraftActorLease = clearedLease
         durablePersistedSnapshot = null
+        pendingDraftClearRequest = request.copy(actorLease = clearedLease)
+        val mediaCleared = try {
+            durableMediaClear()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
+        if (!mediaCleared) {
+            return
+        }
+        if (!isPostComposerDraftClearRequestCurrent(
+                request.actorProfileId,
+                clearedLease,
+                currentDraftActorProfileId,
+                durableDraftActorLease,
+            )
+        ) {
+            pendingDraftClearRequest = null
+            return
+        }
         pendingDraftClearRequest = null
         when (val action = request.action) {
             is PostComposerDraftClearAction.Reset -> {

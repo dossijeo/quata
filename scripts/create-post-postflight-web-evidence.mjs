@@ -44,6 +44,7 @@ try {
     localStorage.setItem("quata.whatsnew.web.state.v1", "v1|1|1");
     localStorage.setItem("quata.whatsnew.web.startup_ack.v1", "1");
     sessionStorage.setItem("quata.auth.e2e", "1");
+    sessionStorage.setItem("quata.post_publish.e2e", "1");
   }, session);
 
   const page = await context.newPage();
@@ -130,6 +131,50 @@ try {
     throw new Error("web_create_post_discarded_draft_restored_again");
   }
   report.steps.push("restored_draft_persistent_record_absent_after_reload");
+
+  await page.locator("#composer-type-image").first().click({ force: true, timeout: 10_000 });
+  await page.waitForFunction(() => globalThis.__quataPostComposerE2eProduct?.version === 1, null, { timeout: 20_000 });
+  const initialMediaReference = await page.evaluate(() => {
+    const bytes = new Uint8Array([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+      0, 0, 0, 1, 0, 0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2,
+      0, 0, 0, 11, 73, 68, 65, 84, 120, 218, 99, 252, 255, 31, 0, 3,
+      3, 2, 0, 239, 165, 167, 95, 0, 0, 0, 0, 73, 69, 78, 68, 174,
+      66, 96, 130,
+    ]);
+    const reference = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+    globalThis.__quataPostComposerE2eProduct.setImage(reference);
+    return reference;
+  });
+  await page.waitForFunction(() => globalThis.__quataPostComposerE2eProduct?.state?.().hasImage === true, null, { timeout: 20_000 });
+  await page.locator("#composer-media\\.selected-image-preview").first().waitFor({ state: "attached", timeout: 20_000 });
+  report.steps.push("exclusive_blob_image_draft_entered_without_publish");
+  report.evidence.mediaBeforeReload = await screenshot(page, "web-create-post-media-draft-before-reload");
+
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-shell-route") === "composer" &&
+    globalThis.__quataPostComposerE2eProduct?.state?.().hasImage === true,
+  null, { timeout: 45_000 });
+  await page.locator("#composer-media\\.selected-image-preview").first().waitFor({ state: "attached", timeout: 20_000 });
+  const restoredMediaReference = await page.evaluate(() => globalThis.__quataPostComposerE2eProduct.state().imageUri);
+  if (!String(restoredMediaReference).startsWith("blob:") || restoredMediaReference === initialMediaReference) {
+    throw new Error("web_create_post_media_draft_not_recreated_from_binary_cache");
+  }
+  report.steps.push("blob_image_draft_recreated_after_document_reload");
+  report.evidence.mediaAfterReload = await screenshot(page, "web-create-post-media-draft-after-reload");
+
+  await clickSemanticElement(page, "composer-back");
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-shell-route") === "feed", null, { timeout: 30_000 });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator("[id^='feed.action.publish.']").first().waitFor({ state: "attached", timeout: 30_000 });
+  await page.locator("[id^='feed.action.publish.']").first().click({ force: true, timeout: 10_000 });
+  await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 30_000 });
+  if (await page.locator("#composer-media\\.selected-image-preview").count()) {
+    throw new Error("web_create_post_discarded_media_draft_restored_again");
+  }
+  report.steps.push("discarded_media_binary_and_envelope_absent_after_reload");
 
   const storedActor = await page.evaluate(() => localStorage.getItem("quata_web_user_id"));
   if (storedActor !== session.userId) throw new Error("web_create_post_postflight_actor_changed");

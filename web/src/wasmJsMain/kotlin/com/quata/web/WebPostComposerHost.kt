@@ -22,6 +22,7 @@ import com.quata.feature.postcomposer.presentation.CreatePostViewModel
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuation
 import com.quata.feature.postcomposer.presentation.PostComposerAuthenticationContinuationCoordinator
 import com.quata.feature.postcomposer.presentation.PostComposerDraftStore
+import com.quata.feature.postcomposer.presentation.PostComposerDraftMediaPersistence
 import com.quata.feature.postcomposer.presentation.createPostStepFor
 import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
 import com.quata.feature.postcomposer.presentation.viewModelMessages
@@ -60,6 +61,7 @@ fun WebPostComposerHost(
     onAuthenticationContinuationRequired: ((PostComposerAuthenticationContinuation) -> Unit)? = null,
     durableDraftStore: PostComposerDraftStore? = null,
     draftActorProfileId: String? = null,
+    durableDraftMediaStore: WebPostComposerDraftMediaStore? = null,
     modifier: Modifier = Modifier,
 ) {
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
@@ -161,6 +163,26 @@ fun WebPostComposerHost(
         durableDraftStore = durableDraftStore,
         draftActorProfileId = draftActorProfileId,
         durableMediaReferenceAvailable = ::webComposerDraftMediaReferenceAvailable,
+        durableMediaReferenceForPersistence = { reference, kind ->
+            val mediaStore = durableDraftMediaStore
+            if (mediaStore != null) {
+                mediaStore.persist(reference, kind)
+            } else {
+                reference.takeIf(::webComposerDraftMediaReferenceAvailable)
+                    ?.let { PostComposerDraftMediaPersistence(it, created = false) }
+            }
+        },
+        durableMediaDiscardPersistence = { persistence, kind ->
+            durableDraftMediaStore?.discard(persistence, kind)
+        },
+        durableMediaReferenceForRestoration = { reference, kind ->
+            durableDraftMediaStore?.restore(reference, kind)
+                ?: reference.takeIf(::webComposerDraftMediaReferenceAvailable)
+        },
+        durableMediaReconcile = { imageReference, videoReference ->
+            durableDraftMediaStore?.reconcile(imageReference, videoReference) ?: true
+        },
+        durableMediaClear = { durableDraftMediaStore?.clear() ?: true },
         copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },

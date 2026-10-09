@@ -181,6 +181,7 @@ fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIVi
 
 /** Retires the last actor after authenticated logout so no suspended write can revive its draft. */
 fun retireIosPostComposerDraft(store: PostComposerDraftStore) {
+    retireAllIosPostComposerDraftMedia()
     CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
         store.activateActor(null)
     }
@@ -239,6 +240,9 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     val retainedDraft = dependencies.authenticationContinuationCoordinator?.retainedDraft?.value
     val durableDraftStore = dependencies.durableDraftStore
     val draftActorProfileId = dependencies.actorProfileId()
+    val durableDraftMediaStore = remember(draftActorProfileId) {
+        draftActorProfileId?.let(::IosPostComposerDraftMediaStore)
+    }
     val viewModel = remember(dependencies.repository, copy) {
         CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages()).also { model ->
             retainedDraft?.let(model::restore)
@@ -248,6 +252,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                 ?.let { model.onEvent(CreatePostUiEvent.LocationLabelChanged(it)) }
         }
     }
+    val composerState by viewModel.uiState.collectAsState()
     DisposableEffect(viewModel) { onDispose(viewModel::close) }
     LaunchedEffect(pendingContinuation?.requestId) {
         val pending = pendingContinuation ?: return@LaunchedEffect
@@ -294,6 +299,23 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             }
         }
     }
+    LaunchedEffect(composerState.imageUri) {
+        val reference = composerState.imageUri
+        if (imageFile?.reference != reference) {
+            imageFile = reference?.let { iosComposerRestoredMediaFile(it, PostComposerDraftMediaKind.Image) }
+        }
+    }
+    LaunchedEffect(composerState.videoUri) {
+        val reference = composerState.videoUri
+        if (videoFile?.reference != reference) {
+            releaseVideoThumbnail()
+            videoFile = reference?.let { iosComposerRestoredMediaFile(it, PostComposerDraftMediaKind.Video) }
+            videoThumbnail = videoFile?.let { file ->
+                (dependencies.videoThumbnails.createThumbnail(file).toIosComposerVideoPreview()
+                    as? IosComposerVideoPreview.Thumbnail)?.file
+            }
+        }
+    }
     DisposableEffect(Unit) { onDispose(::releaseVideoThumbnail) }
 
     BoxWithConstraints {
@@ -322,6 +344,26 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             durableDraftStore = durableDraftStore,
             draftActorProfileId = draftActorProfileId,
             durableMediaReferenceAvailable = ::iosComposerDraftMediaReferenceAvailable,
+            durableMediaReferenceForPersistence = { reference, kind ->
+                val mediaStore = durableDraftMediaStore
+                if (mediaStore != null) {
+                    mediaStore.persist(reference, kind)
+                } else {
+                    reference.takeIf(::iosComposerDraftMediaReferenceAvailable)
+                        ?.let { PostComposerDraftMediaPersistence(it, created = false) }
+                }
+            },
+            durableMediaDiscardPersistence = { persistence, kind ->
+                durableDraftMediaStore?.discard(persistence, kind)
+            },
+            durableMediaReferenceForRestoration = { reference, kind ->
+                durableDraftMediaStore?.restore(reference, kind)
+                    ?: reference.takeIf(::iosComposerDraftMediaReferenceAvailable)
+            },
+            durableMediaReconcile = { imageReference, videoReference ->
+                durableDraftMediaStore?.reconcile(imageReference, videoReference) ?: true
+            },
+            durableMediaClear = { durableDraftMediaStore?.clear() ?: true },
             slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {
@@ -411,6 +453,31 @@ private fun iosComposerDraftMediaReferenceAvailable(reference: String): Boolean 
     reference.startsWith("file://", ignoreCase = true) -> NSURL.URLWithString(reference)?.path
         ?.let(NSFileManager.defaultManager::fileExistsAtPath) == true
     else -> false
+}
+
+internal fun iosComposerRestoredMediaFile(
+    reference: String,
+    kind: PostComposerDraftMediaKind,
+): PlatformFile {
+    val clean = reference.trim()
+    val name = NSURL.URLWithString(clean)?.lastPathComponent
+        ?.takeIf(String::isNotBlank)
+        ?: if (kind == PostComposerDraftMediaKind.Image) "restored-image" else "restored-video"
+    val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+    val mimeType = when (kind) {
+        PostComposerDraftMediaKind.Image -> when (extension) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "heic", "heif" -> "image/heic"
+            else -> "image/jpeg"
+        }
+        PostComposerDraftMediaKind.Video -> when (extension) {
+            "mov" -> "video/quicktime"
+            "webm" -> "video/webm"
+            else -> "video/mp4"
+        }
+    }
+    return PlatformFile(reference = clean, displayName = name, mimeType = mimeType)
 }
 
 private fun iosComposerCoordinateLabel(latitude: Double, longitude: Double): String = "$latitude, $longitude"

@@ -51,6 +51,15 @@ fun WebPostComposerRoute(
 ) {
     val scope = rememberCoroutineScope()
     val isLandscapeLayout = browserComposerIsLandscape()
+    val durableDraftMediaStore = remember(platformServices.fileCache, draftActorProfileId) {
+        draftActorProfileId?.let { actor ->
+            WebPostComposerDraftMediaStore(
+                files = platformServices.fileCache,
+                actorProfileId = actor,
+                releaseCachedReference = platformServices::releaseFileCacheReference,
+            )
+        }
+    }
     WebPostComposerHost(
         repository = remember(runtimeConfiguration, authRepository) {
             val transport = WebPostComposerTransport(runtimeConfiguration, authRepository).let { base ->
@@ -172,6 +181,7 @@ fun WebPostComposerRoute(
         onAuthenticationContinuationRequired = onAuthenticationContinuationRequired,
         durableDraftStore = durableDraftStore,
         draftActorProfileId = draftActorProfileId,
+        durableDraftMediaStore = durableDraftMediaStore,
     )
 }
 

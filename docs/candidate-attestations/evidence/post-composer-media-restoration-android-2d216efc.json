@@ -1,0 +1,21 @@
+{
+  "check": "POST-COMPOSER-MEDIA-RESTORATION-ANDROID-FOCAL-001",
+  "status": "passed",
+  "git": {
+    "head": "2d216efcf32c38f90fbf94b43bde91f2dda0a406",
+    "branch": "codex/post-composer-media-restoration",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_media_persistence_contract_6_of_6_passed",
+    "android_app_compile_debug_kotlin_passed",
+    "actor_and_generation_isolation_verified",
+    "partial_staging_compensation_verified",
+    "superseding_envelope_media_preserved"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "contract-owned-temporary-state-only"
+  },
+  "scope": "Common runtime and Android compilation only; no new Android media-relaunch UI execution is attributed."
+}

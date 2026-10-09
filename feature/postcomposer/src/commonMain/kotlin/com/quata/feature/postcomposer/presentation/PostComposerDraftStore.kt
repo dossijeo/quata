@@ -4,6 +4,9 @@ import com.quata.core.platform.AtomicPreferenceStore
 import com.quata.core.platform.PreferenceStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /**
  * Durable, actor-bound storage for the existing post-composer draft.
@@ -35,21 +38,147 @@ class PostComposerDraftStore(
         return mutation.result.takeIf { mutation.committed }
     }
 
-    suspend fun save(lease: PostComposerDraftActorLease, draft: PostComposerDraftSnapshot): Boolean {
-        val sanitized = draft.sanitizedForPersistence()
-        return mutateState { current ->
-            if (!current.matches(lease)) current to false
-            else current.copy(
-                revision = current.revision + 1,
-                encodedDraft = sanitized.takeIf { it.isMeaningful() }
-                    ?.let(PostComposerDraftEnvelopeCodec::encode),
-            ) to true
-        }.let { it.committed && it.result == true }
+    suspend fun save(lease: PostComposerDraftActorLease, draft: PostComposerDraftSnapshot): Boolean =
+        saveWithMediaPersistence(lease, draft, { reference, _ ->
+            PostComposerDraftMediaPersistence(reference, created = false)
+        }) { _, _ -> }
+
+    suspend fun saveWithMediaPersistence(
+        lease: PostComposerDraftActorLease,
+        draft: PostComposerDraftSnapshot,
+        persistMediaReference: suspend (String, PostComposerDraftMediaKind) -> PostComposerDraftMediaPersistence?,
+        discardPersistedMediaReference: suspend (PostComposerDraftMediaPersistence, PostComposerDraftMediaKind) -> Unit,
+    ): Boolean = saveWithMediaPersistenceResult(
+        lease,
+        draft,
+        persistMediaReference,
+        discardPersistedMediaReference,
+    ).committed
+
+    suspend fun saveWithMediaPersistenceResult(
+        lease: PostComposerDraftActorLease,
+        draft: PostComposerDraftSnapshot,
+        persistMediaReference: suspend (String, PostComposerDraftMediaKind) -> PostComposerDraftMediaPersistence?,
+        discardPersistedMediaReference: suspend (PostComposerDraftMediaPersistence, PostComposerDraftMediaKind) -> Unit,
+    ): PostComposerDraftMediaSaveResult {
+        val staged = mutableListOf<Pair<PostComposerDraftMediaPersistence, PostComposerDraftMediaKind>>()
+        suspend fun compensate(
+            observedReferencesStillInUse: Set<PostComposerDraftMediaReference>? = null,
+        ) = withContext(NonCancellable) {
+            var referencesStillInUse = observedReferencesStillInUse ?: readMediaReferencesOrNull()
+                ?: return@withContext
+            staged.asReversed().forEach { (persistence, kind) ->
+                val mediaReference = PostComposerDraftMediaReference(persistence.reference, kind)
+                referencesStillInUse = readMediaReferencesOrNull() ?: return@withContext
+                if (persistence.created && mediaReference !in referencesStillInUse) {
+                    try {
+                        discardPersistedMediaReference(persistence, kind)
+                    } catch (_: Throwable) {
+                        // Preserve the original save outcome; the platform cache is also retired by actor cleanup.
+                    }
+                }
+            }
+        }
+        val persistentImage: PostComposerDraftMediaPersistence?
+        val persistentVideo: PostComposerDraftMediaPersistence?
+        try {
+            persistentImage = draft.imageUri?.let {
+                val result = persistMediaReference(it, PostComposerDraftMediaKind.Image)
+                if (result == null) {
+                    compensate()
+                    return PostComposerDraftMediaSaveResult.NotCommitted
+                }
+                staged += result to PostComposerDraftMediaKind.Image
+                result
+            }
+            persistentVideo = draft.videoUri?.let {
+                val result = persistMediaReference(it, PostComposerDraftMediaKind.Video)
+                if (result == null) {
+                    compensate()
+                    return PostComposerDraftMediaSaveResult.NotCommitted
+                }
+                staged += result to PostComposerDraftMediaKind.Video
+                result
+            }
+        } catch (cancelled: CancellationException) {
+            compensate()
+            throw cancelled
+        } catch (_: Throwable) {
+            compensate()
+            return PostComposerDraftMediaSaveResult.NotCommitted
+        }
+        val sanitized = draft.copy(
+            imageUri = persistentImage?.reference,
+            videoUri = persistentVideo?.reference,
+        ).sanitizedForPersistence()
+        val encodedDraft = sanitized.takeIf { it.isMeaningful() }
+            ?.let(PostComposerDraftEnvelopeCodec::encode)
+        suspend fun commitObservation(): PostComposerDraftCommitObservation = withContext(NonCancellable) {
+            try {
+                val current = readStateConsistently()
+                if (current.matches(lease) && current.encodedDraft == encodedDraft) {
+                    PostComposerDraftCommitObservation.Applied
+                } else {
+                    PostComposerDraftCommitObservation.NotApplied(
+                        referencesStillInUse = current.mediaReferences(),
+                    )
+                }
+            } catch (_: Throwable) {
+                PostComposerDraftCommitObservation.Unknown
+            }
+        }
+        val committed = try {
+            mutateState { current ->
+                if (!current.matches(lease)) current to false
+                else current.copy(
+                    revision = current.revision + 1,
+                    encodedDraft = encodedDraft,
+                ) to true
+            }.let { it.committed && it.result == true }
+        } catch (cancelled: CancellationException) {
+            when (val observation = commitObservation()) {
+                is PostComposerDraftCommitObservation.NotApplied -> compensate(observation.referencesStillInUse)
+                PostComposerDraftCommitObservation.Applied,
+                PostComposerDraftCommitObservation.Unknown,
+                -> Unit
+            }
+            throw cancelled
+        } catch (_: Throwable) {
+            return when (val observation = commitObservation()) {
+                PostComposerDraftCommitObservation.Applied ->
+                    PostComposerDraftMediaSaveResult(committed = true, persistedSnapshot = sanitized)
+                is PostComposerDraftCommitObservation.NotApplied -> {
+                    compensate(observation.referencesStillInUse)
+                    PostComposerDraftMediaSaveResult.NotCommitted
+                }
+                PostComposerDraftCommitObservation.Unknown -> PostComposerDraftMediaSaveResult.NotCommitted
+            }
+        }
+        if (!committed) {
+            when (val observation = commitObservation()) {
+                is PostComposerDraftCommitObservation.NotApplied -> compensate(observation.referencesStillInUse)
+                PostComposerDraftCommitObservation.Applied,
+                PostComposerDraftCommitObservation.Unknown,
+                -> Unit
+            }
+        }
+        return if (committed) {
+            PostComposerDraftMediaSaveResult(committed = true, persistedSnapshot = sanitized)
+        } else {
+            PostComposerDraftMediaSaveResult.NotCommitted
+        }
     }
 
     suspend fun restore(
         actorProfileId: String,
         mediaReferenceAvailable: suspend (String) -> Boolean,
+    ): PostComposerDraftRestoration? = restoreWithMediaResolution(actorProfileId) { reference, _ ->
+        reference.takeIf { mediaReferenceAvailable(it) }
+    }
+
+    suspend fun restoreWithMediaResolution(
+        actorProfileId: String,
+        resolveMediaReference: suspend (String, PostComposerDraftMediaKind) -> String?,
     ): PostComposerDraftRestoration? {
         val lease = activateActor(actorProfileId) ?: return null
         val state = readStateConsistently()
@@ -67,15 +196,19 @@ class PostComposerDraftStore(
             }
             return null
         }
-        val image = decoded.imageUri?.takeIf { mediaReferenceAvailable(it) }
-        val video = decoded.videoUri?.takeIf { mediaReferenceAvailable(it) }
+        val image = decoded.imageUri?.let { resolveMediaReference(it, PostComposerDraftMediaKind.Image) }
+        val video = decoded.videoUri?.let { resolveMediaReference(it, PostComposerDraftMediaKind.Video) }
         val restored = decoded.copy(imageUri = image, videoUri = video)
-        val finalRevision = if (restored != decoded) {
+        val repairedPersistent = decoded.copy(
+            imageUri = decoded.imageUri.takeIf { image != null },
+            videoUri = decoded.videoUri.takeIf { video != null },
+        )
+        val finalRevision = if (repairedPersistent != decoded) {
             val repair = mutateState { current ->
                 if (current.matches(lease) && current.revision == restoredRevision) {
                     val next = current.copy(
                         revision = current.revision + 1,
-                        encodedDraft = PostComposerDraftEnvelopeCodec.encode(restored),
+                        encodedDraft = PostComposerDraftEnvelopeCodec.encode(repairedPersistent),
                     )
                     next to next.revision
                 } else {
@@ -127,6 +260,25 @@ class PostComposerDraftStore(
     private suspend fun readStateConsistently(): PostComposerDraftPersistentState =
         mutateState { current -> current to current }.result ?: PostComposerDraftPersistentStateCodec.Empty
 
+    private suspend fun readMediaReferencesOrNull(): Set<PostComposerDraftMediaReference>? =
+        try {
+            readStateConsistently().mediaReferences()
+        } catch (_: Throwable) {
+            null
+        }
+
+    private fun PostComposerDraftPersistentState.mediaReferences(): Set<PostComposerDraftMediaReference> {
+        val currentDraft = encodedDraft?.let(PostComposerDraftEnvelopeCodec::decode)
+        return buildSet {
+            currentDraft?.imageUri?.let {
+                add(PostComposerDraftMediaReference(it, PostComposerDraftMediaKind.Image))
+            }
+            currentDraft?.videoUri?.let {
+                add(PostComposerDraftMediaReference(it, PostComposerDraftMediaKind.Video))
+            }
+        }
+    }
+
     private suspend fun <T> mutateState(
         transform: (PostComposerDraftPersistentState) -> Pair<PostComposerDraftPersistentState, T>,
     ): PostComposerDraftStateMutation<T> {
@@ -160,6 +312,19 @@ class PostComposerDraftStore(
 private class PostComposerDraftStateMutation<T>(
     val committed: Boolean,
     val result: T?,
+)
+
+private sealed interface PostComposerDraftCommitObservation {
+    data object Applied : PostComposerDraftCommitObservation
+    data class NotApplied(
+        val referencesStillInUse: Set<PostComposerDraftMediaReference>,
+    ) : PostComposerDraftCommitObservation
+    data object Unknown : PostComposerDraftCommitObservation
+}
+
+private data class PostComposerDraftMediaReference(
+    val reference: String,
+    val kind: PostComposerDraftMediaKind,
 )
 
 private data class PostComposerDraftPersistentState(
@@ -219,6 +384,22 @@ class PostComposerDraftRestoration internal constructor(
     val snapshot: PostComposerDraftSnapshot,
     internal val revision: Long,
 )
+
+enum class PostComposerDraftMediaKind { Image, Video }
+
+data class PostComposerDraftMediaPersistence(
+    val reference: String,
+    val created: Boolean,
+)
+
+data class PostComposerDraftMediaSaveResult(
+    val committed: Boolean,
+    val persistedSnapshot: PostComposerDraftSnapshot?,
+) {
+    companion object {
+        val NotCommitted = PostComposerDraftMediaSaveResult(committed = false, persistedSnapshot = null)
+    }
+}
 
 private fun PostComposerDraftSnapshot.isMeaningful(): Boolean =
     step != CreatePostStep.TypePicker ||

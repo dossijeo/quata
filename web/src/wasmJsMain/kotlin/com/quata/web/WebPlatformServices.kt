@@ -25,7 +25,7 @@ import com.quata.core.platform.AudioCacheService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerReferenceReleaser
-import com.quata.core.platform.FileCacheService
+import com.quata.core.platform.PrefixClearableFileCacheService
 import com.quata.core.platform.LocationService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PreferenceStore
@@ -48,7 +48,7 @@ data class WebPlatformServices(
     val filePickerReferences: FilePickerReferenceReleaser = browserFilePicker,
     /** IndexedDB binary cache, kept separate from the small key/value [PreferenceStore] boundary. */
     private val browserFileCache: BrowserFileCacheService = BrowserFileCacheService(),
-    val fileCache: FileCacheService = browserFileCache,
+    val fileCache: PrefixClearableFileCacheService = browserFileCache,
     override val contacts: ContactPickerService = BrowserContactPickerService(),
     override val location: LocationService = BrowserLocationService(),
     override val permissions: PermissionService = BrowserPermissionService(),
@@ -73,4 +73,8 @@ data class WebPlatformServices(
     /** Real MediaRecorder adapter; its returned Blob URLs are released through [audioRecordingReferences]. */
     val audioRecorder: AudioRecorderService = browserAudioRecorder,
     val audioRecordingReferences: AudioRecordingReferenceReleaser = browserAudioRecorder,
-) : PlatformServices
+) : PlatformServices {
+    internal fun releaseFileCacheReference(file: com.quata.core.platform.PlatformFile) {
+        browserFileCache.release(file)
+    }
+}
