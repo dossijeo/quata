@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "830e2532491100a186dc0b654ae3463199c2f510",
+  "productSha": "8f60d5b70306b9f5f2e9f74cd1669a7033b205c7",
   "certification": "disposable-postgresql-deployed-rpc-post-mutation-atomicity-complete-independent-review-go",
   "evidenceKind": "CONVERSATION_CREATE_DEPLOYED_RPC_POST_MUTATION_ATOMICITY",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "830e2532491100a186dc0b654ae3463199c2f510",
+      "sha": "8f60d5b70306b9f5f2e9f74cd1669a7033b205c7",
       "report": "docs/candidate-attestations/evidence/conversation-create-backend-atomicity-5d620be5.json",
       "reportSha256": "d605975815b76f91a7e3fbc68410785366846f2e84581d05c6beb33c3865ceac",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "830e2532491100a186dc0b654ae3463199c2f510",
+    "reviewedSha": "8f60d5b70306b9f5f2e9f74cd1669a7033b205c7",
     "blockingFindings": [],
     "resolvedFindings": [
       "Cleanup now verifies through Docker that the disposable container is absent and emits PASS only afterward.",
@@ -55,6 +55,6 @@
     "Both private and group failures leave zero rows from their attempted creation, and an immediate retry produces the exact expected cardinalities.",
     "The outer transaction is rolled back and the disposable container is removed. No production database or credential is used.",
     "This unit does not claim recovery from an unknown transport response after the server committed successfully or close non-CONV-NEW scopes in SCR-CONVERSATIONS.",
-    "Independent review of Product 87d19804 returned GO with no P0-P3 findings after confirming the four unit blobs and all three imported versioned SQL inputs are byte-identical to historical execution Product 5d620be5. The PostgreSQL 17 probe was also reproduced with PASS and zero remaining containers; no platform matrix was repeated solely for ancestry."
+    "The current recomposed Product 8f60d5b7 is tree-identical to reviewed Product 830e2532. Product 830e2532 preserves the four unit blobs and all three imported versioned SQL inputs byte-identically from historical execution Product 5d620be5. Independent exact-head review returned GO with no P0-P3 findings; the PostgreSQL 17 probe had already been reproduced with PASS and zero remaining containers, so no platform matrix was repeated solely for ancestry."
   ]
 }
