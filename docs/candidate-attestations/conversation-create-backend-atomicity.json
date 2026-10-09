@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "87d198044327b4a61c02f51a84d4deb106e09d7e",
+  "productSha": "830e2532491100a186dc0b654ae3463199c2f510",
   "certification": "disposable-postgresql-deployed-rpc-post-mutation-atomicity-complete-independent-review-go",
   "evidenceKind": "CONVERSATION_CREATE_DEPLOYED_RPC_POST_MUTATION_ATOMICITY",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "87d198044327b4a61c02f51a84d4deb106e09d7e",
+      "sha": "830e2532491100a186dc0b654ae3463199c2f510",
       "report": "docs/candidate-attestations/evidence/conversation-create-backend-atomicity-5d620be5.json",
       "reportSha256": "d605975815b76f91a7e3fbc68410785366846f2e84581d05c6beb33c3865ceac",
       "reportStatus": "passed",
@@ -42,7 +42,7 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "87d198044327b4a61c02f51a84d4deb106e09d7e",
+    "reviewedSha": "830e2532491100a186dc0b654ae3463199c2f510",
     "blockingFindings": [],
     "resolvedFindings": [
       "Cleanup now verifies through Docker that the disposable container is absent and emits PASS only afterward.",
