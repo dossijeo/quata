@@ -365,14 +365,14 @@ de la restauración; cero residuos comprobados y productor remoto desactivado (f
 head `c5eb125d` y merge `3e36885e`, con gates finales Web/Android, iOS y CodeQL
 SUCCESS. El cierre no promociona ACCOUNT-DETAILS ni unidades vecinas.
 
-Se conserva el límite Android de Feed/continuidad tras Save; Web abre Login explícitamente. Las aceptaciones focales
-iOS `37178873` y Android `de515aec` recorren desde el Login común las acciones «Olvidé mi contraseña»
-y «Volver», abren la raíz Recovery y retornan al Login sin ejecutar un reset. El alcance lingüístico se
-limita a esas dos acciones observadas y no certifica una localización exhaustiva de Recovery. Ambas se
-componen con la mutación remota histórica sin repetirla; manifests
-`docs/candidate-attestations/account-recovery-login-entry-ios.json` y
-`docs/candidate-attestations/account-recovery-login-entry-android.json`. Las evidencias históricas
-mantienen sus SHA originales y el cierre no migra suites existentes.
+Se conserva el límite Android de Feed/continuidad tras Save. Las aceptaciones focales iOS `37178873`,
+Android `de515aec` y Web/Wasm `deefa820` recorren desde el Login común las acciones «Olvidé mi
+contraseña»/«Volver», abren Recovery y retornan al Login. Se anclan en
+`account-recovery-login-entry-ios.json`, `account-recovery-login-entry-android.json` y
+`account-recovery-login-entry-web.json`; no añaden evidencia del reset/backend.`docs/candidate-attestations/account-recovery-login-entry-ios.json` y
+`docs/candidate-attestations/account-recovery-login-entry-android.json` y
+`docs/candidate-attestations/account-recovery-login-entry-web.json`. Las evidencias históricas mantienen
+sus SHA originales; no se atribuye evidencia nueva del reset/backend y el cierre no migra suites existentes.
 
 ## Foto de control — 2026-08-11
 
