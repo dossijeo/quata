@@ -4,13 +4,13 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "248835582e42a19b14db0bd75029b94c323d4837",
+  "productSha": "d90ee80dae4da1706801c5b483ea2f675488e225",
   "certification": "local-affected-runtime-exact-conversation-backstack-independent-final-review-complete-final-CI-pending",
   "evidenceKind": "NOTIFICATIONS_EXACT_CHAT_DURABLE_BACKSTACK",
   "evidence": {
     "crossPlatform": {
       "status": "passed",
-      "sha": "248835582e42a19b14db0bd75029b94c323d4837",
+      "sha": "d90ee80dae4da1706801c5b483ea2f675488e225",
       "report": "docs/candidate-attestations/evidence/shell-navigation-notifications-chat-backstack-d710da07.json",
       "reportSha256": "a6c351263e064854d979afd430e210f8082529dfa67b1a7f8437e4118cce293f",
       "reportStatus": "passed-local-candidate",
@@ -44,13 +44,14 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "c18a88c9e70d438a6fa246d588c716adc32da596",
-    "reviewedProductSha": "248835582e42a19b14db0bd75029b94c323d4837",
+    "reviewedSha": "d90ee80dae4da1706801c5b483ea2f675488e225",
+    "reviewedProductSha": "d90ee80dae4da1706801c5b483ea2f675488e225",
     "blockingFindings": [],
     "resolvedFindings": [
       "Android clears the notification return marker on route exit and authentication loss, with focal negative coverage.",
       "Web claims are limited to controller recreation over injected persistent storage rather than a browser document reload.",
-      "The seven-commit series was recomposed over the byte-identical #580 squash; complete pre-attestation trees match and runtime, tests, matrix and historical evidence remain byte-identical."
+      "The seven-commit series was recomposed over the byte-identical #580 squash; complete pre-attestation trees match and runtime, tests, matrix and historical evidence remain byte-identical.",
+      "The two Web login contracts now assert the notification-return branch, generic fallback and cleanup of both pending fragments; the Product repair changes no runtime."
     ]
   },
   "notes": [
@@ -61,6 +62,7 @@
     "iOS preserves byte-identical runtime and focal-test blobs from the passing 29089031 execution, so its matrix was not repeated for the Android-only runtime correction and Web test-name correction.",
     "The first macOS link attempt exhausted the VM system volume. The unchanged iOS bytes passed after moving the isolated build and cache to the external capacity volume.",
     "This closes only Notifications to exact Chat to Notifications. Other arbitrary secondary stacks, scroll, editor state, backend delivery, APNs, provider behavior and physical-device behavior remain outside this focal unit.",
-    "The seven-commit unit was recomposed over the verified byte-identical #580 squash 287ee85c; the complete runtime delta is unchanged. The execution report remains bound to runtime d710da07, the capability matrix records raw-byte hashes for the recomposed Web and iOS composition sources, and no platform matrix was repeated solely for ancestry."
+    "The seven-commit unit was recomposed over the verified byte-identical #580 squash 287ee85c; the complete runtime delta is unchanged. The execution report remains bound to runtime d710da07, the capability matrix records raw-byte hashes for the recomposed Web and iOS composition sources, and no platform matrix was repeated solely for ancestry.",
+    "The candidate-final CI failure was caused by two stale static Web login assertions that still required direct navigation of the pending fragment. Product d90ee80d updates only those contracts to require the already-reviewed notification return behavior; the exact affected suites pass 33/33 and the broader fast contract group passes 227/227. No platform E2E was repeated for this test-only correction."
   ]
 }
