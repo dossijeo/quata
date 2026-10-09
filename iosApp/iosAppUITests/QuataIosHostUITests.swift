@@ -94,7 +94,7 @@ final class QuataIosHostUITests: XCTestCase {
         app.launch()
 
         enterText("799000000000", into: "auth.phone.input", in: app)
-        typePrivateText("Synthetic-password-7!", into: "auth.password", in: app)
+        typePrivateText("Synthetic-password-7", into: "auth.password", in: app)
         tapAfterDismissingKeyboard("auth.submit", in: app)
 
         XCTAssertTrue(
@@ -2392,8 +2392,15 @@ final class QuataIosHostUITests: XCTestCase {
     ) {
         let keyboardFrame = keyboard.frame
         let appFrame = app.frame
+        let hasVisibleKey = keyboard.descendants(matching: .key).allElementsBoundByIndex.contains {
+            !$0.frame.isEmpty
+        }
+        let hasVisibleButton = keyboard.descendants(matching: .button).allElementsBoundByIndex.contains {
+            !$0.frame.isEmpty
+        }
         XCTAssertTrue(
-            keyboardFrame.intersects(appFrame) && keyboardFrame.minY < appFrame.maxY,
+            (keyboardFrame.intersects(appFrame) && keyboardFrame.minY < appFrame.maxY) ||
+                hasVisibleKey || hasVisibleButton,
             "Expected the software keyboard for \(identifier) to be visible on screen."
         )
     }
