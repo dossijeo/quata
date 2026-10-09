@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-SAFETY-REPORT-RETRY"
+  ],
+  "status": "passed",
+  "productSha": "d2825772c88f44d6f7c21eac3c526642add2d49e",
+  "certification": "candidate-awaiting-final-pr-gates",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d2825772c88f44d6f7c21eac3c526642add2d49e",
+      "report": "docs/candidate-attestations/evidence/profile-safety-report-retry-web-8d7319d4.json",
+      "reportSha256": "ec299815e98783bb1e59fc4410bd5e5d81def9d31630539eebe3f3eb34477873",
+      "reportStatus": "passed",
+      "reportGitHead": "8d7319d4b18b15724fd299cb3f78e011f11fc06e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "two_authorized_profiles_logged_in",
+        "profile_safety_initial_state_snapshot_and_absent_block_prepared",
+        "profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-production-database-with-hardened-loopback-auth-rest-facade"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d2825772c88f44d6f7c21eac3c526642add2d49e",
+      "report": "docs/candidate-attestations/evidence/profile-safety-report-retry-android-c43a4f8c.json",
+      "reportSha256": "a2e5994fc949f8e703227e7fb672846daea1f748b79310279c85f444c3618a42",
+      "reportStatus": "passed",
+      "reportGitHead": "c43a4f8c35987d17b3abee41e6180c9147445272",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "two_authorized_profiles_logged_in",
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-production-database-with-native-android-ui-and-ephemeral-loopback-auth-rest-facade"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d2825772c88f44d6f7c21eac3c526642add2d49e",
+      "report": "docs/candidate-attestations/evidence/profile-safety-report-retry-ios-c43a4f8c.json",
+      "reportSha256": "d7b02914a28d34db2e1d732c971d217381a71fc9b4243742672fc43bcbf9dd92",
+      "reportStatus": "passed",
+      "reportGitHead": "c43a4f8c35987d17b3abee41e6180c9147445272",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "two_authorized_profiles_logged_in",
+        "mac_checkout_sha_matches_local_candidate",
+        "profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared",
+        "profile_safety_failed_report_error_exact_action_retry_and_backend_success_verified"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "real-production-database-with-signed-ios-simulator-ui-and-ephemeral-mac-loopback-auth-rest-facade"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/chat-actions-notifications-web-evidence.mjs scripts/chat-actions-notifications-android-evidence.mjs scripts/chat-actions-notifications-ios-evidence.mjs scripts/profile-follow-local-evidence-facade.mjs",
+    "node --test scripts/profile-safety-negative-contract.test.mjs scripts/ios-simulator-signed-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --profile-safety-negative-only",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --profile-safety-negative-only",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --profile-safety-negative-only",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/profile-safety-report-retry.json"
+  ],
+  "notes": [
+    "Web/Wasm, Android and iOS Simulator drive the real public-profile Report action through a forced pre-transport failure, keep the exact target and report reason, expose the same retry action, retry once and verify the resulting report in the production database.",
+    "The same focal runs retain the previously accepted block failure, rollback and retry assertions. Every run restores its profile-safety and Chat fixtures and finishes with zero physical residue.",
+    "Hosted Supabase Auth remained unavailable with HTTP 402. The accepted runs use the already hardened and explicitly authorized loopback facade while retaining the production database, RLS and RPC behavior; they do not certify the hosted Auth/API gateway or Realtime transport.",
+    "Web passed on clean head 8d7319d4. Android and iOS passed on clean head c43a4f8c. Product SHA d2825772 retains the same product and evidence-runner behavior and adds only capability hashes, Android focal teardown tolerance and the iOS Hyper-V raster preflight plus its exact literal-coordinate contract; platform matrices were not repeated solely for those later changes.",
+    "The iOS evidence was repeated after a clean SimulatorSigned raster build resolved org.jetbrains.skiko:skiko-iosx64:0.9.37.3-hyperv-raster.1-SNAPSHOT in the shared isolated Gradle home. The accepted evidence run reused that clean build and passed on the explicit iOS 18.3 simulator.",
+    "The committed reports are sanitized projections. The private raw-report SHA-256 values are 7ae0134b4b4bdc6812a3ddd1aaa64a33f09cb04393c0edb27f64bb146c7094c0 for Web, d2f0409a5d014bd667234b236a842a4bbe04f29e0127e565918be530c62fa798 for Android and 8ef988af6b08b1f58aad8501f4b20af978a62dcc5217b2350bc5a3f94e2d07be for iOS. Local paths, credentials, identifiers, screenshots and command output are omitted.",
+    "This unit closes the documented report-failure and same-action retry UI limit. It does not broaden acceptance to unrelated moderation actions, hosted authentication or concurrent report races."
+  ]
+}
