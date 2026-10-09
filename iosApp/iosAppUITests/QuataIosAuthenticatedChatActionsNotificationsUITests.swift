@@ -1387,7 +1387,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             } else {
                 XCTAssertTrue(
-                    tapVisibleCenter(of: candidate, constrainedTo: nil, in: app),
+                    tapVisibleLeadingSelectionControl(of: candidate, in: app),
                     "Each exact group candidate must expose visible bounds for selection."
                 )
             }
@@ -3269,6 +3269,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let frame = visibleFrame(of: element, constrainedTo: row, in: app) else { return false }
         let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
         origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+        return true
+    }
+
+    private func tapVisibleLeadingSelectionControl(of element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard let frame = visibleFrame(of: element, constrainedTo: nil, in: app) else { return false }
+        let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        origin.withOffset(CGVector(dx: frame.minX + min(30, frame.width * 0.08), dy: frame.midY)).tap()
         return true
     }
 
