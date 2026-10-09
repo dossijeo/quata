@@ -3,12 +3,12 @@
   "units": [
     "ACCOUNT-RECOVERY-SECRET"
   ],
-  "productSha": "d16e88eb8580bb9b350027937232989757fb867e",
+  "productSha": "dfd1e39e23cbaf05c3db8e2ffe0d6c7644e78738",
   "testHead": "4247e807a98a88a90c11e811a3c7e1d2b51928b4",
   "evidence": {
     "ios": {
       "status": "passed",
-      "sha": "d16e88eb8580bb9b350027937232989757fb867e",
+      "sha": "dfd1e39e23cbaf05c3db8e2ffe0d6c7644e78738",
       "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-ios-4247e807.json",
       "reportSha256": "b1ac71adc33a6089b726ba377b6bc6522cbc3db8ed5fcda6aade7202cea635d9",
       "requireReportArtifact": true,
@@ -27,7 +27,7 @@
   "notes": [
     "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
     "The new iOS focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
-    "The current recomposed Product d16e88eb preserves the iOS focal test and contract byte-for-byte from reviewed Product 44ef3b48; the only tree differences belong to reviewed predecessor documentation. The accepted execution remains bound to testHead 4247e807, so no platform matrix was repeated solely for ancestry.",
+    "The current recomposed Product dfd1e39e preserves the iOS focal test and contract byte-for-byte from previously reviewed Product 16479685; the only tree differences belong to reanchored predecessor documentation. Product 16479685 preserves the same focal blobs from previously reviewed Product d16e88eb, which in turn preserves the reviewed Product 44ef3b48 focal blobs. The accepted execution remains bound to testHead 4247e807, so no platform matrix was repeated solely for ancestry.",
     "No product runtime, backend, migration, credentials or historical evidence were changed."
   ]
 }
