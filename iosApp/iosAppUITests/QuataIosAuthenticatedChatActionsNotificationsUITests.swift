@@ -1262,8 +1262,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.launch()
         openConversationsFromCurrentRoute("authenticated conversation creation")
 
-        func relaunchAtConversations(_ context: String) {
+        func relaunchAtConversations(_ context: String, retryFixtureEnabled: Bool? = nil) {
             app.terminate()
+            if let retryFixtureEnabled {
+                if retryFixtureEnabled {
+                    app.launchEnvironment["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"] =
+                        "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
+                } else {
+                    app.launchEnvironment.removeValue(forKey: "QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN")
+                }
+            }
             app.launch()
             openConversationsFromCurrentRoute(context)
             XCTAssertTrue(
@@ -1292,11 +1300,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for index in 0..<2 {
             if index > 0 {
                 if retryEvidence {
-                    tapTaggedButton("chat.back", in: app, context: "return before private conversation reuse")
-                    XCTAssertTrue(
-                        app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
-                        "The shared conversations list must be restored before private reuse."
-                    )
+                    // Back intentionally removes an empty private thread. Relaunch without the
+                    // fault fixture so the existing thread can be reopened and its reuse proved.
+                    relaunchAtConversations("private conversation reuse", retryFixtureEnabled: false)
                 } else {
                     relaunchAtConversations("private conversation reuse")
                 }
@@ -1344,11 +1350,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         if retryEvidence {
-            tapTaggedButton("chat.back", in: app, context: "return before group conversation creation")
-            XCTAssertTrue(
-                app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
-                "The shared conversations list must be restored before group creation."
-            )
+            relaunchAtConversations("group conversation creation", retryFixtureEnabled: true)
         } else {
             relaunchAtConversations("group conversation creation")
         }
