@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-POST-DETAIL-PUBLIC-PROFILE-SCROLL"
+  ],
+  "status": "passed",
+  "productSha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
+      "reportSha256": "e0e574f504de2ba3c68503112c09f750cf04fd21a36c7b78678c5421e157534c",
+      "reportStatus": "passed",
+      "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "public_profile_detail_scroll_anchor_uses_exact_post_identity",
+        "public_profile_detail_reopen_restores_observed_offset",
+        "web_wasm_focal_suite_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-compose-fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
+      "reportSha256": "e0e574f504de2ba3c68503112c09f750cf04fd21a36c7b78678c5421e157534c",
+      "reportStatus": "passed",
+      "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "public_profile_detail_saved_instance_state_restores_exact_nonzero_offset",
+        "android_instrumented_scroll_and_restore_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-compose-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
+      "reportSha256": "e0e574f504de2ba3c68503112c09f750cf04fd21a36c7b78678c5421e157534c",
+      "reportStatus": "passed",
+      "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "not_required_no_mutation",
+      "requiredSteps": [
+        "public_profile_detail_scroll_anchor_uses_exact_post_identity",
+        "public_profile_detail_reopen_restores_observed_offset",
+        "ios_x64_focal_suite_retained_by_byte_identity"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic-read-only-compose-fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :feature:neighborhoods:wasmJsBrowserTest --tests com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailTest --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\run-android-tests-preserve-app.ps1 -DeviceId emulator-5554 -TestClass com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailScrollRestorationInstrumentedTest",
+    "macOS: bash ./gradlew :feature:neighborhoods:iosX64Test --tests com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailTest -Pkotlin.native.home=/Volumes/QuataMigrationCapacity/archived-caches/konan-da90c065/kotlin-native-prebuilt-macos-x86_64-2.2.21 --configure-on-demand --no-daemon --console=plain",
+    "node --test scripts/post-detail-parity-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/public-profile-post-detail-scroll-restoration.json"
+  ],
+  "notes": [
+    "The common public-profile detail stores a stable post ID and exact pixel offset, restores only the matching post and clamps invalid negative offsets.",
+    "Closing and reopening the same detail preserves its observed deep position; selecting another post cannot inherit that position.",
+    "Android performs a real Compose scroll and restores the exact nonzero VerticalScrollAxisRange value through saved-instance-state recreation. Web/Wasm executes the five-test focal suite on the Product runtime SHA.",
+    "The iOS x64 execution remains bound to f1010a81: the common runtime and focal test blobs are byte-identical at the final Product SHA, whose only later product delta is the Android-only instrumented test. The matrix was not repeated solely for a SHA change.",
+    "Independent exact-head review is pending before promotion.",
+    "This focal closure removes only the public-profile deep-scroll limit. Integrated comments and exhaustive visual or media lifecycle coverage remain separate units.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
+  ]
+}

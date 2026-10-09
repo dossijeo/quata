@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "unit": "OVR-POST-DETAIL-PUBLIC-PROFILE-SCROLL",
+  "status": "passed",
+  "recordedAt": "2026-10-09T06:53:29Z",
+  "git": {
+    "head": "dca11d973f4627eabf85b0537d66451837cb32ed",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "public_profile_detail_scroll_anchor_uses_exact_post_identity",
+    "public_profile_detail_reopen_restores_observed_offset",
+    "public_profile_detail_saved_instance_state_restores_exact_nonzero_offset",
+    "web_wasm_focal_suite_passed",
+    "android_instrumented_scroll_and_restore_passed",
+    "ios_x64_focal_suite_retained_by_byte_identity"
+  ],
+  "platforms": {
+    "web": {
+      "executionSha": "a9b908187a2e879c11387a3979658f8b1d5da02a",
+      "task": ":feature:neighborhoods:wasmJsBrowserTest",
+      "suite": "com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "xmlSha256": "b854a4fa90adcb03cc9ec8e67386577ef6c11634380adeb683fee53994245d48"
+    },
+    "android": {
+      "executionSha": "a9b908187a2e879c11387a3979658f8b1d5da02a",
+      "runner": "scripts/run-android-tests-preserve-app.ps1",
+      "device": "emulator-5554",
+      "test": "PublicProfilePostDetailScrollRestorationInstrumentedTest.savedInstanceStateRestoresTheExactObservedPublicProfileDetailOffset",
+      "tests": 1,
+      "failures": 0,
+      "durationSeconds": 4.629,
+      "assertion": "A real Compose scroll produced a positive VerticalScrollAxisRange value and StateRestorationTester restored the exact observed offset."
+    },
+    "ios": {
+      "executionSha": "f1010a81bce3ffa9e35e0f039812d85ac0f99e76",
+      "task": ":feature:neighborhoods:iosX64Test",
+      "suite": "com.quata.feature.neighborhoods.presentation.PublicProfilePostDetailTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "xmlSha256": "2726e441c2805721998b7b68b8f0aea045851494e0f63c33771ff3ad693f9175",
+      "kotlinNativeHome": "/Volumes/QuataMigrationCapacity/archived-caches/konan-da90c065/kotlin-native-prebuilt-macos-x86_64-2.2.21",
+      "productRuntimeBlob": "9038eaed253c0db4dbc3f7c78720d4ca38d5640e",
+      "productTestBlob": "e361eaff2fb056c974abb227861d38bfdfd3feed",
+      "exactShaVerification": "The final Product SHA has byte-identical common runtime and focal common test blobs to the iOS execution SHA. The only later product change is the Android-only instrumented test, so iOS was not repeated solely for a commit SHA change."
+    }
+  },
+  "independentReview": {
+    "status": "pending",
+    "findingsP0ToP3": null,
+    "reviewedSha": null
+  },
+  "cleanup": {
+    "state": "not_required_no_mutation",
+    "verified": true,
+    "residueCounts": {
+      "backendRows": 0,
+      "storageObjects": 0
+    }
+  },
+  "limits": [
+    "This evidence closes deep-scroll restoration only for public-profile post detail, including reopening the same post and Android saved-instance-state recreation.",
+    "It does not claim integrated comments, exhaustive visual matrices, media playback lifecycle, or post-detail origins outside the already certified units."
+  ]
+}
