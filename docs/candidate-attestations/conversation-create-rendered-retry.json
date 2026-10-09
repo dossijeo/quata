@@ -4,13 +4,13 @@
     "CONV-NEW"
   ],
   "status": "passed",
-  "productSha": "df6ebb9adac6f2469bfce16d537c70630e24a61f",
+  "productSha": "5e7e2a0aea26b3ef1d4519a5a27c20ebd357ee86",
   "certification": "rendered-private-group-failure-retry-cross-platform-authenticated-ios-complete-independent-review-go-final-ci-pending",
   "evidenceKind": "CONVERSATION_CREATE_RENDERED_FAILURE_RETRY_WEB_ANDROID_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "df6ebb9adac6f2469bfce16d537c70630e24a61f",
+      "sha": "5e7e2a0aea26b3ef1d4519a5a27c20ebd357ee86",
       "report": "docs/candidate-attestations/evidence/conversation-create-rendered-retry-web-android-e4f0dddd.json",
       "reportSha256": "1097ebfbc29fd10f8625db217b89ef59bdb1622ee0f2ee50d9874792823c3451",
       "reportStatus": "passed",
@@ -30,7 +30,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "df6ebb9adac6f2469bfce16d537c70630e24a61f",
+      "sha": "5e7e2a0aea26b3ef1d4519a5a27c20ebd357ee86",
       "report": "docs/candidate-attestations/evidence/conversation-create-rendered-retry-web-android-e4f0dddd.json",
       "reportSha256": "1097ebfbc29fd10f8625db217b89ef59bdb1622ee0f2ee50d9874792823c3451",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "df6ebb9adac6f2469bfce16d537c70630e24a61f",
+      "sha": "5e7e2a0aea26b3ef1d4519a5a27c20ebd357ee86",
       "report": "docs/candidate-attestations/evidence/conversation-create-rendered-retry-ios-1d528b33.json",
       "reportSha256": "461b24d15030d4fde19887239389d5c3f12180484f20dd084a5c5744895d7bd9",
       "reportStatus": "passed",
@@ -81,13 +81,16 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "e4f0dddd37a9d78572e216c7fae0760bca9d1be8",
+    "reviewedSha": "5e7e2a0aea26b3ef1d4519a5a27c20ebd357ee86",
     "blockingFindings": [],
     "resolvedFindings": [
       "Rendered fake-model tests no longer claim stable group request-key reuse; they prove retained visible state and exactly one retry callback.",
-      "The authenticated iOS fixture observes the failed group request key through the production ViewModel and exercises the shared picker and real Chat transport on retry."
+      "The authenticated iOS fixture observes the failed group request key through the production ViewModel and exercises the shared picker and real Chat transport on retry.",
+      "The 17-commit Product series preserves patch equivalence and all ten unit blobs byte-for-byte over the current Web exact-post base.",
+      "Historical Web/Android and iOS reports remain bound separately to e4f0dddd and 1d528b33 with their original hashes and cleanup claims."
     ],
-    "scopeLimit": "This unit proves rendered private and group failure/retry behavior on Web/Wasm and Android plus an authenticated SimulatorSigned iOS journey with real Chat transport and zero fixture residue. It does not claim recovery from an unknown backend partial write, arbitrary network failures, invitations or a global SCR-CONVERSATIONS closure."
+    "scopeLimit": "This unit proves rendered private and group failure/retry behavior on Web/Wasm and Android plus an authenticated SimulatorSigned iOS journey with real Chat transport and zero fixture residue. It does not claim recovery from an unknown backend partial write, arbitrary network failures, invitations or a global SCR-CONVERSATIONS closure.",
+    "reviewedProductSha": "5e7e2a0aea26b3ef1d4519a5a27c20ebd357ee86"
   },
   "notes": [
     "Private failure retains the exact query, candidate and visible error; one retry opens the exact thread and a later picker pass observes exactly one active private thread.",
@@ -95,6 +98,7 @@
     "The product keeps authenticationRequired semantics and does not call the create handler directly for acceptance.",
     "The iOS report remains bound to execution head 1d528b33. Later changes only refresh capability metadata and narrow Web/Android fake-model assertions; they do not change iOS runtime, harness or backend transport.",
     "The Web and Android rendered suites passed on e4f0dddd after the assertion-scope correction. The recomposed head preserves all ten unit blobs byte-for-byte; platform matrices were not repeated solely for the base advance.",
-    "Independent exact-head review of e4f0dddd returned GO with no P0-P3 findings after the assertion-scope correction."
+    "Independent exact-head review of e4f0dddd returned GO with no P0-P3 findings after the assertion-scope correction.",
+    "The rendered-retry Product was recomposed over reviewed Web exact-post head e437880a. All ten unit blobs remain byte-identical to historical Product df6ebb9a; the accepted platform executions were not repeated solely for ancestry. Affected contracts pass 32/32, including Conversations 10/10 and capability matrix 22/22."
   ]
 }
