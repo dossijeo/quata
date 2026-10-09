@@ -4,12 +4,12 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "fa3b6fa1d2781e0ac769f70849bb2c7d48670606",
+  "productSha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
   "certification": "focal-web-exact-feed-official-post-document-reload-complete-independent-product-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "fa3b6fa1d2781e0ac769f70849bb2c7d48670606",
+      "sha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
       "report": "docs/candidate-attestations/evidence/shell-navigation-exact-post-web-0cc3f707.json",
       "reportSha256": "da4c198447237f5181ed6c7a4be3edf718815c03753c2abef8a6b53b05e6b6a6",
       "reportStatus": "passed",
@@ -42,16 +42,6 @@
     "node scripts/post-detail-web-evidence.mjs --exact-post-reload-only --dist web/build/dist/wasmJs/productionExecutable --out <private-report> --evidence-dir <private-directory>",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/shell-navigation-web-exact-post-restoration.json"
   ],
-  "review": {
-    "status": "GO",
-    "reviewedSha": "a5da53155a12a9e456894f35dbfc9b81265b6888",
-    "reviewedProductSha": "a5da53155a12a9e456894f35dbfc9b81265b6888",
-    "blockingFindings": [],
-    "resolvedFindings": [
-      "The checked-in projection replaces fixture UUIDs with route kind and SHA-256 while the private raw report retains exact route equality.",
-      "The failed later multimedia pilot is explicitly uncredited and does not widen the accepted exact-post reload result."
-    ]
-  },
   "notes": [
     "The focal Web execution opened exact Feed and Official post routes, created a new browser document with page.reload, and verified a changed performance.timeOrigin plus the exact URL hash, shell route and exclusive content marker without replaying the route.",
     "Back returned to Feed after the Feed reload and to Official after the Official reload.",
@@ -60,6 +50,17 @@
     "An earlier full-run pilot completed both exact reload checks and cleanup, then failed at the unrelated official media browser-viewer assertion. That later failure is retained as uncredited context and the focused accepted run stops after the exact reload and Back checks.",
     "Independent Product review returned GO with no P0-P3 after fixture UUIDs were removed from the checked-in projection.",
     "This closes only exact Feed and Official post identity across a real Web document reload and Back to each retained root. Media viewers, video position, scroll, editor state, authentication, arbitrary secondary backstacks and other platforms remain separate scopes.",
-    "The four-commit Web exact-post unit was recomposed over reviewed Android exact-post head 6f534a20 with an identical complete delta; the accepted execution remains bound to reportGitHead 0cc3f707 and was not repeated solely for ancestry. Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
-  ]
+    "The three-commit Web exact-post Product was recomposed over final reviewed Android exact-post head 776c2dc53 with an equivalent complete delta. Runner, contract and accepted report remain byte-identical to reviewed Product 5be323de; execution stays bound to reportGitHead 0cc3f707 and was not repeated solely for ancestry or the base contract-only correction."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
+    "reviewedProductSha": "08789ebdcbf542a4ce81f0bb0b1118e070fdbda4",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The rebased runner, contract and accepted evidence report remain byte-identical to reviewed Product 5be323de and historical Product fa3b6fa1.",
+      "Notifications-to-Chat and Android exact-post references were reconciled to their current ancestral Products before this Web unit.",
+      "The accepted report remains bound separately to reportGitHead 0cc3f707 and SHA-256 da4c198447237f5181ed6c7a4be3edf718815c03753c2abef8a6b53b05e6b6a6."
+    ]
+  }
 }
