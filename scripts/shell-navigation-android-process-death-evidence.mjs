@@ -27,6 +27,32 @@ const PRIMARY_ROOTS = [
   { route: "feed", resource: "feed.root", launchRoute: "profile", launchResource: "profile.save" },
   { route: "profile", resource: "profile.save", launchRoute: "neighborhoods", launchResource: "neighborhood.directory.root" },
 ];
+const EXACT_POSTS = [
+  {
+    kind: "feed",
+    baselineUrl: "https://egquata.com/#post-p1",
+    baselineDetailResource: "feed.detail.chrome",
+    baselineIdentityResource: "feed.post.media.p1",
+    baselineIntentMarker: "post-p1",
+    url: "https://egquata.com/#post-p2",
+    targetIntentMarker: "post-p2",
+    detailResource: "feed.detail.chrome",
+    identityResource: "feed.post.media.p2",
+    rootResource: "feed.root",
+  },
+  {
+    kind: "official",
+    baselineUrl: "https://egquata.com/#post-p1",
+    baselineDetailResource: "feed.detail.chrome",
+    baselineIdentityResource: "feed.post.media.p1",
+    baselineIntentMarker: "post-p1",
+    url: "https://egquata.com/#official-official_mock_1",
+    targetIntentMarker: "official-official_mock_1",
+    detailResource: "official.detail.chrome",
+    identityResource: "official.detail.read-more.official_mock_1",
+    rootResource: "official-feed-common-root",
+  },
+];
 const options = parseArgs(process.argv.slice(2));
 const adb = process.env.ADB?.trim() || "adb";
 let appTouched = false;
@@ -54,7 +80,7 @@ try {
   }
   const emulator = await captureAdb(["shell", "getprop", "ro.kernel.qemu"]);
   if (emulator.trim() !== "1") throw new Error("shell_process_death_requires_emulator");
-  const credentials = await loadCredentials(options.credentialsFile);
+  const credentials = options.exactPostOnly ? null : await loadCredentials(options.credentialsFile);
   const backend = options.backendConfigFile ? await loadBackendConfig(options.backendConfigFile) : null;
   if (backend && !options.exactChatOnly) throw new Error("evidence_backend_override_requires_exact_chat_mode");
   if (backend && options.skipBuild) throw new Error("evidence_backend_override_requires_fresh_build");
@@ -84,6 +110,7 @@ try {
         `-Pquata.evidenceSupabasePublishableKey=${backend.publishableKey}`,
       );
     }
+    if (options.exactPostOnly) gradleArguments.push("-Pquata.useMockBackend=true");
     await run(gradle, gradleArguments);
     if (exactChatTarget?.marker) {
       await run(gradle, [
@@ -105,30 +132,42 @@ try {
   report.steps.push("base_split_and_test_apks_installed");
 
   await runAdb(["shell", "pm", "clear", PACKAGE]);
-  await runAdb(["shell", "run-as", PACKAGE, "mkdir", "-p", `/data/user/0/${PACKAGE}/files`]);
-  const authenticationArguments = [];
-  if (backend) {
-    await writeDeviceJson(DEVICE_SESSION, exactChatSession.deviceSession);
-    authenticationArguments.push("-e", "quataShellNavigationSessionFile", "app-internal:shell-process-death-session.json");
-    report.steps.push("private_real_session_staged_without_logging");
+  if (!options.exactPostOnly) {
+    await runAdb(["shell", "run-as", PACKAGE, "mkdir", "-p", `/data/user/0/${PACKAGE}/files`]);
+    const authenticationArguments = [];
+    if (backend) {
+      await writeDeviceJson(DEVICE_SESSION, exactChatSession.deviceSession);
+      authenticationArguments.push("-e", "quataShellNavigationSessionFile", "app-internal:shell-process-death-session.json");
+      report.steps.push("private_real_session_staged_without_logging");
+    } else {
+      await writeDeviceJson(DEVICE_CREDENTIAL, credentials);
+      authenticationArguments.push("-e", "quataShellNavigationCredentialsFile", "app-internal:shell-process-death-credentials.json");
+      report.steps.push("private_credentials_staged_without_logging");
+    }
+    const instrumentation = await captureAdb([
+      "shell", "am", "instrument", "-w", "-r",
+      "-e", "class", "com.quata.core.navigation.ShellNavigationPolicyInstrumentedTest#authenticateForProcessDeathProbe",
+      ...authenticationArguments,
+      "-e", "quataShellNavigationProcessDeathEvidence", "1",
+      `${TEST_PACKAGE}/androidx.test.runner.AndroidJUnitRunner`,
+    ], { timeout: 60_000 });
+    if (!/OK \(1 test\)/.test(instrumentation) || /FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentation)) {
+      throw new Error("shell_process_death_authentication_preflight_failed");
+    }
+    report.steps.push("real_authenticated_session_persisted");
   } else {
-    await writeDeviceJson(DEVICE_CREDENTIAL, credentials);
-    authenticationArguments.push("-e", "quataShellNavigationCredentialsFile", "app-internal:shell-process-death-credentials.json");
-    report.steps.push("private_credentials_staged_without_logging");
+    report.steps.push("deterministic_public_mock_posts_selected_without_backend_or_session");
   }
-  const instrumentation = await captureAdb([
-    "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.core.navigation.ShellNavigationPolicyInstrumentedTest#authenticateForProcessDeathProbe",
-    ...authenticationArguments,
-    "-e", "quataShellNavigationProcessDeathEvidence", "1",
-    `${TEST_PACKAGE}/androidx.test.runner.AndroidJUnitRunner`,
-  ], { timeout: 60_000 });
-  if (!/OK \(1 test\)/.test(instrumentation) || /FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentation)) {
-    throw new Error("shell_process_death_authentication_preflight_failed");
-  }
-  report.steps.push("real_authenticated_session_persisted");
 
-  if (options.exactChatOnly) {
+  if (options.exactPostOnly) {
+    const restored = [];
+    for (const target of EXACT_POSTS) {
+      await runAdb(["shell", "pm", "clear", PACKAGE]);
+      restored.push(await verifyExactPostProcessDeath(target));
+    }
+    report.process = { pidChanged: true, exactPosts: restored };
+    report.status = "passed";
+  } else if (options.exactChatOnly) {
     await runAdb(["shell", "am", "force-stop", PACKAGE]);
     await runAdb(["shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", "https://egquata.com/#chat-__favorite_messages__", "-p", PACKAGE]);
     await waitForResource(`chat.message.${exactChatTarget.messageId}`);
@@ -262,11 +301,13 @@ function parseArgs(args) {
     backendConfigFile: process.env.QUATA_SHELL_PROCESS_DEATH_BACKEND_CONFIG_FILE?.trim(),
     skipBuild: false,
     exactChatOnly: false,
+    exactPostOnly: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     if (key === "--skip-build") { parsed.skipBuild = true; continue; }
     if (key === "--exact-chat-only") { parsed.exactChatOnly = true; continue; }
+    if (key === "--exact-post-only") { parsed.exactPostOnly = true; continue; }
     const value = args[++index];
     if (!value || value.startsWith("--")) throw new Error(`invalid_argument:${key}`);
     if (key === "--serial") parsed.serial = value;
@@ -277,7 +318,8 @@ function parseArgs(args) {
     else throw new Error(`invalid_argument:${key}`);
   }
   if (!parsed.serial) throw new Error("explicit_android_serial_required");
-  if (!parsed.credentialsFile) throw new Error("credentials_file_required");
+  if (!parsed.credentialsFile && !parsed.exactPostOnly) throw new Error("credentials_file_required");
+  if (parsed.exactChatOnly && parsed.exactPostOnly) throw new Error("exclusive_focal_mode_required");
   return parsed;
 }
 
@@ -569,6 +611,102 @@ async function verifyExactChatProcessDeath(target) {
     conversationIdSha256: sha256(target.conversationId),
     messageIdSha256: sha256(target.messageId),
   };
+}
+
+async function verifyExactPostProcessDeath(target) {
+  await suppressExactPostStartupPrompts();
+  await runAdb(["shell", "pm", "grant", PACKAGE, "android.permission.POST_NOTIFICATIONS"]);
+  await runAdb([
+    "shell", "am", "start", "-W", "-a", "android.intent.action.VIEW",
+    "-d", target.baselineUrl, "-p", PACKAGE,
+  ]);
+  await waitForResource(target.baselineDetailResource);
+  await waitForResource(target.baselineIdentityResource);
+  const baselineActivityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    exactPostBaseIntentSummary: baselineActivityState
+      .split(/\r?\n/)
+      .filter((line) => /intent/i.test(line) && line.includes(PACKAGE))
+      .slice(0, 10)
+      .map((line) => line.replace(/dat=\S+/g, "dat=<redacted>")),
+  };
+  const baselineIntentLine = baselineActivityState.split(/\r?\n/).find((line) =>
+    /intent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
+  );
+  if (!baselineIntentLine) throw new Error(`exact_post_differential_base_intent_missing:${target.kind}`);
+  report.steps.push(`exact_${target.kind}_differential_base_post_opened`);
+
+  await runAdb([
+    "shell", "am", "start", "-W", "-a", "android.intent.action.VIEW",
+    "-d", target.url, "-p", PACKAGE,
+  ]);
+  await waitForResource(target.detailResource);
+  await waitForResource(target.identityResource);
+  const targetActivityState = await captureAdb(["shell", "dumpsys", "activity", "activities"], { timeout: 15_000 });
+  const retainedBaseIntentLine = targetActivityState.split(/\r?\n/).find((line) =>
+    /intent/i.test(line) && line.includes(PACKAGE) && line.includes(target.baselineIntentMarker)
+  );
+  if (!retainedBaseIntentLine || retainedBaseIntentLine.includes(target.targetIntentMarker)) {
+    throw new Error(`exact_post_differential_base_intent_not_preserved:${target.kind}`);
+  }
+  report.steps.push(`exact_${target.kind}_target_opened_over_distinct_retained_base_intent`);
+  const activityState = await captureAdb(["shell", "dumpsys", "activity", "top"], { timeout: 15_000 });
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    exactPostActivityIntentSummary: activityState
+      .split(/\r?\n/)
+      .filter((line) => /^\s*ACTIVITY\s+com\.quata\/\.MainActivity/.test(line))
+      .slice(0, 30)
+      .map((line) => line.replace(/dat=\S+/g, "dat=<redacted>")),
+  };
+  if (!activityState.includes(`${PACKAGE}/.MainActivity`)) {
+    throw new Error(`exact_post_activity_not_foreground:${target.kind}`);
+  }
+  await captureScreenshot(`exact-${target.kind}-post-before-process-death`);
+  report.steps.push(`exact_${target.kind}_post_visible_before_process_death`);
+
+  const pidBefore = await currentPid();
+  if (!pidBefore) throw new Error(`exact_post_pid_missing_before_kill:${target.kind}`);
+  await runAdb(["shell", "input", "keyevent", "KEYCODE_HOME"]);
+  await delay(1_500);
+  await runAdb(["shell", "am", "kill", PACKAGE]);
+  await waitForPidAbsent();
+  report.steps.push(`exact_${target.kind}_post_background_process_killed_by_android_activity_manager`);
+
+  await runAdb(["shell", "am", "start", "-W", "-n", `${PACKAGE}/.MainActivity`]);
+  await waitForResource(target.detailResource);
+  await waitForResource(target.identityResource);
+  const pidAfter = await currentPid();
+  if (!pidAfter || pidAfter === pidBefore) throw new Error(`exact_post_process_not_replaced:${target.kind}`);
+  await captureScreenshot(`exact-${target.kind}-post-after-process-death`);
+  report.steps.push(`exact_${target.kind}_post_restored_in_new_process_without_route_replay`);
+
+  await runAdb(["shell", "input", "keyevent", "KEYCODE_BACK"]);
+  await waitForResource(target.rootResource);
+  await waitForResourceAbsent(target.detailResource);
+  await captureScreenshot(`exact-${target.kind}-post-root-after-restored-back`);
+  report.steps.push(`exact_${target.kind}_post_back_returned_to_retained_root`);
+  return {
+    kind: target.kind,
+    pidChanged: true,
+    exactIdentityRestored: true,
+    differentialBaseIntentVerified: true,
+    bareComponentRelaunch: true,
+    restoredBackToRoot: true,
+    routeSha256: sha256(target.url),
+  };
+}
+
+async function suppressExactPostStartupPrompts() {
+  const path = `/data/user/0/${PACKAGE}/shared_prefs/quata_startup_permission_prompts.xml`;
+  const child = spawnWithInput(adb, [
+    "-s", options.serial, "shell",
+    `run-as ${PACKAGE} sh -c 'mkdir -p /data/user/0/${PACKAGE}/shared_prefs && cat > ${path}'`,
+  ]);
+  child.stdin.end("<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map><boolean name=\"app_links_prompt_seen\" value=\"true\" /></map>\n");
+  await child.completed;
+  if (child.code !== 0) throw new Error("exact_post_startup_prompt_preflight_failed");
 }
 
 async function writeDeviceJson(path, value) {

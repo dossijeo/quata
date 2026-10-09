@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "f43b3261254c1abff3e8953ada7b4673d10b2e96",
+  "certification": "focal-android-exact-feed-official-post-process-death-complete-independent-review-complete-final-ci-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "f43b3261254c1abff3e8953ada7b4673d10b2e96",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-exact-post-android-9c618342d.json",
+      "reportSha256": "483b65f4ad1ade923b86687e5757e6f25e68c2cb493b885b68ed57536bf9b63d",
+      "reportStatus": "passed",
+      "reportGitHead": "9c618342dd36a1ca66ed9d96a4818fe0adcb1623",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "affected_android_apks_built",
+        "base_split_and_test_apks_installed",
+        "deterministic_public_mock_posts_selected_without_backend_or_session",
+        "exact_feed_differential_base_post_opened",
+        "exact_feed_target_opened_over_distinct_retained_base_intent",
+        "exact_feed_post_visible_before_process_death",
+        "exact_feed_post_background_process_killed_by_android_activity_manager",
+        "exact_feed_post_restored_in_new_process_without_route_replay",
+        "exact_feed_post_back_returned_to_retained_root",
+        "exact_official_differential_base_post_opened",
+        "exact_official_target_opened_over_distinct_retained_base_intent",
+        "exact_official_post_visible_before_process_death",
+        "exact_official_post_background_process_killed_by_android_activity_manager",
+        "exact_official_post_restored_in_new_process_without_route_replay",
+        "exact_official_post_back_returned_to_retained_root"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "deterministic_public_mock_no_backend_no_credentials_app_data_cleared"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/shell-navigation-android-process-death-evidence.mjs",
+    "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs",
+    ".\\gradlew.bat :app:testDebugUnitTest --tests com.quata.IncomingNavigationRestorePolicyTest :app:compileDebugKotlin -Pquata.useMockBackend=true --no-daemon --console=plain",
+    "node scripts/shell-navigation-android-process-death-evidence.mjs --exact-post-only --serial <api35-emulator> --out <report> --screenshot-dir <directory>"
+  ],
+  "notes": [
+    "Android persists whether the current navigation deep link was consumed. A pending link remains deliverable across recreation; only a consumed link is replaced by ACTION_MAIN so the exact Compose saved state stays authoritative.",
+    "OAuth callbacks are evaluated before the restored-navigation guard. Share intents keep their existing separate clearing path.",
+    "The clean Product SHA first opened Feed p1 as a retained task base, then opened Feed p2 or Official official_mock_1 as a distinct target. The runner verified the base still named p1, killed the background process and relaunched only the bare MainActivity component. Both distinct targets returned in replacement PIDs, and Back returned to the retained root.",
+    "The pending-versus-consumed policy has a focused JVM regression. The executable runner would fail if the historical p1 base intent overwrote either target.",
+    "Independent exact-head review of Product SHA 9c618342 returned GO with no P0-P3 after the pending-versus-consumed state and differential p1-to-target controls were added.",
+    "The run used no credentials, backend or remote mutation. It cleared application data after execution and recorded six screenshot hashes without versioning generated images.",
+    "The existing iOS exact Feed/Official relaunch proof remains in shell-navigation-ios-exact-post-route.json and was not repeated for this Android-only runtime change.",
+    "This closes only Android exact Feed/Official restoration after process death. Web document reload, scroll, media position, drafts, editor state and arbitrary secondary back stacks remain separate scopes.",
+    "The documentation reanchor changes no runtime, runner, tests, workflow or configuration. The Android execution remains bound to reportGitHead 9c618342 and its byte-identified report; the reanchored Product SHA contains the same executable product tree.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs.",
+    "The six-commit exact-post Product was recomposed over the integrated #581 squash 91809612, whose tree is identical to candidate ac138dd78. MainActivity, its JVM test, the runner, the contract and the accepted report remain byte-identical to reviewed Product 534044e2; execution stays bound to reportGitHead 9c618342 and was not repeated solely for ancestry or the base contract-only correction."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "81d4f7b9cfda196075f2eb605321980024c0010b",
+    "reviewedProductSha": "f43b3261254c1abff3e8953ada7b4673d10b2e96",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The general inventory no longer carries the stale non-ancestral Android exact-post Product SHA ef73e8c8; historical execution 9c618342 is linked to this authoritative manifest.",
+      "MainActivity, its JVM test, the runner and the contract remain byte-identical to reviewed Product 534044e2 after rebasing over the tree-identical integrated #581 squash 91809612.",
+      "The accepted report remains bound separately to reportGitHead 9c618342 and SHA-256 483b65f4ad1ade923b86687e5757e6f25e68c2cb493b885b68ed57536bf9b63d.",
+      "Independent review of exact head 81d4f7b9 returned GO with no P0-P3 after the tree-identical #581 squash rebase."
+    ]
+  }
+}
