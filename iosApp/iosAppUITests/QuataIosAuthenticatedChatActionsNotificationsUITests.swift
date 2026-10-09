@@ -1382,15 +1382,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             XCTAssertTrue(candidate.waitForExistence(timeout: 30), "Both exact temporary group candidates must be visible under the shared query before selection.")
         }
         dismissKeyboardWithoutLeavingPanel(in: app)
-        for candidate in groupCandidates {
-            if candidate.isHittable {
-                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            } else {
-                XCTAssertTrue(
-                    tapVisibleLeadingSelectionControl(of: candidate, in: app),
-                    "Each exact group candidate must expose visible bounds for selection."
-                )
-            }
+        for profileId in groupCandidateIds {
+            let candidate = waitForVisibleIdentifier(
+                "conversation.picker.candidate.\(profileId)",
+                in: app,
+                context: "select exact group candidate"
+            )
+            XCTAssertTrue(candidate.isHittable, "Each exact group candidate must be scrolled fully into the picker viewport.")
+            candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
         typePickerText(groupTitle, into: "conversation.picker.groupTitle", in: app)
@@ -3269,13 +3268,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let frame = visibleFrame(of: element, constrainedTo: row, in: app) else { return false }
         let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
         origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
-        return true
-    }
-
-    private func tapVisibleLeadingSelectionControl(of element: XCUIElement, in app: XCUIApplication) -> Bool {
-        guard let frame = visibleFrame(of: element, constrainedTo: nil, in: app) else { return false }
-        let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-        origin.withOffset(CGVector(dx: frame.minX + min(30, frame.width * 0.08), dy: frame.midY)).tap()
         return true
     }
 
