@@ -1209,6 +1209,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     func testConversationCreateUsesSharedPickerAndReusesPrivateThread() throws {
         let environment = ProcessInfo.processInfo.environment
+        let retryEvidence = environment["QUATA_IOS_CONVERSATION_CREATE_RETRY_E2E"] == "1"
         guard environment["QUATA_IOS_CONVERSATION_CREATE_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated conversation creation UI gate is opt-in.")
         }
@@ -1219,39 +1220,93 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let groupTitle = nonEmpty(environment["QUATA_IOS_CONVERSATION_GROUP_CREATE_TITLE"]) else {
             throw XCTSkip("Disposable conversation creation fixture is not configured.")
         }
+        let seededChatRoute = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]).map { "chat:\($0)" }
+        let privateRetentionMarker = "QADATA private retry \(groupTitle)"
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
-        app.launch()
-        _ = waitForExistingIdentifier(
-            "navigation.primary.conversations",
-            in: app,
-            context: "authenticated primary navigation before conversation creation",
-            timeout: 20
-        )
+        if retryEvidence {
+            app.launchEnvironment["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"] =
+                "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
+        }
 
-        func relaunchAtConversations(_ context: String) {
-            app.terminate()
-            app.launch()
-            _ = waitForExistingIdentifier(
-                "navigation.primary.conversations",
-                in: app,
-                context: "authenticated primary navigation for \(context)",
-                timeout: 20
+        func openConversationsFromCurrentRoute(_ context: String) {
+            let conversationList = app.descendants(matching: .any)
+                .matching(identifier: "conversation.list")
+                .firstMatch
+            if conversationList.waitForExistence(timeout: 10) {
+                return
+            }
+            let conversations = app.descendants(matching: .any)
+                .matching(identifier: "navigation.primary.conversations")
+                .firstMatch
+            if conversations.waitForExistence(timeout: 30) {
+                conversations.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                XCTAssertTrue(
+                    conversationList.waitForExistence(timeout: 30),
+                    "Expected the conversations list after opening \(context)."
+                )
+                return
+            }
+            let chatBack = app.descendants(matching: .any)
+                .matching(identifier: "chat.back")
+                .firstMatch
+            if chatBack.waitForExistence(timeout: 10), chatBack.isHittable {
+                chatBack.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            XCTAssertTrue(
+                conversationList.waitForExistence(timeout: 30),
+                "Expected the conversations list after normalizing \(context)."
             )
-            tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations for \(context)")
+        }
+
+        app.launch()
+        openConversationsFromCurrentRoute("authenticated conversation creation")
+
+        func relaunchAtConversations(_ context: String, retryFixtureEnabled: Bool? = nil) {
+            app.terminate()
+            if let retryFixtureEnabled {
+                if retryFixtureEnabled {
+                    app.launchEnvironment["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"] =
+                        "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
+                } else {
+                    app.launchEnvironment.removeValue(forKey: "QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN")
+                }
+            }
+            app.launch()
+            openConversationsFromCurrentRoute(context)
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
                 "The shared conversations list must be visible for \(context)."
             )
         }
 
+        func waitForOpenedChat(excluding excludedRoute: String?, context: String) -> XCUIElement {
+            let host = app.descendants(matching: .any).matching(identifier: "quata-ios-chat-host").firstMatch
+            let deadline = Date().addingTimeInterval(30)
+            while Date() < deadline {
+                if host.exists,
+                   let route = host.value as? String,
+                   route.hasPrefix("chat:sb:"),
+                   route != excludedRoute {
+                    return host
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            }
+            XCTFail("Expected a newly opened Chat route for \(context), excluding \(excludedRoute ?? "none").")
+            return host
+        }
+
         var firstRoute: String?
         for index in 0..<2 {
-            if index == 0 {
-                tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations before creation")
-            } else {
-                relaunchAtConversations("private conversation reuse")
+            if index > 0 {
+                if retryEvidence {
+                    // Back intentionally removes an empty private thread. Relaunch without the
+                    // fault fixture so the existing thread can be reopened and its reuse proved.
+                    relaunchAtConversations("private conversation reuse", retryFixtureEnabled: false)
+                } else {
+                    relaunchAtConversations("private conversation reuse")
+                }
             }
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: "conversation.list").firstMatch.waitForExistence(timeout: 30),
@@ -1270,18 +1325,47 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
             dismissKeyboardWithoutLeavingPanel(in: app)
             tapTaggedButton(candidateAction, in: app, context: "open private conversation \(index + 1)")
-            let chat = chatHost(in: app, context: "private conversation created from picker \(index + 1)")
+            if retryEvidence && index == 0 {
+                let error = app.descendants(matching: .any).matching(identifier: "conversation.picker.error").firstMatch
+                XCTAssertTrue(error.waitForExistence(timeout: 20), "A failed private create must expose the rendered error in the retained picker.")
+                XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.exists)
+                XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "conversation.picker.search").firstMatch.value as? String, candidateQuery)
+                attachScreenshot(app, name: "ios-conversation-private-create-failed-retained")
+                tapTaggedButton(candidateAction, in: app, context: "retry private conversation creation")
+                XCTAssertTrue(
+                    app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 20),
+                    "A successful private retry must close the retained picker before Chat is accepted."
+                )
+            }
+            let chat = retryEvidence && index == 0
+                ? waitForOpenedChat(excluding: seededChatRoute, context: "private conversation retry")
+                : chatHost(in: app, context: "private conversation created from picker \(index + 1)")
             let route = chat.value as? String
             XCTAssertTrue(route?.hasPrefix("chat:sb:") == true, "The picker must open a real private Chat route.")
             if let firstRoute {
                 XCTAssertEqual(route, firstRoute, "Opening the same candidate twice must reuse the same private thread.")
             } else {
                 firstRoute = route
+                if retryEvidence {
+                    // Empty private threads are deliberately removed when their host is disposed.
+                    // Persist one custodied message before relaunching so this step proves reuse of
+                    // an established private conversation instead of creating another empty draft.
+                    typeText(privateRetentionMarker, into: "chat.composer.input", in: app)
+                    tapTaggedButton("chat.composer.send", in: app, context: "retain private retry conversation")
+                    XCTAssertTrue(
+                        messageText(privateRetentionMarker, in: app).waitForExistence(timeout: 30),
+                        "The private retry conversation must persist its custodied marker before reuse."
+                    )
+                }
             }
             attachScreenshot(app, name: index == 0 ? "ios-conversation-create-first" : "ios-conversation-create-second")
         }
 
-        relaunchAtConversations("group conversation creation")
+        if retryEvidence {
+            relaunchAtConversations("group conversation creation", retryFixtureEnabled: true)
+        } else {
+            relaunchAtConversations("group conversation creation")
+        }
         tapTaggedButton("conversation.new", in: app, context: "open shared group conversation picker")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForExistence(timeout: 20),
@@ -1298,13 +1382,45 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             XCTAssertTrue(candidate.waitForExistence(timeout: 30), "Both exact temporary group candidates must be visible under the shared query before selection.")
         }
         dismissKeyboardWithoutLeavingPanel(in: app)
-        for candidate in groupCandidates {
-            candidate.tap()
+        let firstGroupCandidate = groupCandidates[0]
+        XCTAssertTrue(firstGroupCandidate.isHittable, "The first exact group candidate must be visible for selection.")
+        firstGroupCandidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+
+        let secondGroupCandidate = groupCandidates[1]
+        if !secondGroupCandidate.isHittable {
+            firstGroupCandidate.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
+        XCTAssertTrue(secondGroupCandidate.exists, "The second exact group candidate must remain in the filtered picker.")
+        XCTAssertTrue(secondGroupCandidate.isHittable, "The second exact group candidate must scroll above the picker footer.")
+        secondGroupCandidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         typePickerText(groupTitle, into: "conversation.picker.groupTitle", in: app)
         attachScreenshot(app, name: "ios-conversation-group-create-picker")
         tapTaggedButton("conversation.picker.confirm", in: app, context: "confirm group conversation creation")
-        let groupChat = chatHost(in: app, context: "group conversation created from picker")
+        if retryEvidence {
+            let error = app.descendants(matching: .any).matching(identifier: "conversation.picker.error").firstMatch
+            XCTAssertTrue(error.waitForExistence(timeout: 20), "A failed group create must expose the rendered error in the retained picker.")
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.exists)
+            XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "conversation.picker.groupTitle").firstMatch.value as? String, groupTitle)
+            for candidate in groupCandidates {
+                XCTAssertTrue(candidate.exists, "The failed group create must retain both selected candidates.")
+            }
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker.confirm").firstMatch.isEnabled,
+                "The retained two-member selection must keep group retry enabled."
+            )
+            attachScreenshot(app, name: "ios-conversation-group-create-failed-retained")
+            tapTaggedButton("conversation.picker.confirm", in: app, context: "retry group conversation creation")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "conversation.picker").firstMatch.waitForNonExistence(timeout: 20),
+                "A successful group retry must close the retained picker before Chat is accepted."
+            )
+        }
+        let groupChat = retryEvidence
+            ? waitForOpenedChat(excluding: firstRoute, context: "group conversation retry")
+            : chatHost(in: app, context: "group conversation created from picker")
         XCTAssertTrue((groupChat.value as? String)?.hasPrefix("chat:sb:") == true, "The picker must open a real group Chat route.")
         XCTAssertTrue(app.staticTexts[groupTitle].waitForExistence(timeout: 20), "The created group title must be visible in Chat.")
         attachScreenshot(app, name: "ios-conversation-group-created")

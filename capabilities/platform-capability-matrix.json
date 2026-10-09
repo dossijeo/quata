@@ -527,7 +527,7 @@
             },
             {
               "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt",
-              "sha256": "4c293aaf8422e2ddc742d5c6f8897dd8ee5bfe9e5d5e7927314925bdde73858a",
+              "sha256": "a124bfaa3007b2ef6a15918673d1b26c7acb6a8aa7e5c21f38ec72afcb46b78a",
               "role": "runtime-bootstrap"
             },
             {
@@ -600,7 +600,7 @@
             },
             {
               "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt",
-              "sha256": "4c293aaf8422e2ddc742d5c6f8897dd8ee5bfe9e5d5e7927314925bdde73858a",
+              "sha256": "a124bfaa3007b2ef6a15918673d1b26c7acb6a8aa7e5c21f38ec72afcb46b78a",
               "role": "runtime-bootstrap"
             },
             {

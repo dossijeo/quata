@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-NEW"
+  ],
+  "status": "passed",
+  "productSha": "b68b4e8e925117c9018a8119c24f9111c7cc5cfe",
+  "certification": "rendered-private-group-failure-retry-cross-platform-authenticated-ios-complete-independent-review-go-final-ci-pending",
+  "evidenceKind": "CONVERSATION_CREATE_RENDERED_FAILURE_RETRY_WEB_ANDROID_IOS",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b68b4e8e925117c9018a8119c24f9111c7cc5cfe",
+      "report": "docs/candidate-attestations/evidence/conversation-create-rendered-retry-web-android-e4f0dddd.json",
+      "reportSha256": "1097ebfbc29fd10f8625db217b89ef59bdb1622ee0f2ee50d9874792823c3451",
+      "reportStatus": "passed",
+      "reportGitHead": "e4f0dddd37a9d78572e216c7fae0760bca9d1be8",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "private_failure_rendered_with_query_candidate_and_error_retained",
+        "private_retry_invoked_exactly_once_and_opened_exact_conversation",
+        "group_failure_rendered_with_selection_title_and_error_retained",
+        "group_retry_invoked_exactly_once_and_opened_exact_conversation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-rendered-models-no-backend-mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b68b4e8e925117c9018a8119c24f9111c7cc5cfe",
+      "report": "docs/candidate-attestations/evidence/conversation-create-rendered-retry-web-android-e4f0dddd.json",
+      "reportSha256": "1097ebfbc29fd10f8625db217b89ef59bdb1622ee0f2ee50d9874792823c3451",
+      "reportStatus": "passed",
+      "reportGitHead": "e4f0dddd37a9d78572e216c7fae0760bca9d1be8",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "private_failure_and_single_retry_rendered_in_android_compose",
+        "group_failure_and_single_retry_rendered_in_android_compose",
+        "shared_conversations_root_state_regression_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-rendered-models-no-backend-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b68b4e8e925117c9018a8119c24f9111c7cc5cfe",
+      "report": "docs/candidate-attestations/evidence/conversation-create-rendered-retry-ios-1d528b33.json",
+      "reportSha256": "461b24d15030d4fde19887239389d5c3f12180484f20dd084a5c5744895d7bd9",
+      "reportStatus": "passed",
+      "reportGitHead": "1d528b33d3d51fca62249d464fcefb04f47425da",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "private_creation_failed_once_with_query_candidate_and_error_retained",
+        "private_retry_reused_the_candidate_and_opened_the_exact_thread",
+        "private_thread_was_reopened_with_exactly_one_active_private_thread",
+        "group_creation_failed_once_with_selection_title_and_error_retained",
+        "group_retry_opened_the_exact_group_with_title_and_members",
+        "simulator_signed_build_and_selected_xctest_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-authenticated-backend-fixtures-removed-with-zero-residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/conversations-web-evidence-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests com.quata.feature.chat.presentation.conversations.ConversationsRootStatesTest",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.conversations.ConversationsRootStatesInstrumentedTest",
+    "macOS: SimulatorSigned build and selected QuataIosAuthenticatedChatActionsNotificationsUITests conversation-create retry flow",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversation-create-rendered-retry.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "b68b4e8e925117c9018a8119c24f9111c7cc5cfe",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Rendered fake-model tests no longer claim stable group request-key reuse; they prove retained visible state and exactly one retry callback.",
+      "The authenticated iOS fixture observes the failed group request key through the production ViewModel and exercises the shared picker and real Chat transport on retry.",
+      "The 17-commit Product series preserves patch equivalence and all ten unit blobs byte-for-byte over the current Web exact-post base.",
+      "Historical Web/Android and iOS reports remain bound separately to e4f0dddd and 1d528b33 with their original hashes and cleanup claims."
+    ],
+    "scopeLimit": "This unit proves rendered private and group failure/retry behavior on Web/Wasm and Android plus an authenticated SimulatorSigned iOS journey with real Chat transport and zero fixture residue. It does not claim recovery from an unknown backend partial write, arbitrary network failures, invitations or a global SCR-CONVERSATIONS closure.",
+    "reviewedProductSha": "b68b4e8e925117c9018a8119c24f9111c7cc5cfe"
+  },
+  "notes": [
+    "Private failure retains the exact query, candidate and visible error; one retry opens the exact thread and a later picker pass observes exactly one active private thread.",
+    "Group failure retains the exact selected members, title and visible error; one retry opens the exact group with the requested members and title.",
+    "The product keeps authenticationRequired semantics and does not call the create handler directly for acceptance.",
+    "The iOS report remains bound to execution head 1d528b33. Later changes only refresh capability metadata and narrow Web/Android fake-model assertions; they do not change iOS runtime, harness or backend transport.",
+    "The Web and Android rendered suites passed on e4f0dddd after the assertion-scope correction. The recomposed head preserves all ten unit blobs byte-for-byte; platform matrices were not repeated solely for the base advance.",
+    "Independent exact-head review of e4f0dddd returned GO with no P0-P3 findings after the assertion-scope correction.",
+    "Product SHA b68b4e8e recomposes the rendered-retry unit over the verified #583 squash 634a91c1. All ten unit blobs remain byte-identical to historical Product df6ebb9a; the accepted platform executions were not repeated solely for ancestry. Affected contracts pass 32/32, including Conversations 10/10 and capability matrix 22/22."
+  ]
+}

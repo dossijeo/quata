@@ -74,6 +74,7 @@ const val ConversationPickerCandidateActionTestTagPrefix = "conversation.picker.
 const val ConversationPickerConfirmTestTag = "conversation.picker.confirm"
 const val ConversationPickerGroupTitleTestTag = "conversation.picker.groupTitle"
 const val ConversationPickerDismissTestTag = "conversation.picker.dismiss"
+const val ConversationPickerErrorTestTag = "conversation.picker.error"
 
 data class ConversationsHostStrings(
     val title: String,
@@ -271,6 +272,7 @@ fun ConversationsScreenHost(
             candidateActionTestTagPrefix = ConversationPickerCandidateActionTestTagPrefix,
             confirmTestTag = ConversationPickerConfirmTestTag,
             dismissTestTag = ConversationPickerDismissTestTag,
+            errorTestTag = ConversationPickerErrorTestTag,
         )
     }
 

@@ -57,14 +57,14 @@ class IosChatRuntimeBootstrap(
     private val localDocumentRetryFixture by lazy { iosChatDocumentRetryLocalFixtureOrNull() }
     private val realtimeGateway by lazy { IosChatRealtimeGateway(configuration, authSession) }
     private val chatRepository: ChatRepository by lazy {
-        localDocumentRetryFixture?.repository ?: PostgrestChatRepository(
+        localDocumentRetryFixture?.repository ?: iosConversationCreateRetryEvidenceRepositoryIfRequested(PostgrestChatRepository(
             transport = iosChatEvidenceFaultingTransportIfRequested(IosChatPostgrestTransport(configuration, authSession)),
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
             realtimeGateway = realtimeGateway,
             outgoingStore = PreferenceChatOutgoingStore(IosPreferenceStore()),
             outboxFiles = IosFileCacheService(),
-        )
+        ))
     }
     private val attachmentDownloader: IosChatAttachmentDownloader by lazy {
         IosChatAttachmentDownloader(configuration, authSession)
@@ -151,6 +151,44 @@ class IosChatRuntimeBootstrap(
             profileOpeningState = profileOpeningState,
         )
     }
+}
+
+private fun iosConversationCreateRetryEvidenceRepositoryIfRequested(
+    delegate: ChatRepository,
+): ChatRepository {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment["QUATA_IOS_CONVERSATION_CREATE_RETRY_FIXTURE_OPT_IN"]?.toString() !=
+        "I_ACCEPT_IOS_CONVERSATION_CREATE_RETRY_FIXTURE"
+    ) return delegate
+    return object : ChatRepository by delegate {
+        override suspend fun openPrivateConversation(peerProfileId: String): Result<String> =
+            if (IosConversationCreateRetryEvidenceState.privateFailurePending) {
+                IosConversationCreateRetryEvidenceState.privateFailurePending = false
+                Result.failure(IllegalStateException("conversation_private_create_e2e_forced_failure"))
+            } else {
+                delegate.openPrivateConversation(peerProfileId)
+            }
+
+        override suspend fun openGroupConversationForRequest(
+            participantIds: List<String>,
+            title: String?,
+            requestKey: String,
+        ): Result<String> = if (IosConversationCreateRetryEvidenceState.groupFailurePending) {
+            IosConversationCreateRetryEvidenceState.groupFailurePending = false
+            IosConversationCreateRetryEvidenceState.failedGroupRequestKey = requestKey
+            Result.failure(IllegalStateException("conversation_group_create_e2e_forced_failure"))
+        } else if (requestKey != IosConversationCreateRetryEvidenceState.failedGroupRequestKey) {
+            Result.failure(IllegalStateException("conversation_group_create_e2e_request_key_changed"))
+        } else {
+            delegate.openGroupConversationForRequest(participantIds, title, requestKey)
+        }
+    }
+}
+
+private object IosConversationCreateRetryEvidenceState {
+    var privateFailurePending = true
+    var groupFailurePending = true
+    var failedGroupRequestKey: String? = null
 }
 
 private data class IosChatDocumentRetryLocalFixture(
