@@ -59,6 +59,7 @@ const val ComposerPickVideoTestTag = "composer-media.pick-video"
 const val ComposerCaptureVideoTestTag = "composer-media.capture-video"
 const val ComposerEditVideoTestTag = "composer-media.edit-video"
 const val ComposerSelectedImagePreviewTestTag = "composer-media.selected-image-preview"
+const val ComposerPersistedImageDraftTestTag = "composer-media.selected-image-preview.persisted"
 const val ComposerSelectedVideoPreviewTestTag = "composer-media.selected-video-preview"
 const val ComposerMediaErrorTestTag = "composer-media.error"
 
@@ -270,6 +271,9 @@ fun CreatePostRoot(
     var durablePersistedSnapshot by remember(durableDraftStore, draftActorProfileId) {
         mutableStateOf<PostComposerDraftSnapshot?>(null)
     }
+    var durablePersistenceConfirmed by remember(durableDraftStore, draftActorProfileId) {
+        mutableStateOf(false)
+    }
     var durableActorResolution by remember(durableDraftStore) {
         mutableStateOf(PostComposerDraftActorResolution())
     }
@@ -285,6 +289,7 @@ fun CreatePostRoot(
         val store = durableDraftStore ?: return@LaunchedEffect
         pendingDraftClearRequest = null
         durableDraftReady = false
+        durablePersistenceConfirmed = false
         val actor = draftActorProfileId
         val resetForActorChange = shouldResetDraftForActorTransition(
             wasResolved = durableActorResolution.wasResolved,
@@ -307,6 +312,7 @@ fun CreatePostRoot(
             // Session owners retire the stored actor explicitly when logout is authoritative.
             durableDraftActorLease = null
             durablePersistedSnapshot = baseline
+            durablePersistenceConfirmed = false
             durableDraftReady = false
             return@LaunchedEffect
         }
@@ -331,7 +337,8 @@ fun CreatePostRoot(
         } else {
             null
         }
-        durablePersistedSnapshot = appliedRestoration ?: baseline
+        durablePersistedSnapshot = initialPostComposerPersistedSnapshot(appliedRestoration, baseline)
+        durablePersistenceConfirmed = appliedRestoration != null
         durableDraftReady = true
     }
     val durableSnapshot = viewModel.snapshot(step)
@@ -352,6 +359,7 @@ fun CreatePostRoot(
                 durableMediaReconcile(persistedSnapshot.imageUri, persistedSnapshot.videoUri)
             ) {
                 durablePersistedSnapshot = durableSnapshot
+                durablePersistenceConfirmed = true
             }
         }
     }
@@ -390,6 +398,7 @@ fun CreatePostRoot(
         val clearedLease = (clearAttempt as? PostComposerDraftClearAttempt.Cleared)?.lease
         durableDraftActorLease = clearedLease
         durablePersistedSnapshot = null
+        durablePersistenceConfirmed = false
         pendingDraftClearRequest = request.copy(actorLease = clearedLease)
         val mediaCleared = try {
             durableMediaClear()
@@ -627,7 +636,9 @@ fun CreatePostRoot(
                 )
                 CreatePostStep.Image -> CommonImageComposerForm(state, slots, copy, accessibility, isLandscapeLayout, locationOpen, { locationOpen = it }, {
                     viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(it))
-                }) { publish(PostComposerType.Image) }
+                }, isPostComposerImageDraftDurablyPersisted(durablePersistenceConfirmed, durablePersistedSnapshot, state.imageUri)) {
+                    publish(PostComposerType.Image)
+                }
                 CreatePostStep.Video -> CommonVideoComposerForm(state, slots, copy, accessibility, isLandscapeLayout, {
                     viewModel.onEvent(CreatePostUiEvent.TextChanged(it))
                 }) { publish(PostComposerType.Video) }
@@ -719,6 +730,17 @@ internal fun shouldPersistPostComposerDraft(
     lastPersistedSnapshot: PostComposerDraftSnapshot?,
 ): Boolean = ready && snapshot != lastPersistedSnapshot
 
+internal fun initialPostComposerPersistedSnapshot(
+    appliedRestoration: PostComposerDraftSnapshot?,
+    baseline: PostComposerDraftSnapshot,
+): PostComposerDraftSnapshot? = appliedRestoration ?: baseline.takeUnless { it.isMeaningfulForPersistence() }
+
+internal fun isPostComposerImageDraftDurablyPersisted(
+    persistenceConfirmed: Boolean,
+    persistedSnapshot: PostComposerDraftSnapshot?,
+    currentImageUri: String?,
+): Boolean = persistenceConfirmed && currentImageUri != null && persistedSnapshot?.imageUri == currentImageUri
+
 const val CreatePostTextLimit = 500
 
 fun dispatchCreatePostPublish(canPublish: Boolean, submit: () -> Unit, onAuthRequired: () -> Unit) {
@@ -732,7 +754,7 @@ fun dispatchCreatePostBack(isLoading: Boolean, cancel: () -> Unit, reset: () -> 
 }
 
 @Composable
-private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots: CreatePostPlatformSlots, copy: CreatePostRootCopy, accessibility: CriticalControlsAccessibilityCopy, landscape: Boolean, locationOpen: Boolean, onLocationOpen: (Boolean) -> Unit, onLocationChange: (String) -> Unit, publish: () -> Unit) {
+private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots: CreatePostPlatformSlots, copy: CreatePostRootCopy, accessibility: CriticalControlsAccessibilityCopy, landscape: Boolean, locationOpen: Boolean, onLocationOpen: (Boolean) -> Unit, onLocationChange: (String) -> Unit, imageDraftPersisted: Boolean, publish: () -> Unit) {
     ComposerMediaPostFormContent(
         isLandscapeLayout = landscape,
         mediaSource = {
@@ -768,6 +790,15 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                             .testTag(ComposerSelectedImagePreviewTestTag)
                             .semantics { contentDescription = ComposerSelectedImagePreviewTestTag },
                     )
+                    if (imageDraftPersisted) {
+                        Spacer(
+                            Modifier
+                                .testTag(ComposerPersistedImageDraftTestTag)
+                                .semantics { contentDescription = ComposerPersistedImageDraftTestTag }
+                                .fillMaxWidth()
+                                .height(1.dp),
+                        )
+                    }
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.imageType, copy.imagePreviewEmpty)
             })
         },

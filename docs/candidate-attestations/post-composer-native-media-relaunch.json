@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "units": [
+    "POST-COMPOSER-NATIVE-MEDIA-RELAUNCH"
+  ],
+  "status": "passed",
+  "productSha": "f5dbb16ffa6a47de0d31684c3325ba532554ffbe",
+  "certification": "native-media-relaunch-complete-independent-review-go-final-CI-pending",
+  "evidenceKind": "POST_COMPOSER_REAL_MEDIA_RELAUNCH_ANDROID_WEB_IOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "f5dbb16ffa6a47de0d31684c3325ba532554ffbe",
+      "report": "docs/candidate-attestations/evidence/post-composer-native-media-relaunch-android-e4b60f72.json",
+      "reportSha256": "e6086521607be0c6e0710f4f687f259077fecb73e66eede51d9f0d59ae066d0e",
+      "reportStatus": "passed",
+      "reportGitHead": "e4b60f72f6134477a6f85081b35b1163721da6ba",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exclusive_private_image_draft_entered_without_publish",
+        "target_process_force_stopped",
+        "private_image_binary_present_after_process_restart",
+        "image_draft_preview_restored_after_process_restart",
+        "restored_image_draft_explicitly_discarded",
+        "media_binary_and_envelope_removed_after_discard",
+        "authenticated_session_preserved_after_media_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "test-owned-app-data-and-local-credentials-removed"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "f5dbb16ffa6a47de0d31684c3325ba532554ffbe",
+      "report": "docs/candidate-attestations/evidence/post-composer-media-restoration-web-2d216efc.json",
+      "reportSha256": "ee252db9adfb53408f8478e50f38191fd55d65d1baac4aaa32b662dced025ce2",
+      "reportStatus": "passed",
+      "reportGitHead": "2d216efcf32c38f90fbf94b43bde91f2dda0a406",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exclusive_blob_image_draft_entered_without_publish",
+        "blob_image_draft_recreated_after_document_reload",
+        "discarded_media_binary_and_envelope_absent_after_reload",
+        "authenticated_session_preserved_without_publish_mutation"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "authenticated-browser-no-publish-and-private-cache-cleared"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "f5dbb16ffa6a47de0d31684c3325ba532554ffbe",
+      "report": "docs/candidate-attestations/evidence/post-composer-native-media-relaunch-ios-636c6ecf.json",
+      "reportSha256": "41555702fb947335c898f505c18e5ad1a599714d46cfb41c96ca7c76517380d7",
+      "reportStatus": "passed",
+      "reportGitHead": "636c6ecf88232cc3ccd01da3eb6b7055835685b5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_exclusive_private_image_draft_entered_without_publish",
+        "ios_image_draft_preview_restored_after_app_relaunch",
+        "ios_restored_image_draft_explicitly_discarded",
+        "ios_discarded_media_binary_and_envelope_absent_after_second_app_relaunch"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "temporary-credentials-runtime-config-and-simulator-container-removed"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/post-composer-draft-restoration-contract.test.mjs # 7/7",
+    ".\\gradlew.bat :feature:postcomposer:compileTestKotlinIosX64",
+    ".\\gradlew.bat :feature:postcomposer:wasmJsBrowserTest --tests com.quata.feature.postcomposer.presentation.PostComposerDraftStoreTest",
+    "node scripts/create-post-postflight-android-evidence.mjs",
+    "node scripts/create-post-postflight-ios-evidence.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-composer-native-media-relaunch.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "636c6ecf88232cc3ccd01da3eb6b7055835685b5",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "A meaningful initial baseline no longer satisfies the relaunch marker until its save and reconciliation are confirmed.",
+      "The deterministic fixture mutation opt-in is accepted by the custody contract while publish remains forbidden.",
+      "Android and iOS wait for the confirmed durable image reference before ending the first process."
+    ],
+    "scopeLimit": "This unit proves one private image draft across a real Web document reload, Android process restart and iOS terminate/relaunch without publishing. Arbitrary editor state, physical hardware and exhaustive permission or OS matrices remain outside this unit."
+  },
+  "notes": [
+    "Android proved the private image binary, restored preview, explicit discard, envelope/binary removal, preserved session and zero publication across a real authenticated process restart.",
+    "iOS SimulatorSigned executed the exact runtime SHA, observed the confirmed persisted-image marker before termination, restored the preview after relaunch and removed the draft after explicit discard and a second relaunch.",
+    "After the Web run, common CreatePostRoot strengthened the initial-baseline persistence confirmation and added an evidence-only persisted-image marker; it did not change the Web cache format, opaque envelope, restore path or discard behavior. The historical authenticated reload still proves the same externally observable restore/discard result, and the affected common/Wasm contracts passed at runtime SHA 636c6ecf; the Web E2E was not repeated solely for this strengthening.",
+    "The earlier iOS run at 3f143b77 is diagnostic only. Acceptance uses the exact 636c6ecf run after the persistence-marker review findings were corrected.",
+    "After replay over the integrated #579 media-restoration squash, candidate Product SHA f5dbb16f adds only the inventory boundary over runtime SHA a4a9a2c9; platform evidence was not repeated solely for ancestry.",
+    "Independent product review at 636c6ecf returned GO with no P0-P3 findings after both P2 findings were resolved.",
+    "The ten-commit unit was recomposed over media-restoration squash d77ae5a4 with an identical complete functional delta. Android, Web and iOS evidence remains bound to the recorded execution SHAs and was not repeated solely for ancestry."
+  ]
+}

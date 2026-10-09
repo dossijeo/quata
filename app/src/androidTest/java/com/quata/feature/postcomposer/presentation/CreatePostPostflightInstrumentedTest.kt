@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -180,6 +183,87 @@ class CreatePostPostflightInstrumentedTest {
         writeReport(initialSession?.userId.orEmpty(), steps, screenshots)
     }
 
+    @Test
+    fun seedAuthenticatedImageDraftForProcessRestart() = runBlocking {
+        val credentialsFile = optionalArgument("quataCreatePostPostflightCredentialsFile")
+        assumeTrue(
+            "CREATE-POST-MEDIA-DRAFT-ANDROID-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataCreatePostPostflightEvidence") == "1",
+        )
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+        suppressStartupPrompts()
+        grantOptionalNotificationPermission()
+        grantOptionalLocationPermission()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password).getOrThrow()
+        val session = app.container.sessionManager.currentSession()
+        assertTrue(session?.isSupabaseAuthenticated() == true)
+        val fixture = createPrivateImageFixture()
+
+        ActivityScenario.launch<MainActivity>(mainIntent(fixture.absolutePath)).use {
+            waitFor("navigation.primary.feed")
+            waitForPrefix("feed.action.publish.")
+            tapPrefix("feed.action.publish.")
+            waitFor(CreatePostCommonRootTestTag)
+            waitFor(ComposerSelectedImagePreviewTestTag)
+            waitForPersistedImageDraft(session?.userId.orEmpty())
+            screenshot("android-create-post-media-draft-before-process-restart")
+        }
+        File(evidenceDir(), "android-create-post-media-draft-seeded.json").writeText(
+            JSONObject().put("status", "seeded").put("fixtureSha256", sha256(fixture.readBytes())).toString() + "\n",
+        )
+    }
+
+    @Test
+    fun restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard() = runBlocking {
+        assumeTrue(
+            "CREATE-POST-MEDIA-DRAFT-ANDROID-001 is opt-in.",
+            optionalArgument("quataCreatePostPostflightEvidence") == "1",
+        )
+        suppressStartupPrompts()
+        grantOptionalNotificationPermission()
+        val session = app.container.sessionManager.currentSession()
+        assertTrue("android_create_post_media_draft_session_missing_after_restart", session?.isSupabaseAuthenticated() == true)
+        val actor = session?.userId.orEmpty()
+        val store = PostComposerDraftStore(app.container.platformServices.preferences)
+        val prelaunchDraft = store.restore(actor) { reference ->
+            Uri.parse(reference).path?.let(::File)?.isFile == true
+        }?.snapshot
+        assertEquals("android_create_post_media_draft_step_missing_after_restart", CreatePostStep.Image, prelaunchDraft?.step)
+        val persistedPath = prelaunchDraft?.imageUri?.let(Uri::parse)?.path?.let(::File)
+        assertTrue("android_create_post_media_draft_file_missing_after_restart", persistedPath?.isFile == true && persistedPath.length() > 0L)
+        val screenshots = mutableListOf<String>()
+        val steps = mutableListOf(
+            "exclusive_private_image_draft_entered_without_publish",
+            "target_process_force_stopped",
+            "private_image_binary_present_after_process_restart",
+        )
+
+        ActivityScenario.launch<MainActivity>(mainIntent()).use {
+            waitFor("navigation.primary.feed")
+            waitForPrefix("feed.action.publish.")
+            tapPrefix("feed.action.publish.")
+            waitFor(CreatePostCommonRootTestTag)
+            waitFor(ComposerSelectedImagePreviewTestTag)
+            steps += "image_draft_preview_restored_after_process_restart"
+            screenshots += screenshot("android-create-post-media-draft-after-process-restart")
+
+            compose.onNodeWithTag("composer-back", useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            waitForGone(CreatePostCommonRootTestTag)
+            waitForPersistedDraftCleared(actor)
+            compose.waitUntil(10_000) { persistedPath?.exists() == false }
+            steps += "restored_image_draft_explicitly_discarded"
+            steps += "media_binary_and_envelope_removed_after_discard"
+            steps += "create_post_returned_to_feed_without_publish"
+        }
+
+        val finalSession = app.container.sessionManager.currentSession()
+        assertEquals("android_create_post_media_draft_actor_changed", session?.userId, finalSession?.userId)
+        steps += "authenticated_session_preserved_after_media_relaunch"
+        writeMediaReport(actor, steps, screenshots)
+    }
+
     private fun tap(tag: String) {
         compose.onNodeWithTag(tag, useUnmergedTree = true).performClick()
     }
@@ -195,12 +279,14 @@ class CreatePostPostflightInstrumentedTest {
                 runCatching { compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
         } catch (error: Throwable) {
-            val availableTags = compose.onAllNodes(
-                SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag),
-                useUnmergedTree = true,
-            ).fetchSemanticsNodes().mapNotNull { node ->
-                node.config.getOrNull(SemanticsProperties.TestTag)
-            }.distinct().sorted().take(120)
+            val availableTags = runCatching {
+                compose.onAllNodes(
+                    SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag),
+                    useUnmergedTree = true,
+                ).fetchSemanticsNodes().mapNotNull { node ->
+                    node.config.getOrNull(SemanticsProperties.TestTag)
+                }.distinct().sorted().take(120)
+            }.getOrElse { listOf("<compose-hierarchy-unavailable:${it::class.simpleName}>") }
             throw AssertionError("create_post_postflight_tag_timeout:$tag:available=$availableTags", error)
         }
     }
@@ -245,6 +331,18 @@ class CreatePostPostflightInstrumentedTest {
         throw AssertionError("android_create_post_draft_not_cleared_after_discard")
     }
 
+    private suspend fun waitForPersistedImageDraft(actorProfileId: String) {
+        val store = PostComposerDraftStore(app.container.platformServices.preferences)
+        repeat(100) {
+            val restored = store.restore(actorProfileId) { reference ->
+                Uri.parse(reference).path?.let(::File)?.isFile == true
+            }?.snapshot
+            if (restored?.step == CreatePostStep.Image && restored.imageUri != null) return
+            delay(100)
+        }
+        throw AssertionError("android_create_post_media_draft_not_committed_before_process_restart")
+    }
+
     private fun tagStartsWith(prefix: String) = SemanticsMatcher("testTag starts with $prefix") { node ->
         node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }
@@ -273,13 +371,45 @@ class CreatePostPostflightInstrumentedTest {
         )
     }
 
+    private fun writeMediaReport(profileId: String, steps: List<String>, screenshots: List<String>) {
+        File(evidenceDir(), "android-create-post-media-draft-evidence.json").writeText(
+            JSONObject()
+                .put("check", "CREATE-POST-MEDIA-DRAFT-ANDROID-001")
+                .put("status", "passed")
+                .put("actorProfileIdSha256", sha256(profileId))
+                .put("steps", JSONArray(steps))
+                .put("publishCallbacksInvoked", false)
+                .put("sessionPreserved", true)
+                .put("screenshots", JSONArray(screenshots))
+                .toString(2) + "\n",
+        )
+    }
+
     private fun evidenceDir(): File = File(targetContext.filesDir, "create-post-postflight-evidence")
         .also { check(it.exists() || it.mkdirs()) }
 
-    private fun mainIntent(): Intent = Intent(targetContext, MainActivity::class.java)
+    private fun mainIntent(mediaFixturePath: String? = null): Intent = Intent(targetContext, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
         .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "feed")
+        .apply {
+            if (mediaFixturePath != null) {
+                putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI", Uri.fromFile(File(mediaFixturePath)).toString())
+            }
+        }
+
+    private fun createPrivateImageFixture(): File {
+        val fixture = File(targetContext.cacheDir, "quata-prepared-image-media-draft-fixture.png")
+        Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).also { bitmap ->
+            for (x in 0 until bitmap.width) for (y in 0 until bitmap.height) {
+                bitmap.setPixel(x, y, if (x < 4) Color.rgb(252, 133, 43) else Color.rgb(26, 69, 168))
+            }
+            FileOutputStream(fixture).use { output -> check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) }
+            bitmap.recycle()
+        }
+        check(fixture.isFile && fixture.length() > 0L)
+        return fixture
+    }
 
     private fun suppressStartupPrompts() {
         targetContext.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)
@@ -294,6 +424,18 @@ class CreatePostPostflightInstrumentedTest {
         ).close()
     }
 
+    private fun grantOptionalLocationPermission() {
+        listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ).forEach { permission ->
+            if (targetContext.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                instrumentation.uiAutomation.executeShellCommand("pm grant ${targetContext.packageName} $permission")
+                    .close()
+            }
+        }
+    }
+
     private fun optionalArgument(name: String): String? = arguments.getString(name)?.trim()?.takeIf(String::isNotEmpty)
 
     private fun credentialsFromFile(path: String): Credentials {
@@ -304,6 +446,9 @@ class CreatePostPostflightInstrumentedTest {
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    private fun sha256(value: ByteArray): String = MessageDigest.getInstance("SHA-256")
+        .digest(value).joinToString("") { "%02x".format(it) }
 
     private data class Credentials(val countryCode: String, val phone: String, val password: String)
 }

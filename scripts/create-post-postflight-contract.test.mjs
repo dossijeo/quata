@@ -92,13 +92,14 @@ test("iOS postflight restores an exact draft after app relaunch without publishi
   assert.match(uiTest, /A discarded draft must not reappear after another app relaunch/);
   assert.match(coordinator, /ios_discarded_draft_absent_after_second_app_relaunch/);
   assert.match(uiTest, /while !element\.isHittable && remainingScrolls > 0[\s\S]*container\.swipeUp\(\)[\s\S]*XCTAssertTrue\(element\.isHittable/);
-  assert.doesNotMatch(uiTest, /composer-publish|tapPublish|POST_PUBLISH_REAL_MUTATION/);
+  assert.doesNotMatch(uiTest, /composer-publish|tapPublish/);
+  assert.match(uiTest, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing[\s\S]*?QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN[\s\S]*?composer-media\.selected-image-preview\.persisted[\s\S]*?app\.terminate\(\)/);
   assert.match(shell, /-only-testing:"\$selected"/);
   assert.match(shell, /testAuthenticatedTextDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
   assert.match(shell, /testClearAuthenticatedSessionAfterVisualGates/);
   assert.match(shell, /trap cleanup_on_exit EXIT/);
-  assert.match(shell, /-only-testing:"\$selected" \|\| return 1/);
-  assert.match(shell, /--require-terminal-success-marker \|\| return 1/);
+  assert.match(shell, /-only-testing:"\$selected"[\s\S]*?local run_status=\$\?[\s\S]*?"\$run_status" != "0" && "\$run_status" != "124"[\s\S]*?return 1/);
+  assert.match(shell, /--require-terminal-success-marker[\s\S]*?--accept-selected-pass-before-watchdog-timeout \|\| return 1/);
   assert.match(coordinator, /bash scripts\/run-ios-create-post-postflight-ui-test\.sh/);
   assert.match(coordinator, /publishCallbacksInvoked: false/);
   assert.match(coordinator, /cleanupRemoteSimulatorState\(options\)/);

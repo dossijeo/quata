@@ -111,7 +111,7 @@ class PostComposerDraftStore(
             imageUri = persistentImage?.reference,
             videoUri = persistentVideo?.reference,
         ).sanitizedForPersistence()
-        val encodedDraft = sanitized.takeIf { it.isMeaningful() }
+        val encodedDraft = sanitized.takeIf { it.isMeaningfulForPersistence() }
             ?.let(PostComposerDraftEnvelopeCodec::encode)
         suspend fun commitObservation(): PostComposerDraftCommitObservation = withContext(NonCancellable) {
             try {
@@ -401,7 +401,7 @@ data class PostComposerDraftMediaSaveResult(
     }
 }
 
-private fun PostComposerDraftSnapshot.isMeaningful(): Boolean =
+internal fun PostComposerDraftSnapshot.isMeaningfulForPersistence(): Boolean =
     step != CreatePostStep.TypePicker ||
         text.isNotBlank() ||
         imageUri != null ||

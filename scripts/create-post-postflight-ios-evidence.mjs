@@ -59,6 +59,8 @@ printf '{"head":"%s","workingTreeDirty":%s}\\n' "$head" "$dirty"
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
+export QUATA_IOS_SIGNED_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
+export QUATA_IOS_SIGNED_RESULT_BUNDLE_PATH=${shellQuote(`${options.remoteLogDir}/signed-build.xcresult`)}
 scripts/build-ios-intel-simulator-signed.sh
 `);
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");
@@ -71,6 +73,10 @@ scripts/build-ios-intel-simulator-signed.sh
   report.steps.push("ios_exact_text_draft_restored_after_app_relaunch");
   report.steps.push("ios_restored_draft_explicitly_discarded_and_returned_to_feed");
   report.steps.push("ios_discarded_draft_absent_after_second_app_relaunch");
+  report.steps.push("ios_exclusive_private_image_draft_entered_without_publish");
+  report.steps.push("ios_image_draft_preview_restored_after_app_relaunch");
+  report.steps.push("ios_restored_image_draft_explicitly_discarded");
+  report.steps.push("ios_discarded_media_binary_and_envelope_absent_after_second_app_relaunch");
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -307,7 +313,11 @@ async function gitMetadata() {
 }
 
 async function runSshScript(host, script) {
-  return runCapture("ssh", [host, "bash", "-s"], { input: script });
+  return runCapture(
+    "ssh",
+    ["-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=20", host, "bash", "-s"],
+    { input: script },
+  );
 }
 
 function shellQuote(value) {

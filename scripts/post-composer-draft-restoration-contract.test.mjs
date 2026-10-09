@@ -25,7 +25,7 @@ test("the common root restores before persistence and clears publish discard and
   const root = await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt");
   assert.match(root, /durableDraftReady = false[\s\S]*?shouldResetDraftForActorTransition[\s\S]*?CreatePostUiEvent\.ClearDraft[\s\S]*?baselineMutationRevision = viewModel\.draftMutationRevision\(\)[\s\S]*?if \(actor == null\)[\s\S]*?return@LaunchedEffect[\s\S]*?afterObservation\(actor\)[\s\S]*?store\.activateActor\(actor\)[\s\S]*?initialStep == null && !resetForActorChange[\s\S]*?store\.restoreWithMediaResolution\(lease\.actorProfileId, durableMediaReferenceForRestoration\)[\s\S]*?store\.isCurrent\(restoration\)[\s\S]*?viewModel\.draftMutationRevision\(\) == baselineMutationRevision[\s\S]*?durableDraftReady = true/);
   assert.match(root, /previousActorProfileId == null && nextActorProfileId != null && hasAuthenticationContinuation/);
-  assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = appliedRestoration \?: baseline[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.saveWithMediaPersistenceResult\([\s\S]*?lease,[\s\S]*?durableSnapshot,[\s\S]*?durableMediaReferenceForPersistence[\s\S]*?persistedSnapshot = save\.persistedSnapshot[\s\S]*?durableMediaReconcile\(persistedSnapshot\.imageUri, persistedSnapshot\.videoUri\)/);
+  assert.match(root, /val appliedRestoration = if[\s\S]*?durablePersistedSnapshot = initialPostComposerPersistedSnapshot\(appliedRestoration, baseline\)[\s\S]*?shouldPersistPostComposerDraft\(durableDraftReady, durableSnapshot, durablePersistedSnapshot\)[\s\S]*?store\.saveWithMediaPersistenceResult\([\s\S]*?lease,[\s\S]*?durableSnapshot,[\s\S]*?durableMediaReferenceForPersistence[\s\S]*?persistedSnapshot = save\.persistedSnapshot[\s\S]*?durableMediaReconcile\(persistedSnapshot\.imageUri, persistedSnapshot\.videoUri\)/);
   assert.match(root, /suspend fun completeDraftClear[\s\S]*?attemptPostComposerDraftClear\(request\.actorProfileId, request\.actorLease, store::clear\)[\s\S]*?!isPostComposerDraftClearRequestCurrent[\s\S]*?request\.actorLease[\s\S]*?currentDraftActorLease[\s\S]*?PostComposerDraftClearAttempt\.Failed[\s\S]*?pendingDraftClearRequest = request[\s\S]*?durablePersistedSnapshot = null/);
   const clearFlow = root.slice(root.indexOf("suspend fun completeDraftClear"));
   assert.ok(clearFlow.indexOf("attemptPostComposerDraftClear(request.actorProfileId") < clearFlow.indexOf("durableMediaClear()"));
@@ -88,6 +88,33 @@ test("Android process-restart evidence scrolls to discard and verifies durable r
   const credentialWrite = runner.indexOf("await adbRunAsWrite(");
   assert.ok(preflightClear >= 0 && preflightClear < credentialWrite);
   assert.match(runner, /android_app_data_cleared_before_evidence/);
+});
+
+test("native evidence restores a private image draft and proves discard cleanup", async () => {
+  const [androidTest, androidRunner, iosTest, iosRunner, iosWrapper] = await Promise.all([
+    source("app/src/androidTest/java/com/quata/feature/postcomposer/presentation/CreatePostPostflightInstrumentedTest.kt"),
+    source("scripts/create-post-postflight-android-evidence.mjs"),
+    source("iosApp/iosAppUITests/QuataIosAuthenticatedCreatePostPostflightUITests.swift"),
+    source("scripts/run-ios-create-post-postflight-ui-test.sh"),
+    source("scripts/create-post-postflight-ios-evidence.mjs"),
+  ]);
+  assert.match(androidTest, /seedAuthenticatedImageDraftForProcessRestart[\s\S]*?grantOptionalLocationPermission\(\)[\s\S]*?mainIntent\(fixture\.absolutePath\)[\s\S]*?ComposerSelectedImagePreviewTestTag[\s\S]*?waitForPersistedImageDraft/);
+  assert.match(androidTest, /mainIntent\(mediaFixturePath: String\? = null\)[\s\S]*?POST_PUBLISH_EVIDENCE_IMAGE_URI/);
+  assert.match(androidTest, /File\(targetContext\.cacheDir, "quata-prepared-image-media-draft-fixture\.png"\)/);
+  assert.match(androidTest, /restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard[\s\S]*?private_image_binary_present_after_process_restart[\s\S]*?media_binary_and_envelope_removed_after_discard/);
+  assert.match(androidTest, /compose\.waitUntil\(10_000\) \{ persistedPath\?\.exists\(\) == false \}/);
+  assert.match(androidRunner, /seedAuthenticatedImageDraftForProcessRestart[\s\S]*?force-stop[\s\S]*?restoreAuthenticatedImageDraftAfterProcessRestartAndDiscard/);
+  assert.match(androidRunner, /android-create-post-media-draft-evidence\.json[\s\S]*?media_binary_and_envelope_removed_after_discard/);
+  assert.match(iosTest, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing[\s\S]*?composer-media\.selected-image-preview[\s\S]*?composer-media\.selected-image-preview\.persisted[\s\S]*?app\.terminate\(\)[\s\S]*?composer-media\.selected-image-preview[\s\S]*?discard restored image draft/);
+  assert.match(await source("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt"), /durablePersistenceConfirmed = appliedRestoration != null[\s\S]*?durablePersistenceConfirmed = true[\s\S]*?isPostComposerImageDraftDurablyPersisted\(durablePersistenceConfirmed, durablePersistedSnapshot, state\.imageUri\)[\s\S]*?ComposerPersistedImageDraftTestTag/);
+  assert.match(iosTest, /afterDiscard[\s\S]*?A discarded image draft must not reappear after another app relaunch/);
+  assert.match(iosRunner, /testAuthenticatedImageDraftRestoresAfterRelaunchAndDiscardsWithoutPublishing/);
+  assert.match(iosRunner, /run_status[\s\S]*?"0"[\s\S]*?"124"[\s\S]*?return 1/);
+  assert.match(iosRunner, /--accept-selected-pass-before-watchdog-timeout/);
+  assert.match(iosRunner, /get_app_container[\s\S]*?post-composer-draft\.\*[\s\S]*?IOS_CREATE_POST_MEDIA_DRAFT_CACHE_CLEAN_PASSED/);
+  assert.match(iosWrapper, /ios_discarded_media_binary_and_envelope_absent_after_second_app_relaunch/);
+  assert.match(iosWrapper, /QUATA_IOS_SIGNED_DERIVED_DATA_PATH=\$\{shellQuote\(options\.derivedDataPath\)\}/);
+  assert.match(iosWrapper, /ServerAliveInterval=30[\s\S]*?ServerAliveCountMax=20/);
 });
 
 test("session transitions retire the previous actor draft on every platform", async () => {
