@@ -113,6 +113,40 @@ class AuthRecoveryProductBridgeInstrumentedTest {
     }
 
     @Test
+    fun sharedLoginOpensSpanishRegisterAndReturnsToLogin() {
+        val repository = FixtureAuthRepository()
+
+        compose.setContent {
+            QuataTheme(mode = QuataThemeMode.Light) {
+                AuthProductHostContent(
+                    repository = repository,
+                    catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish),
+                    prefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
+                    onAuthenticated = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Crear cuenta", substring = false, useUnmergedTree = true)
+            .assertExists()
+        compose.onNodeWithTag("auth.register", useUnmergedTree = true)
+            .performScrollTo()
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag("auth.register.display-name", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithText("Volver", substring = false, useUnmergedTree = true)
+            .assertExists()
+        saveScreenshot("android-auth-register-from-login")
+
+        compose.onNodeWithTag("auth.register.back", useUnmergedTree = true)
+            .performScrollTo()
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag("auth.submit", useUnmergedTree = true).fetchSemanticsNode()
+        compose.onNodeWithTag("auth.register.display-name", useUnmergedTree = true).assertDoesNotExist()
+        saveScreenshot("android-auth-register-returned-to-login")
+    }
+
+    @Test
     fun sharedRecoverySurfaceHandlesQuestionResetAndReturnToLogin() {
         assumeTrue(
             "ANDROID-AUTH-RECOVERY-001 uses Compose/Espresso semantics; API 35+ emulator images removed InputManager.getInstance.",

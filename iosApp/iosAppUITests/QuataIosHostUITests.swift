@@ -161,6 +161,47 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testAuthLaunchFixtureOpensSpanishRegisterFromNormalLogin() {
+        let app = fixtureApp("auth-launch", authDestination: "login", spanishLocale: true)
+        app.launch()
+
+        let register = app.descendants(matching: .any)
+            .matching(identifier: "auth.register")
+            .firstMatch
+        XCTAssertTrue(register.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            register.waitForLabelOrValue(containing: "Crear cuenta", timeout: 5),
+            "The normal Login surface must expose the Spanish register action.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-login-spanish-register-entry")
+
+        register.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.register.display-name")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The Login register action must open the shared registration surface.",
+        )
+        let back = app.descendants(matching: .any)
+            .matching(identifier: "auth.register.back")
+            .firstMatch
+        XCTAssertTrue(
+            back.waitForLabelOrValue(containing: "Volver", timeout: 5),
+            "The registration surface must keep the Spanish catalogue after navigation.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-register-spanish-from-login")
+
+        tapAfterDismissingKeyboard("auth.register.back", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.submit")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "Back must return to the normal shared Login surface.",
+        )
+    }
+
     func testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks() {
         let app = fixtureApp("auth-launch", authDestination: "register", spanishLocale: true)
         app.launch()
