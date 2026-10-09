@@ -13,7 +13,8 @@
     "public_profile_detail_saved_instance_state_restores_exact_nonzero_offset",
     "web_wasm_focal_suite_passed",
     "android_instrumented_scroll_and_restore_passed",
-    "ios_x64_focal_suite_retained_by_byte_identity"
+    "ios_x64_focal_suite_retained_by_byte_identity",
+    "independent_review_go_no_p0_p3"
   ],
   "platforms": {
     "web": {
@@ -50,9 +51,9 @@
     }
   },
   "independentReview": {
-    "status": "pending",
-    "findingsP0ToP3": null,
-    "reviewedSha": null
+    "status": "go",
+    "findingsP0ToP3": 0,
+    "reviewedSha": "caf612faff547108d95c9fa8edabe4123cdd11c6"
   },
   "cleanup": {
     "state": "not_required_no_mutation",

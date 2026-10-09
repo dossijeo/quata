@@ -5,13 +5,13 @@
   ],
   "status": "passed",
   "productSha": "dca11d973f4627eabf85b0537d66451837cb32ed",
-  "certification": "focused-multiplatform-complete-independent-review-pending-final-ci-pending",
+  "certification": "focused-multiplatform-complete-independent-review-complete-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
       "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
-      "reportSha256": "e0e574f504de2ba3c68503112c09f750cf04fd21a36c7b78678c5421e157534c",
+      "reportSha256": "e7db4080045ffc5c455aa4a3ed89575753e497d318984c616ed5543d750f722f",
       "reportStatus": "passed",
       "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "reportWorkingTreeDirty": false,
@@ -31,7 +31,7 @@
       "status": "passed",
       "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
-      "reportSha256": "e0e574f504de2ba3c68503112c09f750cf04fd21a36c7b78678c5421e157534c",
+      "reportSha256": "e7db4080045ffc5c455aa4a3ed89575753e497d318984c616ed5543d750f722f",
       "reportStatus": "passed",
       "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "reportWorkingTreeDirty": false,
@@ -50,7 +50,7 @@
       "status": "passed",
       "sha": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "report": "docs/candidate-attestations/evidence/public-profile-post-detail-scroll-dca11d97.json",
-      "reportSha256": "e0e574f504de2ba3c68503112c09f750cf04fd21a36c7b78678c5421e157534c",
+      "reportSha256": "e7db4080045ffc5c455aa4a3ed89575753e497d318984c616ed5543d750f722f",
       "reportStatus": "passed",
       "reportGitHead": "dca11d973f4627eabf85b0537d66451837cb32ed",
       "reportWorkingTreeDirty": false,
@@ -81,7 +81,7 @@
     "Closing and reopening the same detail preserves its observed deep position; selecting another post cannot inherit that position.",
     "Android performs a real Compose scroll and restores the exact nonzero VerticalScrollAxisRange value through saved-instance-state recreation. Web/Wasm executes the five-test focal suite on the Product runtime SHA.",
     "The iOS x64 execution remains bound to f1010a81: the common runtime and focal test blobs are byte-identical at the final Product SHA, whose only later product delta is the Android-only instrumented test. The matrix was not repeated solely for a SHA change.",
-    "Independent exact-head review is pending before promotion.",
+    "Independent review of caf612fa returned GO with no P0-P3 findings.",
     "This focal closure removes only the public-profile deep-scroll limit. Integrated comments and exhaustive visual or media lifecycle coverage remain separate units.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs."
   ]
