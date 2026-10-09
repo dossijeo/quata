@@ -365,10 +365,13 @@ de la restauración; cero residuos comprobados y productor remoto desactivado (f
 head `c5eb125d` y merge `3e36885e`, con gates finales Web/Android, iOS y CodeQL
 SUCCESS. El cierre no promociona ACCOUNT-DETAILS ni unidades vecinas.
 
-Se conservan los límites de navegación: Android reabre Cuenta por entrada de evidencia y no certifica
-Feed/continuidad tras Save; Web abre Login explícitamente; iOS usa `auth-recovery-real`. No se acredita
-localización completa. Las evidencias históricas mantienen sus SHA originales. La preferencia por
-capas sigue vigente; este cierre no añade gestos XCTest ni migra suites existentes.
+Se conservan los límites de navegación Android: reabre Cuenta por entrada de evidencia y no certifica
+Feed/continuidad tras Save ni localización española; Web abre Login explícitamente. La aceptación focal
+iOS `44ef3b48` recorre en Simulator el Login común, verifica y pulsa «Olvidé mi contraseña», abre la
+raíz Recovery, verifica «Volver» y retorna al Login. El alcance lingüístico se limita a esas dos acciones
+observadas y no certifica una localización exhaustiva de Recovery. Se compone con la mutación remota histórica sin repetirla;
+manifest `docs/candidate-attestations/account-recovery-login-entry-ios.json`. Las evidencias históricas
+mantienen sus SHA originales y el cierre no migra suites existentes.
 
 ## Foto de control — 2026-08-11
 
