@@ -36,6 +36,7 @@ const publicProfileHost = await source("feature/neighborhoods/src/commonMain/kot
 const publicProfilePager = await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePostsPagerContent.kt");
 const publicProfilePreview = await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfilePostPreviewContent.kt");
 const publicProfileDetailTest = await source("feature/neighborhoods/src/commonTest/kotlin/com/quata/feature/neighborhoods/presentation/PublicProfilePostDetailTest.kt");
+const androidPublicProfileScrollTest = await source("app/src/androidTest/java/com/quata/feature/neighborhoods/presentation/PublicProfilePostDetailScrollRestorationInstrumentedTest.kt");
 const androidNav = await source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
 const webMain = await source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosApp = await source("iosApp/iosApp/QuataIosApp.swift");
@@ -189,6 +190,26 @@ test("public-profile posts open the common detail chrome and return to the retai
   assert.match(publicProfileDetailTest, /onNodeWithTag\(PublicProfilePostVideoStartTestTagPrefix \+ post\.id\)\.performClick\(\)/);
   assert.match(publicProfileDetailTest, /assertEquals\(1, detailOpens\)/);
   assert.match(publicProfileDetailTest, /assertEquals\(0, mediaOpens\)/);
+});
+
+test("public-profile detail restores deep scroll for the exact post", () => {
+  assert.match(publicProfilePager, /data class PublicProfilePostDetailScrollAnchor\(/);
+  assert.match(publicProfilePager, /val postId: String,[\s\S]*?val scrollOffsetPx: Int/);
+  assert.match(publicProfilePager, /rememberSaveable\(stateSaver = PublicProfilePostDetailScrollAnchor\.Saver\)/);
+  assert.match(publicProfilePager, /publicProfilePostDetailInitialScrollOffset\(detailPost\.id, detailScrollAnchor\)/);
+  assert.match(publicProfilePager, /rememberScrollState\([\s\S]*?initial = publicProfilePostDetailInitialScrollOffset/);
+  assert.match(publicProfilePager, /snapshotFlow \{ detailScrollState\.value \}/);
+  assert.match(publicProfilePager, /PublicProfilePostDetailScrollAnchor\(detailPost\.id, offset\)/);
+  assert.match(publicProfilePager, /PublicProfilePostDetailScrollTestTagPrefix \+ detailPost\.id/);
+  assert.match(publicProfileDetailTest, /restoresDeepScrollAfterClosingAndReopeningTheSamePost/);
+  assert.match(publicProfileDetailTest, /scrollAnchorRestoresOnlyTheMatchingPost/);
+  assert.match(publicProfileDetailTest, /publicProfilePostDetailInitialScrollOffset\("post-b", anchor\)/);
+  assert.match(publicProfileDetailTest, /publicProfilePostDetailInitialScrollOffset\("post-a", anchor\)/);
+  assert.match(publicProfileDetailTest, /saved\?\.let\(PublicProfilePostDetailScrollAnchor\.Saver::restore\)/);
+  assert.match(androidPublicProfileScrollTest, /savedInstanceStateRestoresTheExactObservedPublicProfileDetailOffset/);
+  assert.match(androidPublicProfileScrollTest, /SemanticsProperties\.VerticalScrollAxisRange/);
+  assert.match(androidPublicProfileScrollTest, /emulateSavedInstanceStateRestore\(\)/);
+  assert.match(androidPublicProfileScrollTest, /assertEquals\(beforeRestore, afterRestore\)/);
 });
 
 test("post-detail evidence exercises Official article link and profile routes on all platforms", () => {
