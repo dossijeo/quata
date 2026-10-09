@@ -835,6 +835,33 @@ private final class IosAppCompositionRoot {
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
             return container
+        case "auth-failure-retry":
+            let destination = arguments.firstIndex(of: "-quata-auth-destination")
+                .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+                ?? "login"
+            var container: IosAuthLaunchFixtureContainerViewController!
+            let publishMarker: (String) -> Void = { event in
+                DispatchQueue.main.async {
+                    guard let view = container?.view else { return }
+                    let marker = UILabel()
+                    marker.accessibilityIdentifier = "quata-ios-auth-\(event)"
+                    marker.accessibilityLabel = event
+                    marker.isAccessibilityElement = true
+                    marker.text = event
+                    marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                    marker.alpha = 0.01
+                    view.addSubview(marker)
+                }
+            }
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosAuthLaunchFixtureHostKt.QuataAuthFailureRetryFixtureViewControllerForDestination(
+                    destination: destination,
+                    languageCode: Locale.preferredLanguages.first,
+                    onAttempt: publishMarker,
+                    onSuccess: publishMarker
+                )
+            }
+            return container
         case "ugc-terms":
             var container: IosAuthLaunchFixtureContainerViewController!
             container = IosAuthLaunchFixtureContainerViewController {

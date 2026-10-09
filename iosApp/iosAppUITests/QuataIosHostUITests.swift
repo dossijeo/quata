@@ -89,6 +89,49 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-keyboard-restored-portrait")
     }
 
+    func testAuthLoginFailurePreservesInputAndExplicitRetryAuthenticates() {
+        let app = fixtureApp("auth-failure-retry", authDestination: "login", spanishLocale: true)
+        app.launch()
+
+        enterText("799000000000", into: "auth.phone.input", in: app)
+        typePrivateText("Synthetic-password-7!", into: "auth.password", in: app)
+        tapAfterDismissingKeyboard("auth.submit", in: app)
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-login-attempt-1")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The first native Login submit must reach the deterministic transport once.",
+        )
+        let error = app.descendants(matching: .any)
+            .matching(identifier: "auth.error")
+            .firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 10))
+        XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-login-rejected", timeout: 5))
+        let phone = app.descendants(matching: .any)
+            .matching(identifier: "auth.phone.input")
+            .firstMatch
+        XCTAssertTrue(
+            phone.waitForLabelOrValue(containing: "799000000000", timeout: 5),
+            "The native Login form must preserve the phone after rejection.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-login-failure-preserved")
+
+        tapAfterDismissingKeyboard("auth.submit", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-login-attempt-2")
+                .firstMatch.waitForExistence(timeout: 10),
+            "One explicit native retry must issue the second transport attempt.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-login-success")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The retry succeeds only when the complete Login request matches the first attempt.",
+        )
+    }
+
     func testAuthLaunchFixtureCanColdStartSharedRecoverySurface() {
         let app = fixtureApp("auth-launch", authDestination: "recovery")
         app.launch()
