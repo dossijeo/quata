@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "c1e62ca01bd5035c2fa7f418e5e2cb7cd48347e0",
-  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-passed-final-ci-pending",
+  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-pending-final-ci-pending",
   "evidence": {
     "validationAndCollision": {
       "status": "passed",
@@ -31,8 +31,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "passed",
-    "reviewedSha": "48e39c33d77a0a6cf64f860ef0bc1a47ee479dc6",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
@@ -42,6 +42,7 @@
     "Web and iOS preserve structured PostgREST 23505 information only as a sanitized known-constraint marker; unrelated HTTP 409 and unrelated uniqueness failures are not mislabeled as phone collisions.",
     "The historical exact-platform matrix remains evidence for the unchanged Account details save/reload path. No complete matrix was repeated solely because the Product SHA changed.",
     "The fourteen owned commits were replayed over the verified #602 squash e3a8367082b3cfc3bf3db8c4421dfc75e3036401, whose tree is identical to frozen head bd35d80c83762fd21b2d2c4d99ce4a077b4d15ce (prefix Product ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b). Product c1e62ca01bd5035c2fa7f418e5e2cb7cd48347e0 adds only the reviewed capability-hash refresh after the unchanged collision runtime; the production release and exact-platform evidence remain historical and no new apply or platform execution is attributed.",
-    "Independent exact-head review of 48e39c33d77a0a6cf64f860ef0bc1a47ee479dc6 returned GO with no P0-P3 and confirmed 14/14 commit equivalence, byte-identical Product tree, country-aware fail-closed semantics, historical release custody and exact capability hashes."
+    "Independent exact-head review of 48e39c33d77a0a6cf64f860ef0bc1a47ee479dc6 returned GO with no P0-P3 and confirmed 14/14 commit equivalence, byte-identical Product tree, country-aware fail-closed semantics, historical release custody and exact capability hashes.",
+    "The first candidate CI run exposed a documentation-contract drift: the inventory had closed validation and collision limits but no longer retained the exact continuity phrases asserted by the existing contract. The inventory now states both closed capabilities explicitly without changing runtime, release evidence or Product SHA; exact-head review is pending."
   ]
 }
