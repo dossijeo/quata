@@ -1,17 +1,23 @@
 {
   "version": 2,
-  "units": ["ACCOUNT-DETAILS"],
+  "units": [
+    "ACCOUNT-DETAILS"
+  ],
   "status": "passed",
-  "productSha": "149baa3c80d53979863f90f864aa40280f518710",
-  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-passed-final-ci-pending",
+  "productSha": "5ec7056b9a02716b1fed1b0764bfe45fa95c6849",
+  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-pending-final-ci-pending",
   "evidence": {
     "validationAndCollision": {
       "status": "passed",
-      "sha": "149baa3c80d53979863f90f864aa40280f518710",
+      "sha": "5ec7056b9a02716b1fed1b0764bfe45fa95c6849",
       "report": "docs/candidate-attestations/evidence/account-details-validation-collisions-512b5bf5.json",
       "reportSha256": "3e7cda5b1b1790714d55672517f1d6c8a023ff661dd231766da2b488c0988014",
       "requireReportArtifact": true,
-      "cleanup": {"verified": true, "mode": "production_transactional_rollback_residue_zero"}
+      "cleanup": {
+        "verified": true,
+        "mode": "production_transactional_rollback_residue_zero"
+      },
+      "reportStatus": "passed"
     }
   },
   "preflight": [
@@ -24,7 +30,11 @@
     "node scripts/account-details-collision-postdeploy.mjs",
     "git diff --check"
   ],
-  "review": {"status": "passed", "reviewedSha": "65f743226e82a4141d21312858898e0591bbc0f7", "blockingFindings": []},
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
   "notes": [
     "The shared Account details runtime validates and normalizes before mutation, suppresses repeated Save while active and localizes stable invalid-input and collision outcomes.",
     "Independent review found that migration 20261010090000 incorrectly imposed global local-number uniqueness. Forward migration 20261010101500 replaces it with country_code plus phone_local and phone_e164 identity; the earlier evidence remains marked superseded.",
@@ -32,6 +42,6 @@
     "Web and iOS preserve structured PostgREST 23505 information only as a sanitized known-constraint marker; unrelated HTTP 409 and unrelated uniqueness failures are not mislabeled as phone collisions.",
     "The historical exact-platform matrix remains evidence for the unchanged Account details save/reload path. No complete matrix was repeated solely because the Product SHA changed.",
     "Other Account/Profile subflows retain their own scope and evidence.",
-    "The six owned commits were replayed over prefix-continuity Product 5b8d3dea. The production release and exact-platform evidence remain historical; this recomposition does not attribute a new apply or platform execution."
+    "The nine owned commits were replayed over frozen PR #602 head f3039b85c5757336d463506dacb27c7d86c5e43d (prefix Product 6235e4c2f508ceb72b72af02af59554c6dd5ef28). Product 5ec7056b9a02716b1fed1b0764bfe45fa95c6849 adds only the reviewed capability-hash refresh after the unchanged collision runtime; the production release and exact-platform evidence remain historical and no new apply or platform execution is attributed."
   ]
 }

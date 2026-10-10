@@ -445,7 +445,7 @@ y mantiene la mutación ligada al `profileId` de la sesión. Web e iOS aceptan `
 cuando el perfil ya está ligado a un `auth_user_id`; para un perfil sin vínculo, cualquier email Auth ocupado falla cerrado incluso si el `user_metadata` controlado por el cliente declara ese perfil. La búsqueda telefónica exige cardinalidad PostgREST exacta y rechaza cualquier respuesta truncada antes de resolver el actor. La prueba Compose renderizada Web/Wasm cubre apertura de Mis datos, selector, opción, Save único y recarga; Android/iOS compilan el runtime compartido sin atribuir interacción nativa nueva. La matriz real de #319 conserva la evidencia histórica de actor y persistencia.
 
 **ACCOUNT-DETAILS — entrada inválida y colisiones:** Product SHA recompuesto
-`149baa3c80d53979863f90f864aa40280f518710` (Product histórico desplegado
+`5ec7056b9a02716b1fed1b0764bfe45fa95c6849` (Product histórico desplegado
 `512b5bf563beb786861c15d6f8d38c2e58e07994`) normaliza y valida en el runtime común antes de
 cualquier mutación, impide un segundo Save concurrente y traduce únicamente `23505` de las
 constraints telefónicas conocidas a un resultado estable y localizado. La migración
