@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = await readFile(new URL("../supabase/migrations/20261010090000_profile_phone_uniqueness.sql", import.meta.url), "utf8");
 const executor = await readFile(new URL("./selective-db-release-executor.mjs", import.meta.url), "utf8");
 const audit = await readFile(new URL("./account-details-collision-audit.mjs", import.meta.url), "utf8");
+const postdeploy = await readFile(new URL("./account-details-collision-postdeploy.mjs", import.meta.url), "utf8");
 
 test("profile phone uniqueness migration refuses collisions and preserves the production index identities", () => {
   assert.match(migration, /lock table public\.community_profiles in share row exclusive mode/i);
@@ -29,4 +30,15 @@ test("production audit is aggregate-only and requires caller-supplied credential
   assert.match(audit, /requiredFile\("SUPABASE_DB_TLS_CA_FILE"\)/);
   assert.doesNotMatch(audit, /C:\/Users\//i);
   assert.doesNotMatch(audit, /select\s+id\b/i);
+});
+
+test("postdeploy collision probes remain transactional, private and residue-free", () => {
+  assert.match(postdeploy, /begin/);
+  assert.match(postdeploy, /savepoint collision_probe/);
+  assert.match(postdeploy, /rollback to savepoint collision_probe/);
+  assert.match(postdeploy, /await client\.query\("rollback"\)/);
+  assert.match(postdeploy, /error\?\.code !== "23505"/);
+  assert.match(postdeploy, /residue: "zero"/);
+  assert.match(postdeploy, /No profile identifiers, phone values, emails or credentials are emitted/);
+  assert.doesNotMatch(postdeploy, /C:\/Users\//i);
 });
