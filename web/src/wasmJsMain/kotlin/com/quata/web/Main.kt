@@ -238,12 +238,14 @@ private fun QuataWebApp(
         val stopObserving = observeChatBrowserDocumentVisibility(chatRepository::setAppForeground)
         onDispose { stopObserving() }
     }
-    val neighborhoodsRepository = remember(runtimeConfiguration, authRepository, chatRepository, feedRepository) {
+    var currentUserId by remember { mutableStateOf<String?>(null) }
+    val neighborhoodsRepository = remember(runtimeConfiguration, authRepository, chatRepository, feedRepository, currentUserId) {
         WebNeighborhoodsRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
             chatRepository = chatRepository,
             feedRepository = feedRepository,
+            actorScopeId = currentUserId,
         )
     }
     var isSessionReady by remember { mutableStateOf(false) }
@@ -286,7 +288,6 @@ private fun QuataWebApp(
         createWebWhatsNewStartupCoordinator(whatsNewRepository, platformServices.preferences)
     }
     val incomingShareStore = remember { WebIncomingShareStore() }
-    var currentUserId by remember { mutableStateOf<String?>(null) }
     var currentUserIsOfficial by remember { mutableStateOf(false) }
     val sosCoordinator = remember(profileRepository, chatRepository, platformServices) {
         SosDispatchCoordinator(

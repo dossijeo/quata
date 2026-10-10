@@ -52,9 +52,10 @@ class WebNeighborhoodsRepository(
     private val authRepository: WebAuthRepository,
     private val chatRepository: ChatRepository,
     private val feedRepository: WebFeedRepository,
+    actorScopeId: String?,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : NeighborhoodRepository {
-    private val profileCache = mutableMapOf<String, WebCachedCommunityProfile>()
+    private val profileCache = WebActorBoundCommunityProfileCache(actorScopeId)
     private var wallsByKey = emptyMap<String, WebCommunityWallStats>()
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> =
@@ -202,13 +203,11 @@ class WebNeighborhoodsRepository(
     }
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? {
-        val cached = profileCache[userId] ?: return null
-        if (!isCommunityProfileCacheUsable(cached.cachedAtMillis, webCommunityNowMillis(), maxAgeMillis)) return null
-        return cached.profile
+        return profileCache.get(userId, maxAgeMillis)
     }
 
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
-        profileCache[profile.user.id] = WebCachedCommunityProfile(profile, webCommunityNowMillis())
+        profileCache.put(profile)
     }
 
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow {
@@ -224,19 +223,21 @@ class WebNeighborhoodsRepository(
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
+        // Freeze the actor for the entire projection. A response finishing after logout or an
+        // account replacement may still warm its original actor's cache, never the new actor's.
+        val actorId = profileCache.actorId
         val profile = loadProfiles(ids = listOf(userId), authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile)).firstOrNull()
             ?: error("web_community_profile_not_found")
         val followers = loadFollows(followedId = userId, authMode = WebPostgrestAuthMode.Public)
         val following = loadFollows(followerId = userId, authMode = WebPostgrestAuthMode.Public)
         val relatedIds = (followers.map(WebCommunityFollow::followerId) + following.map(WebCommunityFollow::followedId)).distinct()
         val related = loadProfiles(relatedIds, WebPostgrestAuthMode.Public).associateBy(NeighborhoodUser::id)
-        val actorFollowing = authRepository.sessionForAuthenticatedRequest()?.userId?.let { actorId ->
+        val actorFollowing = actorId?.let {
             loadFollows(followerId = actorId, authMode = WebPostgrestAuthMode.SessionRequired)
                 .map(WebCommunityFollow::followedId)
                 .toSet()
         }.orEmpty()
         val posts = feedRepository.getProfilePosts(userId).getOrThrow()
-        val actorId = authRepository.sessionForAuthenticatedRequest()?.userId
         val attachments = actorId?.let { loadSharedAttachments(it, userId, profile.displayName) }.orEmpty()
         val enriched = profile.copy(
             isFollowing = userId in actorFollowing,
@@ -250,10 +251,10 @@ class WebNeighborhoodsRepository(
             attachments = attachments,
             followers = followers.mapNotNull { related[it.followerId]?.copy(isFollowing = it.followerId in actorFollowing) },
             following = following.mapNotNull { related[it.followedId]?.copy(isFollowing = it.followedId in actorFollowing) },
-            isBlockedByCurrentUser = authRepository.sessionForAuthenticatedRequest()?.userId?.let { actorId ->
+            isBlockedByCurrentUser = actorId?.let {
                 loadProfileBlocks(actorId, userId).isNotEmpty()
             } ?: false,
-        ).also { cacheUserProfile(it) }
+        ).also(profileCache::put)
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
@@ -526,6 +527,23 @@ internal fun webCommunityDirectoryKeys(
     val profiles = profileKeys.filter(String::isNotBlank)
     val activeWalls = activeWallKeys.filter(String::isNotBlank)
     return (profiles + activeWalls).distinct()
+}
+
+internal class WebActorBoundCommunityProfileCache(
+    val actorId: String?,
+    private val nowMillis: () -> Long = ::webCommunityNowMillis,
+) {
+    private val entries = mutableMapOf<String, WebCachedCommunityProfile>()
+
+    fun get(profileId: String, maxAgeMillis: Long?): CommunityUserProfile? {
+        val cached = entries[profileId] ?: return null
+        if (!isCommunityProfileCacheUsable(cached.cachedAtMillis, nowMillis(), maxAgeMillis)) return null
+        return cached.profile
+    }
+
+    fun put(profile: CommunityUserProfile) {
+        entries[profile.user.id] = WebCachedCommunityProfile(profile, nowMillis())
+    }
 }
 
 private data class WebCachedCommunityProfile(
