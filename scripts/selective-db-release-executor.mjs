@@ -152,6 +152,12 @@ const approvedReleases = [
       ["20261009073000", "089e1a720afda2c6f6a38951b179293106f8dfad719060d79c1413cb55f64011"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261010090000", "2c1be23a5ece0c970a300464648ec148ce0e023437ead79791171bae0f45fada"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -1212,6 +1218,57 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     `)).rows[0] ?? {};
     if (Object.values(privileges).some((value) => value !== true)) {
       throw new Error("selective_release_profile_safety_permissions_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261010090000")) {
+    const uniqueness = (await client.query(`
+      select
+        exists (
+          select 1
+          from pg_index index_state
+          where index_state.indexrelid='public.community_profiles_phone_local_uidx'::regclass
+            and index_state.indrelid='public.community_profiles'::regclass
+            and index_state.indisunique
+            and index_state.indisvalid
+            and index_state.indnkeyatts=1
+            and index_state.indkey[0]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='phone_local'
+            )
+            and (index_state.indpred is null
+              or pg_get_expr(index_state.indpred, index_state.indrelid) in ('(phone_local IS NOT NULL)', 'phone_local IS NOT NULL'))
+        ) as local_index_valid,
+        exists (
+          select 1
+          from pg_index index_state
+          where index_state.indexrelid='public.unique_phone_normalized'::regclass
+            and index_state.indrelid='public.community_profiles'::regclass
+            and index_state.indisunique
+            and index_state.indisvalid
+            and index_state.indnkeyatts=1
+            and index_state.indkey[0]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='phone_normalized'
+            )
+            and index_state.indpred is null
+        ) as normalized_index_valid,
+        not exists (
+          select 1 from public.community_profiles
+          where phone_local is not null
+          group by phone_local
+          having count(*) > 1
+        ) as local_values_unique,
+        not exists (
+          select 1 from public.community_profiles
+          where phone_normalized is not null
+          group by phone_normalized
+          having count(*) > 1
+        ) as normalized_values_unique
+    `)).rows[0] ?? {};
+    if (Object.values(uniqueness).some((value) => value !== true)) {
+      throw new Error("selective_release_profile_phone_uniqueness_postcondition_failed");
     }
   }
 }

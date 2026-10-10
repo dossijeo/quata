@@ -54,6 +54,11 @@ import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataSavingButton
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
+import com.quata.feature.profile.domain.ProfileInvalidCountryCode
+import com.quata.feature.profile.domain.ProfileInvalidDisplayName
+import com.quata.feature.profile.domain.ProfileInvalidNeighborhood
+import com.quata.feature.profile.domain.ProfileInvalidPhone
+import com.quata.feature.profile.domain.ProfilePhoneCollision
 import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.auth.domain.GoogleOAuthUserCancellation
@@ -216,7 +221,7 @@ fun ProfileScreenHost(
                 }
                 state.errorMessage?.let {
                     Text(
-                        text = it,
+                        text = profileErrorMessage(it, strings),
                         color = Color.Red,
                         modifier = Modifier
                             .testTag(ProfileFeedbackErrorTestTag)
@@ -715,7 +720,21 @@ data class ProfileScreenStrings(
     val googleLinkFailed: String = "Google account could not be linked.",
     val logoutEverywhere: String = "Sign out on all devices",
     val logoutEverywhereConfirmation: String = "This will sign out every device using this account.",
+    val invalidDisplayName: String = "Name must contain between 2 and 80 characters.",
+    val invalidNeighborhood: String = "Neighborhood must contain between 2 and 100 characters.",
+    val invalidCountryCode: String = "Select a valid country prefix.",
+    val invalidPhone: String = "Enter a valid phone number with 6 to 14 digits.",
+    val phoneAlreadyInUse: String = "That phone number is already linked to another account.",
 )
+
+internal fun profileErrorMessage(error: String, strings: ProfileScreenStrings): String = when (error) {
+    ProfileInvalidDisplayName -> strings.invalidDisplayName
+    ProfileInvalidNeighborhood -> strings.invalidNeighborhood
+    ProfileInvalidCountryCode -> strings.invalidCountryCode
+    ProfileInvalidPhone -> strings.invalidPhone
+    ProfilePhoneCollision -> strings.phoneAlreadyInUse
+    else -> error
+}
 
 data class ProfileScreenSlots(
     val isLandscapeLayout: () -> Boolean = { false },

@@ -3,6 +3,7 @@ package com.quata.feature.profile.data
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.profile.domain.SecretQuestionOption
 import com.quata.feature.profile.domain.ProfileUpdate
+import com.quata.feature.profile.domain.ProfilePhoneCollision
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -14,6 +15,45 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class KmpProfileRepositoryTest {
+    @Test
+    fun `profile uniqueness failures map to the stable collision code`() {
+        listOf(
+            "duplicate key value violates unique constraint phone_local_uidx SQLSTATE 23505",
+            "web_profile_patch_http_409",
+            "ios profile status=409",
+        ).forEach { message ->
+            val mapped = IllegalStateException(message).normalizedProfileSaveFailure()
+            assertEquals(ProfilePhoneCollision, mapped.message)
+        }
+    }
+
+    @Test
+    fun `unrelated profile failures preserve the original throwable`() {
+        val original = IllegalStateException("remote_profile_save_failed")
+        assertTrue(original === original.normalizedProfileSaveFailure())
+    }
+
+    @Test
+    fun `repository surfaces a profile patch collision without later mutations`() = runTest {
+        val remote = FailingProfileRemoteGateway("web_profile_patch_http_409")
+        val repository = KmpProfileRepository(
+            remote = remote,
+            sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),
+            avatarUploader = object : ProfileAvatarUploader {
+                override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?) = avatarUri
+                override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) = Unit
+            },
+            emergencyMessages = RecordingEmergencyMessageStore(),
+            emergencyContacts = RecordingEmergencyContactsStore(),
+            catalog = TestProfileCatalog,
+        )
+
+        val result = repository.saveProfile(validUpdate())
+
+        assertEquals(ProfilePhoneCollision, result.exceptionOrNull()?.message)
+        assertTrue(remote.emergencyContactsSaved.isEmpty())
+    }
+
     @Test
     fun `remote patch preserves canonical and compatibility fields`() {
         val patch = ProfileUpdate(
@@ -317,7 +357,9 @@ private class RecordingProfilePatchGateway : ProfileRemoteGateway {
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) = Unit
 }
 
-private class FailingProfileRemoteGateway : ProfileRemoteGateway {
+private class FailingProfileRemoteGateway(
+    private val failureMessage: String = "remote_profile_save_failed",
+) : ProfileRemoteGateway {
     val emergencyContactsSaved = mutableListOf<List<String>>()
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? = null
     override suspend fun getProfiles(profileIds: Collection<String>): List<ProfileRemoteRecord> = emptyList()
@@ -326,12 +368,26 @@ private class FailingProfileRemoteGateway : ProfileRemoteGateway {
     override fun observeEmergencyCandidates(): Flow<List<ProfileRemoteRecord>> = flowOf(emptyList())
     override suspend fun getEmergencyContactIds(profileId: String, cachePolicy: ProfileCachePolicy): List<String> = emptyList()
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
-        error("remote_profile_save_failed")
+        error(failureMessage)
     }
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
         emergencyContactsSaved += contactIds
     }
 }
+
+private fun validUpdate() = ProfileUpdate(
+    displayName = "Ada",
+    neighborhood = "Centro",
+    countryCode = "240",
+    phone = "555123",
+    avatarUri = null,
+    newPassword = "",
+    secretQuestion = "",
+    secretAnswer = "",
+    emergencyContactIds = emptyList(),
+    emergencyMessage = "Help",
+    emergencyMessageIsDefault = true,
+)
 
 private class FailingRecoverySecretAfterPatchGateway(
     private val failAvatarRestore: Boolean = false,

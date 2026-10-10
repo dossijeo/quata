@@ -650,4 +650,9 @@ private val WebProfileScreenStrings = ProfileScreenStrings(
     googleLinkFailed = "No se pudo vincular la cuenta de Google.",
     logoutEverywhere = "Cerrar sesión en todos los dispositivos",
     logoutEverywhereConfirmation = "Se cerrará la sesión en todos los dispositivos que usan esta cuenta.",
+    invalidDisplayName = "El nombre debe tener entre 2 y 80 caracteres.",
+    invalidNeighborhood = "El barrio debe tener entre 2 y 100 caracteres.",
+    invalidCountryCode = "Selecciona un prefijo de país válido.",
+    invalidPhone = "Introduce un teléfono válido de 6 a 14 dígitos.",
+    phoneAlreadyInUse = "Ese teléfono ya está vinculado a otra cuenta.",
 )

@@ -2,8 +2,10 @@ package com.quata.feature.profile.presentation
 
 import com.quata.core.common.AppDispatchers
 import com.quata.feature.profile.domain.ProfileRepository
+import com.quata.feature.profile.domain.ProfileDetailsValidation
 import com.quata.feature.profile.domain.ProfileUpdate
 import com.quata.feature.profile.domain.UserProfile
+import com.quata.feature.profile.domain.validateProfileDetails
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -103,23 +105,32 @@ class ProfileViewModel(
     private fun saveProfile() {
         val state = _uiState.value
         val profile = state.profile ?: return
+        if (state.isSaving) return
+        val requestedUpdate = ProfileUpdate(
+            displayName = profile.displayName,
+            neighborhood = profile.neighborhood,
+            countryCode = profile.countryCode,
+            phone = profile.phone,
+            avatarUri = profile.avatarUri,
+            newPassword = state.newPassword,
+            secretQuestion = profile.selectedSecretQuestion,
+            secretAnswer = state.newSecretAnswer,
+            emergencyContactIds = profile.emergencyContactIds.distinct().take(5),
+            emergencyMessage = profile.emergencyMessage,
+            emergencyMessageIsDefault = profile.emergencyMessageIsDefault
+        )
+        val validatedUpdate = when (val validation = validateProfileDetails(requestedUpdate)) {
+            is ProfileDetailsValidation.Valid -> validation.update
+            is ProfileDetailsValidation.Invalid -> {
+                _uiState.update {
+                    it.copy(errorMessage = validation.code, successMessage = null)
+                }
+                return
+            }
+        }
+        _uiState.update { it.copy(isSaving = true, errorMessage = null, successMessage = null) }
         scope.launch {
-            _uiState.update { it.copy(isSaving = true, errorMessage = null, successMessage = null) }
-            repository.saveProfile(
-                ProfileUpdate(
-                    displayName = profile.displayName,
-                    neighborhood = profile.neighborhood,
-                    countryCode = profile.countryCode,
-                    phone = profile.phone,
-                    avatarUri = profile.avatarUri,
-                    newPassword = state.newPassword,
-                    secretQuestion = profile.selectedSecretQuestion,
-                    secretAnswer = state.newSecretAnswer,
-                    emergencyContactIds = profile.emergencyContactIds.distinct().take(5),
-                    emergencyMessage = profile.emergencyMessage,
-                    emergencyMessageIsDefault = profile.emergencyMessageIsDefault
-                )
-            )
+            repository.saveProfile(validatedUpdate)
                 .onSuccess {
                     hasLocalEdits = false
                     _uiState.update {

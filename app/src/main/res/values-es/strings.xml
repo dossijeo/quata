@@ -644,4 +644,9 @@
     <string name="profile_cancel_google_link">Cancelar vinculación con Google</string>
     <string name="profile_google_linked">Cuenta de Google vinculada.</string>
     <string name="profile_google_link_failed">No se pudo vincular la cuenta de Google.</string>
+    <string name="profile_invalid_display_name">El nombre debe tener entre 2 y 80 caracteres.</string>
+    <string name="profile_invalid_neighborhood">El barrio debe tener entre 2 y 100 caracteres.</string>
+    <string name="profile_invalid_country_code">Selecciona un prefijo de país válido.</string>
+    <string name="profile_invalid_phone">Introduce un teléfono válido de 6 a 14 dígitos.</string>
+    <string name="profile_phone_already_in_use">Ese teléfono ya está vinculado a otra cuenta.</string>
 </resources>
