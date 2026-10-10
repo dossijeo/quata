@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA/account-avatar-preview"
+  ],
+  "status": "passed",
+  "productSha": "465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+  "certification": "shared-account-avatar-fullscreen-preview-parity-rendered-acceptance-final-ci-pending",
+  "evidence": {
+    "accountAvatarPreview": {
+      "status": "passed",
+      "sha": "465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+      "report": "docs/candidate-attestations/evidence/account-avatar-preview-465dc18a.json",
+      "reportSha256": "ce477d92d2e4e73ee69b4ff6d6cef206a149e69871cc00673f89b23b9f5dfa49",
+      "reportStatus": "passed",
+      "reportGitHead": "465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "shared_profile_preview_state_and_semantic_anchor_verified",
+        "rendered_common_avatar_preview_exact_source_open_and_close_passed",
+        "android_existing_fullscreen_image_adapter_reused",
+        "web_uncropped_source_adapter_compiled",
+        "ios_uncropped_source_adapter_compiled",
+        "root_surface_reconciliation_contract_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_rendered_and_compile_only_no_backend_or_platform_fixture_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/account-avatar-preview-parity-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/root-surface-composition-reconciliation-contract.test.mjs",
+    ".\\gradlew.bat :feature:profile:wasmJsBrowserTest --tests com.quata.feature.profile.presentation.ProfilePrefixRenderedInteractionTest.renderedAvatarOpensTheSharedFullscreenPreview --no-daemon --console=plain",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:profile:compileKotlinIosX64 --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/account-avatar-preview.json --head 465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "118c90361c2b16feb24c8dbd18ae61b602f58122",
+    "blockingFindings": []
+  },
+  "notes": [
+    "ProfileScreenHost now owns preview open state, semantic anchors, the common fullscreen overlay and back dismissal for Android, Web and iOS.",
+    "Android reuses AttachmentFullscreenMediaContent; Web and iOS render the exact decoded avatar source uncropped with ContentScale.Fit.",
+    "The focused Wasm rendered interaction verified the exact source plus close/return and passed 1/1 and the three platform adapters compiled. No complete E2E matrix was repeated only for the SHA.",
+    "The historical account-avatar.json receipt remains scoped to authenticated edit, save, restore and cleanup and is not relabeled as preview evidence.",
+    "The inventory correction deliberately avoids claiming the unintegrated media-producer catalogue; this unit closes only the Account avatar preview gap."
+  ]
+}

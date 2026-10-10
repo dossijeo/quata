@@ -9,7 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -58,7 +57,7 @@ import com.quata.core.platform.UnsupportedContactPickerService
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.AttachmentPreview
-import com.quata.core.ui.components.AttachmentViewerDialog
+import com.quata.core.ui.components.AttachmentFullscreenMediaContent
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
@@ -111,7 +110,6 @@ fun ProfileScreen(
     var photoMenuOpen by rememberSaveable { mutableStateOf(false) }
     var cameraOpen by rememberSaveable { mutableStateOf(false) }
     var editorUri by remember { mutableStateOf<Uri?>(null) }
-    var preview by remember { mutableStateOf<AttachmentPreview?>(null) }
     var avatarChanged by remember { mutableStateOf<((String?) -> Unit)?>(null) }
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     val backDispatcher = remember { ProfileBackDispatcher() }
@@ -141,12 +139,10 @@ fun ProfileScreen(
             contentPadding = padding,
                 slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
-                avatar = { name, uri -> AvatarImage(
-                    name, uri, profileId = profileId,
-                    modifier = Modifier.size(76.dp).clickable(enabled = !uri.isNullOrBlank()) {
-                        preview = AttachmentPreview(name, uri ?: return@clickable, "image/jpeg")
-                    },
-                ) },
+                avatar = { name, uri -> AvatarImage(name, uri, profileId = profileId, modifier = Modifier.size(76.dp)) },
+                avatarPreview = { name, uri, modifier ->
+                    AttachmentFullscreenMediaContent(AttachmentPreview(name, uri, "image/jpeg"), modifier)
+                },
                 avatarActions = { change ->
                     avatarChanged = change
                     OutlinedButton(
@@ -226,7 +222,6 @@ fun ProfileScreen(
                 backDispatcher = backDispatcher,
             ),
         )
-        preview?.let { AttachmentViewerDialog(it) { preview = null } }
         editorUri?.let { uri -> QuataImageEditorDialog(uri, onDismiss = { editorUri = null }, onEdited = {
             editorUri = null; avatarChanged?.invoke(it.toString())
         }, mode = QuataImageEditorMode.Avatar) }

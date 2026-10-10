@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -52,6 +53,7 @@ import com.quata.core.common.AppDispatchers
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataSavingButton
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileInvalidCountryCode
@@ -70,6 +72,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 const val ProfileAvatarChangeTestTag = "profile.avatar.change"
 const val ProfileAvatarGalleryTestTag = "profile.avatar.gallery"
 const val ProfileAvatarCameraTestTag = "profile.avatar.camera"
+const val ProfileAvatarPreviewOpenTestTag = "profile.avatar.preview.open"
+const val ProfileAvatarPreviewRootTestTag = "profile.avatar.preview.root"
+const val ProfileAvatarPreviewMediaTestTag = "profile.avatar.preview.media"
 const val ProfileSaveChangesTestTag = "profile.save"
 const val ProfileDetailsOpenTestTag = "profile.details.open"
 const val ProfileDetailsRootTestTag = "profile.details.root"
@@ -127,6 +132,7 @@ fun ProfileScreenHost(
     var page by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
     var showSos by rememberSaveable { mutableStateOf(false) }
     var confirmation by rememberSaveable { mutableStateOf<ProfileDangerousAction?>(null) }
+    var avatarPreviewOpen by rememberSaveable { mutableStateOf(false) }
     fun confirmDangerousAction() {
         val action = confirmation ?: return
         confirmation = null
@@ -149,9 +155,11 @@ fun ProfileScreenHost(
         }
     }
     SideEffect {
-        slots.backDispatcher?.setHandler(if (showSos || page != ProfileAccountPage.Overview) {
+        slots.backDispatcher?.setHandler(if (avatarPreviewOpen || showSos || page != ProfileAccountPage.Overview) {
             {
-            if (showSos) {
+            if (avatarPreviewOpen) {
+                avatarPreviewOpen = false
+            } else if (showSos) {
                 showSos = false
                 viewModel.onEvent(ProfileUiEvent.ClearMessages)
             } else if (page != ProfileAccountPage.Overview) {
@@ -200,6 +208,7 @@ fun ProfileScreenHost(
                         onSos = { showSos = true },
                         onSave = { viewModel.onEvent(ProfileUiEvent.Save) },
                         onAvatarChanged = { viewModel.onEvent(ProfileUiEvent.AvatarChanged(it)) },
+                        onAvatarPreview = { avatarPreviewOpen = true },
                         onLogout = onLogout,
                     )
                     ProfileAccountPage.Details -> ProfileDetailsContent(
@@ -372,6 +381,19 @@ fun ProfileScreenHost(
                 ),
             )
         }
+        if (avatarPreviewOpen && profile?.avatarUri?.isNotBlank() == true) {
+            QuataFullscreenMediaOverlayContent(
+                title = profile.displayName,
+                onDismiss = { avatarPreviewOpen = false },
+                modifier = Modifier.testTag(ProfileAvatarPreviewRootTestTag),
+            ) { mediaModifier ->
+                slots.avatarPreview(
+                    profile.displayName,
+                    profile.avatarUri,
+                    mediaModifier.testTag(ProfileAvatarPreviewMediaTestTag),
+                )
+            }
+        }
         confirmation?.let { action ->
             AlertDialog(
                 modifier = Modifier
@@ -431,12 +453,22 @@ private fun ProfileOverviewContent(
     onSos: () -> Unit,
     onSave: () -> Unit,
     onAvatarChanged: (String?) -> Unit,
+    onAvatarPreview: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val profile = requireNotNull(state.profile)
     AppearanceSettingsSectionContent(touchFlowEnabled, themeMode, strings.appearance, onTouchFlowEnabledChange, onThemeModeChange)
     ProfileOverviewAccountCardContent(
-        avatar = { slots.avatar(profile.displayName, profile.avatarUri) },
+        avatar = {
+            Box(
+                Modifier
+                    .testTag(ProfileAvatarPreviewOpenTestTag)
+                    .semantics { contentDescription = ProfileAvatarPreviewOpenTestTag }
+                    .clickable(enabled = !profile.avatarUri.isNullOrBlank(), onClick = onAvatarPreview),
+            ) {
+                slots.avatar(profile.displayName, profile.avatarUri)
+            }
+        },
         actions = {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 slots.avatarActions { uri -> onAvatarChanged(uri) }
@@ -740,6 +772,7 @@ data class ProfileScreenSlots(
     val isLandscapeLayout: () -> Boolean = { false },
     val isImeVisible: () -> Boolean = { false },
     val avatar: @Composable (displayName: String, avatarUri: String?) -> Unit,
+    val avatarPreview: @Composable (displayName: String, avatarUri: String, modifier: Modifier) -> Unit,
     val avatarActions: @Composable ((String?) -> Unit) -> Unit = {},
     val emergencyContactRow: @Composable (EmergencyContactCandidate, Boolean, () -> Unit) -> Unit,
     val emergencyContactActions: @Composable (() -> Unit)? = null,

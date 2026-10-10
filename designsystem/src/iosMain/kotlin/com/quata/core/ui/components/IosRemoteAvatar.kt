@@ -65,6 +65,29 @@ fun IosRemoteAvatar(
     )
 }
 
+/** Remote/local profile image without the circular avatar chrome, for fullscreen previews. */
+@Composable
+fun IosRemoteImage(
+    imageUrl: String,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Fit,
+) {
+    val normalizedUrl = imageUrl.trim().takeIf(::isIosAvatarPreviewUrl)
+    var image by remember(normalizedUrl) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(normalizedUrl) {
+        image = if (normalizedUrl == null) null else loadIosRemoteAvatarOrNull(normalizedUrl)
+    }
+    image?.let { decoded ->
+        Image(
+            bitmap = decoded,
+            contentDescription = contentDescription,
+            contentScale = contentScale,
+            modifier = modifier,
+        )
+    }
+}
+
 internal fun isIosRemoteAvatarUrl(value: String): Boolean =
     value.startsWith("https://") || value.startsWith("http://")
 

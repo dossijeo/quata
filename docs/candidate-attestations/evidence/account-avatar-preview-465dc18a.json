@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "unit": "OVR-MEDIA/account-avatar-preview",
+  "status": "passed",
+  "productSha": "465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+  "gitHead": "465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+  "workingTreeDirty": false,
+  "git": {
+    "head": "465dc18a12adb9db6f586b74aa3f2c6ce07f6d17",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "shared_profile_preview_state_and_semantic_anchor_verified",
+    "rendered_common_avatar_preview_exact_source_open_and_close_passed",
+    "android_existing_fullscreen_image_adapter_reused",
+    "web_uncropped_source_adapter_compiled",
+    "ios_uncropped_source_adapter_compiled",
+    "root_surface_reconciliation_contract_preserved"
+  ],
+  "checks": {
+    "sourceContracts": {
+      "status": "passed",
+      "command": "node --test scripts/account-avatar-preview-parity-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/root-surface-composition-reconciliation-contract.test.mjs",
+      "tests": 30
+    },
+    "sharedRenderedInteraction": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :feature:profile:wasmJsBrowserTest --tests com.quata.feature.profile.presentation.ProfilePrefixRenderedInteractionTest.renderedAvatarOpensTheSharedFullscreenPreview --no-daemon --console=plain",
+      "tests": 1,
+      "runtime": "ChromeHeadless 154 / Wasm"
+    },
+    "platformCompilation": {
+      "status": "passed",
+      "command": ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:profile:compileKotlinIosX64 --no-daemon --console=plain",
+      "targets": [
+        "Android debug Kotlin",
+        "Web Wasm Kotlin",
+        "iOS x64 Kotlin"
+      ]
+    },
+    "diffCheck": {
+      "status": "passed",
+      "command": "git diff --check"
+    }
+  },
+  "verifiedBehavior": [
+    "ProfileScreenHost owns the avatar preview state, semantic anchors, fullscreen overlay and back dismissal on all three platforms.",
+    "The rendered common interaction opens the preview from the avatar, associates the exact name and URI with that preview, and closes back to Profile.",
+    "Android reuses AttachmentFullscreenMediaContent without retaining a second local preview owner.",
+    "Web and iOS decode the exact avatar source and render it uncropped with ContentScale.Fit inside the shared overlay."
+  ],
+  "scope": {
+    "backendMutation": false,
+    "e2eMatrixRepeated": false,
+    "nativePlatformExecutionAttributed": false,
+    "historicalAccountAvatarReceiptReused": false
+  },
+  "notes": [
+    "This focal receipt closes the previously explicit preview parity gap. It does not replace or extend account-avatar.json, which remains the receipt for authenticated editing, save, restore and cleanup.",
+    "The shared rendered acceptance covers the interaction owner; target compilation verifies each platform adapter. No full platform matrix was repeated for the new SHA."
+  ]
+}
