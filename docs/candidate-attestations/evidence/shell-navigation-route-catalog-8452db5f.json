@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "finite_common_destination_catalog_explicit_and_complete",
+    "android_registers_every_common_destination_or_owning_nested_host",
+    "web_maps_every_product_route_family_and_exact_nested_identifiers",
+    "ios_pending_route_catalog_closed_with_symmetric_persistence",
+    "historical_platform_receipts_preserved",
+    "generic_arbitrary_backstack_residual_removed"
+  ],
+  "observations": {
+    "unit": "FLOW-SHELL-NAV",
+    "contractPassed": 5,
+    "contractFailed": 0,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "productRouteCatalogFinite": true
+  }
+}

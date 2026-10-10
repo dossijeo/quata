@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
+  "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "routeCatalog": {
+      "status": "passed",
+      "sha": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-8452db5f.json",
+      "reportSha256": "809e5af927fdc2fe84fc3a959c21e38ebbffffc9e88792defa11c7b6dd4b9137",
+      "reportStatus": "passed",
+      "reportGitHead": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_common_destination_catalog_explicit_and_complete",
+        "android_registers_every_common_destination_or_owning_nested_host",
+        "web_maps_every_product_route_family_and_exact_nested_identifiers",
+        "ios_pending_route_catalog_closed_with_symmetric_persistence",
+        "historical_platform_receipts_preserved",
+        "generic_arbitrary_backstack_residual_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "source_and_document_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/shell-navigation-route-catalog-contract.test.mjs scripts/shell-navigation-exact-restoration-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/shell-navigation-route-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The contract enumerates the finite current product route catalog and fails if a common destination, Android owner, Web fragment family or iOS PendingRoute is added without being reconciled.",
+    "Existing exact root, Chat, post, public-profile and Notifications-to-Chat receipts remain bound to their original executed products; this unit attributes no new platform execution.",
+    "Scroll, multimedia position and destination-internal state stay with the feature that owns them. They are not additional shell routes and are not recast as generic FLOW-SHELL-NAV limits.",
+    "No application runtime, backend, platform adapter, CI workflow or historical evidence artifact changed."
+  ]
+}
