@@ -366,7 +366,7 @@ head `c5eb125d` y merge `3e36885e`, con gates finales Web/Android, iOS y CodeQL
 SUCCESS. El cierre no promociona ACCOUNT-DETAILS ni unidades vecinas.
 
 Se conserva el límite Android de Feed/continuidad tras Save; Web abre Login explícitamente. Las aceptaciones focales
-iOS `37178873` y Android `16dc7789` recorren desde el Login común las acciones «Olvidé mi contraseña»
+iOS `37178873` y Android `de515aec` recorren desde el Login común las acciones «Olvidé mi contraseña»
 y «Volver», abren la raíz Recovery y retornan al Login sin ejecutar un reset. El alcance lingüístico se
 limita a esas dos acciones observadas y no certifica una localización exhaustiva de Recovery. Ambas se
 componen con la mutación remota histórica sin repetirla; manifests

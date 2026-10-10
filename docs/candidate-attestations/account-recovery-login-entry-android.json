@@ -3,12 +3,12 @@
   "units": [
     "ACCOUNT-RECOVERY-SECRET"
   ],
-  "productSha": "16dc7789581177c953b56a7c5583c3e79000a345",
+  "productSha": "de515aec136247da91787a0b80cb23d8186ef868",
   "testHead": "46f3c7161251d497be58a7a7de5f1545e7df5daa",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "16dc7789581177c953b56a7c5583c3e79000a345",
+      "sha": "de515aec136247da91787a0b80cb23d8186ef868",
       "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-android-46f3c716.json",
       "reportSha256": "08cf95113759b7bbe0cb82500a00e8c02bc1c29370afdd830467fedcf7f8d9c2",
       "requireReportArtifact": true,
@@ -28,7 +28,7 @@
   "notes": [
     "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
     "The Android focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
-    "The current recomposed Product 16dc7789 preserves the Android focal test blob 4e111d8b84b0e0a2dd142d74f8be905fd0687442 and contract blob 745307e83dffc6dfccbe844fd7f2e414830c538f byte-for-byte from Product 663fc67c; the product commit is patch-equivalent after rebasing onto the frozen iOS candidate and the six documentation commits are reanchored to the current predecessor SHAs. Product 663fc67c preserves those focal blobs from previously reviewed Product 554f1063; the other ancestry changes belong to the reviewed iOS Recovery and PROF-SAFETY report-retry predecessor chain. Product 554f1063 preserves the Android focal test and contract byte-for-byte from previously reviewed Product f9d9c153; the only tree differences belong to the reviewed iOS Recovery and PROF-SAFETY predecessor chain. Product f9d9c153 preserves the Android focal test and contract byte-for-byte from previously reviewed Product c864fd12; the only tree differences belong to reanchored predecessor documentation. Product c864fd12 preserves those blobs from Product fef70955, which preserves them from previously reviewed Product bef166af; the accepted execution remains bound to testHead 46f3c716, so no platform matrix was repeated solely for ancestry.",
+    "The current recomposed Product de515aec preserves the Android focal test blob 4e111d8b84b0e0a2dd142d74f8be905fd0687442 and contract blob 745307e83dffc6dfccbe844fd7f2e414830c538f byte-for-byte from Product 16dc7789; the product commit is patch-equivalent after rebasing onto the integrated #595 squash, whose tree is identical to its frozen candidate. Product 16dc7789 preserves the Android focal test blob 4e111d8b84b0e0a2dd142d74f8be905fd0687442 and contract blob 745307e83dffc6dfccbe844fd7f2e414830c538f byte-for-byte from Product 663fc67c; the product commit is patch-equivalent after rebasing onto the frozen iOS candidate and the six documentation commits are reanchored to the current predecessor SHAs. Product 663fc67c preserves those focal blobs from previously reviewed Product 554f1063; the other ancestry changes belong to the reviewed iOS Recovery and PROF-SAFETY report-retry predecessor chain. Product 554f1063 preserves the Android focal test and contract byte-for-byte from previously reviewed Product f9d9c153; the only tree differences belong to the reviewed iOS Recovery and PROF-SAFETY predecessor chain. Product f9d9c153 preserves the Android focal test and contract byte-for-byte from previously reviewed Product c864fd12; the only tree differences belong to reanchored predecessor documentation. Product c864fd12 preserves those blobs from Product fef70955, which preserves them from previously reviewed Product bef166af; the accepted execution remains bound to testHead 46f3c716, so no platform matrix was repeated solely for ancestry.",
     "No product runtime, backend, migration, credentials or historical evidence were changed."
   ]
 }
