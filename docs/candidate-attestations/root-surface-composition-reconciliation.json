@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-FEED",
+    "SCR-CONVERSATIONS"
+  ],
+  "status": "passed",
+  "productSha": "bc53fddf29d732fb344ea40d14616e58a543eb24",
+  "certification": "root-surface-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-go-final-ci-pending",
+  "evidence": {
+    "rootSurfaceComposition": {
+      "status": "passed",
+      "sha": "bc53fddf29d732fb344ea40d14616e58a543eb24",
+      "report": "docs/candidate-attestations/evidence/root-surface-composition-reconciliation-1be16887.json",
+      "reportSha256": "a5bfd05b33f9132014bbff31126101255f6a8bad085b518fbaa29f4529c99e29",
+      "reportStatus": "passed",
+      "reportGitHead": "1be16887ffb8490710b59ee1ee48a13db4d25032",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "feed_and_conversations_composition_contract_3_of_3_passed",
+        "twenty_four_thematic_receipts_preserved",
+        "ci_fast_and_web_wave2_wiring_present",
+        "ci_fast_contracts_901_of_901_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/root-surface-composition-reconciliation-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/root-surface-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The Feed and Conversations roots are composed only from existing passed thematic receipts.",
+    "The reconciliation removes generic global or non-focal recertification placeholders from the two roots; it does not erase or broaden the limits owned by media, detail, comments, profiles, mutations, invitations, creation, network recovery or other child units.",
+    "No runtime, product behavior, backend, evidence receipt or CI workflow changed.",
+    "The cumulative owned delta was recomposed over notification-settings predecessor 1a8898f5. Product bc53fddf preserves the composition contract and documentary delta from previously reviewed Product dc637f8c; only predecessor ancestry and aggregate package wiring changed, so the historical 901/901 fast suite was not repeated solely for commit identity.",
+    "Independent exact-head review is pending for the recomposed head."
+  ]
+}
