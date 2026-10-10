@@ -28,7 +28,12 @@ vídeos nuevos.
 
 La herramienta no acepta otros hosts, extensiones ni columnas. El journal
 privado contiene las URLs e identificadores necesarios para rollback y permanece
-en `build-reports/migration/private/`, fuera de Git.
+en `build-reports/migration/private/`, fuera de Git. Sus checkpoints se escriben
+mediante archivo temporal sincronizado y renombrado atómico. Apply, postflight y
+rollback toman un lock exclusivo junto al journal para impedir dos ejecuciones
+concurrentes. Si un proceso termina de forma abrupta, se comprueba primero que
+no siga vivo ni exista otra ejecución activa y sólo entonces se retira
+manualmente el archivo `<journal>.lock` antes de reanudar.
 
 ## Preflight de solo lectura
 

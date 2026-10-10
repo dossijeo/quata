@@ -354,6 +354,8 @@ finally {
     $previousErrorActionPreference=$ErrorActionPreference; $ErrorActionPreference="SilentlyContinue"
     try { & docker rm -f $name 2>$null | Out-Null } finally { $ErrorActionPreference=$previousErrorActionPreference }
     $containerResidue=@(& docker ps -a --filter "name=^/${name}$" --format "{{.Names}}" 2>$null)
+    $dockerPsExitCode=$LASTEXITCODE
+    if ($dockerPsExitCode -ne 0) { Fail "restore_target_cleanup_verification_failed" }
     if ($containerResidue.Count -ne 0) { Fail "restore_target_cleanup_failed" }
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
     if (Test-Path -LiteralPath $work) { Fail "restore_work_cleanup_failed" }

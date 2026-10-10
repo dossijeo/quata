@@ -57,19 +57,24 @@ test("switch and rollback statements are exact-current-value guarded", () => {
 });
 
 test("rollback journal cannot redirect SQL or storage cleanup outside the owned run prefix", () => {
+  const backendOrigin = "https://project.supabase.co";
   const plan = buildPlan(rows.slice(0, 1), "cors-20261011-abcdef01");
   const entry = plan.entries[0];
-  entry.publicUrl = "https://project.supabase.co/storage/v1/object/public/community-posts/historical-cors-v1/cors-20261011-abcdef01/a.mp4";
+  entry.publicUrl = `${backendOrigin}/storage/v1/object/public/${entry.bucket}/${entry.objectPath}`;
   const target = {
     bucket: entry.bucket,
     objectPath: entry.objectPath,
+    sourceHash: entry.sourceHash,
     contentSha256: "a".repeat(64),
     size: 100,
   };
-  const journal = { check: "OVR-MEDIA-HISTORICAL-CORS-MIGRATION-001", plan: sanitizedPlan(plan), entries: [entry], targets: [target] };
-  assert.equal(validateJournal(journal), journal);
-  assert.throws(() => validateJournal({ ...journal, entries: [{ ...entry, table: "community_posts; drop table public.community_posts;--" }] }), /journal_entry_scope_invalid/);
-  assert.throws(() => validateJournal({ ...journal, targets: [{ ...target, objectPath: "avatars/victim.jpg" }] }), /journal_target_path_invalid/);
+  const journal = { check: "OVR-MEDIA-HISTORICAL-CORS-MIGRATION-001", backendOrigin, plan: sanitizedPlan(plan), entries: [entry], targets: [target] };
+  assert.equal(validateJournal(journal, backendOrigin), journal);
+  assert.throws(() => validateJournal({ ...journal, entries: [{ ...entry, table: "community_posts; drop table public.community_posts;--" }] }, backendOrigin), /journal_entry_scope_invalid/);
+  assert.throws(() => validateJournal({ ...journal, targets: [{ ...target, objectPath: "avatars/victim.jpg" }] }, backendOrigin), /journal_target_path_invalid/);
+  assert.throws(() => validateJournal({ ...journal, entries: [{ ...entry, publicUrl: "https://attacker.example/victim.mp4" }] }, backendOrigin), /journal_entry_public_url_invalid/);
+  assert.throws(() => validateJournal({ ...journal, entries: [{ ...entry, sourceHash: "b".repeat(64) }] }, backendOrigin), /journal_entry_mapping_invalid/);
+  assert.throws(() => validateJournal({ ...journal, targets: [...journal.targets, { ...target, bucket: "official-media" }] }, backendOrigin), /journal_target_unreferenced/);
 });
 
 test("logical backup restore drill covers both URL-bearing tables and emits a bound proof", async () => {
@@ -82,6 +87,8 @@ test("logical backup restore drill covers both URL-bearing tables and emits a bo
   assert.match(source, /tables=\$tables/);
   assert.match(source, /target="disposable-postgresql-17"/);
   assert.match(source, /cleanupVerified=\$true/);
+  assert.match(source, /\$dockerPsExitCode=\$LASTEXITCODE/);
+  assert.match(source, /restore_target_cleanup_verification_failed/);
 });
 
 test("runbook preserves the bounded source, backup, postflight and rollback contract", async () => {
@@ -94,6 +101,16 @@ test("runbook preserves the bounded source, backup, postflight and rollback cont
   assert.match(source, /--mode postflight/);
   assert.match(source, /--mode rollback/);
   assert.match(source, /No se versionan credenciales, URLs de origen, IDs de filas, tokens ni/);
+  assert.match(source, /archivo temporal sincronizado y renombrado atómico/);
+  assert.match(source, /lock exclusivo/);
+});
+
+test("journal checkpoints are atomic and mutation modes hold an exclusive lock", async () => {
+  const source = await readFile(new URL("./media-historical-cors-migration.mjs", import.meta.url), "utf8");
+  assert.match(source, /await handle\.sync\(\)[\s\S]*await rename\(temporaryPath, path\)/);
+  assert.match(source, /open\(lockPath, "wx", 0o600\)/);
+  assert.match(source, /\["apply", "postflight", "rollback"\][\s\S]*acquireJournalLock/);
+  assert.match(source, /await releaseJournalLock\(journalLock\)/);
 });
 
 test("all active post video producers use authenticated Supabase Storage and retain rollback", async () => {
@@ -111,6 +128,7 @@ test("all active post video producers use authenticated Supabase Storage and ret
   assert.doesNotMatch(androidOfficial, /uploadPostVideoRest/);
   assert.match(androidFeed, /supabaseApi\.uploadPostVideo[\s\S]*supabaseApi\.deletePostMediaObject/);
   assert.match(androidOfficial, /supabaseApi\.uploadPostVideo/);
+  assert.match(androidOfficial, /supabaseApi\.deletePostMediaObject/);
   assert.match(androidApi, /openStream: \(\) -> InputStream/);
   assert.match(androidHttp, /sink\.writeAll\(input\.source\(\)\)/);
   assert.doesNotMatch(web, /wp-json\/quqos\/v1\/upload-video/);

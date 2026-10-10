@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -128,21 +128,61 @@ function assertEntryShape(entry) {
   return true;
 }
 
-export function validateJournal(journal) {
+function normalizedBackendOrigin(value) {
+  const url = new URL(String(value ?? ""));
+  if (url.protocol !== "https:" || url.pathname !== "/" || url.search || url.hash || url.username || url.password) {
+    throw new Error("journal_backend_origin_invalid");
+  }
+  return url.origin;
+}
+
+function expectedPublicUrl(backendOrigin, bucket, objectPath) {
+  return `${backendOrigin}/storage/v1/object/public/${bucket}/${encodeStoragePath(objectPath)}`;
+}
+
+export function validateJournal(journal, configuredBackendOrigin) {
   if (journal?.check !== CHECK || !Array.isArray(journal.entries) || !Array.isArray(journal.targets)) throw new Error("journal_invalid");
   const runId = safeRunId(journal?.plan?.runId);
-  for (const entry of journal.entries) assertEntryShape(entry);
-  const targetKeys = new Set();
+  const backendOrigin = normalizedBackendOrigin(configuredBackendOrigin);
+  if (normalizedBackendOrigin(journal.backendOrigin) !== backendOrigin) throw new Error("journal_backend_origin_mismatch");
+  const targets = new Map();
   for (const target of journal.targets) {
     if (!["community-posts", "official-media"].includes(target?.bucket)) throw new Error("journal_target_bucket_invalid");
-    const pattern = new RegExp(`^${TARGET_PREFIX}/${runId}/[a-f0-9]{64}\\.mp4$`);
-    if (!pattern.test(target?.objectPath ?? "")) throw new Error("journal_target_path_invalid");
+    if (!/^[a-f0-9]{64}$/.test(target?.sourceHash ?? "")) throw new Error("journal_target_source_invalid");
+    const expectedPath = `${TARGET_PREFIX}/${runId}/${target.sourceHash}.mp4`;
+    if (target?.objectPath !== expectedPath) throw new Error("journal_target_path_invalid");
     if (!/^[a-f0-9]{64}$/.test(target?.contentSha256 ?? "") || !Number.isInteger(target?.size) || target.size <= 0 || target.size > 100 * 1024 * 1024) {
       throw new Error("journal_target_content_invalid");
     }
-    targetKeys.add(`${target.bucket}/${target.objectPath}`);
+    const targetKey = `${target.bucket}/${target.objectPath}`;
+    if (targets.has(targetKey)) throw new Error("journal_target_duplicate");
+    targets.set(targetKey, target);
   }
-  if (journal.entries.some((entry) => !targetKeys.has(entry.targetKey))) throw new Error("journal_target_mapping_invalid");
+  const referencedTargets = new Set();
+  const rowKeys = new Set();
+  for (const entry of journal.entries) {
+    assertEntryShape(entry);
+    const rowKey = `${entry.table}:${entry.id}`;
+    if (rowKeys.has(rowKey)) throw new Error("journal_entry_duplicate");
+    rowKeys.add(rowKey);
+    const expectedHash = sha256(entry.sourceUrl);
+    const expectedPath = `${TARGET_PREFIX}/${runId}/${expectedHash}.mp4`;
+    const expectedTargetKey = `${entry.bucket}/${expectedPath}`;
+    if (entry.sourceHash !== expectedHash || entry.objectPath !== expectedPath || entry.targetKey !== expectedTargetKey) {
+      throw new Error("journal_entry_mapping_invalid");
+    }
+    const target = targets.get(expectedTargetKey);
+    if (!target || target.sourceHash !== expectedHash) throw new Error("journal_target_mapping_invalid");
+    if (entry.publicUrl !== expectedPublicUrl(backendOrigin, entry.bucket, expectedPath)) throw new Error("journal_entry_public_url_invalid");
+    referencedTargets.add(expectedTargetKey);
+  }
+  if (referencedTargets.size !== targets.size) throw new Error("journal_target_unreferenced");
+  const reconstructed = sanitizedPlan({ runId, entries: journal.entries, targets: journal.targets });
+  if (journal.plan.rowCount !== reconstructed.rowCount || journal.plan.distinctTargetCount !== reconstructed.distinctTargetCount ||
+      journal.plan.mappingSha256 !== reconstructed.mappingSha256 || JSON.stringify(journal.plan.byTable) !== JSON.stringify(reconstructed.byTable) ||
+      JSON.stringify(journal.plan.byBucket) !== JSON.stringify(reconstructed.byBucket)) {
+    throw new Error("journal_plan_mismatch");
+  }
   return journal;
 }
 
@@ -423,7 +463,42 @@ function parseArgs(argv) {
 
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  let handle;
+  try {
+    handle = await open(temporaryPath, "wx", 0o600);
+    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.sync();
+    await handle.close();
+    handle = undefined;
+    await rename(temporaryPath, path);
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    await unlink(temporaryPath).catch(() => {});
+    throw error;
+  }
+}
+
+async function acquireJournalLock(path) {
+  await mkdir(dirname(path), { recursive: true });
+  const lockPath = `${path}.lock`;
+  let handle;
+  try {
+    handle = await open(lockPath, "wx", 0o600);
+    await handle.writeFile(`${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })}\n`, "utf8");
+    await handle.sync();
+    return { handle, lockPath };
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    if (error?.code === "EEXIST") throw new Error("journal_lock_exists");
+    throw error;
+  }
+}
+
+async function releaseJournalLock(lock) {
+  if (!lock) return;
+  await lock.handle.close();
+  await unlink(lock.lockPath);
 }
 
 async function readAuthorization(options) {
@@ -440,9 +515,11 @@ async function run(options) {
   const backend = await publicConfig();
   let session;
   let journal;
+  let journalLock;
   try {
+    if (["apply", "postflight", "rollback"].includes(options.mode)) journalLock = await acquireJournalLock(options.journal);
     if (["postflight", "rollback"].includes(options.mode)) {
-      journal = validateJournal(JSON.parse(await readFile(options.journal, "utf8")));
+      journal = validateJournal(JSON.parse(await readFile(options.journal, "utf8")), backend.url);
       report.plan = journal.plan;
       if (options.mode === "postflight") {
         await verifyDatabase(options, journal.entries, "publicUrl");
@@ -493,6 +570,7 @@ async function run(options) {
         }
         journal = {
           version: 1, check: CHECK, state: "upload_intent_recorded", createdAt: new Date().toISOString(), plan: sanitizedPlan(plan),
+          backendOrigin: backend.url,
           entries: plan.entries, targets: plan.targets.map(({ sourceUrl: _sourceUrl, ...target }) => target),
         };
         await writeJson(options.journal, journal);
@@ -552,6 +630,13 @@ async function run(options) {
     }
     process.exitCode = 1;
   } finally {
+    try {
+      await releaseJournalLock(journalLock);
+    } catch (lockError) {
+      report.status = "failed";
+      report.error = `journal_lock_release_failed:${String(lockError?.message ?? lockError)}`;
+      process.exitCode = 1;
+    }
     report.finishedAt = new Date().toISOString();
     await writeJson(options.output, report);
     process.stdout.write(`${JSON.stringify({ check: CHECK, status: report.status, mode: options.mode, output: options.output, steps: report.steps.length })}\n`);

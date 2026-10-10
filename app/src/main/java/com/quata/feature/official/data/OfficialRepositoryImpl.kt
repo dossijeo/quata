@@ -173,33 +173,54 @@ class OfficialRepositoryImpl(
             if (currentProfile?.is_official != true) {
                 throw UserFacingException(appContext.getString(R.string.official_not_allowed))
             }
-            val publicMediaUrl = uploadOfficialMediaIfNeeded(session.userId, firstDraft)
-            val created = safeDrafts.mapNotNull { draft ->
-                supabaseApi.createOfficialPost(
-                    profileId = session.userId,
-                    title = draft.title.trim(),
-                    summary = draft.summary.trim().takeIf { it.isNotBlank() },
-                    postType = draft.type.remoteValue,
-                    contentHtml = draft.contentHtmlOrFallback(),
-                    readMoreLabel = draft.readMoreLabel.trim().takeIf { it.isNotBlank() },
-                    language = draft.language.remoteValue,
-                    translationGroupId = groupId,
-                    mediaUrl = publicMediaUrl,
-                    mediaType = draft.mediaType?.remoteValue,
-                    linkUrl = draft.linkUrl?.trim()?.takeIf { it.isNotBlank() },
-                    isLive = draft.isLive
-                )
+            val uploadedMedia = uploadOfficialMediaIfNeeded(session.userId, firstDraft)
+            val created = mutableListOf<OfficialPost>()
+            try {
+                safeDrafts.forEach { draft ->
+                    supabaseApi.createOfficialPost(
+                        profileId = session.userId,
+                        title = draft.title.trim(),
+                        summary = draft.summary.trim().takeIf { it.isNotBlank() },
+                        postType = draft.type.remoteValue,
+                        contentHtml = draft.contentHtmlOrFallback(),
+                        readMoreLabel = draft.readMoreLabel.trim().takeIf { it.isNotBlank() },
+                        language = draft.language.remoteValue,
+                        translationGroupId = groupId,
+                        mediaUrl = uploadedMedia?.publicUrl,
+                        mediaType = draft.mediaType?.remoteValue,
+                        linkUrl = draft.linkUrl?.trim()?.takeIf { it.isNotBlank() },
+                        isLive = draft.isLive
+                    )?.let(created::add)
+                }
+                val preferred = created.selectPreferredTranslations(currentOfficialLanguage()).firstOrNull()
+                    ?: created.firstOrNull()
+                if (preferred == null) {
+                    cleanupUnreferencedOfficialMedia(uploadedMedia)
+                    return null
+                }
+                loadOfficialPost(preferred.id, SupabaseCacheMode.NETWORK_ONLY)
+            } catch (failure: Throwable) {
+                if (created.isEmpty()) {
+                    try {
+                        cleanupUnreferencedOfficialMedia(uploadedMedia)
+                    } catch (cleanupFailure: Throwable) {
+                        failure.addSuppressed(cleanupFailure)
+                    }
+                }
+                throw failure
             }
-            val preferred = created.selectPreferredTranslations(currentOfficialLanguage()).firstOrNull()
-                ?: created.firstOrNull()
-                ?: return null
-            loadOfficialPost(preferred.id, SupabaseCacheMode.NETWORK_ONLY)
         }
     }
 
-    private suspend fun uploadOfficialMediaIfNeeded(profileId: String, draft: OfficialPostDraft): String? {
+    private data class UploadedOfficialMedia(val publicUrl: String, val storagePath: String?)
+
+    private suspend fun cleanupUnreferencedOfficialMedia(uploadedMedia: UploadedOfficialMedia?) {
+        uploadedMedia?.storagePath?.let { supabaseApi.deletePostMediaObject(it) }
+    }
+
+    private suspend fun uploadOfficialMediaIfNeeded(profileId: String, draft: OfficialPostDraft): UploadedOfficialMedia? {
         val rawUri = draft.mediaUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null
-        if (rawUri.isRemoteUrl()) return rawUri
+        if (rawUri.isRemoteUrl()) return UploadedOfficialMedia(rawUri, storagePath = null)
         return when (draft.mediaType) {
             OfficialMediaType.Image -> {
                 val media = mediaUploadOptimizer.prepareImageUpload(
@@ -207,12 +228,16 @@ class OfficialRepositoryImpl(
                     fallbackMimeType = "image/jpeg",
                     fallbackFileNameBase = "oficial"
                 )
-                supabaseApi.uploadPostImage(
+                val upload = supabaseApi.uploadPostImage(
                     profileId = profileId,
                     bytes = media.bytes,
                     extension = media.extension,
                     mimeType = media.mimeType
-                ).publicUrl ?: error("Supabase no devolvio URL de imagen")
+                )
+                UploadedOfficialMedia(
+                    publicUrl = upload.publicUrl ?: error("Supabase no devolvio URL de imagen"),
+                    storagePath = upload.key?.takeIf(String::isNotBlank),
+                )
             }
             OfficialMediaType.Video -> {
                 val media = mediaUploadOptimizer.prepareVideoUploadStream(
@@ -235,7 +260,10 @@ class OfficialRepositoryImpl(
                     OFFICIAL_REPOSITORY_LOG_TAG,
                     "official video storage upload hasUrl=${!upload.publicUrl.isNullOrBlank()}"
                 )
-                upload.publicUrl ?: error("Supabase no devolvio URL de video")
+                UploadedOfficialMedia(
+                    publicUrl = upload.publicUrl ?: error("Supabase no devolvio URL de video"),
+                    storagePath = upload.key?.takeIf(String::isNotBlank),
+                )
             }
             null -> null
         }
