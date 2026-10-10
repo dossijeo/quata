@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b",
-  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-pending-final-ci-pending",
+  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-passed-final-ci-pending",
   "evidence": {
     "prefixContinuity": {
       "status": "passed",
@@ -41,8 +41,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "6b4f665237d23760c10ce0a836994481ce7584e5",
     "blockingFindings": []
   },
   "notes": [
