@@ -27,7 +27,7 @@
   "notes": [
     "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
     "The new iOS focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
-    "Recomposed Product 37178873 preserves the complete reviewed tree of prior head 0292c72a byte-for-byte while moving the six-commit unit onto merged main 49f19aa4. The accepted execution remains bound to testHead 4247e807, so no platform matrix was repeated solely for ancestry.",
+    "Recomposed Product 37178873 preserves the focal XCTest blob 414a1355 and iOS auth-launch contract blob 59bc2069 byte-for-byte while moving the six historical commits onto merged main 49f19aa4 with an exact patch-equivalent range-diff. The attestation documents are reanchored to the new Product identity. The accepted execution remains bound to testHead 4247e807, so no platform matrix was repeated solely for ancestry.",
     "No product runtime, backend, migration, credentials or historical evidence were changed."
   ]
 }
