@@ -96,6 +96,26 @@ test("post publish runner requires explicit reversible mutation opt-in", () => {
   assert.match(iosRunner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION/);
 });
 
+test("post composer emoji evidence crosses the common picker on every platform runner", () => {
+  assert.match(commonCreatePostRoot, /ComposerEmojiButtonTestTag = "composer-emoji"/);
+  assert.match(commonCreatePostRoot, /testTag\(ComposerEmojiButtonTestTag\)/);
+  assert.match(webRunner, /--emoji-picker/);
+  assert.match(webRunner, /clickSemanticElement\(page, "composer-emoji"/);
+  assert.match(webRunner, /community\.emoji\.cell\.frequent\.0/);
+  assert.match(webRunner, /post_composer_emoji_not_persisted/);
+  assert.match(androidRunner, /--emoji-picker/);
+  assert.match(androidRunner, /quataPostPublishUseEmojiPicker/);
+  assert.match(androidPostPublishTest, /ComposerEmojiButtonTestTag/);
+  assert.match(androidPostPublishTest, /community\.emoji\.cell\.frequent\.0/);
+  assert.match(androidRunner, /post_composer_emoji_not_persisted/);
+  assert.match(iosRunner, /--emoji-picker/);
+  assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER/);
+  assert.match(iosWrapper, /QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER/);
+  assert.match(iosPostPublishTest, /insertEmojiFromCommonPicker/);
+  assert.match(iosPostPublishTest, /community\.emoji\.cell\.frequent\.0/);
+  assert.match(iosRunner, /post_composer_emoji_not_persisted/);
+});
+
 test("post progress rollback evidence uses a shared fail-once repository and common retry anchor", () => {
   assert.match(commonFailOnceComposerRepository, /class FailOncePostComposerRepository/);
   assert.match(commonFailOnceComposerRepository, /delegate\.loadDestinations\(\)/);

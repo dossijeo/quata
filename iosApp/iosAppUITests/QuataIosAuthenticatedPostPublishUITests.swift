@@ -70,6 +70,9 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         if mode == "text" {
             typeText(marker, into: "composer-text-input", in: app)
             dismissKeyboardIfPresent(in: app)
+            if environment["QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER"] == "1" {
+                insertEmojiFromCommonPicker(in: app, preserving: marker)
+            }
         } else {
             assertImageLocationDraft(locationLabel, in: app)
         }
@@ -883,6 +886,35 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         XCTAssertTrue(publish.exists, "Expected the shared composer publish action to exist.")
         publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func insertEmojiFromCommonPicker(in app: XCUIApplication, preserving marker: String) {
+        let emoji = app.descendants(matching: .any).matching(identifier: "composer-emoji").firstMatch
+        for _ in 0..<10 {
+            if emoji.waitForExistence(timeout: 1), emoji.isHittable {
+                emoji.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                break
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        guard emoji.exists else {
+            XCTFail("The common post composer must expose its emoji action.")
+            return
+        }
+        let cell = app.descendants(matching: .any)
+            .matching(identifier: "community.emoji.cell.frequent.0")
+            .firstMatch
+        guard cell.waitForExistence(timeout: 10) else {
+            XCTFail("The common emoji picker must expose the frequent section cell.")
+            return
+        }
+        cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let input = app.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
+        let insertedText = elementText(input)
+        XCTAssertTrue(insertedText.contains(marker), "Emoji insertion must preserve the exact post marker.")
+        XCTAssertTrue(insertedText.contains("😀"), "The frequent picker cell must insert the catalog emoji into the post draft.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-emoji-inserted")
     }
 
     private func waitForRetryAndTap(in app: XCUIApplication, screenshotName: String) {

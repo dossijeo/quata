@@ -88,6 +88,7 @@ class PostPublishRealInstrumentedTest {
         val locationLabel = optionalArgument("quataPostPublishLocationLabel")
         val failOnce = optionalArgument("quataPostProgressRollbackFailOnce") == "1"
         val failAfterUpload = optionalArgument("quataPostStorageRollbackFailAfterUpload") == "1"
+        val useEmojiPicker = optionalArgument("quataPostPublishUseEmojiPicker") == "1"
         assumeTrue(
             "POST-PUBLISH-ANDROID-REAL-001 is opt-in and requires local credentials plus marker.",
             !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank() && !destinationWallId.isNullOrBlank(),
@@ -148,6 +149,22 @@ class PostPublishRealInstrumentedTest {
                     .performTextReplacement(bodyText)
                 device.pressBack()
                 device.waitForIdle(1_000)
+                if (useEmojiPicker) {
+                    compose.onNodeWithTag(ComposerEmojiButtonTestTag, useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                        }.isSuccess
+                    }
+                    compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+                        .performClick()
+                    compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
+                        .assertTextContains(bodyText, substring = true)
+                        .assertTextContains("😀", substring = true)
+                }
             } else {
                 compose.waitUntil(20_000) {
                     runCatching { compose.onNodeWithTag(ComposerLocationValueTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess

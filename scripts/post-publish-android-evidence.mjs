@@ -104,6 +104,7 @@ try {
     ...(options.failOnce ? ["-e", "quataPostProgressRollbackFailOnce", "1"] : []),
     ...(options.failAfterUpload ? ["-e", "quataPostStorageRollbackFailAfterUpload", "1"] : []),
     ...(fixture.locationLabel ? ["-e", "quataPostPublishLocationLabel", fixture.locationLabel] : []),
+    ...(options.emojiPicker ? ["-e", "quataPostPublishUseEmojiPicker", "1"] : []),
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   report.instrumentationTail = redactedTail(instrumentationOutput);
@@ -131,6 +132,9 @@ try {
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
+  if (options.emojiPicker && !String(published.body ?? "").includes("😀")) {
+    throw new Error("post_composer_emoji_not_persisted");
+  }
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
@@ -199,6 +203,7 @@ function parseArgs(args) {
     mode: "text",
     failOnce: false,
     failAfterUpload: false,
+    emojiPicker: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -211,6 +216,10 @@ function parseArgs(args) {
       parsed.failAfterUpload = true;
       continue;
     }
+    if (key === "--emoji-picker") {
+      parsed.emojiPicker = true;
+      continue;
+    }
     if (!["--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--out") parsed.output = value;
@@ -219,6 +228,7 @@ function parseArgs(args) {
   }
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
   if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
+  if (parsed.emojiPicker && parsed.mode !== "text") throw new Error("emoji_picker_requires_text_mode");
   return parsed;
 }
 

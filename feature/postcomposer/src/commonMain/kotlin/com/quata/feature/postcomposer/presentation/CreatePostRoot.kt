@@ -62,6 +62,7 @@ const val ComposerSelectedImagePreviewTestTag = "composer-media.selected-image-p
 const val ComposerPersistedImageDraftTestTag = "composer-media.selected-image-preview.persisted"
 const val ComposerSelectedVideoPreviewTestTag = "composer-media.selected-video-preview"
 const val ComposerMediaErrorTestTag = "composer-media.error"
+const val ComposerEmojiButtonTestTag = "composer-emoji"
 
 fun createPostStepFor(type: PostComposerType): CreatePostStep = when (type) {
     PostComposerType.Text -> CreatePostStep.Text
@@ -586,7 +587,9 @@ fun CreatePostRoot(
                             copy.emoji,
                             { Icon(Icons.Filled.InsertEmoticon, null) },
                             { emojiOpen = !emojiOpen },
-                            Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState),
+                            Modifier
+                                .testTag(ComposerEmojiButtonTestTag)
+                                .trackCommunityEmojiTriggerBounds(emojiDismissState),
                         )
                     },
                     emojiPanel = {

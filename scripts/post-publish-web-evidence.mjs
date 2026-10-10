@@ -191,6 +191,15 @@ try {
       }, body);
       report.steps.push("web_text_written_by_localhost_opt_in_product_bridge_after_compose_keyboard_limit");
     });
+    if (options.emojiPicker) {
+      await clickSemanticElement(page, "composer-emoji", { reinforcePhysical: true });
+      await clickSemanticElement(page, "community.emoji.cell.frequent.0", { reinforcePhysical: true });
+      await page.waitForFunction((expected) => {
+        const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+        return Number(state?.textLength ?? 0) > expected;
+      }, body.length, { timeout: 10_000 });
+      report.steps.push("web_post_composer_emoji_inserted_from_common_picker");
+    }
   }
   report.evidence.filled = await screenshot(page, "web-post-publish-composer-filled");
   await page.mouse.wheel(0, 900);
@@ -266,6 +275,9 @@ try {
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
+  if (options.emojiPicker && !String(published.body ?? "").includes("😀")) {
+    throw new Error("post_composer_emoji_not_persisted");
+  }
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
@@ -343,6 +355,7 @@ function parseArgs(args) {
     mode: "text",
     failOnce: false,
     failAfterUpload: false,
+    emojiPicker: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -355,6 +368,10 @@ function parseArgs(args) {
       parsed.failAfterUpload = true;
       continue;
     }
+    if (key === "--emoji-picker") {
+      parsed.emojiPicker = true;
+      continue;
+    }
     if (!["--dist", "--chrome", "--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--dist") parsed.distribution = resolve(value);
@@ -365,6 +382,7 @@ function parseArgs(args) {
   }
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
   if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
+  if (parsed.emojiPicker && parsed.mode !== "text") throw new Error("emoji_picker_requires_text_mode");
   return parsed;
 }
 
