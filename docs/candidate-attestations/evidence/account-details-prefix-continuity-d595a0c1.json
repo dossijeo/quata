@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "unit": "ACCOUNT-DETAILS",
+  "status": "passed",
+  "productSha": "d595a0c1aa2ca01a15ddaabddad0d2b0043f2677",
+  "scope": "country-prefix-change-and-actor-continuity",
+  "git": {
+    "head": "d595a0c1aa2ca01a15ddaabddad0d2b0043f2677",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "node_auth_bridge_and_documentation_contracts_passed",
+    "profile_rendered_wasm_browser_interaction_passed",
+    "profile_wasm_browser_tests_17_of_17_passed",
+    "android_profile_compilation_passed",
+    "ios_x64_profile_test_compilation_passed",
+    "web_gateway_test_compilation_passed",
+    "diff_check_passed"
+  ],
+  "checks": {
+    "authBridgeAndDocumentationContracts": "passed_16_of_16",
+    "profileWasmBrowserTests": "passed_17_of_17",
+    "androidProfileCompilation": "passed",
+    "iosX64ProfileTestCompilation": "passed",
+    "webGatewayTestCompilation": "passed",
+    "diffCheck": "passed",
+    "profileRenderedWasmBrowserInteraction": "passed_1_of_1"
+  },
+  "assertions": [
+    "the rendered Web/Wasm shared form opens account details and clicks the prefix selector, exact option and Save",
+    "one rendered Save carries the selected prefix and unchanged phone, then reloads the resulting profile state",
+    "the repository mutates only the active session profileId",
+    "country, local, normalized, E.164 and legacy phone aliases move together",
+    "Web and iOS mutation allowlists preserve the normalized and E.164 aliases",
+    "an existing linked Auth actor is updated only by auth_user_id and failure is terminal",
+    "an unlinked profile fails closed on any occupied Auth email even when client-controlled metadata names that profile",
+    "every phone lookup proves exact PostgREST cardinality before zero or multiple matches may select an actor"
+  ],
+  "historicalEvidence": {
+    "manifest": "docs/candidate-attestations/account-details-parity.json",
+    "productSha": "bc34d1ebbb7f858526b77329ef4ab6f0d0e168b6",
+    "reuse": "The real Android, Web and iOS account-details matrix remains historical evidence for the unchanged common save and reload path; it was not repeated solely because the SHA changed."
+  },
+  "limits": [
+    "No new production profile was mutated for this focal unit.",
+    "The new rendered interaction ran in Web/Wasm; Android and iOS compile the shared runtime but do not claim a new native interaction run.",
+    "Exhaustive invalid-input and collision validation remains outside this unit."
+  ]
+}

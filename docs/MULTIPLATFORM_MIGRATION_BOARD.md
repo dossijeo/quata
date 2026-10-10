@@ -438,6 +438,14 @@ subflujos de Cuenta/Perfil. #319 fusionó el head `e82dfd83a62d4427d662d2a4b8c48
 mediante merge `d16be356fdefb2e479cd36b4ae7ead8174935021`, con certificación final Web/Android,
 iOS y CodeQL verde.
 
+**ACCOUNT-DETAILS — cambio de prefijo y continuidad de actor:** Product SHA `d595a0c1aa2ca01a15ddaabddad0d2b0043f2677`
+añade anclas estables por prefijo, persiste juntos los alias canónicos y de descubrimiento del teléfono
+y mantiene la mutación ligada al `profileId` de la sesión. Web e iOS aceptan `phone_e164` y
+`phone_normalized`; el bridge Auth rechaza resoluciones ambiguas y deja de buscar o crear por email
+cuando el perfil ya está ligado a un `auth_user_id`; para un perfil sin vínculo, cualquier email Auth ocupado falla cerrado incluso si el `user_metadata` controlado por el cliente declara ese perfil. La búsqueda telefónica exige cardinalidad PostgREST exacta y rechaza cualquier respuesta truncada antes de resolver el actor. La prueba Compose renderizada Web/Wasm cubre apertura de Mis datos, selector, opción, Save único y recarga; Android/iOS compilan el runtime compartido sin atribuir interacción nativa nueva. La matriz real de #319 conserva la evidencia histórica de actor y persistencia. Permanecen fuera la validación exhaustiva de entrada inválida y colisiones, además de los demás
+subflujos de Cuenta ya enumerados. Manifest:
+`docs/candidate-attestations/account-details-prefix-continuity.json`.
+
 **Ciclo de cuenta Web/Android/iOS:** la evidencia positiva integrada por
 [#466](https://github.com/dossijeo/quata/pull/466), Product SHA final `40fb093d`, y preservada en
 `docs/candidate-attestations/account-lifecycle-web-real.json` ejecutó ambas acciones desde la UI real
