@@ -80,9 +80,13 @@ class RecoverySecretUiPilotTest {
                 )
             }
         }
-        onNodeWithTag("auth.forgot-password").performClick()
+        onNodeWithTag("auth.forgot-password")
+            .assertTextEquals("Olvidé mi contraseña")
+            .performClick()
         onNodeWithTag("auth.recovery.root").assertExists()
-        onNodeWithTag("auth.recovery.back").performClick()
+        onNodeWithTag("auth.recovery.back")
+            .assertTextEquals("Volver")
+            .performClick()
         onNodeWithTag("auth.submit").assertExists()
         onNodeWithTag("auth.recovery.root").assertDoesNotExist()
     }

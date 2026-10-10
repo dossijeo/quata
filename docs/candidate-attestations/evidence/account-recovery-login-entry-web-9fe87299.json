@@ -1,0 +1,38 @@
+{
+  "check": "ACCOUNT-RECOVERY-LOGIN-ENTRY-WEB-001",
+  "status": "passed",
+  "testHead": "9fe87299ba342ca815a09fccfee3fb2838e772a0",
+  "productSha": "9fe87299ba342ca815a09fccfee3fb2838e772a0",
+  "execution": {
+    "baseHead": "ad9d04b4688a431362cb0d5d36183f7a89724097",
+    "sourceBlob": "e0c46f1fc6e98e1a2d94efcc5c1bf24a966470dc",
+    "sourcePath": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/RecoverySecretUiPilotTest.kt",
+    "contractBlob": "986245eba92db4d92f0c66cd845a588f63340546",
+    "contractPath": "scripts/web-auth-recovery-login-entry-contract.test.mjs",
+    "runtime": {
+      "platform": "wasmJs",
+      "browser": "ChromeHeadless 154.0.0.0",
+      "os": "Windows 10"
+    },
+    "test": "RecoverySecretUiPilotTest.commonNavigationOpensRecoveryAndReturnsToLogin",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "runtimeCustody": {
+    "authProductHostBlob": "70ca853ebcff957647939df29be095f12029a353",
+    "authCatalogBlob": "33c9320c84fec7430757bedc661bf33b4375cbac"
+  },
+  "verified": [
+    "normal shared Login renders the observed Spanish Olvidé mi contraseña action",
+    "the visible recovery action opens auth.recovery.root through Compose/Wasm",
+    "the Recovery surface renders the observed Spanish Volver action",
+    "Volver returns to the normal shared Login surface"
+  ],
+  "externalEvidence": {
+    "summarySha256": "749618f891057995892305c8bb31b812aa8f4ab7e4c88b851c0173e938543eca",
+    "testResultSha256": "b7db78395695c20b905fe61fef04c4df0e1e15adfb2aba8803b3c4ed5c054ea1",
+    "htmlReportSha256": "5c0264db1a9016618b003461e261202e0e18019ecad4abe5d93a43c0fc2376a5"
+  },
+  "limits": "This hermetic Compose/Wasm navigation acceptance does not repeat or replace the real password-reset/backend evidence at b9fae4bd, does not certify exhaustive Recovery localization and does not attribute Android or iOS execution."
+}

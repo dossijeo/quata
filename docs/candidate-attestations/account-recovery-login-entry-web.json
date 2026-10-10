@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-RECOVERY-SECRET"
+  ],
+  "productSha": "505ba87328617c83d9b4f609d5f4e27fac3bbdec",
+  "testHead": "9fe87299ba342ca815a09fccfee3fb2838e772a0",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "505ba87328617c83d9b4f609d5f4e27fac3bbdec",
+      "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-web-9fe87299.json",
+      "reportSha256": "b9b52d70e44d384ff5ad29e42601740aaef89d06891f32e6c24c6a7be5242d7a",
+      "requireReportArtifact": true,
+      "executedTests": 1,
+      "failedTests": 0,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_backend_or_persistent_actor_state"
+      }
+    }
+  },
+  "composition": {
+    "realRecoveryEvidence": "docs/candidate-attestations/account-recovery-secret.json",
+    "iosNavigationEvidence": "docs/candidate-attestations/account-recovery-login-entry-ios.json",
+    "androidNavigationEvidence": "docs/candidate-attestations/account-recovery-login-entry-android.json",
+    "webNavigationEvidence": "docs/candidate-attestations/evidence/account-recovery-login-entry-web-9fe87299.json"
+  },
+  "notes": [
+    "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
+    "The Web/Wasm focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
+    "No product runtime, backend, migration, credentials or historical evidence were changed.",
+    "The current Product 505ba87328617c83d9b4f609d5f4e27fac3bbdec preserves the Web focal test and runner blobs byte-for-byte from accepted Product 9af890937275097ea8b66aaf1584d7e649a7a45f after rebasing onto integrated squash 5fde6d22759456b97dd47f810b4ade721940401c. The accepted execution remains testHead 9fe87299ba342ca815a09fccfee3fb2838e772a0; no matrix was repeated solely for ancestry."
+  ]
+}
