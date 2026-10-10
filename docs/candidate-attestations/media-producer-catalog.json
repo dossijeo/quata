@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "6357927bd049e4f2074833b293e4f03151cad6bf",
+  "certification": "finite-media-producer-catalog-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "producerCatalog": {
+      "status": "passed",
+      "sha": "6357927bd049e4f2074833b293e4f03151cad6bf",
+      "report": "docs/candidate-attestations/evidence/media-producer-catalog-6357927b.json",
+      "reportSha256": "9db2a16738be2cad15cb5efc5edaa230536225ecfdc76f4613f795b26e832ef8",
+      "reportStatus": "passed",
+      "reportGitHead": "6357927bd049e4f2074833b293e4f03151cad6bf",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_fullscreen_media_adapter_catalog_extracted",
+        "shared_android_attachment_viewer_callers_extracted",
+        "unregistered_overlay_and_attachment_producer_negative_controls_rejected",
+        "all_composed_focal_media_receipts_preserved_passed",
+        "generic_other_producer_residual_removed",
+        "codec_transport_background_receiver_and_cors_boundaries_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/media-producer-catalog-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/media-producer-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The exact source extractor finds seven fullscreen overlay adapter files and three registered callers of the shared Android attachment viewer.",
+    "Those adapters compose the finite logical producer catalog Feed, Official, public profile and Chat attachments; platform-specific Official adapters do not create additional product producers.",
+    "Passed focal receipts compose image/video opening and return, durable position, same-source recovery, file export, public-profile media and Chat attachment media.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Exhaustive codecs and transports, prolonged background playback, integrated comments, deep scroll, external receivers and historical COEP/CORS compatibility remain explicit thematic boundaries."
+  ]
+}
