@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "unit": "FLOW-NOTIFICATION-REPLY",
+  "productSha": "a14e4c5d13e5e31e3cb79c159e69126dfa2fc31d",
+  "git": {
+    "head": "a14e4c5d13e5e31e3cb79c159e69126dfa2fc31d",
+    "workingTreeDirty": true
+  },
+  "execution": {
+    "iosX64DurableRecovery": {
+      "status": "passed",
+      "tests": 7,
+      "failures": 0
+    },
+    "iosX64HttpBoundary": {
+      "status": "passed"
+    },
+    "simulatorSignedBuild": {
+      "status": "passed",
+      "xcode": "26.6 (17F113)",
+      "sdk": "iPhoneSimulator 26.5",
+      "architecture": "x86_64"
+    },
+    "swiftNotificationActionTests": {
+      "status": "passed",
+      "tests": 4,
+      "failures": 0,
+      "simulatorUdid": "8F9DC927-A270-4A08-8470-0AEC64F13553"
+    }
+  },
+  "steps": [
+    "ios_x64_durable_recovery_7_of_7_passed",
+    "ios_x64_http_boundary_passed",
+    "simulator_signed_build_passed",
+    "swift_notification_action_tests_4_of_4_passed"
+  ],
+  "custody": {
+    "windowsProductCheckoutCleanAtExecution": false,
+    "macosValidationWorkspace": "/Users/gabriel/StudioProjects/quata-main-stable",
+    "macosSourcesCopiedByteForByteFromProductCommit": true,
+    "backendMutation": false,
+    "secretMaterialCaptured": false
+  },
+  "acceptance": [
+    "reply_is_persisted_before_direct_transport",
+    "same_actor_conversation_and_client_message_id_survive_failure",
+    "restored_session_flushes_the_existing_outbox_entry",
+    "different_actor_cannot_replay_or_dismiss_the_reply",
+    "successful_delivery_removes_the_routing_notification",
+    "queued_notification_contains_routing_only_and_opens_the_exact_chat",
+    "actor_or_session_replacement_preserves_the_previous_actors_reply",
+    "pending_observation_reads_the_persistent_store_instead_of_repository_cache",
+    "restored_live_crash_lease_retries_once_after_expiry"
+  ],
+  "limits": [
+    "APNs delivery",
+    "physical device behavior",
+    "App Store or TestFlight distribution",
+    "complete negative remote trace"
+  ],
+  "notes": [
+    "The focal Kotlin/Native tests use the production durable store contract and an injected direct transport boundary; they do not fabricate a native notification response.",
+    "The existing native reply acceptance remains the proof that UNTextInputNotificationResponse reaches the production delegate. This unit closes the previously documented offline, restart and post-reply exact-chat navigation limits.",
+    "The final Product commit was assembled from the byte-identical sources validated on macOS; the Windows checkout also held uncommitted attestation files during execution."
+  ]
+}
