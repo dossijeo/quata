@@ -47,22 +47,40 @@ test("Android registers every common destination or its owning nested host", () 
     "Login", "Register", "ForgotPassword", "Feed", "Neighborhoods", "Official",
     "OfficialPostEditor", "RichTextEditorQa", "CreatePost", "Conversations", "Chat",
     "Notifications", "ReleaseHistory", "Profile",
-  ];
-  navHostDestinations.forEach((name) => assert.match(android, new RegExp(`composable\\([\\s\\S]{0,80}AppDestinations\\.${name}\\.route`), name));
+  ].sort();
+  const registeredNavHosts = [...android.matchAll(
+    /composable\(\s*(?:route\s*=\s*)?AppDestinations\.(\w+)\.route/g,
+  )].map((match) => match[1]).sort();
+  assert.deepEqual(registeredNavHosts, navHostDestinations);
+
+  const specialOwners = declaredDestinations
+    .map(({ name }) => name)
+    .filter((name) => !registeredNavHosts.includes(name))
+    .sort();
+  assert.deepEqual(specialOwners, ["About", "UserProfile", "WhatsNew"]);
   assert.match(android, /StartupDestination\.WhatsNew[\s\S]*WhatsNewScreen/);
   assert.match(android, /onLogoClick = \{ isAboutDialogOpen = true \}/);
   assert.match(android, /key = "global_user_profile"/);
 });
 
 test("Web maps every product route family and keeps exact nested identifiers", () => {
-  [
-    "auth", "feed", "communities", "official", "official-editor", "post", "chat",
-    "notifications", "profile", "composer", "settings", "whats-new", "about", "release-history",
-  ].forEach((fragment) => assert.ok(web.includes(`\"${fragment}\"`), fragment));
-  assert.match(web, /chatConversationId: String\?/);
-  assert.match(web, /chatMessageId: String\?/);
-  assert.match(web, /officialPostId: String\?/);
-  assert.match(web, /postId: String\?/);
+  const parser = web.match(/internal fun String\.toWebNavigationState\(\): WebNavigationState \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(parser, "Web route parser missing");
+  const acceptedLiteralFragments = [...parser.matchAll(/\.equals\("([^"]+)"/g)]
+    .map((match) => match[1])
+    .sort();
+  assert.deepEqual(acceptedLiteralFragments, [
+    "about", "auth", "chat", "communities", "composer", "login", "notifications",
+    "official", "official-editor", "profile", "release-history", "settings",
+    "share-target", "share-target-error", "whats-new",
+  ]);
+  assert.match(parser, /quataChatDeepLinkOrNull\(\)/);
+  assert.match(parser, /route = "chat\/\$\{chat\.conversationId\}"/);
+  assert.match(parser, /quataOfficialPostIdOrNull\(\)/);
+  assert.match(parser, /route = "official\/\$postId"/);
+  assert.match(parser, /quataPostIdOrNull\(\)/);
+  assert.match(parser, /route = "post\/\$postId"/);
+  assert.match(parser, /return WebNavigationState\(route = "feed"/);
   assert.match(web, /quataChatUrl\(conversationId, messageId\)/);
 });
 
