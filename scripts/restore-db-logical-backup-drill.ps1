@@ -9,14 +9,17 @@ param(
     [switch]$ProfileFollowScope,
     [switch]$CommunityPostLikesScope,
     [switch]$CommunityFeedScope,
+    [switch]$MediaHistoricalCorsScope,
     [switch]$ProfileSafetyScope,
     [switch]$ShowRelevantToc,
+    [string]$ReportPath = "",
     [int]$ExpectedCommunityComments = -1,
     [int]$ExpectedOfficialPostLikes = -1,
     [int]$ExpectedCommunityProfiles = -1,
     [int]$ExpectedCommunityProfileFollows = -1,
     [int]$ExpectedCommunityPostLikes = -1,
     [int]$ExpectedCommunityPosts = -1
+    ,[int]$ExpectedOfficialPosts = -1
     ,[int]$ExpectedUgcReports = -1
     ,[int]$ExpectedChatProfileBlocks = -1
 )
@@ -66,22 +69,25 @@ if (-not (Test-Path -LiteralPath (Join-Path $BackupSet "manifest.json") -PathTyp
 $legacyExpectedCounts = $ExpectedCommunityComments -ge 0 -or $ExpectedOfficialPostLikes -ge 0
 $profileExpectedCounts = $ExpectedCommunityProfiles -ge 0 -or $ExpectedCommunityProfileFollows -ge 0
 $likesExpectedCount = $ExpectedCommunityPostLikes -ge 0
-if (@($ProfileFollowScope, $CommunityPostLikesScope, $CommunityFeedScope, $ProfileSafetyScope | Where-Object { $_ }).Count -gt 1) { Fail "restore_scope_conflict" }
-if (($ProfileFollowScope -or $CommunityPostLikesScope -or $CommunityFeedScope -or $ProfileSafetyScope) -and $AffectedTablesOnly) { Fail "restore_scope_conflict" }
+if (@($ProfileFollowScope, $CommunityPostLikesScope, $CommunityFeedScope, $MediaHistoricalCorsScope, $ProfileSafetyScope | Where-Object { $_ }).Count -gt 1) { Fail "restore_scope_conflict" }
+if (($ProfileFollowScope -or $CommunityPostLikesScope -or $CommunityFeedScope -or $MediaHistoricalCorsScope -or $ProfileSafetyScope) -and $AffectedTablesOnly) { Fail "restore_scope_conflict" }
 if ($ProfileFollowScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedCounts -or $likesExpectedCount)) { Fail "restore_scope_conflict" }
 if ($CommunityPostLikesScope -and ($ValidateSecurityReleaseScope -or $legacyExpectedCounts -or $profileExpectedCounts)) { Fail "restore_scope_conflict" }
 if (-not $ProfileFollowScope -and $profileExpectedCounts) { Fail "restore_profile_follow_scope_required" }
 if (-not $CommunityPostLikesScope -and $likesExpectedCount) { Fail "restore_community_post_likes_scope_required" }
 if ($CommunityPostLikesScope -and -not $likesExpectedCount) { Fail "restore_expected_community_post_likes_required" }
-$feedExpectedCount = $ExpectedCommunityPosts -ge 0
-if (-not $CommunityFeedScope -and $feedExpectedCount) { Fail "restore_community_feed_scope_required" }
+$feedExpectedCount = $CommunityFeedScope -and $ExpectedCommunityPosts -ge 0
+$mediaExpectedCounts = $MediaHistoricalCorsScope -and $ExpectedCommunityPosts -ge 0 -and $ExpectedOfficialPosts -ge 0
+if (-not ($CommunityFeedScope -or $MediaHistoricalCorsScope) -and $ExpectedCommunityPosts -ge 0) { Fail "restore_community_feed_scope_required" }
 if ($CommunityFeedScope -and -not $feedExpectedCount) { Fail "restore_expected_community_posts_required" }
+if (-not $MediaHistoricalCorsScope -and $ExpectedOfficialPosts -ge 0) { Fail "restore_media_historical_cors_scope_required" }
+if ($MediaHistoricalCorsScope -and -not $mediaExpectedCounts) { Fail "restore_expected_media_counts_required" }
 $profileSafetyExpectedCounts = $ExpectedUgcReports -ge 0 -or $ExpectedChatProfileBlocks -ge 0
 if (-not $ProfileSafetyScope -and $profileSafetyExpectedCounts) { Fail "restore_profile_safety_scope_required" }
 if ($ProfileSafetyScope -and ($ExpectedUgcReports -lt 0 -or $ExpectedChatProfileBlocks -lt 0)) { Fail "restore_expected_profile_safety_counts_required" }
 $manifest=Get-Content -LiteralPath (Join-Path $BackupSet "manifest.json") -Raw | ConvertFrom-Json
 Assert-Manifest $manifest $BackupSet
-$restoreTables = if ($ProfileFollowScope) { @("community_profiles", "community_profile_follows") } elseif ($CommunityPostLikesScope) { @("community_post_likes") } elseif ($CommunityFeedScope) { @("community_posts") } else { @("community_comments", "official_post_likes") }
+$restoreTables = if ($ProfileFollowScope) { @("community_profiles", "community_profile_follows") } elseif ($CommunityPostLikesScope) { @("community_post_likes") } elseif ($CommunityFeedScope) { @("community_posts") } elseif ($MediaHistoricalCorsScope) { @("community_posts", "official_posts") } else { @("community_comments", "official_post_likes") }
 $key=Read-Key $EncryptionKeyFile; $work=Join-Path ([IO.Path]::GetTempPath()) ("quata-restore-drill-"+[guid]::NewGuid().ToString("N")); $name="quata-restore-"+[guid]::NewGuid().ToString("N").Substring(0,12); $password=[guid]::NewGuid().ToString("N")
 try {
     Restrict-Directory $work
@@ -205,6 +211,17 @@ try {
         if (-not @($toc | Where-Object { $_ -match "\bTABLE\b" -and $_ -match "\bcommunity_posts\b" }).Count) { Fail "backup_toc_community_posts_table_missing" }
         if (-not @($toc | Where-Object { $_ -match "\bTABLE DATA\b" -and $_ -match "\bcommunity_posts\b" }).Count) { Fail "backup_toc_community_posts_data_missing" }
     }
+    if ($MediaHistoricalCorsScope) {
+        if ($manifest.scope -ne "Full") { Fail "restore_media_historical_cors_scope_requires_full_backup" }
+        $fullDump = Join-Path $work "database.dump"
+        $toc = @(& docker run --rm -v "${work}:/backup:ro" $DockerImage pg_restore --list /backup/database.dump 2>$null)
+        if ($LASTEXITCODE -ne 0) { Fail "backup_toc_unreadable" }
+        if ($ShowRelevantToc) { $toc | Where-Object { $_ -match "community_posts|official_posts" } | Write-Output }
+        foreach ($table in $restoreTables) {
+            if (-not @($toc | Where-Object { $_ -match "\bTABLE\b" -and $_ -match "\b$table\b" }).Count) { Fail "backup_toc_media_table_missing" }
+            if (-not @($toc | Where-Object { $_ -match "\bTABLE DATA\b" -and $_ -match "\b$table\b" }).Count) { Fail "backup_toc_media_data_missing" }
+        }
+    }
     if ($ProfileSafetyScope) {
         if ($manifest.scope -ne "Full") { Fail "restore_profile_safety_scope_requires_full_backup" }
         $fullDump = Join-Path $work "database.dump"
@@ -248,14 +265,14 @@ create role service_role nologin;
             if ($LASTEXITCODE -ne 0) { Fail "restore_profile_safety_data_failed" }
             continue
         }
-        elseif ($AffectedTablesOnly -or $ProfileFollowScope -or $CommunityFeedScope) {
+        elseif ($AffectedTablesOnly -or $ProfileFollowScope -or $CommunityFeedScope -or $MediaHistoricalCorsScope) {
             $restoreArguments += @($restoreTables | ForEach-Object { "--table=$_" })
         }
         $restoreArguments += "/backup/$file"
         & docker @restoreArguments 2>$null | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "restore_command_failed" }
     }
-    $requiredRelations = if ($ProfileFollowScope) { "to_regclass('public.community_profiles') is not null and to_regclass('public.community_profile_follows') is not null" } elseif ($CommunityPostLikesScope) { "to_regclass('public.community_post_likes') is not null" } elseif ($CommunityFeedScope) { "to_regclass('public.community_posts') is not null" } elseif ($ProfileSafetyScope) { "to_regclass('public.ugc_reports') is not null and to_regclass('public.chat_profile_blocks') is not null" } else { "to_regclass('public.community_comments') is not null and to_regclass('public.official_post_likes') is not null" }
+    $requiredRelations = if ($ProfileFollowScope) { "to_regclass('public.community_profiles') is not null and to_regclass('public.community_profile_follows') is not null" } elseif ($CommunityPostLikesScope) { "to_regclass('public.community_post_likes') is not null" } elseif ($CommunityFeedScope) { "to_regclass('public.community_posts') is not null" } elseif ($MediaHistoricalCorsScope) { "to_regclass('public.community_posts') is not null and to_regclass('public.official_posts') is not null" } elseif ($ProfileSafetyScope) { "to_regclass('public.ugc_reports') is not null and to_regclass('public.chat_profile_blocks') is not null" } else { "to_regclass('public.community_comments') is not null and to_regclass('public.official_post_likes') is not null" }
     $verified = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select case when $requiredRelations then 'ok' else 'missing' end" 2>$null | Select-String -Quiet '^ok$'
     if (-not $verified) { Fail "restore_verification_failed" }
     if ($CommunityPostLikesScope) {
@@ -314,6 +331,10 @@ select case when c.relrowsecurity and policy_state.exact and grant_state.exact a
         $count = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select count(*) from public.community_post_likes" 2>$null
         if ($count -cne "$ExpectedCommunityPostLikes") { Fail "restore_row_count_verification_failed" }
     }
+    elseif ($mediaExpectedCounts) {
+        $counts = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select (select count(*) from public.community_posts)::text || ',' || (select count(*) from public.official_posts)::text" 2>$null
+        if ($counts -cne "$ExpectedCommunityPosts,$ExpectedOfficialPosts") { Fail "restore_row_count_verification_failed" }
+    }
     elseif ($feedExpectedCount) {
         $count = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select count(*) from public.community_posts" 2>$null
         if ($count -cne "$ExpectedCommunityPosts") { Fail "restore_row_count_verification_failed" }
@@ -326,6 +347,19 @@ select case when c.relrowsecurity and policy_state.exact and grant_state.exact a
         if ($ExpectedCommunityComments -lt 0 -or $ExpectedOfficialPostLikes -lt 0) { Fail "restore_expected_counts_incomplete" }
         $counts = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select (select count(*) from public.community_comments)::text || ',' || (select count(*) from public.official_post_likes)::text" 2>$null
         if ($counts -cne "$ExpectedCommunityComments,$ExpectedOfficialPostLikes") { Fail "restore_row_count_verification_failed" }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
+        $reportFull=[IO.Path]::GetFullPath($ReportPath); $reportParent=Split-Path $reportFull -Parent
+        New-Item -ItemType Directory -Force -Path $reportParent | Out-Null
+        $tables=if ($MediaHistoricalCorsScope) { @("public.community_posts","public.official_posts") } else { @($restoreTables | ForEach-Object { "public.$_" }) }
+        [ordered]@{
+            format="quata-logical-backup-restore-proof-v1"
+            status="passed"
+            createdAt=(Get-Date).ToUniversalTime().ToString("o")
+            backupManifestSha256=(Get-FileHash (Join-Path $BackupSet "manifest.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+            tables=$tables
+            target="disposable-postgresql-17"
+        } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $reportFull -Encoding utf8
     }
     Write-Output "logical_backup_restore_drill_passed"
 }
