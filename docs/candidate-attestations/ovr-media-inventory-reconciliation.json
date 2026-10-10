@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "e4e7f4757353adddbb8a5fbd0ca1a796677d52d4",
+  "certification": "media-recovery-and-file-export-inventory-reconciled-historical-platform-evidence-preserved-independent-review-go-final-ci-pending",
+  "evidence": {
+    "ovrMediaInventoryReconciliation": {
+      "status": "passed",
+      "sha": "e4e7f4757353adddbb8a5fbd0ca1a796677d52d4",
+      "report": "docs/candidate-attestations/evidence/ovr-media-inventory-reconciliation-e4e7f475.json",
+      "reportSha256": "a851f88be812fe7eac1d4cd96413729d3a221c8aff142c085113f0db0f80b5f3",
+      "reportStatus": "passed",
+      "reportGitHead": "e4e7f4757353adddbb8a5fbd0ca1a796677d52d4",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ovr_media_inventory_reconciliation_contract_4_of_4_passed",
+        "media_playback_recovery_manifest_and_reports_verified",
+        "media_file_export_manifest_and_reports_verified",
+        "external_and_exhaustive_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_ci_capability_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ovr-media-inventory-reconciliation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ovr-media-inventory-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "65a4b4d1f9cf416b20daab54612d85ab1924b886",
+    "blockingFindings": []
+  },
+  "notes": [
+    "media-playback-recovery.json remains the authority for same-source recoverable playback in Feed and Official on Android, Web/Wasm and iOS.",
+    "media-file-export.json remains the authority for PNG/MP4 Download and Share in Feed and Official on Android, Web/Wasm and iOS.",
+    "Historical reportGitHead values and evidence artifacts are unchanged; this unit does not attribute a new platform execution.",
+    "Exhaustive codecs and transport, prolonged background playback, comments, deep scroll, other producers, external receivers and future COEP/CORS compatibility remain explicit boundaries.",
+    "Independent review of recomposed head 65a4b4d1f returned GO with no P0-P3 findings after reproducing contract 4/4, validator and diff-check; this attestation-only amendment records that result."
+  ]
+}

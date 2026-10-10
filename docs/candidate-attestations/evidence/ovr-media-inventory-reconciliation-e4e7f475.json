@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "e4e7f4757353adddbb8a5fbd0ca1a796677d52d4",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ovr_media_inventory_reconciliation_contract_4_of_4_passed",
+    "media_playback_recovery_manifest_and_reports_verified",
+    "media_file_export_manifest_and_reports_verified",
+    "external_and_exhaustive_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "OVR-MEDIA",
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "playbackRecoveryClosed": true,
+    "pngMp4DownloadShareClosed": true,
+    "preservedLimits": [
+      "exhaustive_codecs_and_transport",
+      "prolonged_background_playback",
+      "integrated_comments",
+      "deep_scroll_restoration",
+      "other_media_producers",
+      "external_receivers",
+      "future_coep_cors_compatibility"
+    ]
+  },
+  "notes": [
+    "The reconciliation removes only two obsolete inventory limits already closed by integrated platform evidence.",
+    "No runtime, CI, capability matrix or historical evidence artifact changed."
+  ]
+}
