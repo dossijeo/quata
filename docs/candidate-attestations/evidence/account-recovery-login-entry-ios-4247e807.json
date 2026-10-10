@@ -1,0 +1,41 @@
+{
+  "check": "ACCOUNT-RECOVERY-LOGIN-ENTRY-IOS-001",
+  "status": "passed",
+  "testHead": "4247e807a98a88a90c11e811a3c7e1d2b51928b4",
+  "productSha": "4247e807a98a88a90c11e811a3c7e1d2b51928b4",
+  "execution": {
+    "baseHead": "aa0c5884f8277e3212090543deb1db13193cdec5",
+    "sourceBlob": "414a135559f0f15208c7c61f1dd2d61d63b26be9",
+    "sourcePath": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+    "patchEquivalentToTestHead": true,
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "simulator": {
+      "name": "Quata-Profile-Safety-Report-18",
+      "model": "iPhone 16 Pro",
+      "os": "18.3.1"
+    },
+    "test": "QuataIosHostUITests/testAuthLaunchFixtureOpensSpanishRecoveryFromNormalLogin()",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "runtimeCustody": {
+    "iosLauncherBlob": "d8f69e1c88d4795a8a6cad0e3ef73750ae2ac80a",
+    "authProductHostBlob": "70ca853ebcff957647939df29be095f12029a353",
+    "authCatalogBlob": "33c9320c84fec7430757bedc661bf33b4375cbac"
+  },
+  "verified": [
+    "normal shared Login renders the Spanish Olvidé mi contraseña action",
+    "the visible recovery action opens auth.recovery.root through the real iOS host",
+    "the Recovery surface retains the Spanish Volver action",
+    "Volver returns to the normal shared Login surface"
+  ],
+  "externalEvidence": {
+    "summarySha256": "c79e0fb7d3080648b7272cc5197c765c49da38b20ed7db0f494c6e500acecbef",
+    "logSha256": "8c0a60ef3a7900349700992bc92b46231f2bc91b681b1816555972b071908ff8",
+    "loginScreenshotSha256": "5cd894f8d84a2d70fae788c6574a2ae5fbd3054b4e099840d7f64a962ea1fe7c",
+    "recoveryScreenshotSha256": "2c46c7e5b437697ddf0c984a3f822d8fbe33bf8882241c8c7971846712ef47a1"
+  },
+  "limits": "This hermetic iOS navigation acceptance does not repeat or replace the real password-reset/backend evidence at b9fae4bd, and it does not attribute Android or Web execution."
+}

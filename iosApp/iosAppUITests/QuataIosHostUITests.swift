@@ -120,6 +120,47 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-recovery")
     }
 
+    func testAuthLaunchFixtureOpensSpanishRecoveryFromNormalLogin() {
+        let app = fixtureApp("auth-launch", authDestination: "login", spanishLocale: true)
+        app.launch()
+
+        let forgotPassword = app.descendants(matching: .any)
+            .matching(identifier: "auth.forgot-password")
+            .firstMatch
+        XCTAssertTrue(forgotPassword.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            forgotPassword.waitForLabelOrValue(containing: "Olvidé mi contraseña", timeout: 5),
+            "The normal Login surface must expose the Spanish recovery action.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-login-spanish-recovery-entry")
+
+        forgotPassword.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.recovery.root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The Login recovery action must open the shared recovery surface.",
+        )
+        let back = app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.back")
+            .firstMatch
+        XCTAssertTrue(
+            back.waitForLabelOrValue(containing: "Volver", timeout: 5),
+            "The recovery surface must keep the Spanish catalogue after navigation.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-recovery-spanish-from-login")
+
+        back.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.submit")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "Back must return to the normal shared Login surface.",
+        )
+    }
+
     func testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks() {
         let app = fixtureApp("auth-launch", authDestination: "register", spanishLocale: true)
         app.launch()

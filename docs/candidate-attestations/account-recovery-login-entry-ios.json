@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-RECOVERY-SECRET"
+  ],
+  "productSha": "37178873c4d9635cd491d9f9a14a7dca170da41c",
+  "testHead": "4247e807a98a88a90c11e811a3c7e1d2b51928b4",
+  "evidence": {
+    "ios": {
+      "status": "passed",
+      "sha": "37178873c4d9635cd491d9f9a14a7dca170da41c",
+      "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-ios-4247e807.json",
+      "reportSha256": "b1ac71adc33a6089b726ba377b6bc6522cbc3db8ed5fcda6aade7202cea635d9",
+      "requireReportArtifact": true,
+      "executedTests": 1,
+      "failedTests": 0,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_backend_or_persistent_actor_state"
+      }
+    }
+  },
+  "composition": {
+    "realRecoveryEvidence": "docs/candidate-attestations/account-recovery-secret.json",
+    "navigationEvidence": "docs/candidate-attestations/evidence/account-recovery-login-entry-ios-4247e807.json"
+  },
+  "notes": [
+    "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
+    "The new iOS focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
+    "Recomposed Product 37178873 preserves the focal XCTest blob 414a1355 and iOS auth-launch contract blob 59bc2069 byte-for-byte while moving the six historical commits onto merged main 49f19aa4 with an exact patch-equivalent range-diff. The attestation documents are reanchored to the new Product identity. The accepted execution remains bound to testHead 4247e807, so no platform matrix was repeated solely for ancestry.",
+    "No product runtime, backend, migration, credentials or historical evidence were changed."
+  ]
+}
