@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-PUSH-LIFECYCLE"
+  ],
+  "status": "passed",
+  "productSha": "ced6d91120f7482998296cf3a7a068c523d14e28",
+  "certification": "ios-notification-settings-system-boundary-classified-local-fast-contracts-passed-independent-review-go-final-ci-pending",
+  "evidence": {
+    "iosNotificationSettingsBoundary": {
+      "status": "passed",
+      "sha": "ced6d91120f7482998296cf3a7a068c523d14e28",
+      "report": "docs/candidate-attestations/evidence/ios-notification-settings-boundary-89c4bcb8.json",
+      "reportSha256": "e9ad5a8be01158eb52580ab7c0abe54a8e2fc724484d382b99ab4b5a9e16568e",
+      "reportStatus": "passed",
+      "reportGitHead": "89c4bcb80bac1441b38e32d5b9dd210be4527908",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "notification_settings_supported_url_contract_2_of_2_passed",
+        "historical_opened_true_root_settings_results_preserved_as_negative",
+        "ci_fast_suite_wires_boundary_contract",
+        "ci_fast_contracts_898_of_898_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "contract_and_documentation_only_no_runtime_backend_or_simulator_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ios-notification-settings-boundary-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-notification-settings-boundary.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "439c9f61ea23fb74b6f2c9713c3b1e4c98fa4b1a",
+    "blockingFindings": []
+  },
+  "notes": [
+    "Denied notification permission already routes through UIApplication.openNotificationSettingsURLString, the public notification-specific Settings URL supplied by iOS.",
+    "The two preserved Simulator diagnostics remain negative: the open call returned true in the later run, but Settings stayed at its root and settingsDestinationAccepted remains false.",
+    "This unit classifies the unreachable internal Settings page as an external system/Simulator boundary after verifying the supported product API. It does not claim functional acceptance, APNs registration, provider authentication, delivery, distribution or physical-device behavior.",
+    "No private Settings URL, coordinate navigation or unsupported automation was introduced.",
+    "Historical review returned GO without P0-P3 after correcting the inventory attribution: both trials observed the Settings root, while only the later diagnostic recorded opened: true. A fresh exact-head review is required before publication.",
+    "The notification Settings boundary delta was recomposed over the verified #605 squash 5b24c15e73b285a4b63d429d40b31cfcdc738496. Product ced6d91120f7482998296cf3a7a068c523d14e28 preserves the contract, package wiring and boundary document byte-for-byte; historical platform evidence and the 898/898 fast suite are not attributed to this rebase.",
+    "Independent exact-head review returned GO with no P0-P3 findings on 439c9f61ea23fb74b6f2c9713c3b1e4c98fa4b1a."
+  ]
+}

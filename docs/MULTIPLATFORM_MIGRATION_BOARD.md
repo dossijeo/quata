@@ -31,7 +31,7 @@ aislamiento de actor, dispatcher y rollback fail-closed. Web conserva dispatch r
 
 La composición declara GO focal multiplataforma dentro de esos límites. No transforma `simctl push`
 en entrega de Apple, no atribuye token al Simulator y no acredita autenticación o entrega APNs,
-dispositivo físico, distribución pagada ni el destino propio de Ajustes que permaneció fallido. El
+dispositivo físico ni distribución pagada. El producto usa la API oficial de Ajustes de notificaciones; el Simulator devolvió apertura pero permaneció en la raíz del sistema, por lo que esa página interna queda como frontera externa no aceptada. El
 segmento Web de Reply integrado por #428 pertenece a `FLOW-NOTIFICATION-REPLY`; no amplía registro,
 rotación o baja del lifecycle. Los intentos fallidos y los recibos originales se conservan.
 
