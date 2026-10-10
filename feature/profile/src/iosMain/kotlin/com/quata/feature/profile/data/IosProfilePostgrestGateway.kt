@@ -297,12 +297,36 @@ private class IosProfileDataTaskDelegate(
         }
         val status = (task.response as? NSHTTPURLResponse)?.statusCode?.toInt()
         if (status == null || status !in 200..299) {
-            continuation.resumeWithException(IllegalStateException("ios_profile_http_${status ?: "unknown"}"))
+            val responseBody = chunks.toIosProfileDataOrNull()?.toIosProfileBytes()?.decodeToString()
+            continuation.resumeWithException(
+                IllegalStateException(iosProfileHttpFailureReason(status, responseBody)),
+            )
             return
         }
         continuation.resume(chunks.toIosProfileDataOrNull() ?: NSData())
     }
 }
+
+internal fun iosProfileHttpFailureReason(status: Int?, responseBody: String?): String {
+    if (status == null) return "ios_profile_http_unknown"
+    val body = responseBody.orEmpty().lowercase()
+    val constraint = IosProfilePhoneConstraintNames.firstOrNull(body::contains)
+    val isUniqueViolation = Regex("\\\"code\\\"\\s*:\\s*\\\"23505\\\"").containsMatchIn(body)
+    return if (status == 409 && isUniqueViolation && constraint != null) {
+        "ios_profile_23505_$constraint"
+    } else {
+        "ios_profile_http_$status"
+    }
+}
+
+private val IosProfilePhoneConstraintNames = listOf(
+    "community_profiles_country_phone_local_uidx",
+    "community_profiles_phone_e164_uidx",
+    "community_profiles_phone_local_key",
+    "community_profiles_phone_local_uidx",
+    "unique_phone_normalized",
+    "phone_unique",
+)
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toIosProfileBytes(): ByteArray =

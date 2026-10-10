@@ -644,4 +644,9 @@
     <string name="profile_cancel_google_link">Annuler l’association Google</string>
     <string name="profile_google_linked">Compte Google associé.</string>
     <string name="profile_google_link_failed">Impossible d’associer le compte Google.</string>
+    <string name="profile_invalid_display_name">Le nom doit contenir entre 2 et 80 caractères.</string>
+    <string name="profile_invalid_neighborhood">Le quartier doit contenir entre 2 et 100 caractères.</string>
+    <string name="profile_invalid_country_code">Sélectionnez un indicatif de pays valide.</string>
+    <string name="profile_invalid_phone">Saisissez un numéro valide de 6 à 14 chiffres.</string>
+    <string name="profile_phone_already_in_use">Ce numéro est déjà associé à un autre compte.</string>
 </resources>

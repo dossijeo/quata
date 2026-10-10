@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "unit": "ACCOUNT-DETAILS",
+  "scope": "invalid-input-and-country-aware-phone-collision",
+  "status": "passed",
+  "productSha": "512b5bf563beb786861c15d6f8d38c2e58e07994",
+  "runtimeSha": "512b5bf563beb786861c15d6f8d38c2e58e07994",
+  "migrations": [
+    {
+      "version": "20261010090000",
+      "status": "superseded_global_local_number_indexes"
+    },
+    {
+      "version": "20261010101500",
+      "file": "20261010101500_profile_phone_country_identity.sql",
+      "sha256": "4e423db5fc68fe5e42411824a49242efdd0ae2e875c56a2b225bc4ebb0f0991e",
+      "releaseSourceSha": "512b5bf563beb786861c15d6f8d38c2e58e07994",
+      "release": "committed",
+      "ledgerPostflight": "passed",
+      "catalogPostconditions": "passed"
+    }
+  ],
+  "checks": {
+    "validationAndReleaseContract": "passed_5_of_5",
+    "authProfileResolution": "passed_6_of_6",
+    "profileWasmBrowserTests": "passed",
+    "webGatewayBrowserTests": "passed",
+    "androidCompilation": "passed",
+    "webWasmCompilation": "passed",
+    "iosX64Compilation": "passed",
+    "disposablePostgres": "old_then_forward_apply_idempotent_reapply_country_distinction_and_collision_rejection_passed",
+    "productionAggregateAudit": "passed_zero_inconsistencies_zero_country_local_or_e164_collisions",
+    "productionTransactionalProbe": "passed_same_local_different_country_accepted_exact_identity_23505_rejected_rollback_residue_zero",
+    "diffCheck": "passed"
+  },
+  "releaseCustody": {
+    "fullEncryptedLogicalBackup": "passed_fresh_after_review_finding",
+    "ciphertextAndPlaintextIntegrity": "passed",
+    "focalRestoreFromFullBackup": "passed_community_profiles_and_follows",
+    "preflight": "passed",
+    "snapshot": "passed",
+    "selectiveDryRun": "passed",
+    "authorizedSelectiveApply": "passed_committed",
+    "generalPostflight": "passed",
+    "focalPostflight": "passed",
+    "backupManifestSha256": "036ce34304847a226dc078231c65a5513bb91d38748f61c4283d340652cd6eb2",
+    "backupCiphertextSha256": "9d927661c8ccceb2942ed4190860612f89ac053bb55a1daa750b9e84ed75ccb6",
+    "backupPlaintextSha256": "20c82e46842536804b1c579d51dfff938505e4fdcff8622a5b9b8ab270c076aa"
+  },
+  "reportFingerprints": {
+    "predeployAggregateAuditSha256": "b6cf67935321d2a01c44daa879e97a72f954faf954cc6faa7b11fc080f6e4961",
+    "postdeployAggregateAuditSha256": "d6973b0bf5464c0cc7a568795f6ffa9152ef8fe7a67a664bba4a12b69b34f3fe",
+    "rollbackProbeSha256": "e419f49f6f06b823cebfe98e067fa622b6d43b18af8f84d6fbeb0cc9cd25833a",
+    "preflightSha256": "089458f881a38a4f4452eff26b7bbd43b05085318ed419daf01a47d9dce3054e",
+    "snapshotSha256": "54226ffaeb3805e0f63e3392b6af98e397f35fea3f0d6d3fff64e16fcdd9c5f1",
+    "dryRunSha256": "64ac846b6d8d8b76505823e0016b681f82f13a5422c60e3ae1e9bd970653e46b",
+    "applySha256": "fad423970f2708043fce8d6db82e667983a02f3b066fcd77b831056489160c93",
+    "postflightSha256": "dfdc8531a799c5135a0eb1d5765990d2ac6388343f045d4c01b979edaeec93e0"
+  },
+  "assertions": [
+    "Invalid account details are rejected synchronously with stable product codes before any repository mutation.",
+    "Valid display name, neighborhood, country prefix and local phone are compatibility-normalized once in the shared runtime.",
+    "Repeated Save while a mutation is active is suppressed before another coroutine or repository call is created.",
+    "Only SQLSTATE 23505 tied to an expected phone identity constraint maps to the stable collision result; unrelated HTTP 409 and unrelated unique failures retain their cause.",
+    "Canonical uniqueness is country_code plus phone_local and phone_e164; the same local number remains valid in another country.",
+    "The four obsolete global local-number indexes are absent and both canonical indexes are valid.",
+    "The production probes exercised acceptance and rejection inside an outer rollback and left zero residue."
+  ],
+  "limits": [
+    "No complete native UI matrix was repeated solely for this Product SHA; affected focused tests and Android, Web/Wasm and iOS compilation were repeated.",
+    "The probe does not emit or retain profile identifiers, phone values, emails, credentials, connection strings, backup keys or private host paths.",
+    "This unit does not promote ACCOUNT-RECOVERY-SECRET, ACCOUNT-PASSWORD-LEGACY, avatar, SOS, logout, account deletion or any other Account/Profile subflow."
+  ]
+}

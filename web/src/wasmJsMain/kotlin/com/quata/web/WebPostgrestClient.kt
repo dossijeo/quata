@@ -295,7 +295,7 @@ private suspend fun browserPostgrestMutation(
                     null -> WebPostgrestFailureKind.Network
                     else -> WebPostgrestFailureKind.Http
                 },
-                reason = reason ?: "postgrest_mutation_failed",
+                reason = webPostgrestMutationFailureReason(status, reason),
                 statusCode = status,
             ))
         },
@@ -327,8 +327,29 @@ private fun browserPostgrestMutationRequest(
     globalThis.fetch(url, { method, headers, body: body || undefined }).then(async (response) => {
       const responseBody = await response.text();
       if (response.ok) onSuccess(responseBody, response.status, response.headers.get('content-range'));
-      else onFailure(`postgrest_http_${'$'}{response.status}`, response.status);
-    }).catch((error) => onFailure(error?.message ?? error?.name ?? 'postgrest_network_error', null));
+      else onFailure(responseBody, response.status);
+    }).catch(() => onFailure(null, null));
     })()
     """,
+)
+
+internal fun webPostgrestMutationFailureReason(status: Int?, responseBody: String?): String {
+    if (status == null) return "postgrest_network_error"
+    val body = responseBody.orEmpty().lowercase()
+    val constraint = ProfilePhoneConstraintNames.firstOrNull(body::contains)
+    val isUniqueViolation = Regex("\\\"code\\\"\\s*:\\s*\\\"23505\\\"").containsMatchIn(body)
+    return if (status == 409 && isUniqueViolation && constraint != null) {
+        "postgrest_23505_$constraint"
+    } else {
+        "postgrest_http_$status"
+    }
+}
+
+private val ProfilePhoneConstraintNames = listOf(
+    "community_profiles_country_phone_local_uidx",
+    "community_profiles_phone_e164_uidx",
+    "community_profiles_phone_local_key",
+    "community_profiles_phone_local_uidx",
+    "unique_phone_normalized",
+    "phone_unique",
 )

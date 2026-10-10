@@ -5,6 +5,7 @@ import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
+import com.quata.feature.profile.domain.ProfileInvalidDisplayName
 import com.quata.feature.profile.domain.UserProfile
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -162,6 +163,44 @@ class ProfileViewModelLifecycleTest {
         assertEquals(2, repository.attempts)
         assertEquals("34", viewModel.uiState.value.profile?.countryCode)
         assertTrue(viewModel.uiState.value.successMessageTriggersProfileSaved)
+        viewModel.close()
+    }
+
+    @Test
+    fun invalid_account_details_never_cross_the_repository_boundary() = runTest {
+        val repository = RecordingRepository(stream = { flowOf(Result.success(profileModel())) })
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val viewModel = ProfileViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        runCurrent()
+
+        viewModel.onEvent(ProfileUiEvent.NameChanged("A"))
+        viewModel.onEvent(ProfileUiEvent.Save)
+        runCurrent()
+
+        assertTrue(repository.savedProfileUpdates.isEmpty())
+        assertEquals(ProfileInvalidDisplayName, viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isSaving)
+        viewModel.close()
+    }
+
+    @Test
+    fun valid_account_details_are_normalized_and_double_submit_is_suppressed() = runTest {
+        val repository = RecordingRepository(stream = { flowOf(Result.success(profileModel())) })
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val viewModel = ProfileViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        runCurrent()
+
+        viewModel.onEvent(ProfileUiEvent.NameChanged("  Ｇabriela   Robles  "))
+        viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(" Centro\tNorte "))
+        viewModel.onEvent(ProfileUiEvent.PhoneChanged("600 100 200"))
+        viewModel.onEvent(ProfileUiEvent.Save)
+        viewModel.onEvent(ProfileUiEvent.Save)
+        runCurrent()
+
+        val saved = repository.savedProfileUpdates.single()
+        assertEquals("Gabriela Robles", saved.displayName)
+        assertEquals("Centro Norte", saved.neighborhood)
+        assertEquals("600100200", saved.phone)
         viewModel.close()
     }
 

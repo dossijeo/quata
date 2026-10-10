@@ -152,6 +152,18 @@ const approvedReleases = [
       ["20261009073000", "089e1a720afda2c6f6a38951b179293106f8dfad719060d79c1413cb55f64011"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261010090000", "2c1be23a5ece0c970a300464648ec148ce0e023437ead79791171bae0f45fada"],
+    ]),
+  },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261010101500", "4e423db5fc68fe5e42411824a49242efdd0ae2e875c56a2b225bc4ebb0f0991e"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -1212,6 +1224,122 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     `)).rows[0] ?? {};
     if (Object.values(privileges).some((value) => value !== true)) {
       throw new Error("selective_release_profile_safety_permissions_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261010090000")) {
+    const uniqueness = (await client.query(`
+      select
+        exists (
+          select 1
+          from pg_index index_state
+          where index_state.indexrelid='public.community_profiles_phone_local_uidx'::regclass
+            and index_state.indrelid='public.community_profiles'::regclass
+            and index_state.indisunique
+            and index_state.indisvalid
+            and index_state.indnkeyatts=1
+            and index_state.indkey[0]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='phone_local'
+            )
+            and (index_state.indpred is null
+              or pg_get_expr(index_state.indpred, index_state.indrelid) in ('(phone_local IS NOT NULL)', 'phone_local IS NOT NULL'))
+        ) as local_index_valid,
+        exists (
+          select 1
+          from pg_index index_state
+          where index_state.indexrelid='public.unique_phone_normalized'::regclass
+            and index_state.indrelid='public.community_profiles'::regclass
+            and index_state.indisunique
+            and index_state.indisvalid
+            and index_state.indnkeyatts=1
+            and index_state.indkey[0]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='phone_normalized'
+            )
+            and index_state.indpred is null
+        ) as normalized_index_valid,
+        not exists (
+          select 1 from public.community_profiles
+          where phone_local is not null
+          group by phone_local
+          having count(*) > 1
+        ) as local_values_unique,
+        not exists (
+          select 1 from public.community_profiles
+          where phone_normalized is not null
+          group by phone_normalized
+          having count(*) > 1
+        ) as normalized_values_unique
+    `)).rows[0] ?? {};
+    if (Object.values(uniqueness).some((value) => value !== true)) {
+      throw new Error("selective_release_profile_phone_uniqueness_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261010101500")) {
+    const identity = (await client.query(`
+      select
+        exists (
+          select 1
+          from pg_index index_state
+          where index_state.indexrelid='public.community_profiles_country_phone_local_uidx'::regclass
+            and index_state.indrelid='public.community_profiles'::regclass
+            and index_state.indisunique
+            and index_state.indisvalid
+            and index_state.indnkeyatts=2
+            and index_state.indkey[0]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='country_code'
+            )
+            and index_state.indkey[1]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='phone_local'
+            )
+            and pg_get_expr(index_state.indpred, index_state.indrelid) in (
+              '((country_code IS NOT NULL) AND (phone_local IS NOT NULL))',
+              '(country_code IS NOT NULL AND phone_local IS NOT NULL)'
+            )
+        ) as country_local_index_valid,
+        exists (
+          select 1
+          from pg_index index_state
+          where index_state.indexrelid='public.community_profiles_phone_e164_uidx'::regclass
+            and index_state.indrelid='public.community_profiles'::regclass
+            and index_state.indisunique
+            and index_state.indisvalid
+            and index_state.indnkeyatts=1
+            and index_state.indkey[0]=(
+              select attribute.attnum from pg_attribute attribute
+              where attribute.attrelid='public.community_profiles'::regclass
+                and attribute.attname='phone_e164'
+            )
+            and pg_get_expr(index_state.indpred, index_state.indrelid) in (
+              '(phone_e164 IS NOT NULL)', 'phone_e164 IS NOT NULL'
+            )
+        ) as e164_index_valid,
+        to_regclass('public.community_profiles_phone_local_key') is null
+          and to_regclass('public.community_profiles_phone_local_uidx') is null
+          and to_regclass('public.phone_unique') is null
+          and to_regclass('public.unique_phone_normalized') is null
+          as obsolete_global_local_indexes_absent,
+        not exists (
+          select 1 from public.community_profiles
+          where country_code is not null and phone_local is not null
+          group by country_code, phone_local
+          having count(*) > 1
+        ) as country_local_values_unique,
+        not exists (
+          select 1 from public.community_profiles
+          where phone_e164 is not null
+          group by phone_e164
+          having count(*) > 1
+        ) as e164_values_unique
+    `)).rows[0] ?? {};
+    if (Object.values(identity).some((value) => value !== true)) {
+      throw new Error("selective_release_profile_phone_country_identity_postcondition_failed");
     }
   }
 }

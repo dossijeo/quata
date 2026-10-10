@@ -630,4 +630,9 @@
     <string name="profile_cancel_google_link">Cancel Google linking</string>
     <string name="profile_google_linked">Google account linked.</string>
     <string name="profile_google_link_failed">Google account could not be linked.</string>
+    <string name="profile_invalid_display_name">Name must contain between 2 and 80 characters.</string>
+    <string name="profile_invalid_neighborhood">Neighborhood must contain between 2 and 100 characters.</string>
+    <string name="profile_invalid_country_code">Select a valid country prefix.</string>
+    <string name="profile_invalid_phone">Enter a valid phone number with 6 to 14 digits.</string>
+    <string name="profile_phone_already_in_use">That phone number is already linked to another account.</string>
 </resources>

@@ -8,6 +8,7 @@ import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
+import com.quata.feature.profile.domain.ProfilePhoneCollision
 import com.quata.feature.profile.domain.SecretQuestionOption
 import com.quata.feature.profile.domain.UserProfile
 import kotlinx.coroutines.flow.Flow
@@ -108,7 +109,11 @@ class KmpProfileRepository(
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
         var profilePatchPersisted = false
         try {
-            remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+            try {
+                remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+            } catch (error: Throwable) {
+                throw error.normalizedProfileSaveFailure()
+            }
             profilePatchPersisted = true
             if (update.secretAnswer.isNotBlank()) {
                 remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
@@ -209,6 +214,16 @@ class KmpProfileRepository(
     )
 }
 
+internal fun Throwable.normalizedProfileSaveFailure(): Throwable {
+    val messages = generateSequence(this) { it.cause }
+        .mapNotNull(Throwable::message)
+        .joinToString(" ")
+        .lowercase()
+    val collision = messages.contains(ProfilePhoneCollision) ||
+        (messages.contains("23505") && CollisionMarkers.any(messages::contains))
+    return if (collision) IllegalStateException(ProfilePhoneCollision, this) else this
+}
+
 internal fun normalizeEmergencyContactIds(contactIds: List<String>): List<String> =
     contactIds.map { it.trim() }.filter { it.isNotBlank() }.distinct().take(MaxEmergencyContacts)
 
@@ -289,3 +304,11 @@ private fun String?.cleanProfileValue(): String? = this?.trim()?.takeIf { it.isN
 
 private const val MaxEmergencyContacts = 5
 private const val EmergencyContactsNetworkTimeoutMillis = 3_500L
+private val CollisionMarkers = listOf(
+    "phone_local_key",
+    "phone_local_uidx",
+    "country_phone_local_uidx",
+    "phone_e164_uidx",
+    "unique_phone_normalized",
+    "phone_unique",
+)

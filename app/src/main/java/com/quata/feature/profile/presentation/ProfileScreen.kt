@@ -321,6 +321,11 @@ private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     googleLinkFailed = context.getString(R.string.profile_google_link_failed),
     logoutEverywhere = context.getString(R.string.profile_logout_everywhere),
     logoutEverywhereConfirmation = context.getString(R.string.profile_logout_everywhere_confirmation),
+    invalidDisplayName = context.getString(R.string.profile_invalid_display_name),
+    invalidNeighborhood = context.getString(R.string.profile_invalid_neighborhood),
+    invalidCountryCode = context.getString(R.string.profile_invalid_country_code),
+    invalidPhone = context.getString(R.string.profile_invalid_phone),
+    phoneAlreadyInUse = context.getString(R.string.profile_phone_already_in_use),
 )
 
 private fun androidDocumentViewerStatusStrings(context: Context) = QuataDocumentViewerStatusStrings(
