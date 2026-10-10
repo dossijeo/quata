@@ -1426,7 +1426,7 @@ export async function pollPostPublishFixture({
     const row = result.rows[0];
     if (uuid.test(row?.id ?? "")) {
       if (fixture.expectedBody && row.body !== fixture.expectedBody) {
-        throw new Error("post_publish_exact_body_mismatch");
+        throw new Error(`post_publish_exact_body_mismatch:${JSON.stringify({ expected: fixture.expectedBody, actual: row.body })}`);
       }
       fixture.publishedPostId = row.id;
       fixture.publishedWallId = row.wall_id ?? null;
