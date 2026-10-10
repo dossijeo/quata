@@ -5,12 +5,12 @@
     "SCR-CONVERSATIONS"
   ],
   "status": "passed",
-  "productSha": "bc53fddf29d732fb344ea40d14616e58a543eb24",
-  "certification": "root-surface-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-go-final-ci-pending",
+  "productSha": "c45e792eedba06b7534645944b18c9b469662b2f",
+  "certification": "root-surface-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "rootSurfaceComposition": {
       "status": "passed",
-      "sha": "bc53fddf29d732fb344ea40d14616e58a543eb24",
+      "sha": "c45e792eedba06b7534645944b18c9b469662b2f",
       "report": "docs/candidate-attestations/evidence/root-surface-composition-reconciliation-1be16887.json",
       "reportSha256": "a5bfd05b33f9132014bbff31126101255f6a8bad085b518fbaa29f4529c99e29",
       "reportStatus": "passed",
@@ -45,7 +45,7 @@
     "The Feed and Conversations roots are composed only from existing passed thematic receipts.",
     "The reconciliation removes generic global or non-focal recertification placeholders from the two roots; it does not erase or broaden the limits owned by media, detail, comments, profiles, mutations, invitations, creation, network recovery or other child units.",
     "No runtime, product behavior, backend, evidence receipt or CI workflow changed.",
-    "The cumulative owned delta was recomposed over notification-settings predecessor 1a8898f5. Product bc53fddf preserves the composition contract and documentary delta from previously reviewed Product dc637f8c; only predecessor ancestry and aggregate package wiring changed, so the historical 901/901 fast suite was not repeated solely for commit identity.",
-    "Independent exact-head review is pending for the recomposed head."
+    "The cumulative owned delta was recomposed over notification-settings candidate 1ccd5ada876d86ecc6f6f8a12386a997c2e07def. Product c45e792eedba06b7534645944b18c9b469662b2f preserves the composition contract and documentary delta byte-for-byte; predecessor ancestry and aggregate package wiring changed, so the historical 901/901 fast suite is not attributed to this rebase.",
+    "Historical exact-head review returned GO without P0-P3 after checking all 24 thematic receipts, retained child-unit limits, single package wiring, evidence hash and absence of secret matches. A fresh exact-head review is required before publication."
   ]
 }
