@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "ff8ed4a63177f9a59a73ea8cc9e129ad01f73943",
-  "certification": "conversation-invites-owned-selection-and-dispatch-executed-third-party-effects-preserved-independent-review-pending-final-ci-pending",
+  "certification": "conversation-invites-owned-selection-and-dispatch-executed-third-party-effects-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "conversationInvitesComposition": {
       "status": "passed",
@@ -42,8 +42,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "go",
+    "reviewedSha": "2a809456d920b6e77dfed281f677317d84e83728",
     "blockingFindings": []
   },
   "notes": [
