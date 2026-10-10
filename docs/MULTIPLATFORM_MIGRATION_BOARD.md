@@ -438,7 +438,7 @@ subflujos de Cuenta/Perfil. #319 fusionó el head `e82dfd83a62d4427d662d2a4b8c48
 mediante merge `d16be356fdefb2e479cd36b4ae7ead8174935021`, con certificación final Web/Android,
 iOS y CodeQL verde.
 
-**ACCOUNT-DETAILS — cambio de prefijo y continuidad de actor:** Product SHA `d595a0c1aa2ca01a15ddaabddad0d2b0043f2677`
+**ACCOUNT-DETAILS — cambio de prefijo y continuidad de actor:** Product recompuesto `6235e4c2f508ceb72b72af02af59554c6dd5ef28`; Product y ejecución histórica `d595a0c1aa2ca01a15ddaabddad0d2b0043f2677`, sin atribuir ejecución nueva al rebase,
 añade anclas estables por prefijo, persiste juntos los alias canónicos y de descubrimiento del teléfono
 y mantiene la mutación ligada al `profileId` de la sesión. Web e iOS aceptan `phone_e164` y
 `phone_normalized`; el bridge Auth rechaza resoluciones ambiguas y deja de buscar o crear por email
