@@ -113,6 +113,13 @@ test("journal checkpoints are atomic and mutation modes hold an exclusive lock",
   assert.match(source, /await releaseJournalLock\(journalLock\)/);
 });
 
+test("official login resolves the current auth bridge profile envelope instead of the auth user id", async () => {
+  const source = await readFile(new URL("./media-historical-cors-migration.mjs", import.meta.url), "utf8");
+  assert.match(source, /const payload = envelope\?\.payload \?\? envelope/);
+  assert.match(source, /payload\?\.profile\?\.id \?\? session\?\.profile_id \?\? session\?\.user\?\.user_metadata\?\.profile_id/);
+  assert.doesNotMatch(source, /profileId = [^\n]*session\?\.user\?\.id/);
+});
+
 test("all active post video producers use authenticated Supabase Storage and retain rollback", async () => {
   const [androidFeed, androidOfficial, androidApi, androidHttp, web, webMain, ios, iosOfficial] = await Promise.all([
     readFile(new URL("../app/src/main/java/com/quata/feature/postcomposer/data/PostComposerRepositoryImpl.kt", import.meta.url), "utf8"),

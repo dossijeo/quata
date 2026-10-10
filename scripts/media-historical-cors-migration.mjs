@@ -261,15 +261,16 @@ function loadCredentials(raw) {
 async function loginOfficial(options, backend) {
   const credentials = loadCredentials(await readFile(options.credentialsFile, "utf8"));
   for (const credential of credentials) {
-    const payload = await postJson(`${backend.url}/functions/v1/quata-auth-bridge`, { apikey: backend.key }, {
+    const envelope = await postJson(`${backend.url}/functions/v1/quata-auth-bridge`, { apikey: backend.key }, {
       action: "web_login",
       country_code: credential.countryCode,
       phone_local: credential.phone,
       password: credential.password,
       client_instance_id: `historical-cors-${randomUUID()}`,
     }).catch(() => null);
-    const session = payload?.payload?.session ?? payload?.payload ?? payload?.session ?? payload;
-    const profileId = payload?.payload?.profile?.id ?? session?.profile_id ?? session?.user?.id ?? session?.user_id;
+    const payload = envelope?.payload ?? envelope;
+    const session = payload?.session ?? payload;
+    const profileId = payload?.profile?.id ?? session?.profile_id ?? session?.user?.user_metadata?.profile_id ?? session?.user_id;
     const accessToken = session?.access_token ?? session?.accessToken;
     if (!profileId || !accessToken) continue;
     const authorized = await withPg(options, async (client) => {
