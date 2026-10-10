@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": [
+    "CONV-INVITES"
+  ],
+  "status": "passed",
+  "productSha": "ff8ed4a63177f9a59a73ea8cc9e129ad01f73943",
+  "certification": "conversation-invites-owned-selection-and-dispatch-executed-third-party-effects-preserved-independent-review-go-final-ci-pending",
+  "evidence": {
+    "conversationInvitesComposition": {
+      "status": "passed",
+      "sha": "ff8ed4a63177f9a59a73ea8cc9e129ad01f73943",
+      "report": "docs/candidate-attestations/evidence/conversation-invites-composition-reconciliation-b331d0f2.json",
+      "reportSha256": "75506f95f654f15cbb16cca19ba099e6e3df610fc51f79308ac538992ae3b2d4",
+      "reportStatus": "passed",
+      "reportGitHead": "b331d0f231f044d5fae116c25197d8b3c719ac32",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "conversation_invites_composition_contract_5_of_5_passed",
+        "android_instrumented_dispatch_5_of_5_passed",
+        "web_wasm_rendered_dispatch_1_of_1_passed",
+        "ios_x64_rendered_dispatch_1_of_1_passed",
+        "two_platform_receipts_preserved",
+        "third_party_delivery_boundary_preserved",
+        "ci_fast_contracts_915_of_915_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "focal_platform_fixtures_only_no_backend_mutation_or_third_party_send"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/conversation-invites-composition-reconciliation-contract.test.mjs",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.chat.presentation.conversations.InviteChannelIntentsInstrumentedTest' --no-configuration-cache --console=plain",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest --tests \"*ConversationInviteChannelSheetTest*\" --no-configuration-cache --console=plain",
+    "bash gradlew :feature:chat:iosX64Test --tests \"*ConversationInviteChannelSheetTest*\" --no-daemon --no-configuration-cache --console=plain",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/conversation-invites-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "go",
+    "reviewedSha": "ff8ed4a63177f9a59a73ea8cc9e129ad01f73943",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The prior independent-review P1 was corrected with executable Android and rendered common dispatch evidence; no claim was relaxed.",
+    "The unit was recomposed onto main 8b2079f9 without renewing platform execution: the Android and common runtime/test blobs remain byte-identical to Product b331d0f2, whose immutable report and reportGitHead are preserved.",
+    "After recomposition, the affected focal contract passed 5/5 and the current main fast-contract set passed 901/901; the historical 915/915 receipt remains tied to the immutable Product b331d0f2 report.",
+    "Android maps and filters the selected contact before one exact ACTION_SENDTO SMS dispatch. Web/Wasm and iOS x64 click the visible common platform-share target and verify the exact payload once.",
+    "Receipt, installation and delivery by a third-party application or person remain explicit external effects because Qüata cannot observe or control them after dispatch.",
+    "No internal accept/reject invitation workflow is invented; backend and third-party applications are not mutated."
+  ]
+}
