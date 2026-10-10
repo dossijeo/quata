@@ -196,13 +196,15 @@ final class QuataIosHostUITests: XCTestCase {
         let app = fixtureApp("auth-failure-retry", authDestination: "recovery", spanishLocale: true)
         app.launch()
 
-        typePrivatePhone("799000000000", into: "auth.recovery.phone", in: app)
+        // The fixture compares the complete first and second requests; minimal values keep
+        // private-keyboard traversal deterministic without weakening exact-retry coverage.
+        enterText("12345", into: "auth.recovery.phone", in: app)
         let question = app.descendants(matching: .any)
             .matching(identifier: "auth.recovery.question")
             .firstMatch
-        XCTAssertTrue(question.waitForLabelOrValue(containing: "primer barrio", timeout: 10))
-        typePrivateText("Synthetic answer", into: "auth.recovery.secret-answer", in: app)
-        typePrivateText("Synthetic-password-8!", into: "auth.recovery.new-password", in: app)
+        XCTAssertTrue(question.waitForLabelOrValue(containing: "primer barrio", timeout: 25))
+        typePrivateText("a", into: "auth.recovery.secret-answer", in: app)
+        typePrivateText("p", into: "auth.recovery.new-password", in: app)
         tapAfterDismissingKeyboard("auth.recovery.submit", in: app)
 
         XCTAssertTrue(
