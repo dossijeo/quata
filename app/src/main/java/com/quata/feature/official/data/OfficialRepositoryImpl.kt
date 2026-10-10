@@ -221,20 +221,21 @@ class OfficialRepositoryImpl(
                     fallbackFileNameBase = "oficial"
                 )
                 val upload = try {
-                    wordpressClient.uploadPostVideoRest(
-                        fileName = media.fileName,
+                    supabaseApi.uploadPostVideo(
+                        profileId = profileId,
+                        extension = media.extension,
                         mimeType = media.mimeType,
                         contentLength = media.sizeBytes,
-                        openStream = media::openStream
+                        openStream = media::openStream,
                     )
                 } finally {
                     media.cleanup()
                 }
                 Log.d(
                     OFFICIAL_REPOSITORY_LOG_TAG,
-                    "official video upload success=${upload.success} hasUrl=${!upload.data?.url.isNullOrBlank()} error=${upload.errorMessage?.take(240)}"
+                    "official video storage upload hasUrl=${!upload.publicUrl.isNullOrBlank()}"
                 )
-                upload.data?.url ?: error(upload.errorMessage ?: "WordPress no devolvio URL de video")
+                upload.publicUrl ?: error("Supabase no devolvio URL de video")
             }
             null -> null
         }

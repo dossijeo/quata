@@ -1,9 +1,12 @@
 # OVR-MEDIA — migración de objetos históricos para CORS/COEP
 
-Este runbook mueve únicamente los MP4 que todavía están referenciados por
+Este runbook mueve los MP4 históricos que todavía están referenciados por
 `community_posts.video_url` u `official_posts.media_url` y cuyo origen exacto es
-`https://egquata.com/wp-content/uploads/...`. No habilita COEP, no cambia el
-reproductor y no amplía los orígenes aceptados por el producto.
+`https://egquata.com/wp-content/uploads/...`. También cierra el productor que
+originaba esa deuda: las nuevas cargas de vídeo autenticadas de Feed y Official
+usan Supabase Storage en Android, Web e iOS. La moderación y la inserción de
+posts conservan sus contratos. No habilita COEP, no cambia el reproductor y no
+amplía los orígenes aceptados por el producto.
 
 Los destinos conservan la semántica actual de cada productor:
 
@@ -13,6 +16,15 @@ Los destinos conservan la semántica actual de cada productor:
   `historical-cors-v1/<run-id>/<sha256-del-url>.mp4`;
 - dos filas que comparten origen y bucket comparten objeto; un mismo origen en
   buckets distintos se copia por separado.
+
+Los adaptadores de publicación escriben vídeos nuevos bajo el perfil actor en
+`<profileId>/video-<timestamp>-<token>.<ext>`, con bearer renovable y rollback
+del objeto si falla la inserción. Feed y el editor Official usan
+`community-posts`, el bucket que ya admite carga y borrado del cliente; el bucket
+`official-media` queda reservado a la copia histórica controlada. Las imágenes
+mantienen su ruta previa en `community-posts`. WordPress conserva únicamente la
+moderación de Composer y el rollback compatible con tokens antiguos; no recibe
+vídeos nuevos.
 
 La herramienta no acepta otros hosts, extensiones ni columnas. El journal
 privado contiene las URLs e identificadores necesarios para rollback y permanece
@@ -100,4 +112,3 @@ El journal se valida antes de interpolar nombres SQL o borrar Storage: sólo
 admite las dos tablas, sus columnas conocidas, los dos buckets y el prefijo del
 `run-id`. No se versionan credenciales, URLs de origen, IDs de filas, tokens ni
 el journal.
-

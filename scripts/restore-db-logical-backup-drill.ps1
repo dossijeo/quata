@@ -88,7 +88,7 @@ if ($ProfileSafetyScope -and ($ExpectedUgcReports -lt 0 -or $ExpectedChatProfile
 $manifest=Get-Content -LiteralPath (Join-Path $BackupSet "manifest.json") -Raw | ConvertFrom-Json
 Assert-Manifest $manifest $BackupSet
 $restoreTables = if ($ProfileFollowScope) { @("community_profiles", "community_profile_follows") } elseif ($CommunityPostLikesScope) { @("community_post_likes") } elseif ($CommunityFeedScope) { @("community_posts") } elseif ($MediaHistoricalCorsScope) { @("community_posts", "official_posts") } else { @("community_comments", "official_post_likes") }
-$key=Read-Key $EncryptionKeyFile; $work=Join-Path ([IO.Path]::GetTempPath()) ("quata-restore-drill-"+[guid]::NewGuid().ToString("N")); $name="quata-restore-"+[guid]::NewGuid().ToString("N").Substring(0,12); $password=[guid]::NewGuid().ToString("N")
+$key=Read-Key $EncryptionKeyFile; $work=Join-Path ([IO.Path]::GetTempPath()) ("quata-restore-drill-"+[guid]::NewGuid().ToString("N")); $name="quata-restore-"+[guid]::NewGuid().ToString("N").Substring(0,12); $password=[guid]::NewGuid().ToString("N"); $restorePassed=$false
 try {
     Restrict-Directory $work
     foreach ($artifact in $manifest.artifacts) {
@@ -348,6 +348,18 @@ select case when c.relrowsecurity and policy_state.exact and grant_state.exact a
         $counts = & docker exec -e "PGPASSWORD=$password" $name psql -U postgres -d postgres -Atqc "select (select count(*) from public.community_comments)::text || ',' || (select count(*) from public.official_post_likes)::text" 2>$null
         if ($counts -cne "$ExpectedCommunityComments,$ExpectedOfficialPostLikes") { Fail "restore_row_count_verification_failed" }
     }
+    $restorePassed=$true
+}
+finally {
+    $previousErrorActionPreference=$ErrorActionPreference; $ErrorActionPreference="SilentlyContinue"
+    try { & docker rm -f $name 2>$null | Out-Null } finally { $ErrorActionPreference=$previousErrorActionPreference }
+    $containerResidue=@(& docker ps -a --filter "name=^/${name}$" --format "{{.Names}}" 2>$null)
+    if ($containerResidue.Count -ne 0) { Fail "restore_target_cleanup_failed" }
+    if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
+    if (Test-Path -LiteralPath $work) { Fail "restore_work_cleanup_failed" }
+    if ($null -ne $key) { [Array]::Clear($key,0,$key.Length) }
+}
+if ($restorePassed) {
     if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
         $reportFull=[IO.Path]::GetFullPath($ReportPath); $reportParent=Split-Path $reportFull -Parent
         New-Item -ItemType Directory -Force -Path $reportParent | Out-Null
@@ -359,8 +371,8 @@ select case when c.relrowsecurity and policy_state.exact and grant_state.exact a
             backupManifestSha256=(Get-FileHash (Join-Path $BackupSet "manifest.json") -Algorithm SHA256).Hash.ToLowerInvariant()
             tables=$tables
             target="disposable-postgresql-17"
+            cleanupVerified=$true
         } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $reportFull -Encoding utf8
     }
     Write-Output "logical_backup_restore_drill_passed"
 }
-finally { $previousErrorActionPreference=$ErrorActionPreference; $ErrorActionPreference="SilentlyContinue"; try { & docker rm -f $name 2>$null | Out-Null } finally { $ErrorActionPreference=$previousErrorActionPreference }; if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }; if ($null -ne $key) { [Array]::Clear($key,0,$key.Length) } }

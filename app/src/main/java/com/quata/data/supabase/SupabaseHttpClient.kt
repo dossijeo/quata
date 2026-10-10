@@ -25,7 +25,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
+import okio.source
+import java.io.InputStream
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -342,6 +346,39 @@ class SupabaseHttpClient(
             .addHeader("Content-Type", contentType ?: "application/octet-stream")
             .addHeader("x-upsert", upsert.toString())
             .post(bytes.toRequestBody(mediaType))
+            .build()
+        val responseBody = executeRequest(request)
+        val raw = runCatching { json.parseToJsonElement(responseBody) }.getOrNull() ?: JsonPrimitive(responseBody)
+        val responseKey = (raw as? JsonObject)?.get("Key")?.toString()?.trim('"')
+        val key = responseKey
+            ?.removePrefix("$bucket/")
+            ?.trimStart('/')
+            ?.takeIf { it.isNotBlank() }
+            ?: cleanPath
+        return StorageUploadResult(key = key, publicUrl = publicObjectUrl(cleanPath, bucket), raw = raw)
+    }
+
+    suspend fun uploadObject(
+        path: String,
+        contentLength: Long?,
+        openStream: () -> InputStream,
+        contentType: String? = null,
+        upsert: Boolean = true,
+        bucket: String = config.storageBucket,
+    ): StorageUploadResult {
+        val cleanPath = path.trimStart('/')
+        val mediaType = (contentType ?: "application/octet-stream").toMediaType()
+        val requestBody = object : RequestBody() {
+            override fun contentType() = mediaType
+            override fun contentLength(): Long = contentLength ?: -1L
+            override fun writeTo(sink: BufferedSink) {
+                openStream().use { input -> sink.writeAll(input.source()) }
+            }
+        }
+        val request = baseRequest("${config.storageUrl}/object/$bucket/$cleanPath")
+            .addHeader("Content-Type", contentType ?: "application/octet-stream")
+            .addHeader("x-upsert", upsert.toString())
+            .post(requestBody)
             .build()
         val responseBody = executeRequest(request)
         val raw = runCatching { json.parseToJsonElement(responseBody) }.getOrNull() ?: JsonPrimitive(responseBody)

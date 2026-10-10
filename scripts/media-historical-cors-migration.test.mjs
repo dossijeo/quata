@@ -38,7 +38,7 @@ test("plan rejects unowned source domains and invalid run identifiers", () => {
 test("backup authorization requires a fresh encrypted full backup and matching scoped restore", () => {
   const now = new Date("2026-10-11T12:00:00.000Z");
   const manifest = { format: "quata-logical-backup-v1", scope: "Full", encryption: "AES-256-GCM", containsConnectionData: false, grantsIncluded: true, createdAt: "2026-10-11T11:00:00.000Z" };
-  const proof = { status: "passed", backupManifestSha256: "a".repeat(64), tables: ["public.community_posts", "public.official_posts"] };
+  const proof = { status: "passed", cleanupVerified: true, backupManifestSha256: "a".repeat(64), tables: ["public.community_posts", "public.official_posts"] };
   assert.equal(validateBackupAuthorization({ manifest, manifestSha256: "a".repeat(64), restoreProof: proof, now }), true);
   assert.throws(() => validateBackupAuthorization({ manifest: { ...manifest, scope: "Critical" }, manifestSha256: "a".repeat(64), restoreProof: proof, now }), /full_encrypted_backup_required/);
   assert.throws(() => validateBackupAuthorization({ manifest, manifestSha256: "b".repeat(64), restoreProof: proof, now }), /matching_restore_drill_required/);
@@ -81,6 +81,7 @@ test("logical backup restore drill covers both URL-bearing tables and emits a bo
   assert.match(source, /backupManifestSha256=\(Get-FileHash \(Join-Path \$BackupSet "manifest\.json"\) -Algorithm SHA256\)\.Hash\.ToLowerInvariant\(\)/);
   assert.match(source, /tables=\$tables/);
   assert.match(source, /target="disposable-postgresql-17"/);
+  assert.match(source, /cleanupVerified=\$true/);
 });
 
 test("runbook preserves the bounded source, backup, postflight and rollback contract", async () => {
@@ -93,4 +94,29 @@ test("runbook preserves the bounded source, backup, postflight and rollback cont
   assert.match(source, /--mode postflight/);
   assert.match(source, /--mode rollback/);
   assert.match(source, /No se versionan credenciales, URLs de origen, IDs de filas, tokens ni/);
+});
+
+test("all active post video producers use authenticated Supabase Storage and retain rollback", async () => {
+  const [androidFeed, androidOfficial, androidApi, androidHttp, web, webMain, ios, iosOfficial] = await Promise.all([
+    readFile(new URL("../app/src/main/java/com/quata/feature/postcomposer/data/PostComposerRepositoryImpl.kt", import.meta.url), "utf8"),
+    readFile(new URL("../app/src/main/java/com/quata/feature/official/data/OfficialRepositoryImpl.kt", import.meta.url), "utf8"),
+    readFile(new URL("../app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt", import.meta.url), "utf8"),
+    readFile(new URL("../app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt", import.meta.url), "utf8"),
+    readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt", import.meta.url), "utf8"),
+    readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url), "utf8"),
+    readFile(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/data/IosPostComposerTransport.kt", import.meta.url), "utf8"),
+    readFile(new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(androidFeed, /uploadPostVideoRest/);
+  assert.doesNotMatch(androidOfficial, /uploadPostVideoRest/);
+  assert.match(androidFeed, /supabaseApi\.uploadPostVideo[\s\S]*supabaseApi\.deletePostMediaObject/);
+  assert.match(androidOfficial, /supabaseApi\.uploadPostVideo/);
+  assert.match(androidApi, /openStream: \(\) -> InputStream/);
+  assert.match(androidHttp, /sink\.writeAll\(input\.source\(\)\)/);
+  assert.doesNotMatch(web, /wp-json\/quqos\/v1\/upload-video/);
+  assert.match(web, /webComposerUploadBlob[\s\S]*webComposerStorageRollbackToken/);
+  assert.match(webMain, /mediaTransport = WebPostComposerTransport\(runtimeConfiguration, authRepository\)/);
+  assert.doesNotMatch(ios, /iosComposerWordpressVideoUploadUrl/);
+  assert.match(ios, /iosComposerStorageRollbackToken\(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET, path\)/);
+  assert.match(iosOfficial, /mediaTransport = IosPostComposerTransport/);
 });

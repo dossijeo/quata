@@ -11,6 +11,8 @@ import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -114,13 +116,14 @@ class IosPostComposerTransport(
     }
 
     override suspend fun uploadVideo(actorProfileId: String, media: ComposerPreparedMedia): Result<ComposerUploadedMedia> = runCatching {
-        val boundary = "QuataComposer${NSUUID.UUID().UUIDString}"
-        val payload = media.localData().multipartVideo(boundary, media.name, media.mimeType)
-        val raw = request(configuration.iosComposerWordpressVideoUploadUrl(), "POST", payload, "multipart/form-data; boundary=$boundary", authenticated = false)
-        val root = Json.parseToJsonElement(raw).jsonObject
-        val data = root["data"]?.jsonObject
-        val url = root["url"]?.jsonPrimitive?.contentOrNull ?: data?.get("url")?.jsonPrimitive?.contentOrNull ?: error("wordpress_video_url_missing")
-        ComposerUploadedMedia(url, url)
+        val data = media.localData()
+        val ext = media.name.substringAfterLast('.', "mp4").lowercase().filter(Char::isLetterOrDigit).ifBlank { "mp4" }
+        val path = "$actorProfileId/video-${iosComposerEpochMillis()}-${NSUUID.UUID().UUIDString.lowercase().replace("-", "").take(7)}.$ext"
+        request(configuration.iosComposerStorageObjectUrl(path), "POST", data, media.mimeType, upsert = true)
+        ComposerUploadedMedia(
+            configuration.iosComposerStoragePublicUrl(path),
+            iosComposerStorageRollbackToken(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET, path),
+        )
     }
 
     override suspend fun insertPost(request: ComposerPostInsert): Result<String?> = runCatching {
@@ -132,7 +135,14 @@ class IosPostComposerTransport(
 
     override suspend fun rollbackUploadedMedia(media: ComposerUploadedMedia): Result<Unit> = runCatching {
         if (media.rollbackToken.startsWith("storage:")) {
-            request(configuration.iosComposerStorageObjectUrl(media.rollbackToken.removePrefix("storage:")), "DELETE", null, null)
+            val target = iosComposerStorageRollbackTarget(media.rollbackToken)
+            val body = buildJsonObject { put("prefixes", JsonArray(listOf(JsonPrimitive(target.path)))) }
+            request(
+                configuration.iosComposerStorageBucketUrl(target.bucket),
+                "DELETE",
+                body.toString().encodeToByteArray().toFoundationData(),
+                "application/json",
+            )
         } else wordpressForm(mapOf("action" to "quqos_delete_post_video", "url" to media.rollbackToken))
         Unit
     }
@@ -156,13 +166,31 @@ private fun IosPostComposerRuntimeConfiguration.wordpressBase() = wordpressBaseU
 private fun IosPostComposerRuntimeConfiguration.key() = supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_composer_publishable_key_missing")
 internal const val IOS_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
 internal const val IOS_COMPOSER_POSTS_TABLE = "community_posts"
+internal const val IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET = "community-posts"
 internal fun iosComposerWallFallbackPath() = "$IOS_COMPOSER_WALL_STATS_TABLE?select=id&is_active=eq.true&order=sort_order.asc&limit=1"
 internal fun iosComposerDestinationsPath() = "$IOS_COMPOSER_WALL_STATS_TABLE?select=id,slug,name,city,description&is_active=eq.true&order=sort_order.asc,chat_last_at.desc,created_at.desc&limit=250"
 internal fun IosPostComposerRuntimeConfiguration.iosComposerPostsUrl() = "${restBase()}/$IOS_COMPOSER_POSTS_TABLE"
-internal fun IosPostComposerRuntimeConfiguration.iosComposerStorageObjectUrl(path: String) = "${storageBase()}/object/community-posts/${path.iosComposerPath()}"
-internal fun IosPostComposerRuntimeConfiguration.iosComposerStoragePublicUrl(path: String) = "${storageBase()}/object/public/community-posts/${path.iosComposerPath()}"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerStorageObjectUrl(path: String, bucket: String = IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET) =
+    "${storageBase()}/object/${bucket.iosComposerPath()}/${path.iosComposerPath()}"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerStoragePublicUrl(path: String, bucket: String = IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET) =
+    "${storageBase()}/object/public/${bucket.iosComposerPath()}/${path.iosComposerPath()}"
+internal fun IosPostComposerRuntimeConfiguration.iosComposerStorageBucketUrl(bucket: String) =
+    "${storageBase()}/object/${bucket.iosComposerPath()}"
+internal data class IosComposerStorageTarget(val bucket: String, val path: String)
+internal fun iosComposerStorageRollbackToken(bucket: String, path: String) = "storage:$bucket:$path"
+internal fun iosComposerStorageRollbackTarget(token: String): IosComposerStorageTarget {
+    val value = token.removePrefix("storage:")
+    val separator = value.indexOf(':')
+    return if (separator < 0) {
+        IosComposerStorageTarget(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET, value)
+    } else {
+        IosComposerStorageTarget(value.substring(0, separator), value.substring(separator + 1))
+    }.also {
+        require(it.bucket == IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET) { "ios_composer_storage_bucket_invalid" }
+        require(it.path.isNotBlank()) { "ios_composer_storage_path_missing" }
+    }
+}
 internal fun IosPostComposerRuntimeConfiguration.iosComposerWordpressAdminAjaxUrl() = "${wordpressBase()}/wp-admin/admin-ajax.php"
-internal fun IosPostComposerRuntimeConfiguration.iosComposerWordpressVideoUploadUrl() = "${wordpressBase()}/wp-json/quqos/v1/upload-video"
 internal fun AuthSession.toComposerActorSession(): ComposerActorSession? =
     userId.trim().takeIf(String::isNotEmpty)?.let { ComposerActorSession(it, displayName) }
 internal data class IosComposerHttpContract(val url: String, val method: String, val headers: Map<String, String>)
@@ -182,7 +210,6 @@ private fun String.iosComposerPath() = split('/').joinToString("/") { it.iosComp
 private fun iosComposerMime(value: String?) = when(value?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "jpg", "jpeg" -> "image/jpeg"; "png" -> "image/png"; "webp" -> "image/webp"; "mp4" -> "video/mp4"; "mov" -> "video/quicktime"; else -> "" }
 @OptIn(ExperimentalForeignApi::class)
 private fun iosComposerEpochMillis(): Long = platform.posix.time(null) * 1000L
-@OptIn(ExperimentalForeignApi::class) private fun NSData.multipartVideo(boundary: String, name: String, mime: String): NSData { val prefix="--$boundary\r\nContent-Disposition: form-data; name=\"video\"; filename=\"$name\"\r\nContent-Type: $mime\r\n\r\n".encodeToByteArray(); val suffix="\r\n--$boundary--\r\n".encodeToByteArray(); return (prefix + toIosBytes() + suffix).toFoundationData() }
 private data class IosComposerHttp(val body: NSData)
 @OptIn(ExperimentalForeignApi::class) private suspend fun NSMutableURLRequest.executeComposer(): NSData = suspendCancellableCoroutine { c -> val delegate=IosComposerDelegate(c); val session=NSURLSession.sessionWithConfiguration(NSURLSessionConfiguration.ephemeralSessionConfiguration(),delegate,null); val task=session.dataTaskWithRequest(this); c.invokeOnCancellation { task.cancel(); session.invalidateAndCancel() }; task.resume() }
 @OptIn(ExperimentalForeignApi::class) private class IosComposerDelegate(private val c:CancellableContinuation<NSData>):NSObject(),NSURLSessionDataDelegateProtocol { private val chunks=mutableListOf<ByteArray>(); override fun URLSession(session:NSURLSession,dataTask:NSURLSessionDataTask,didReceiveData:NSData){if(c.isActive)chunks+=didReceiveData.toIosBytes()}; override fun URLSession(session:NSURLSession,task:NSURLSessionTask,didCompleteWithError:platform.Foundation.NSError?){session.finishTasksAndInvalidate();if(!c.isActive)return;if(didCompleteWithError!=null)c.resumeWithException(IllegalStateException(didCompleteWithError.localizedDescription));else { val status=(task.response as? NSHTTPURLResponse)?.statusCode?.toInt();if(status==401)c.resumeWithException(PostComposerAuthenticationRequiredException()) else if(status==null||status !in 200..299)c.resumeWithException(IllegalStateException("ios_composer_http_${status?:"unknown"}"));else c.resume(chunks.fold(ByteArray(0)){a,b->a+b}.toFoundationData()) } } }

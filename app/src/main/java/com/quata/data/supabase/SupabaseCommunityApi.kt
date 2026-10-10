@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
+import java.io.InputStream
 import java.time.Instant
 
 class SupabaseCommunityApi(
@@ -1263,6 +1264,23 @@ class SupabaseCommunityApi(
 
     suspend fun deletePostImageObject(storagePath: String) {
         client.deleteObject(storagePath)
+    }
+
+    suspend fun uploadPostVideo(
+        profileId: String,
+        extension: String,
+        mimeType: String,
+        contentLength: Long?,
+        openStream: () -> InputStream,
+        bucket: String = "community-posts",
+    ): StorageUploadResult {
+        val safeExtension = extension.trimStart('.').lowercase().filter(Char::isLetterOrDigit).ifBlank { "mp4" }
+        val path = "$profileId/video-${System.currentTimeMillis()}-${randomToken()}.$safeExtension"
+        return client.uploadObject(path, contentLength, openStream, mimeType, upsert = true, bucket = bucket)
+    }
+
+    suspend fun deletePostMediaObject(storagePath: String, bucket: String = "community-posts") {
+        client.deleteObject(storagePath, bucket)
     }
 
     suspend fun uploadAvatar(profileId: String, bytes: ByteArray, extension: String = "jpg", mimeType: String = "image/jpeg"): StorageUploadResult {

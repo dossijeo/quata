@@ -90,7 +90,7 @@ export function validateBackupAuthorization({ manifest, manifestSha256, restoreP
   if (manifest?.containsConnectionData !== false || manifest?.grantsIncluded !== true) throw new Error("backup_manifest_invalid");
   const created = Date.parse(manifest.createdAt);
   if (!Number.isFinite(created) || Math.abs(now.getTime() - created) > 24 * 60 * 60 * 1000) throw new Error("fresh_backup_required");
-  if (restoreProof?.status !== "passed" || restoreProof?.backupManifestSha256 !== manifestSha256) {
+  if (restoreProof?.status !== "passed" || restoreProof?.cleanupVerified !== true || restoreProof?.backupManifestSha256 !== manifestSha256) {
     throw new Error("matching_restore_drill_required");
   }
   const tables = new Set(restoreProof.tables ?? []);
@@ -292,6 +292,29 @@ async function assertTargetsAbsent(options, plan) {
   });
 }
 
+async function targetExists(options, target) {
+  return withPg(options, async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = $1 and name = $2",
+      [target.bucket, target.objectPath],
+    );
+    return Number(result.rows[0]?.count ?? 0) === 1;
+  });
+}
+
+async function reconcileOwnedTargets(options, backend, targets) {
+  const existing = [];
+  for (const target of targets) {
+    if (!await targetExists(options, target)) continue;
+    const verified = await publicObjectBytes(backend, target);
+    if (sha256(verified.bytes) !== target.contentSha256 || verified.bytes.length !== target.size) {
+      throw new Error("owned_target_content_mismatch");
+    }
+    existing.push(target);
+  }
+  return existing;
+}
+
 async function switchDatabase(options, entries, direction) {
   return withPg(options, async (client) => {
     await client.query("begin");
@@ -301,7 +324,9 @@ async function switchDatabase(options, entries, direction) {
         const from = direction === "forward" ? entry.sourceUrl : entry.publicUrl;
         const to = direction === "forward" ? entry.publicUrl : entry.sourceUrl;
         const locked = await client.query(`select ${entry.column} as value from public.${entry.table} where id = $1::uuid for update`, [entry.id]);
-        if (locked.rowCount !== 1 || locked.rows[0]?.value !== from) throw new Error(`database_source_drift:${entry.table}`);
+        if (locked.rowCount !== 1) throw new Error(`database_row_missing:${entry.table}`);
+        if (locked.rows[0]?.value === to) continue;
+        if (locked.rows[0]?.value !== from) throw new Error(`database_source_drift:${entry.table}`);
         const updated = await client.query(
           `update public.${entry.table} set ${entry.column} = $2 where id = $1::uuid and ${entry.column} = $3`,
           [entry.id, to, from],
@@ -316,6 +341,37 @@ async function switchDatabase(options, entries, direction) {
   });
 }
 
+async function databaseState(options, entries) {
+  return withPg(options, async (client) => {
+    let source = 0;
+    let target = 0;
+    let drift = 0;
+    for (const entry of entries) {
+      assertEntryShape(entry);
+      const result = await client.query(`select ${entry.column} as value from public.${entry.table} where id = $1::uuid`, [entry.id]);
+      const value = result.rows[0]?.value;
+      if (result.rowCount !== 1) drift += 1;
+      else if (value === entry.sourceUrl) source += 1;
+      else if (value === entry.publicUrl) target += 1;
+      else drift += 1;
+    }
+    if (drift) return "drift";
+    if (source === entries.length) return "source";
+    if (target === entries.length) return "target";
+    return "mixed";
+  });
+}
+
+async function assertNoHistoricalReferences(options) {
+  return withPg(options, async (client) => {
+    const result = await client.query(`
+      select
+        (select count(*)::int from public.community_posts where lower(video_url) like '%egquata.com/wp-content/%') +
+        (select count(*)::int from public.official_posts where lower(media_url) like '%egquata.com/wp-content/%') as count`);
+    if (Number(result.rows[0]?.count ?? -1) !== 0) throw new Error("historical_reference_residue");
+  });
+}
+
 async function verifyDatabase(options, entries, expectedField) {
   return withPg(options, async (client) => {
     for (const entry of entries) {
@@ -326,10 +382,13 @@ async function verifyDatabase(options, entries, expectedField) {
   });
 }
 
-async function cleanupOwnedTargets({ backend, session, targets }) {
+async function cleanupOwnedTargets({ options, backend, session, targets }) {
   const failures = [];
   for (const target of [...targets].reverse()) {
-    try { await storageDelete({ backend, session, target }); } catch (error) { failures.push(String(error?.message ?? error)); }
+    try {
+      if (await targetExists(options, target)) await storageDelete({ backend, session, target });
+      if (await targetExists(options, target)) throw new Error("storage_object_still_present");
+    } catch (error) { failures.push(String(error?.message ?? error)); }
   }
   if (failures.length) throw new Error(`storage_cleanup_failed:${failures.length}`);
 }
@@ -381,14 +440,13 @@ async function run(options) {
   const backend = await publicConfig();
   let session;
   let journal;
-  let switched = false;
-  const uploaded = [];
   try {
     if (["postflight", "rollback"].includes(options.mode)) {
       journal = validateJournal(JSON.parse(await readFile(options.journal, "utf8")));
       report.plan = journal.plan;
       if (options.mode === "postflight") {
         await verifyDatabase(options, journal.entries, "publicUrl");
+        await assertNoHistoricalReferences(options);
         for (const target of journal.targets) {
           const verified = await publicObjectBytes(backend, target);
           if (sha256(verified.bytes) !== target.contentSha256 || verified.bytes.length !== target.size) throw new Error("postflight_content_mismatch");
@@ -399,7 +457,10 @@ async function run(options) {
         session = await loginOfficial(options, backend);
         await switchDatabase(options, journal.entries, "rollback");
         await verifyDatabase(options, journal.entries, "sourceUrl");
-        await cleanupOwnedTargets({ backend, session, targets: journal.targets });
+        await cleanupOwnedTargets({ options, backend, session, targets: journal.targets });
+        journal.state = "rolled_back_and_clean";
+        journal.rolledBackAt = new Date().toISOString();
+        await writeJson(options.journal, journal);
         report.mutationsPerformed = true;
         report.steps.push("database_rollback_verified", "owned_storage_cleanup_verified");
       }
@@ -424,24 +485,42 @@ async function run(options) {
         await readAuthorization(options);
         session = await loginOfficial(options, backend);
         for (const target of plan.targets) {
-          const source = await downloadSource(target.sourceUrl);
-          if (source.contentSha256 !== target.contentSha256 || source.size !== target.size) throw new Error("source_changed_during_apply");
-          await storageUpload({ backend, session, target, bytes: source.bytes });
-          uploaded.push(target);
-          const verified = await publicObjectBytes(backend, target);
-          if (sha256(verified.bytes) !== target.contentSha256 || verified.bytes.length !== target.size) throw new Error("uploaded_content_mismatch");
-          target.publicUrl = verified.publicUrl;
+          target.publicUrl = `${backend.url}/storage/v1/object/public/${target.bucket}/${encodeStoragePath(target.objectPath)}`;
+          target.state = "planned";
         }
-        for (const entry of plan.entries) entry.publicUrl = plan.targets.find((target) => target.bucket === entry.bucket && target.objectPath === entry.objectPath)?.publicUrl;
+        for (const entry of plan.entries) {
+          entry.publicUrl = plan.targets.find((target) => target.bucket === entry.bucket && target.objectPath === entry.objectPath)?.publicUrl;
+        }
         journal = {
-          version: 1, check: CHECK, state: "uploads_verified", createdAt: new Date().toISOString(), plan: sanitizedPlan(plan),
+          version: 1, check: CHECK, state: "upload_intent_recorded", createdAt: new Date().toISOString(), plan: sanitizedPlan(plan),
           entries: plan.entries, targets: plan.targets.map(({ sourceUrl: _sourceUrl, ...target }) => target),
         };
         await writeJson(options.journal, journal);
-        report.steps.push("target_uploads_verified_byte_exact", "private_rollback_journal_written");
+        report.steps.push("private_rollback_journal_written_before_storage_mutation");
+        for (const target of plan.targets) {
+          const source = await downloadSource(target.sourceUrl);
+          if (source.contentSha256 !== target.contentSha256 || source.size !== target.size) throw new Error("source_changed_during_apply");
+          const journalTarget = journal.targets.find((candidate) => candidate.bucket === target.bucket && candidate.objectPath === target.objectPath);
+          journalTarget.state = "uploading";
+          await writeJson(options.journal, journal);
+          try {
+            await storageUpload({ backend, session, target, bytes: source.bytes });
+          } catch (error) {
+            const reconciled = await reconcileOwnedTargets(options, backend, [target]).catch(() => []);
+            if (reconciled.length !== 1) throw error;
+          }
+          const verified = await publicObjectBytes(backend, target);
+          if (sha256(verified.bytes) !== target.contentSha256 || verified.bytes.length !== target.size) throw new Error("uploaded_content_mismatch");
+          if (target.publicUrl !== verified.publicUrl) throw new Error("uploaded_public_url_mismatch");
+          journalTarget.state = "verified";
+          await writeJson(options.journal, journal);
+        }
+        journal.state = "uploads_verified";
+        await writeJson(options.journal, journal);
+        report.steps.push("target_uploads_verified_byte_exact");
         await switchDatabase(options, plan.entries, "forward");
-        switched = true;
         await verifyDatabase(options, plan.entries, "publicUrl");
+        await assertNoHistoricalReferences(options);
         journal.state = "applied_and_verified";
         journal.appliedAt = new Date().toISOString();
         await writeJson(options.journal, journal);
@@ -452,13 +531,23 @@ async function run(options) {
     report.status = "passed";
   } catch (error) {
     report.error = String(error?.message ?? error).replace(/https?:\/\/\S+/g, "<redacted-url>");
-    if (options.mode === "apply" && uploaded.length && session) {
+    if (options.mode === "apply" && journal?.entries && session) {
       try {
-        if (switched && journal?.entries) await switchDatabase(options, journal.entries, "rollback");
-        if (!switched || journal?.entries) await cleanupOwnedTargets({ backend, session, targets: uploaded });
+        let state = await databaseState(options, journal.entries);
+        if (state === "target" || state === "mixed") {
+          try { await switchDatabase(options, journal.entries, "rollback"); } catch { /* reconcile below */ }
+          state = await databaseState(options, journal.entries);
+        }
+        if (state !== "source") throw new Error(`database_rollback_unresolved:${state}`);
+        const existing = await reconcileOwnedTargets(options, backend, journal.targets);
+        await cleanupOwnedTargets({ options, backend, session, targets: existing });
+        journal.state = "failure_rolled_back_and_clean";
+        journal.failureRolledBackAt = new Date().toISOString();
+        await writeJson(options.journal, journal);
         report.failureRollback = "verified";
       } catch (rollbackError) {
         report.failureRollback = `failed:${String(rollbackError?.message ?? rollbackError)}`;
+        report.failurePolicy = "owned_objects_preserved_while_database_state_is_not_proven_source";
       }
     }
     process.exitCode = 1;
