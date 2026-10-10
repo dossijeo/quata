@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "status": "passed",
+  "unit": "PROF-SHARED-CHAT-DOCUMENTS",
+  "git": {
+    "head": "792e08941d1259af891354079894c9cc51d678ec",
+    "workingTreeDirty": false
+  },
+  "platform": "web-compose-rendered-in-chrome-headless",
+  "commands": [
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebNeighborhoodsActorScopeTest :web:wasmJsBrowserDistribution --console=plain --no-daemon",
+    "git diff --check"
+  ],
+  "steps": [
+    "actor_a_composes_an_actor_scoped_neighborhoods_model",
+    "hot_actor_a_to_b_change_replaces_the_model_without_reload",
+    "hot_actor_b_to_anonymous_change_replaces_the_model_without_reload",
+    "repository_and_profile_cache_lifetimes_are_bound_to_the_auth_actor",
+    "actor_a_private_attachments_are_absent_for_actor_b_and_anonymous",
+    "late_actor_a_cache_write_remains_in_the_retired_actor_a_repository",
+    "previous_actor_model_is_registered_for_close_on_disposal",
+    "production_web_distribution_compiles"
+  ],
+  "result": {
+    "wasmJsBrowserTest": "passed",
+    "tests": 3,
+    "failures": 0,
+    "wasmJsBrowserDistribution": "passed",
+    "backendMutations": 0
+  },
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_fixtures": 0,
+        "local_fixtures": 0
+      }
+    }
+  },
+  "scope": "Web hot Auth actor changes for the shared public-profile document surface. The host keys the complete NeighborhoodsViewModel to the current actor, closes the previous model on disposal, and Main recreates the repository for each actor and every repository owns an actor-bound cache. A delayed A response can warm only the retired A repository, so A attachments and late completions cannot cross into B or anonymous. Historical Android/Web/iOS document producer, viewer and return evidence remains authoritative and was not repeated for this Web-only runtime change."
+}
