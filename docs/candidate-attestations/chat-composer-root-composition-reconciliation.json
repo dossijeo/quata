@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER"
+  ],
+  "status": "passed",
+  "productSha": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
+  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
+      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-a79a0e59.json",
+      "reportSha256": "91e799755150fe81eb0376676d0b7593c96ecf6bdf400a935fd488b1205461a8",
+      "reportStatus": "passed",
+      "reportGitHead": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "common_product_composer_and_registered_controls_composed",
+        "plain_reply_edit_and_attachment_draft_custody_composed",
+        "typing_presence_and_session_stress_receipts_preserved",
+        "durable_remote_replay_and_cleanup_receipt_preserved",
+        "draft_cross_tab_and_ime_lifecycle_receipts_preserved",
+        "emoji_and_attachment_ownership_preserved",
+        "generic_composer_root_residual_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-composer-root-composition-reconciliation-contract.test.mjs scripts/chat-typing-presence-contract.test.mjs scripts/chat-outbox-durable-evidence-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-composer-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common product host mounts one composer whose registered controls cover input, send, reply, edit, emoji, attachment, camera and audio acquisition.",
+    "Passed receipts compose actor- and conversation-bound plain, reply, edit and attachment drafts; cross-tab attachment custody; IME/viewport behavior; authenticated typing presence and multi-party session handling; and durable accepted-send replay.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
+    "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox."
+  ]
+}

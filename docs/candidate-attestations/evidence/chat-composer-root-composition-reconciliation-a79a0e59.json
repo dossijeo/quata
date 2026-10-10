@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_product_composer_and_registered_controls_composed",
+    "plain_reply_edit_and_attachment_draft_custody_composed",
+    "typing_presence_and_session_stress_receipts_preserved",
+    "durable_remote_replay_and_cleanup_receipt_preserved",
+    "draft_cross_tab_and_ime_lifecycle_receipts_preserved",
+    "emoji_and_attachment_ownership_preserved",
+    "generic_composer_root_residual_removed"
+  ],
+  "observations": {
+    "unit": "CHAT-COMPOSER",
+    "contractPassed": 7,
+    "contractFailed": 0,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "thematicFailureBoundariesPreserved": true
+  }
+}
