@@ -179,7 +179,7 @@ try {
     report.steps.push("web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route");
   } else {
     const body = `Publicacion reversible POST-PUBLISH Web ${fixture.marker}`;
-    if (options.emojiPicker) fixture.expectedBody = `${body}😀`;
+    if (options.emojiPicker) fixture.expectedBody = `[CANAL:feed]\n[PATRON_TEXTO:midnight-blue]\n${body}😀`;
     await fillSemanticInput(page, "composer-text-input", body);
     await page.waitForFunction((expected) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();

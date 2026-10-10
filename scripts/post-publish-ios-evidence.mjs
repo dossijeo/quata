@@ -64,7 +64,7 @@ try {
     destination,
     locationLabel: options.mode === "image-location" ? undefined : null,
   });
-  if (options.emojiPicker) fixture.expectedBody = `${fixture.marker}😀`;
+  if (options.emojiPicker) fixture.expectedBody = `[CANAL:feed]\n[PATRON_TEXTO:midnight-blue]\n${fixture.marker}😀`;
   if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
 
   localCredentials = join(await mkdirTemp("quata-ios-post-publish-credentials-"), "credentials.json");

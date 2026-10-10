@@ -69,7 +69,7 @@ try {
     locationLabel: options.mode === "image-location" ? undefined : null,
   });
   if (options.emojiPicker) {
-    fixture.expectedBody = `${fixture.marker} Publicacion reversible POST-PUBLISH Android😀`;
+    fixture.expectedBody = `[CANAL:feed]\n[PATRON_TEXTO:midnight-blue]\n${fixture.marker} Publicacion reversible POST-PUBLISH Android😀`;
   }
   if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
   localCredentials = join("build-reports", "android", `post-publish-credentials-${randomUUID()}.json`);
