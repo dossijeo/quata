@@ -192,19 +192,33 @@ class OfficialRepositoryImpl(
                         isLive = draft.isLive
                     )?.let(created::add)
                 }
+                if (created.isEmpty()) {
+                    val reconciled = reconcileCreatedOfficialPosts(
+                        profileId = session.userId,
+                        translationGroupId = groupId,
+                        uploadedMedia = uploadedMedia,
+                    )
+                    if (reconciled.isEmpty()) {
+                        cleanupUnreferencedOfficialMedia(uploadedMedia)
+                        return null
+                    }
+                    created.addAll(reconciled)
+                }
                 val preferred = created.selectPreferredTranslations(currentOfficialLanguage()).firstOrNull()
                     ?: created.firstOrNull()
-                if (preferred == null) {
-                    cleanupUnreferencedOfficialMedia(uploadedMedia)
-                    return null
-                }
+                    ?: return null
                 loadOfficialPost(preferred.id, SupabaseCacheMode.NETWORK_ONLY)
             } catch (failure: Throwable) {
                 if (created.isEmpty()) {
                     try {
-                        cleanupUnreferencedOfficialMedia(uploadedMedia)
-                    } catch (cleanupFailure: Throwable) {
-                        failure.addSuppressed(cleanupFailure)
+                        val reconciled = reconcileCreatedOfficialPosts(
+                            profileId = session.userId,
+                            translationGroupId = groupId,
+                            uploadedMedia = uploadedMedia,
+                        )
+                        if (reconciled.isEmpty()) cleanupUnreferencedOfficialMedia(uploadedMedia)
+                    } catch (reconciliationFailure: Throwable) {
+                        failure.addSuppressed(reconciliationFailure)
                     }
                 }
                 throw failure
@@ -217,6 +231,14 @@ class OfficialRepositoryImpl(
     private suspend fun cleanupUnreferencedOfficialMedia(uploadedMedia: UploadedOfficialMedia?) {
         uploadedMedia?.storagePath?.let { supabaseApi.deletePostMediaObject(it) }
     }
+
+    private suspend fun reconcileCreatedOfficialPosts(
+        profileId: String,
+        translationGroupId: String,
+        uploadedMedia: UploadedOfficialMedia?,
+    ): List<OfficialPost> = supabaseApi
+        .getOfficialPostsForCreateReconciliation(profileId, translationGroupId)
+        .filter { candidate -> uploadedMedia == null || candidate.media_url == uploadedMedia.publicUrl }
 
     private suspend fun uploadOfficialMediaIfNeeded(profileId: String, draft: OfficialPostDraft): UploadedOfficialMedia? {
         val rawUri = draft.mediaUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null

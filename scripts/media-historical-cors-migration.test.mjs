@@ -129,6 +129,8 @@ test("all active post video producers use authenticated Supabase Storage and ret
   assert.match(androidFeed, /supabaseApi\.uploadPostVideo[\s\S]*supabaseApi\.deletePostMediaObject/);
   assert.match(androidOfficial, /supabaseApi\.uploadPostVideo/);
   assert.match(androidOfficial, /supabaseApi\.deletePostMediaObject/);
+  assert.match(androidOfficial, /reconcileCreatedOfficialPosts[\s\S]*if \(reconciled\.isEmpty\(\)\) cleanupUnreferencedOfficialMedia/);
+  assert.match(androidApi, /getOfficialPostsForCreateReconciliation[\s\S]*translation_group_id[\s\S]*SupabaseCacheMode\.NETWORK_ONLY/);
   assert.match(androidApi, /openStream: \(\) -> InputStream/);
   assert.match(androidHttp, /sink\.writeAll\(input\.source\(\)\)/);
   assert.doesNotMatch(web, /wp-json\/quqos\/v1\/upload-video/);

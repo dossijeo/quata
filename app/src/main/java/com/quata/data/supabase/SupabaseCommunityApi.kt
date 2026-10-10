@@ -522,6 +522,21 @@ class SupabaseCommunityApi(
             select = OFFICIAL_POST_SELECT
         )
 
+    suspend fun getOfficialPostsForCreateReconciliation(
+        profileId: String,
+        translationGroupId: String,
+    ): List<OfficialPost> = client.getList(
+        "official_posts",
+        mapOf(
+            "select" to OFFICIAL_POST_SELECT,
+            "profile_id" to "eq.$profileId",
+            "translation_group_id" to "eq.$translationGroupId",
+            "deleted_at" to "is.null",
+            "order" to "created_at.asc",
+        ),
+        cacheMode = SupabaseCacheMode.NETWORK_ONLY,
+    )
+
     suspend fun deleteOfficialPost(postId: String, translationGroupId: String? = null) {
         client.patchMinimal(
             "official_posts",
