@@ -4,12 +4,12 @@
     "OVR-MEDIA-HISTORICAL-CORS"
   ],
   "status": "passed",
-  "productSha": "ac1391695c51c4f92068d721b06e171dfdfb4429",
+  "productSha": "a0181b7dd1ada97438918b59903e7cbc9febb1f0",
   "certification": "historical-media-cors-production-migration-and-active-producer-closure-independent-review-go-final-ci-pending",
   "evidence": {
     "mediaHistoricalCors": {
       "status": "passed",
-      "sha": "ac1391695c51c4f92068d721b06e171dfdfb4429",
+      "sha": "a0181b7dd1ada97438918b59903e7cbc9febb1f0",
       "report": "docs/candidate-attestations/evidence/media-historical-cors-10b415a0.json",
       "reportSha256": "5d338b8df633793b32b9b7f0e35f256bd2273f931193bf7190d1101a12da4eb5",
       "reportStatus": "passed",
@@ -49,7 +49,7 @@
     "blockingFindings": []
   },
   "notes": [
-    "Product SHA ac139169 composes the sanitized production closure, inventory/runbook reconciliation and affected OVR-MEDIA inventory contract on top of reviewed runtime and migration-tool SHA 10b415a0.",
+    "Product SHA a0181b7dd composes the sanitized production closure, inventory/runbook reconciliation and affected OVR-MEDIA inventory contract on top of reviewed runtime and migration-tool SHA 10b415a0.",
     "The production apply migrated 43 database references to 41 owned objects and the postflight verified byte identity, public CORS and zero historical-reference residue.",
     "The encrypted Full backup, focal restore proof and private rollback journal remain outside Git; only their non-secret SHA-256 custody is recorded.",
     "Historical viewer E2E was not repeated solely because the backend object migration and documentation changed the SHA.",
