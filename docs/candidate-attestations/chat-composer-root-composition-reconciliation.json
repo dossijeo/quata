@@ -4,16 +4,16 @@
     "CHAT-COMPOSER"
   ],
   "status": "passed",
-  "productSha": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
-  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "productSha": "f541a88460bd6d6794c6b00b5d4876f8cb0a7e6d",
+  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
-      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-a79a0e59.json",
-      "reportSha256": "91e799755150fe81eb0376676d0b7593c96ecf6bdf400a935fd488b1205461a8",
+      "sha": "f541a88460bd6d6794c6b00b5d4876f8cb0a7e6d",
+      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-f541a884.json",
+      "reportSha256": "b9d5b004f1815c7878fe0bf29e0fda50961cf72644e1f4bbdf4bd6a2a0b2c9e8",
       "reportStatus": "passed",
-      "reportGitHead": "a79a0e59e7efde9a4f88f497da1ba73e33641959",
+      "reportGitHead": "f541a88460bd6d6794c6b00b5d4876f8cb0a7e6d",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "fe6d5db2465b3ad1a370f18c0e4478bcf7d706be",
     "blockingFindings": []
   },
   "notes": [
@@ -46,6 +46,7 @@
     "Passed receipts compose actor- and conversation-bound plain, reply, edit and attachment drafts; cross-tab attachment custody; IME/viewport behavior; authenticated typing presence and multi-party session handling; and durable accepted-send replay.",
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
     "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
-    "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox."
+    "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox.",
+    "Independent exact-head review returned GO with no P0-P3 findings on fe6d5db2465b3ad1a370f18c0e4478bcf7d706be after reproducing 17/17 contracts, validator, report hash, diff-check and clean-tree check."
   ]
 }
