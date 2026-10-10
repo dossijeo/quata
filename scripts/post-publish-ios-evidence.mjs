@@ -64,6 +64,7 @@ try {
     destination,
     locationLabel: options.mode === "image-location" ? undefined : null,
   });
+  if (options.emojiPicker) fixture.expectedBody = `${fixture.marker}😀`;
   if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
 
   localCredentials = join(await mkdirTemp("quata-ios-post-publish-credentials-"), "credentials.json");
@@ -136,7 +137,7 @@ bash scripts/run-ios-post-publish-ui-test.sh
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
-  if (options.emojiPicker && !String(published.body ?? "").includes("😀")) {
+  if (options.emojiPicker && published.body !== fixture.expectedBody) {
     throw new Error("post_composer_emoji_not_persisted");
   }
   report.evidence.published = {

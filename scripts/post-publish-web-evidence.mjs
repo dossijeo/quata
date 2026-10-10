@@ -179,6 +179,7 @@ try {
     report.steps.push("web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route");
   } else {
     const body = `Publicacion reversible POST-PUBLISH Web ${fixture.marker}`;
+    if (options.emojiPicker) fixture.expectedBody = `${body}😀`;
     await fillSemanticInput(page, "composer-text-input", body);
     await page.waitForFunction((expected) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
@@ -287,7 +288,7 @@ try {
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
-  if (options.emojiPicker && !String(published.body ?? "").includes("😀")) {
+  if (options.emojiPicker && published.body !== fixture.expectedBody) {
     throw new Error("post_composer_emoji_not_persisted");
   }
   report.evidence.published = {

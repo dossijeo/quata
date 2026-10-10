@@ -107,6 +107,7 @@ test("post composer emoji evidence crosses the common picker on every platform r
   assert.match(webRunner, /community\.emoji\.cell\.frequent\.0/);
   assert.match(webRunner, /physicalOnly: true/);
   assert.match(webRunner, /post_composer_emoji_not_persisted/);
+  assert.match(webRunner, /published\.body !== fixture\.expectedBody/);
   assert.match(androidRunner, /--emoji-picker/);
   assert.match(androidRunner, /quataPostPublishUseEmojiPicker/);
   assert.match(androidPostPublishTest, /ComposerEmojiButtonTestTag/);
@@ -114,12 +115,16 @@ test("post composer emoji evidence crosses the common picker on every platform r
   assert.match(androidPostPublishTest, /android-post-publish-composer-emoji-after-cell-tap/);
   assert.match(androidRunner, /expectedEvidenceFiles/);
   assert.match(androidRunner, /post_composer_emoji_not_persisted/);
+  assert.match(androidRunner, /published\.body !== fixture\.expectedBody/);
   assert.match(iosRunner, /--emoji-picker/);
   assert.match(iosRunner, /QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER/);
   assert.match(iosWrapper, /QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER/);
   assert.match(iosPostPublishTest, /insertEmojiFromCommonPicker/);
   assert.match(iosPostPublishTest, /community\.emoji\.cell\.frequent\.0/);
   assert.match(iosRunner, /post_composer_emoji_not_persisted/);
+  assert.match(iosRunner, /published\.body !== fixture\.expectedBody/);
+  assert.match(sharedFixtures, /post_publish_duplicate_marker/);
+  assert.match(sharedFixtures, /post_publish_exact_body_mismatch/);
 });
 
 test("post progress rollback evidence uses a shared fail-once repository and common retry anchor", () => {
