@@ -4,12 +4,12 @@
     "FLOW-NOTIFICATION-REPLY"
   ],
   "status": "passed",
-  "productSha": "60475c902cb4abbee4e9c33213a767838706a13e",
+  "productSha": "2c047268a93f45bbe7d79888bdb0eb8ab1876107",
   "certification": "ios-notification-reply-exact-http-boundary-local-platform-test-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "iosNotificationReplyHttpBoundary": {
       "status": "passed",
-      "sha": "60475c902cb4abbee4e9c33213a767838706a13e",
+      "sha": "2c047268a93f45bbe7d79888bdb0eb8ab1876107",
       "report": "docs/candidate-attestations/evidence/ios-notification-reply-http-boundary-5990ff5b.json",
       "reportSha256": "eda79e08dec5c0149eb3125629bcd3cdedee05444d481365bd1cf202d568e1ef",
       "reportStatus": "passed",
