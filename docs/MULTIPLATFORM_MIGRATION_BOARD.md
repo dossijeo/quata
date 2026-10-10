@@ -164,7 +164,12 @@ exigen Retry antes del visor.
 
 La evidencia integrada de `PROF-SHARED-CHAT-DOCUMENTS` sigue siendo la autoridad para el productor
 de perfil, privacidad, apertura y retorno. Feed y Official permanecen excluidos porque no producen
-adjuntos documentales. La atestación `chat-attachment-http-boundary.json` cierra además la matriz
+adjuntos documentales. Product recompuesto `f930565d` conserva la ejecución histórica `792e0894` y elimina la recarga Web antes exigida al cambiar de actor:
+el host recompone el modelo completo por `currentUserId`, cierra el anterior y la caché se particiona
+por actor+perfil. Las pruebas Chrome Headless verifican A→B→anónimo y que una escritura tardía de A
+no aparece en B ni anónimo. La atestación
+`prof-shared-chat-documents-web-actor-switch.json` conserva ese alcance focal. La atestación
+`chat-attachment-http-boundary.json` cierra además la matriz
 productiva de estados y transporte: Android atraviesa TLS local real con bytes y headers exactos;
 Web e iOS ejercitan de forma determinista sus decisiones productivas para
 401/403/404/408/429/500/503, redirect, transporte, respuesta ausente, vacío y sobrelímite. Quedan

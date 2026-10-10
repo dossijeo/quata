@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-SHARED-CHAT-DOCUMENTS"
+  ],
+  "status": "passed",
+  "productSha": "f930565da70e35ca4e7d217db26a68db4cc5119e",
+  "certification": "web-hot-actor-switch-and-cache-isolation-complete-independent-review-passed-final-CI-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "f930565da70e35ca4e7d217db26a68db4cc5119e",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-web-actor-switch-792e0894.json",
+      "reportSha256": "332920b62f61f6ce35d17ac5a3b0b3dc6eec013801891cd777dfd4c1fabfc1f4",
+      "reportStatus": "passed",
+      "reportGitHead": "792e08941d1259af891354079894c9cc51d678ec",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "actor_a_composes_an_actor_scoped_neighborhoods_model",
+        "hot_actor_a_to_b_change_replaces_the_model_without_reload",
+        "hot_actor_b_to_anonymous_change_replaces_the_model_without_reload",
+        "repository_and_profile_cache_lifetimes_are_bound_to_the_auth_actor",
+        "actor_a_private_attachments_are_absent_for_actor_b_and_anonymous",
+        "late_actor_a_cache_write_remains_in_the_retired_actor_a_repository",
+        "previous_actor_model_is_registered_for_close_on_disposal",
+        "production_web_distribution_compiles"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-rendered-web-test",
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    ".\\gradlew.bat :web:wasmJsBrowserTest --tests com.quata.web.WebNeighborhoodsActorScopeTest :web:wasmJsBrowserDistribution --console=plain --no-daemon",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/prof-shared-chat-documents-web-actor-switch.json --head HEAD"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "75bc3d1950b5bafcff7f24020d0b00ddb8e642a4",
+    "blockingFindings": [],
+    "scopeLimit": "This focal unit removes only the documented Web reload requirement on an Auth actor change. Historical Android/Web/iOS document creation, viewing, return and cleanup evidence remains separately authoritative."
+  },
+  "notes": [
+    "WebNeighborhoodsHost keys the complete NeighborhoodsViewModel by repository and currentUserId. A hot A to B or B to anonymous transition cannot retain the previous model state.",
+    "Main recreates WebNeighborhoodsRepository for each Auth actor and the repository owns an actor-bound cache. A delayed A callback can update only the retired A repository, never the active B or anonymous repository.",
+    "The three Chrome Headless tests prove distinct models for A, B and anonymous and prove that A attachments plus a suspended late A write remain invisible after replacing the repository with B and anonymous scopes.",
+    "DisposableEffect closes the superseded model, cancelling its profile jobs and invalidating its request generation.",
+    "No backend mutation, schema, policy, Android runtime or iOS runtime changed. The full historical document matrix was not repeated solely for this Web-only lifecycle correction.",
+    "Two exact-head reviews rejected model-only isolation and then a dynamically selected cache actor because a stale ViewModel callback could still copy A data into B. Product 792e0894 binds both repository and cache lifetime to the actor and exercises the delayed old-repository write after replacement.",
+    "The Web actor-switch delta was recomposed over main squash 204fc6ca155828088a9e5fb8b0f3117d90e62368 after #603. Product f930565da70e35ca4e7d217db26a68db4cc5119e preserves the capability matrix and four focal runtime/test blobs byte-identical to Product ee5a3f938c0030ba25777630ef877b153b6e6bd9 and historical execution Product 792e08941d1259af891354079894c9cc51d678ec; no new browser execution is attributed to the rebase.",
+    "The previous exact-head reviews returned GO with no P0-P3 and confirmed byte-identical decisive blobs, historical evidence custody and preservation of the Account documentation base. The recomposed candidate requires a fresh independent exact-head review before publication."
+  ]
+}

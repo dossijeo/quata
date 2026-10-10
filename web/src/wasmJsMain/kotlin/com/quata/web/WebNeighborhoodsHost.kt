@@ -8,9 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.navigation.AuthenticationContinuationIntent
@@ -67,26 +65,14 @@ fun WebNeighborhoodsHost(
     showInitialLoadingSurface: Boolean = true,
     padding: PaddingValues = PaddingValues(),
 ) {
-    val viewModel = remember(repository) {
-        NeighborhoodsViewModel(
-            repository = repository,
-            initialProfileRoute = initialProfileRoute,
-            onProfileRouteChanged = onProfileRouteChanged,
-        )
-    }
+    val viewModel = rememberWebNeighborhoodsViewModel(
+        repository = repository,
+        currentUserId = currentUserId,
+        initialProfileRoute = initialProfileRoute,
+        onProfileRouteChanged = onProfileRouteChanged,
+    )
     val state by viewModel.uiState.collectAsState()
-    var boundActorId by remember { mutableStateOf(currentUserId) }
-
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.close() }
-    }
-    androidx.compose.runtime.LaunchedEffect(currentUserId) {
-        if (boundActorId != currentUserId) {
-            viewModel.clearUserProfile()
-            boundActorId = currentUserId
-        }
-    }
-    androidx.compose.runtime.LaunchedEffect(initialMemberProfileId, initialProfileRoute) {
+    androidx.compose.runtime.LaunchedEffect(currentUserId, initialMemberProfileId, initialProfileRoute) {
         if (initialProfileRoute.lastOrNull() == initialMemberProfileId) {
             viewModel.restoreProfileRoute(initialProfileRoute)
         } else {
@@ -210,6 +196,31 @@ fun WebNeighborhoodsHost(
             )
         }
     }
+}
+
+/**
+ * Keeps every public-profile request, cache projection and late completion inside one Web actor.
+ * A hot Auth actor change receives a fresh model while disposal cancels the previous model before
+ * its profile attachments can become visible in the new actor's document.
+ */
+@Composable
+internal fun rememberWebNeighborhoodsViewModel(
+    repository: NeighborhoodRepository,
+    currentUserId: String?,
+    initialProfileRoute: List<String>,
+    onProfileRouteChanged: (List<String>) -> Unit,
+): NeighborhoodsViewModel {
+    val viewModel = remember(repository, currentUserId) {
+        NeighborhoodsViewModel(
+            repository = repository,
+            initialProfileRoute = initialProfileRoute,
+            onProfileRouteChanged = onProfileRouteChanged,
+        )
+    }
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.close() }
+    }
+    return viewModel
 }
 
 @JsFun("""(profileId, isFollowing, followersCount, loading, failed) => {
