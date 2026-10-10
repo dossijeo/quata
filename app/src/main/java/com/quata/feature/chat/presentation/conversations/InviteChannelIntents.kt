@@ -81,9 +81,15 @@ fun launchQuataInvitation(
     message: String,
     chooserTitle: String
 ) {
-    val intent = quataInvitationIntent(contact, target, message)
     try {
-        context.startActivity(intent)
+        val requestedIntent = quataInvitationIntent(contact, target, message)
+        val resolvedComponent = requestedIntent.component
+            ?: requestedIntent.resolveActivity(context.packageManager)
+            ?: throw ActivityNotFoundException("No explicit invite handler is available")
+        check(target.packageName == null || resolvedComponent.packageName == target.packageName) {
+            "Resolved invite handler does not match the selected package"
+        }
+        context.startActivity(Intent(requestedIntent).setComponent(resolvedComponent))
     } catch (_: ActivityNotFoundException) {
         val fallback = target.component?.let { shareToComponentIntent(message, it) }
             ?: genericInviteChooser(context, message, chooserTitle)

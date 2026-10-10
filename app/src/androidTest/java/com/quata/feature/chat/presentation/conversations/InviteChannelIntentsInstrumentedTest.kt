@@ -8,6 +8,7 @@ import android.content.Intent
 import com.quata.core.platform.PlatformContact
 import com.quata.feature.chat.domain.ChatInviteContact
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,6 +90,7 @@ class InviteChannelIntentsInstrumentedTest {
         assertEquals("smsto:%2B34%20699%20000%20101", intent.dataString)
         assertEquals("+34 699 000 101", intent.data?.schemeSpecificPart)
         assertEquals(message, intent.getStringExtra("sms_body"))
+        assertNotNull("phone and message must leave through an explicit component", intent.component)
         assertEquals("platform-contact:34699000101:699000101", selected.id)
         assertEquals(setOf("34699000101", "699000101"), selected.phoneKeys)
     }

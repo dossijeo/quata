@@ -40,6 +40,9 @@ test("inventories close the Qüata-owned selection and dispatch path", () => {
 
 test("Android selection maps, filters and dispatches one exact SMS intent", () => {
   assert.match(androidIntent, /internal fun quataInvitationIntent/);
+  assert.match(androidIntent, /requestedIntent\.resolveActivity\(context\.packageManager\)/);
+  assert.match(androidIntent, /Intent\(requestedIntent\)\.setComponent\(resolvedComponent\)/);
+  assert.match(androidDispatchTest, /must leave through an explicit component/);
   assert.match(androidDispatchTest, /platformContactsForChatInvites/);
   assert.match(androidDispatchTest, /filterInviteContacts\(mapped, "Ada Test"\)\.single\(\)/);
   assert.match(androidDispatchTest, /assertEquals\(1, context\.started\.size\)/);
