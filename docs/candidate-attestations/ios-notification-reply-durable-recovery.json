@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-NOTIFICATION-REPLY"
+  ],
+  "status": "passed",
+  "productSha": "db00fa9626dc0776b73e0217662a1eaefdc273a7",
+  "certification": "ios-notification-reply-durable-recovery-focal-tests-and-independent-review-passed-final-ci-pending",
+  "evidence": {
+    "iosDurableRecovery": {
+      "status": "passed",
+      "sha": "db00fa9626dc0776b73e0217662a1eaefdc273a7",
+      "report": "docs/candidate-attestations/evidence/ios-notification-reply-durable-recovery-a14e4c5d.json",
+      "reportSha256": "b45d4f0c822c07f5fd076655cc9dc9e7727e9d77a772b33143194b18678c373e",
+      "reportStatus": "passed",
+      "reportGitHead": "a14e4c5d13e5e31e3cb79c159e69126dfa2fc31d",
+      "reportWorkingTreeDirty": true,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_x64_durable_recovery_7_of_7_passed",
+        "ios_x64_http_boundary_passed",
+        "simulator_signed_build_passed",
+        "swift_notification_action_tests_4_of_4_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "synthetic_local_outbox_and_notifications_no_backend_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosNotificationReplyDurableRecoveryTest --no-daemon --no-configuration-cache --console=plain",
+    "bash gradlew :feature:chat:iosX64Test --tests com.quata.feature.chat.data.IosNotificationReplyHttpBoundaryTest --no-daemon --no-configuration-cache --console=plain",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "xcodebuild test-without-building -only-testing:QuataIosTests/IosNotificationReplyActionTests",
+    "node --test scripts/ios-notification-reply-durable-recovery-contract.test.mjs scripts/ios-notification-reply-http-boundary-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-notification-reply-durable-recovery.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The native UNTextInputNotificationResponse path remains unchanged through the production delegate and authenticated Chat transport.",
+    "The runtime persists an actor-bound reply before direct transport, reuses the same client_message_id for shared outbox replay and releases its lease on failure, cancellation, timeout or a later actor/session rejection.",
+    "Recovery reads the persistent store, retries once after any inherited crash lease expires and flushes only the current actor. Actor replacement cannot replay or delete the previous actor's reply or dismiss its routing notification.",
+    "While delivery is pending, iOS replaces the original banner with a local notification containing only conversation_id and recipient_profile_id. It never stores the typed reply in notification content and its default action follows the existing exact-chat deep link.",
+    "This closes the documented iOS offline, app-restart and post-reply exact-chat navigation limits. APNs, physical-device behavior, distribution and the complete negative remote trace remain outside this unit.",
+    "The exact Kotlin/Native product tests, SimulatorSigned build and Swift focal suite passed on the Intel macOS VM. No backend send or database mutation was used for this lifecycle reduction.",
+    "The durable reply delta was recomposed over merged #604 squash 1630d388f. Product db00fa9626dc0776b73e0217662a1eaefdc273a7 preserves all fourteen owned product blobs byte-identical to executed Product a14e4c5d13e5e31e3cb79c159e69126dfa2fc31d; no platform execution is attributed to the rebase.",
+    "Historical independent review returned GO with no P0-P3 and confirmed all fourteen owned Product blobs remain byte-identical to the executed Product. The recomposed candidate requires a fresh independent exact-head review before publication."
+  ]
+}

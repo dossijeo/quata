@@ -24,4 +24,13 @@ enum IosNotificationReplyAction {
         content.userInfo = userInfo
         return content
     }
+
+    static func queuedContent(userInfo: [AnyHashable: Any]) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = NSLocalizedString("notification_reply_queued_title", value: "Reply queued", comment: "")
+        content.body = NSLocalizedString("notification_reply_queued_body", value: "It will be sent when Qüata reconnects. Tap to open the chat.", comment: "")
+        content.sound = .default
+        content.userInfo = userInfo
+        return content
+    }
 }
