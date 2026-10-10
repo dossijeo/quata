@@ -4,12 +4,12 @@
     "SCR-CHAT"
   ],
   "status": "passed",
-  "productSha": "1693596f0a2736c155a0b2d7a41f212978c1100c",
-  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-go-final-ci-pending",
+  "productSha": "131172d6a7d997cfefb32ff921bc1f09696168bf",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "chatRootComposition": {
       "status": "passed",
-      "sha": "1693596f0a2736c155a0b2d7a41f212978c1100c",
+      "sha": "131172d6a7d997cfefb32ff921bc1f09696168bf",
       "report": "docs/candidate-attestations/evidence/chat-root-composition-reconciliation-b4218428.json",
       "reportSha256": "4fb14a493e85d621ad12e2f289aa38927f222416196089434ab2ea01cad81780",
       "reportStatus": "passed",
@@ -45,7 +45,7 @@
     "The Chat root is composed only from thirty-six existing passed thematic receipts with explicit coverage of each capability named by the root, including CHAT-TRANSLATION.",
     "The reconciliation removes the generic root-wide recertification placeholder; it preserves the exact limits owned by Chat child units and system flows, including physical permissions and routing, external providers and destinations, OS network topologies, push, audio, attachments and SOS.",
     "No runtime, backend, platform evidence receipt or CI workflow changed.",
-    "The cumulative Chat-owned delta was recomposed over composed-root predecessor 6bb9ea43. Product 1693596f preserves the Chat composition sources, contract and report from previously reviewed Product 2e7b20c3; aggregate package wiring was reapplied to the current predecessor, so the historical 904/904 fast suite was not repeated solely for commit identity.",
-    "Independent exact-head review is pending for the recomposed head."
+    "The cumulative Chat-owned delta was recomposed over composed-root candidate 97d846189958adad805e5ad3aa5e5f9d38daeebd. Product 131172d6a7d997cfefb32ff921bc1f09696168bf preserves the Chat composition contract and report byte-for-byte while retaining inherited inventory closures; the historical 904/904 fast suite is not attributed to this rebase.",
+    "Historical review found one P2 caused by loss of an inherited CONV-INVITES sentence; the corrected Product preserves that predecessor text. A fresh exact-head review is required before publication."
   ]
 }
