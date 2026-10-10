@@ -81,7 +81,21 @@ fun launchQuataInvitation(
     message: String,
     chooserTitle: String
 ) {
-    val intent = when (target.route) {
+    val intent = quataInvitationIntent(contact, target, message)
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        val fallback = target.component?.let { shareToComponentIntent(message, it) }
+            ?: genericInviteChooser(context, message, chooserTitle)
+        context.startActivity(fallback)
+    }
+}
+
+internal fun quataInvitationIntent(
+    contact: ChatInviteContact,
+    target: InviteTarget,
+    message: String,
+): Intent = when (target.route) {
         InviteRoute.Sms -> smsInviteIntent(contact)
             .apply { target.component?.let(::setComponent) }
             .putExtra("sms_body", message)
@@ -95,14 +109,6 @@ fun launchQuataInvitation(
         )
         InviteRoute.AppShare -> shareToComponentIntent(message, requireNotNull(target.component))
     }
-    try {
-        context.startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        val fallback = target.component?.let { shareToComponentIntent(message, it) }
-            ?: genericInviteChooser(context, message, chooserTitle)
-        context.startActivity(fallback)
-    }
-}
 
 fun whatsAppInviteUri(internationalPhone: String, message: String): Uri =
     Uri.parse("https://wa.me/${internationalPhone.filter(Char::isDigit)}?text=${encodeQueryValue(message)}")
