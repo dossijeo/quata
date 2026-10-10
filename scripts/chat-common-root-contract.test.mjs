@@ -514,7 +514,7 @@ test("common chat profile entry exposes stable cross-platform evidence anchors",
   assert.match(communityProfileSheet, /ModalBottomSheet\([\s\S]*?modifier = modifier/);
 });
 
-test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {
+test("SCR-CHAT inventory composes the common root while preserving child limits", () => {
   const scrChat = inventory.split(/\r?\n/).find((line) => line.startsWith("| `SCR-CHAT` |"));
   const chatMessages = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-MESSAGES` |"));
   const chatMessageActions = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-MESSAGE-ACTIONS` |"));
@@ -527,13 +527,14 @@ test("SCR-CHAT inventory reflects the real common-root state without declaring f
   assert.ok(chatNotifications, "CHAT-NOTIFICATIONS row must exist");
   assert.ok(chatFocusedMessage, "CHAT-FOCUSED-MESSAGE row must exist");
   assert.ok(chatFavorites, "CHAT-FAVORITES row must exist");
-  assert.match(scrChat, /\*\*COMÚN con límites\.\*\*/);
+  assert.match(scrChat, /\*\*GO compuesto de raíz\.\*\*/);
   assert.match(scrChat, /`ChatProductHostContent`\/`ChatScreenHost` se consume en Android, Wasm e iOS/);
   assert.doesNotMatch(scrChat, /FALLBACK|PARCIAL/);
-  assert.match(scrChat, /no declarar GO/);
+  assert.match(scrChat, /La raíz no conserva un límite residual genérico/);
   assert.match(scrChat, /`CHAT-MESSAGES`[^|]*`FLOW-CONNECTIVITY-PRESENCE`/);
-  assert.match(scrChat, /Red de lectura, media y operaciones de grupo cuentan con cierres focales multiplataforma/);
-  assert.match(scrChat, /permisos físicos no acreditados[^|]*fallos de red ajenos[^|]*GO visual\/operativo global/);
+  assert.match(scrChat, /permisos y routing físicos[^|]*proveedores y destinos externos[^|]*topologías OS de red/);
+  assert.match(scrChat, /límites concretos de push, audio, adjuntos, SOS y demás subflujos/);
+  assert.match(scrChat, /`FLOW-PUSH-LIFECYCLE` mantiene la propiedad del push del sistema/);
   assert.doesNotMatch(scrChat, /No se revalidaron redes, permisos físicos, media ni operaciones de grupo/);
   assert.match(chatFavorites, /FavoriteMessagesConversationId/);
   assert.match(chatFavorites, /Android, Wasm e iOS/);
