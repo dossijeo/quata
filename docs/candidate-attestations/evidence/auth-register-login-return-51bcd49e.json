@@ -1,0 +1,52 @@
+{
+  "check": "AUTH-REGISTER-LOGIN-RETURN-001",
+  "status": "passed",
+  "testHead": "51bcd49efe6a460954e838ab3e2cdc4b0e2fd827",
+  "productSha": "51bcd49efe6a460954e838ab3e2cdc4b0e2fd827",
+  "execution": {
+    "baseHead": "1c4cd2aa3bd96e50b4b8d62cacd48b47e77b6d20",
+    "web": {
+      "sourcePath": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/RecoverySecretUiPilotTest.kt",
+      "sourceBlob": "7e8d1f030b931040e109ae04ad88e6e7f660adf0",
+      "test": "RecoverySecretUiPilotTest.commonNavigationOpensRegisterAndReturnsToLogin",
+      "runtime": "Chrome Headless / Compose Wasm",
+      "passed": 1,
+      "failed": 0,
+      "resultSha256": "151234969f5c1295f640553ab0bee47777303a53bcd91679584a36045eeb0720"
+    },
+    "android": {
+      "sourcePath": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRecoveryProductBridgeInstrumentedTest.kt",
+      "sourceBlob": "5275be03e4ec73a9e0ad70a2c2f341aecf7808f6",
+      "test": "AuthRecoveryProductBridgeInstrumentedTest.sharedLoginOpensSpanishRegisterAndReturnsToLogin",
+      "runtime": "QuataLivePr336Api35 / API 35",
+      "passed": 1,
+      "failed": 0,
+      "resultSha256": "8ffd303a56a5c3406b79b1fb291edd49145311653408e0d2f0e69403224b8bdd",
+      "logcatSha256": "fdae5c03928a63f98976e269af12b5989e6ad7328c9d4a3f1f1558ed777bf836"
+    },
+    "ios": {
+      "sourcePath": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+      "sourceBlob": "7f64873a0c7e22e1d5f2931a42ee36e2754d4cf0",
+      "test": "QuataIosHostUITests.testAuthLaunchFixtureOpensSpanishRegisterFromNormalLogin",
+      "runtime": "iOS 18.3 Simulator / SimulatorSigned x86_64",
+      "passed": 1,
+      "failed": 0,
+      "logSha256": "630dba8a854b6ad36556389a09ecefaf806940a33d45a11ebc6ba0d620441b8c"
+    }
+  },
+  "runtimeCustody": {
+    "authProductHostBlob": "70ca853ebcff957647939df29be095f12029a353",
+    "authCatalogBlob": "33c9320c84fec7430757bedc661bf33b4375cbac"
+  },
+  "verified": [
+    "the normal shared Login exposes the observed Spanish Crear cuenta action",
+    "the visible action opens the shared registration surface on Web/Wasm, Android and iOS Simulator",
+    "the registration surface exposes the observed Spanish Volver action",
+    "Volver returns to the normal shared Login surface on all three hosts"
+  ],
+  "cleanup": {
+    "verified": true,
+    "mode": "hermetic_navigation_fixture_without_registration_submit_or_backend_mutation"
+  },
+  "limits": "This focal acceptance does not submit registration, mutate backend state, recertify the existing real registration flow, certify exhaustive localization, or cover every Login return path."
+}

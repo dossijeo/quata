@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "SCR-AUTH-REGISTER"
+  ],
+  "productSha": "d2d08cef49cfa070234a3265e40bf961812ae714",
+  "testHead": "51bcd49efe6a460954e838ab3e2cdc4b0e2fd827",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d2d08cef49cfa070234a3265e40bf961812ae714",
+      "report": "docs/candidate-attestations/evidence/auth-register-login-return-51bcd49e.json",
+      "reportSha256": "552bd4bfc2cdbfd259abf14d255a4692f1a94069b98fd2580a9cf74bf0efa9fa",
+      "executedTests": 1,
+      "failedTests": 0,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_navigation_fixture"
+      },
+      "requireReportArtifact": true
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d2d08cef49cfa070234a3265e40bf961812ae714",
+      "report": "docs/candidate-attestations/evidence/auth-register-login-return-51bcd49e.json",
+      "reportSha256": "552bd4bfc2cdbfd259abf14d255a4692f1a94069b98fd2580a9cf74bf0efa9fa",
+      "executedTests": 1,
+      "failedTests": 0,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_navigation_fixture"
+      },
+      "requireReportArtifact": true
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d2d08cef49cfa070234a3265e40bf961812ae714",
+      "report": "docs/candidate-attestations/evidence/auth-register-login-return-51bcd49e.json",
+      "reportSha256": "552bd4bfc2cdbfd259abf14d255a4692f1a94069b98fd2580a9cf74bf0efa9fa",
+      "executedTests": 1,
+      "failedTests": 0,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_navigation_fixture"
+      },
+      "requireReportArtifact": true
+    }
+  },
+  "composition": {
+    "registrationProductEvidence": "docs/candidate-attestations/auth-register-activation-harness.json",
+    "navigationEvidence": "docs/candidate-attestations/evidence/auth-register-login-return-51bcd49e.json"
+  },
+  "notes": [
+    "The existing real registration evidence remains authoritative for submit, activation, session and cleanup.",
+    "This unit closes only the normal Login to Register to Login return route and the observed Spanish actions Crear cuenta and Volver on Web/Wasm, Android and iOS Simulator.",
+    "No product runtime, backend, migration, credentials or historical evidence changed.",
+    "The current Product d2d08cef49cfa070234a3265e40bf961812ae714 preserves the Android test blob 5275be03e4ec73a9e0ad70a2c2f341aecf7808f6, common Web/Wasm test blob 7e8d1f030b931040e109ae04ad88e6e7f660adf0 and iOS XCTest blob 7f64873a0c7e22e1d5f2931a42ee36e2754d4cf0 byte-for-byte from accepted Product 0801d5f07d0bb34bb39ed5efa026f7c6634ac3c2 after rebasing onto integrated Web Recovery squash 51ba1dd8c398e9e5823d23d31cc611fface40369, whose tree matches frozen candidate 5e1909bd20a55764fd6955d16357048671175d56. The accepted execution remains bound to testHead 51bcd49efe6a460954e838ab3e2cdc4b0e2fd827, so no platform matrix was repeated solely for ancestry."
+  ]
+}

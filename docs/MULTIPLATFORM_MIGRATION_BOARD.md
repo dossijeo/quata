@@ -373,6 +373,13 @@ contraseña»/«Volver», abren Recovery y retornan al Login. Se anclan en
 `docs/candidate-attestations/account-recovery-login-entry-web.json`. Las evidencias históricas mantienen
 sus SHA originales; no se atribuye evidencia nueva del reset/backend y el cierre no migra suites existentes.
 
+La aceptación focal `d2d08cef` recorre además la ruta normal Login → Registro → Login en
+Web/Wasm, Android API 35 e iOS SimulatorSigned. En los tres hosts observa «Crear cuenta», abre la
+superficie común de registro, observa «Volver» y retorna al Login sin pulsar submit ni mutar backend.
+Se compone con la aceptación real de registro existente y retira sólo este límite de retorno; no
+certifica todas las rutas de Login ni una revisión exhaustiva de localización. Manifest
+`docs/candidate-attestations/auth-register-login-return.json`.
+
 ## Foto de control — 2026-08-11
 
 **HEAD integrado:** `main` `53075226f7c00edea72b52516f6a2c4f6d3ce85d` (PR #231), posterior a #154,

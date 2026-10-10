@@ -91,6 +91,30 @@ class RecoverySecretUiPilotTest {
         onNodeWithTag("auth.recovery.root").assertDoesNotExist()
     }
 
+    @Test
+    fun commonNavigationOpensRegisterAndReturnsToLogin() = runComposeUiTest {
+        setContent {
+            QuataTheme {
+                AuthProductHostContent(
+                    repository = LocalRecoveryRepository(),
+                    catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish),
+                    prefixes = listOf(CountryPrefix("240", "+240")),
+                    onAuthenticated = { error("pilot_must_not_authenticate") },
+                )
+            }
+        }
+        onNodeWithTag("auth.register")
+            .assertTextEquals("Crear cuenta")
+            .performClick()
+        onNodeWithTag("auth.register.display-name").assertExists()
+        onNodeWithTag("auth.register.back")
+            .performScrollTo()
+            .assertTextEquals("Volver")
+            .performClick()
+        onNodeWithTag("auth.submit").assertExists()
+        onNodeWithTag("auth.register.display-name").assertDoesNotExist()
+    }
+
     private class LocalRecoveryRepository : AuthRepository {
         val resetResult = CompletableDeferred<Result<Unit>>()
         var resetInputs: List<String>? = null
