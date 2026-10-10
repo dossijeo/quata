@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "6235e4c2f508ceb72b72af02af59554c6dd5ef28",
-  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-pending-final-ci-pending",
+  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-passed-final-ci-pending",
   "evidence": {
     "prefixContinuity": {
       "status": "passed",
@@ -41,8 +41,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "c0c0f9b54f481cd563347a4a237c9b603cbf824e",
     "blockingFindings": []
   },
   "notes": [
@@ -52,6 +52,6 @@
     "Android and iOS compile the changed shared runtime; the exact native save/reload evidence from Product SHA bc34d1eb remains historical and was not repeated solely because this SHA changed.",
     "This unit closes only the documented prefix-change limit. Exhaustive invalid-input and collision validation and the other Account/Profile subflows remain explicit limits.",
     "The product series was replayed over merged PR #601 squash b5006abd9d0b9b0c7fde69b2580f21464b5416bf. The owned runtime, test and contract blobs remain byte-identical to historical Product d595a0c1 except for the reviewed capability-hash refresh required by the new base; no platform execution is attributed to this rebase.",
-    "Independent exact-head review is pending for the rebased candidate."
+    "Independent exact-head review of c0c0f9b54f481cd563347a4a237c9b603cbf824e returned GO with no P0-P3 after the board distinguished the recomposed Product from historical execution custody."
   ]
 }
