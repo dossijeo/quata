@@ -3,12 +3,12 @@
   "units": [
     "ACCOUNT-RECOVERY-SECRET"
   ],
-  "productSha": "9af890937275097ea8b66aaf1584d7e649a7a45f",
+  "productSha": "505ba87328617c83d9b4f609d5f4e27fac3bbdec",
   "testHead": "9fe87299ba342ca815a09fccfee3fb2838e772a0",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "9af890937275097ea8b66aaf1584d7e649a7a45f",
+      "sha": "505ba87328617c83d9b4f609d5f4e27fac3bbdec",
       "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-web-9fe87299.json",
       "reportSha256": "b9b52d70e44d384ff5ad29e42601740aaef89d06891f32e6c24c6a7be5242d7a",
       "requireReportArtifact": true,
@@ -30,6 +30,6 @@
     "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
     "The Web/Wasm focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
     "No product runtime, backend, migration, credentials or historical evidence were changed.",
-    "The current Product 9af890937275097ea8b66aaf1584d7e649a7a45f preserves the Web focal test and runner blobs byte-for-byte from the accepted Product deefa820418b945a0e3d6a00f98872592c54ac8f after rebasing onto frozen Android candidate 01c2ce083710b5cc8bf48588e723928b2cb8e87a. The accepted execution remains testHead 9fe87299ba342ca815a09fccfee3fb2838e772a0; no matrix was repeated solely for ancestry."
+    "The current Product 505ba87328617c83d9b4f609d5f4e27fac3bbdec preserves the Web focal test and runner blobs byte-for-byte from accepted Product 9af890937275097ea8b66aaf1584d7e649a7a45f after rebasing onto integrated squash 5fde6d22759456b97dd47f810b4ade721940401c. The accepted execution remains testHead 9fe87299ba342ca815a09fccfee3fb2838e772a0; no matrix was repeated solely for ancestry."
   ]
 }
