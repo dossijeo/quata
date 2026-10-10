@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "5ec7056b9a02716b1fed1b0764bfe45fa95c6849",
-  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-pending-final-ci-pending",
+  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-passed-final-ci-pending",
   "evidence": {
     "validationAndCollision": {
       "status": "passed",
@@ -31,8 +31,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "68d995969b425850ff04a50ec658772639bff819",
     "blockingFindings": []
   },
   "notes": [
@@ -42,6 +42,7 @@
     "Web and iOS preserve structured PostgREST 23505 information only as a sanitized known-constraint marker; unrelated HTTP 409 and unrelated uniqueness failures are not mislabeled as phone collisions.",
     "The historical exact-platform matrix remains evidence for the unchanged Account details save/reload path. No complete matrix was repeated solely because the Product SHA changed.",
     "Other Account/Profile subflows retain their own scope and evidence.",
-    "The nine owned commits were replayed over frozen PR #602 head f3039b85c5757336d463506dacb27c7d86c5e43d (prefix Product 6235e4c2f508ceb72b72af02af59554c6dd5ef28). Product 5ec7056b9a02716b1fed1b0764bfe45fa95c6849 adds only the reviewed capability-hash refresh after the unchanged collision runtime; the production release and exact-platform evidence remain historical and no new apply or platform execution is attributed."
+    "The nine owned commits were replayed over frozen PR #602 head f3039b85c5757336d463506dacb27c7d86c5e43d (prefix Product 6235e4c2f508ceb72b72af02af59554c6dd5ef28). Product 5ec7056b9a02716b1fed1b0764bfe45fa95c6849 adds only the reviewed capability-hash refresh after the unchanged collision runtime; the production release and exact-platform evidence remain historical and no new apply or platform execution is attributed.",
+    "Independent exact-head review of 68d995969b425850ff04a50ec658772639bff819 returned GO with no P0-P3 and confirmed fail-closed semantics, historical release custody and byte identity of the focal runtime/test blobs."
   ]
 }
