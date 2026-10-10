@@ -444,13 +444,17 @@ y mantiene la mutación ligada al `profileId` de la sesión. Web e iOS aceptan `
 `phone_normalized`; el bridge Auth rechaza resoluciones ambiguas y deja de buscar o crear por email
 cuando el perfil ya está ligado a un `auth_user_id`; para un perfil sin vínculo, cualquier email Auth ocupado falla cerrado incluso si el `user_metadata` controlado por el cliente declara ese perfil. La búsqueda telefónica exige cardinalidad PostgREST exacta y rechaza cualquier respuesta truncada antes de resolver el actor. La prueba Compose renderizada Web/Wasm cubre apertura de Mis datos, selector, opción, Save único y recarga; Android/iOS compilan el runtime compartido sin atribuir interacción nativa nueva. La matriz real de #319 conserva la evidencia histórica de actor y persistencia.
 
-**ACCOUNT-DETAILS — entrada inválida y colisiones:** Product SHA
-`42b901f115d365d506cbf25f00d6fdeffb6537c5` normaliza y valida en el runtime común antes de
-cualquier mutación, impide un segundo Save concurrente y traduce la colisión remota a un resultado
-estable y localizado. La migración `20261010090000` conserva los índices productivos existentes,
-rechaza colisiones previas y quedó aplicada mediante paquete selectivo después de backup lógico
-completo cifrado y restauración focal. El postflight general, la auditoría agregada y dos sondas
-productivas bajo rollback pasaron con residuo cero. Android, Web/Wasm e iOS compilan el runtime
+**ACCOUNT-DETAILS — entrada inválida y colisiones:** Product SHA recompuesto
+`149baa3c80d53979863f90f864aa40280f518710` (Product histórico desplegado
+`512b5bf563beb786861c15d6f8d38c2e58e07994`) normaliza y valida en el runtime común antes de
+cualquier mutación, impide un segundo Save concurrente y traduce únicamente `23505` de las
+constraints telefónicas conocidas a un resultado estable y localizado. La migración
+`20261010090000` quedó superseded porque imponía unicidad global al número local. La forward
+`20261010101500` la sustituyó por identidad canónica `country_code + phone_local` y `phone_e164`;
+ya quedó aplicada históricamente mediante paquete selectivo después de un segundo backup lógico
+completo cifrado y restauración focal. El postflight general, la auditoría agregada y las sondas
+country-aware bajo rollback pasaron con residuo cero. Esta recomposición no atribuye un apply nuevo.
+Android, Web/Wasm e iOS compilan el runtime
 compartido y la suite focal Wasm ejecuta validación, normalización y fronteras de repositorio; no se
 atribuye una matriz UI nativa nueva. Permanecen fuera los demás subflujos de Cuenta ya enumerados.
 Manifests: `docs/candidate-attestations/account-details-prefix-continuity.json` y
