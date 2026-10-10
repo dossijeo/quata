@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.common.AppDispatchers
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataSavingButton
@@ -73,6 +74,8 @@ const val ProfileDetailsNameClearTestTag = "profile.details.name.clear"
 const val ProfileDetailsNeighborhoodInputTestTag = "profile.details.neighborhood"
 const val ProfileDetailsNeighborhoodClearTestTag = "profile.details.neighborhood.clear"
 const val ProfileDetailsCountryCodeButtonTestTag = "profile.details.country-code"
+fun profileDetailsCountryCodeOptionTestTag(code: String): String =
+    "$ProfileDetailsCountryCodeButtonTestTag.option.${code.filter(Char::isDigit)}"
 const val ProfileDetailsPhoneInputTestTag = "profile.details.phone"
 const val ProfileDetailsPhoneClearTestTag = "profile.details.phone.clear"
 const val ProfileDetailsSecretQuestionButtonTestTag = "profile.details.secret-question"
@@ -112,8 +115,9 @@ fun ProfileScreenHost(
     refreshKey: Long = 0L,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
+    dispatchers: AppDispatchers = AppDispatchers(),
 ) {
-    val viewModel = remember(repository) { ProfileViewModel(repository) }
+    val viewModel = remember(repository, dispatchers) { ProfileViewModel(repository, dispatchers) }
     val state by viewModel.uiState.collectAsState()
     var page by rememberSaveable { mutableStateOf(ProfileAccountPage.Overview) }
     var showSos by rememberSaveable { mutableStateOf(false) }
@@ -566,7 +570,19 @@ private fun ProfilePrefixAndPhone(state: ProfileUiState, code: String, phone: St
                     .testTag(ProfileDetailsCountryCodeButtonTestTag)
                     .semantics { contentDescription = ProfileDetailsCountryCodeButtonTestTag },
             ) { Text("+$code"); CompactIcon(Icons.Filled.ArrowDropDown, null) }
-            DropdownMenu(expanded, { expanded = false }) { state.countryPrefixes.forEach { prefix -> DropdownMenuItem(text = { Text(prefix.label) }, onClick = { expanded = false; onEvent(ProfileUiEvent.CountryCodeChanged(prefix.code)) }) } }
+            DropdownMenu(expanded, { expanded = false }) {
+                state.countryPrefixes.forEach { prefix ->
+                    val tag = profileDetailsCountryCodeOptionTestTag(prefix.code)
+                    DropdownMenuItem(
+                        text = { Text(prefix.label) },
+                        onClick = {
+                            expanded = false
+                            onEvent(ProfileUiEvent.CountryCodeChanged(prefix.code))
+                        },
+                        modifier = Modifier.testTag(tag).semantics { contentDescription = tag },
+                    )
+                }
+            }
         }
         Box(Modifier.weight(.57f)) {
             ProfileTextField(

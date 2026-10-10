@@ -149,13 +149,13 @@ class IosProfileGatewayContractTest {
         val transport = RecordingTransport()
         val gateway = gateway(transport)
 
-        gateway.saveProfile("profile-1", mapOf("display_name" to "Ada", "forbidden" to "drop"))
+        gateway.saveProfile("profile-1", mapOf("display_name" to "Ada", "phone_e164" to "+240555123", "phone_normalized" to "555123", "forbidden" to "drop"))
 
         val request = transport.requests.single()
         assertEquals("PATCH", request.method)
         assertTrue(request.url.endsWith("/rest/v1/community_profiles?id=eq.profile-1"))
         assertEquals("Bearer access-token", request.headers["Authorization"])
-        assertEquals("{\"display_name\":\"Ada\"}", request.body)
+        assertEquals("{\"display_name\":\"Ada\", \"phone_e164\":\"+240555123\", \"phone_normalized\":\"555123\"}", request.body)
     }
 
     @Test

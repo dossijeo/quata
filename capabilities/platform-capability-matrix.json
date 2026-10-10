@@ -712,7 +712,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileRemoteGateway.kt",
-              "sha256": "c96689e0fe36509698aa4eb807cb5270d9ef00d933bfd040200875b1e7f9c859",
+              "sha256": "87787997632489ba3252dbf98ff257284c3e393c53e3cc0b9483ce6c60110580",
               "role": "implementation"
             }
           ]
@@ -727,7 +727,7 @@
             },
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfilePostgrestGateway.kt",
-              "sha256": "dc5c06e7f8c0b97754e959e9531281540ab08b0cce003ca2653d9e8a8169a5f2",
+              "sha256": "92bf57c3f10c1a8c4cfa6f0b1a5b7ceddc497926be5f71c1220a6203b6b82195",
               "role": "implementation"
             }
           ]

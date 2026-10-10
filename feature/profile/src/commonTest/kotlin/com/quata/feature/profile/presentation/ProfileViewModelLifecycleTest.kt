@@ -140,6 +140,31 @@ class ProfileViewModelLifecycleTest {
         viewModel.close()
     }
 
+    @Test
+    fun country_prefix_change_is_saved_once_with_the_same_profile_state() = runTest {
+        val repository = RecordingRepository(stream = { attempt ->
+            val profile = profileModel().let { model ->
+                if (attempt == 1) model else model.copy(profile = model.profile.copy(countryCode = "34"))
+            }
+            flowOf(Result.success(profile))
+        })
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val viewModel = ProfileViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        runCurrent()
+
+        viewModel.onEvent(ProfileUiEvent.CountryCodeChanged("34"))
+        viewModel.onEvent(ProfileUiEvent.Save)
+        runCurrent()
+
+        assertEquals(1, repository.savedProfileUpdates.size)
+        assertEquals("34", repository.savedProfileUpdates.single().countryCode)
+        assertEquals("600000000", repository.savedProfileUpdates.single().phone)
+        assertEquals(2, repository.attempts)
+        assertEquals("34", viewModel.uiState.value.profile?.countryCode)
+        assertTrue(viewModel.uiState.value.successMessageTriggersProfileSaved)
+        viewModel.close()
+    }
+
     private class RecordingRepository(
         private val stream: (Int) -> Flow<Result<ProfileEditModel>>,
         private val profileSaveResult: Result<Unit> = Result.success(Unit),

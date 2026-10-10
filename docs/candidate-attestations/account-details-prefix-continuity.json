@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": [
+    "ACCOUNT-DETAILS"
+  ],
+  "status": "passed",
+  "productSha": "ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b",
+  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-passed-final-ci-pending",
+  "evidence": {
+    "prefixContinuity": {
+      "status": "passed",
+      "sha": "ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b",
+      "report": "docs/candidate-attestations/evidence/account-details-prefix-continuity-d595a0c1.json",
+      "reportSha256": "4f50144e66cc01d4c83bfb3735e0f3f25c7b5b511b0944fe1f7948497bdcae89",
+      "reportStatus": "passed",
+      "reportGitHead": "d595a0c1aa2ca01a15ddaabddad0d2b0043f2677",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "node_auth_bridge_and_documentation_contracts_passed",
+        "profile_rendered_wasm_browser_interaction_passed",
+        "profile_wasm_browser_tests_17_of_17_passed",
+        "android_profile_compilation_passed",
+        "ios_x64_profile_test_compilation_passed",
+        "web_gateway_test_compilation_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "synthetic_focal_tests_no_backend_or_profile_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/account-details-prefix-continuity-contract.test.mjs supabase/functions/quata-auth-bridge/profile-resolution.test.mjs supabase/functions/quata-auth-bridge/auth-user-link.test.mjs supabase/functions/quata-auth-bridge/federated-profile.test.mjs",
+    ".\\gradlew.bat :feature:profile:wasmJsBrowserTest --tests com.quata.feature.profile.presentation.ProfilePrefixRenderedInteractionTest --console=plain --no-daemon",
+    ".\\gradlew.bat :feature:profile:wasmJsBrowserTest --tests com.quata.feature.profile.data.KmpProfileRepositoryTest --tests com.quata.feature.profile.presentation.ProfileViewModelLifecycleTest --console=plain --no-daemon",
+    ".\\gradlew.bat :feature:profile:compileAndroidMain :web:compileTestKotlinWasmJs --console=plain --no-daemon",
+    ".\\gradlew.bat :feature:profile:compileTestKotlinIosX64 --console=plain --no-daemon",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/account-details-prefix-continuity.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "passed",
+    "reviewedSha": "6b4f665237d23760c10ce0a836994481ce7584e5",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common account form now has a rendered Web/Wasm test that opens Mis datos, clicks the prefix selector and exact option, presses Save once and observes the reloaded prefix.",
+    "Every mutation remains bound to the active session profileId. The phone aliases used by contact discovery change with the selected prefix in the shared repository and the Web/iOS allowlists.",
+    "The Auth bridge updates linked users only by auth_user_id, fails closed on every occupied email for an unlinked profile, and requires exact PostgREST cardinality to match the returned phone rows before actor resolution. Truncated or ambiguous lookups are rejected.",
+    "Android and iOS compile the changed shared runtime; the exact native save/reload evidence from Product SHA bc34d1eb remains historical and was not repeated solely because this SHA changed.",
+    "This unit closes only the documented prefix-change limit. Exhaustive invalid-input and collision validation and the other Account/Profile subflows remain explicit limits.",
+    "The product series was replayed over merged PR #601 squash b5006abd9d0b9b0c7fde69b2580f21464b5416bf. That rebase preserved the owned runtime, common tests and contracts byte-identical to historical Product d595a0c1 apart from the reviewed capability-hash refresh; the subsequent candidate-only iOS assertion correction is recorded separately below.",
+    "The candidate-only iOS assertion now matches the production serializer's valid comma-space formatting. The exact Kotlin/Native focal test passed on the Intel macOS VM after the CI artifact identified whitespace as the sole mismatch; runtime and historical platform evidence are unchanged."
+  ]
+}

@@ -161,7 +161,7 @@ class WebProfileRemoteGateway internal constructor(
             "id,display_name,nombre,neighborhood,barrio,country_code,code,phone_local,phone_e164,phone,telefono,avatar_url,avatar,secret_question"
         val ProfileWritableColumns = setOf(
             "display_name", "nombre", "neighborhood", "barrio", "country_code", "code",
-            "phone_local", "phone", "telefono", "avatar_url",
+            "phone_local", "phone_normalized", "phone_e164", "phone", "telefono", "avatar_url",
         )
     }
 }

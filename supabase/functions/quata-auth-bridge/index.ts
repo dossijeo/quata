@@ -7,8 +7,9 @@ import {
   recoverySecretPatch,
   registrationPhoneHash,
 } from "../_shared/web-registration-security.mjs";
-import { resolveProfileByCountry } from "./profile-resolution.mjs";
+import { requireCompleteProfileResult, resolveProfileByCountry } from "./profile-resolution.mjs";
 import { resolveFederatedProfile } from "./federated-profile.mjs";
+import { requireUnlinkedAuthEmailAvailable } from "./auth-user-link.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -542,13 +543,13 @@ async function findProfile(admin: any, payload: BridgeRequest): Promise<Communit
 
   let query = admin
     .from("community_profiles")
-    .select(profileSelect)
+    .select(profileSelect, { count: "exact" })
     .or(`phone_local.eq.${phone},phone_normalized.eq.${phone},telefono.eq.${phone}`);
 
-  const { data, error } = await query.limit(10);
+  const { data, error, count } = await query;
   if (error) throw error;
 
-  const rows = (data as CommunityProfile[] | null) ?? [];
+  const rows = requireCompleteProfileResult((data as CommunityProfile[] | null) ?? [], count);
   const countryCodeProvided = Object.prototype.hasOwnProperty.call(payload, "country_code");
   return resolveProfileByCountry(rows, payload.country_code, countryCodeProvided) as CommunityProfile | null;
 }
@@ -573,20 +574,12 @@ async function ensureAuthUser(
       email_confirm: true,
       ...(reactivate ? { ban_duration: "none" } : {}),
     });
-    if (!error && data.user) return data.user.id;
+    if (error || !data.user) throw error ?? new Error("Could not update linked auth user");
+    return data.user.id;
   }
 
   const existing = await findAuthUserByEmail(admin, email);
-  if (existing?.id) {
-    const { data, error } = await admin.auth.admin.updateUserById(existing.id, {
-      email,
-      user_metadata: userMetadata,
-      email_confirm: true,
-      ...(reactivate ? { ban_duration: "none" } : {}),
-    });
-    if (error || !data.user) throw error ?? new Error("Could not update auth user");
-    return data.user.id;
-  }
+  requireUnlinkedAuthEmailAvailable(existing);
 
   const { data, error } = await admin.auth.admin.createUser({
     email,

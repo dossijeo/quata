@@ -31,11 +31,50 @@ class KmpProfileRepositoryTest {
         ).toRemotePatch()
 
         assertEquals("+240555123", patch["phone"])
+        assertEquals("+240555123", patch["phone_e164"])
+        assertEquals("555123", patch["phone_normalized"])
         assertEquals("Ada", patch["display_name"])
         assertEquals("Ada", patch["nombre"])
         assertEquals("https://cdn.example/avatar.jpg", patch["avatar_url"])
         assertFalse(patch.containsKey("secret_question"))
         assertFalse(patch.containsKey("secret_answer"))
+    }
+
+    @Test
+    fun `prefix change mutates only the active session profile`() = runTest {
+        val remote = RecordingProfilePatchGateway()
+        val repository = KmpProfileRepository(
+            remote = remote,
+            sessions = StaticProfileSessionProvider(ProfileSession("actor-profile", "Ada")),
+            avatarUploader = object : ProfileAvatarUploader {
+                override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?) = avatarUri
+                override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) = Unit
+            },
+            emergencyMessages = RecordingEmergencyMessageStore(),
+            emergencyContacts = RecordingEmergencyContactsStore(),
+            catalog = TestProfileCatalog,
+        )
+
+        val result = repository.saveProfile(
+            ProfileUpdate(
+                displayName = "Ada",
+                neighborhood = "Centro",
+                countryCode = "34",
+                phone = "600000000",
+                avatarUri = null,
+                newPassword = "",
+                secretQuestion = "",
+                secretAnswer = "",
+                emergencyContactIds = emptyList(),
+                emergencyMessage = "SOS",
+                emergencyMessageIsDefault = true,
+            ),
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(listOf("actor-profile"), remote.savedProfileIds)
+        assertEquals("+34600000000", remote.savedPatches.single()["phone_e164"])
+        assertEquals("600000000", remote.savedPatches.single()["phone_normalized"])
     }
 
     @Test
@@ -260,6 +299,22 @@ private class FailingEmergencyRemoteGateway : ProfileRemoteGateway {
         lastSavedContactIds = contactIds
         error("remote_sos_save_failed")
     }
+}
+
+private class RecordingProfilePatchGateway : ProfileRemoteGateway {
+    val savedProfileIds = mutableListOf<String>()
+    val savedPatches = mutableListOf<Map<String, String?>>()
+    override suspend fun getProfile(profileId: String): ProfileRemoteRecord? = ProfileRemoteRecord(id = profileId)
+    override suspend fun getProfiles(profileIds: Collection<String>): List<ProfileRemoteRecord> = emptyList()
+    override fun observeProfile(profileId: String): Flow<ProfileRemoteRecord?> = flowOf(null)
+    override suspend fun getEmergencyCandidates(): List<ProfileRemoteRecord> = emptyList()
+    override fun observeEmergencyCandidates(): Flow<List<ProfileRemoteRecord>> = flowOf(emptyList())
+    override suspend fun getEmergencyContactIds(profileId: String, cachePolicy: ProfileCachePolicy): List<String> = emptyList()
+    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
+        savedProfileIds += profileId
+        savedPatches += patch
+    }
+    override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) = Unit
 }
 
 private class FailingProfileRemoteGateway : ProfileRemoteGateway {
