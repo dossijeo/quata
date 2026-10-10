@@ -1,0 +1,61 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "5990ff5b376522bd79ec6084de5e8ea91ace6af2",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "windows_compileTestKotlinIosX64_passed",
+    "macos_iosX64_focal_test_exact_product_4_of_4_passed",
+    "source_and_documentation_contract_4_of_4_passed",
+    "contract_wired_into_both_fast_suites",
+    "remote_focal_patch_restored_without_residue",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "windowsCommand": ".\\gradlew.bat :feature:chat:compileTestKotlinIosX64 --no-daemon --no-configuration-cache --console=plain",
+    "windowsResult": "BUILD SUCCESSFUL",
+    "macosHost": "configured-macos-runner",
+    "macosCommand": "bash gradlew :feature:chat:iosX64Test --tests *IosNotificationReplyHttpBoundaryTest* --no-daemon --no-configuration-cache --console=plain",
+    "macosResult": "BUILD SUCCESSFUL; 4 focal tests passed on exact Product 5990ff5b",
+    "httpBoundary": {
+      "url": "https://reply-boundary.invalid/rest/v1/rpc/quata_chat_send_message",
+      "method": "POST",
+      "headers": [
+        "apikey",
+        "Authorization: Bearer <session token>",
+        "Accept: application/json",
+        "Content-Type: application/json"
+      ],
+      "body": "exact notification reply RPC body preserved across the single eligible in-call replay",
+      "timeoutMillis": 5000
+    },
+    "sessionRecoveryWithinOneTransportCall": {
+      "unauthorized401": "one refresh and one replay only when the actor remains unchanged",
+      "actorChanged": "fails closed before the transport helper replays",
+      "forbidden403": "no refresh and no replay inside the transport call",
+      "server500": "no refresh and no replay inside the transport call"
+    },
+    "senderPolicy": "NotificationReplySender retains its existing bounded three attempts for transport failures; this unit does not alter or contradict that policy.",
+    "fastSuite": "The affected contract passed from test:ci-fast-contracts. The full local suite reported 894/896 because two unrelated tests could not import the declared pg package in this fresh worktree; CI installs dependencies and remains authoritative for the complete gate.",
+    "knownInfrastructureResult": "The optional wasmJsNodeTest attempt reached compilation but the Node 22 runner failed before tests while loading skiko.wasm; it is preserved as a non-product infrastructure result and is not counted as acceptance.",
+    "remoteCleanup": "The two focal files were restored/removed after the macOS run; the checkout returned exactly to its pre-existing unrelated dirty state.",
+    "recomposition": "Historical execution remained on Product 5990ff5b. The recomposed Product reuses byte-identical transport, XCTest and contract blobs; no new platform run is attributed."
+  },
+  "scope": {
+    "accepted": [
+      "exact iOS PostgREST URL, method, authenticated headers, body and timeout",
+      "one same-actor 401 refresh and replay within a transport call",
+      "no internal refresh/replay for actor replacement, 403 or 500 within that call"
+    ],
+    "notAccepted": [
+      "a change to the sender's existing three-attempt retry policy",
+      "APNs provider or delivery",
+      "physical iOS device",
+      "distribution signing",
+      "offline lifecycle",
+      "restart lifecycle",
+      "post-reply navigation"
+    ]
+  }
+}
