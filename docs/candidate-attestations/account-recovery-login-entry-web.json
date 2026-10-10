@@ -3,12 +3,12 @@
   "units": [
     "ACCOUNT-RECOVERY-SECRET"
   ],
-  "productSha": "2a4d664fb2c5a9bab554536c569b630fd39e18d9",
+  "productSha": "deefa820418b945a0e3d6a00f98872592c54ac8f",
   "testHead": "9fe87299ba342ca815a09fccfee3fb2838e772a0",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2a4d664fb2c5a9bab554536c569b630fd39e18d9",
+      "sha": "deefa820418b945a0e3d6a00f98872592c54ac8f",
       "report": "docs/candidate-attestations/evidence/account-recovery-login-entry-web-9fe87299.json",
       "reportSha256": "b9b52d70e44d384ff5ad29e42601740aaef89d06891f32e6c24c6a7be5242d7a",
       "requireReportArtifact": true,
@@ -30,6 +30,6 @@
     "The existing real recovery evidence remains authoritative for producer, remote read/reset, password restoration and cleanup.",
     "The Web/Wasm focal test closes only the normal Login to Recovery navigation and the two observed Spanish actions Olvidé mi contraseña and Volver; it does not certify exhaustive Recovery localization.",
     "No product runtime, backend, migration, credentials or historical evidence were changed.",
-    "The current recomposed Product 2a4d664f preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product d964e189; the only tree differences belong to the reviewed Android/iOS Recovery and PROF-SAFETY predecessor chain. Product d964e189 preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product 58927df7; the only tree differences belong to the reviewed Android/iOS Recovery and PROF-SAFETY predecessor chain. Product 58927df7 preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product e8a17a98; the only tree differences belong to reanchored predecessor documentation. Product e8a17a98 preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product 4677ca02bce112df41b4ae37ffb66f2e8c23bec8, which preserves the reviewed Product fad149273071e9a3ceab83ec70a823bbbffb6618 focal blobs; only predecessor documentation differs. The accepted execution remains testHead 9fe87299ba342ca815a09fccfee3fb2838e772a0; no matrix was repeated solely for ancestry."
+    "The current recomposed Product deefa820 preserves the Web focal test blob e0c46f1fc6e98e1a2d94efcc5c1bf24a966470dc and runner blob 986245eba92db4d92f0c66cd845a588f63340546 byte-for-byte from Product 2a4d664f; the product commit is patch-equivalent after rebasing onto the reviewed Android candidate and the documentation commits are reanchored to the current predecessor SHAs. Product 2a4d664f preserves those focal blobs from previously reviewed Product d964e189; the other ancestry changes belong to the reviewed Android/iOS Recovery and PROF-SAFETY predecessor chain. Product d964e189 preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product 58927df7; the only tree differences belong to the reviewed Android/iOS Recovery and PROF-SAFETY predecessor chain. Product 58927df7 preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product e8a17a98; the only tree differences belong to reanchored predecessor documentation. Product e8a17a98 preserves the Web focal test and runner blobs byte-for-byte from previously reviewed Product 4677ca02bce112df41b4ae37ffb66f2e8c23bec8, which preserves the reviewed Product fad149273071e9a3ceab83ec70a823bbbffb6618 focal blobs; only predecessor documentation differs. The accepted execution remains testHead 9fe87299ba342ca815a09fccfee3fb2838e772a0; no matrix was repeated solely for ancestry."
   ]
 }
