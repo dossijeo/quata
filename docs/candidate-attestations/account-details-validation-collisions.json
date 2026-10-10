@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "units": ["ACCOUNT-DETAILS"],
+  "status": "passed",
+  "productSha": "7a86afb3b2e6150cc77cbcdc6946bdbb7bac1213",
+  "certification": "invalid-input-and-collision-closed-backend-release-complete-independent-exact-head-review-pending-final-ci-pending",
+  "evidence": {
+    "validationAndCollision": {
+      "status": "passed",
+      "sha": "7a86afb3b2e6150cc77cbcdc6946bdbb7bac1213",
+      "report": "docs/candidate-attestations/evidence/account-details-validation-collisions-42b901f1.json",
+      "reportSha256": "db2494286b23a8c9f4812a9a2e29cb776acd9b0c5e2c85d5d6ce7ea4de6fbc32",
+      "requireReportArtifact": true,
+      "cleanup": {"verified": true, "mode": "production_transactional_rollback_residue_zero"}
+    }
+  },
+  "preflight": [
+    "node --test scripts/account-details-validation-collision-contract.test.mjs",
+    ".\\gradlew.bat :feature:profile:wasmJsBrowserTest --tests com.quata.feature.profile.data.KmpProfileRepositoryTest --tests com.quata.feature.profile.presentation.ProfileViewModelLifecycleTest --console=plain --no-daemon",
+    ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:profile:compileKotlinIosX64 --console=plain --no-daemon",
+    "scripts/new-db-logical-backup.ps1 -Scope Full plus focal restore drill",
+    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for migration 20261010090000",
+    "scripts/run-db-release-safety.ps1 postflight for migration 20261010090000",
+    "node scripts/account-details-collision-postdeploy.mjs",
+    "git diff --check"
+  ],
+  "review": {"status": "pending", "reviewedSha": null, "blockingFindings": []},
+  "notes": [
+    "The shared Account details runtime validates and normalizes before mutation, suppresses repeated Save while active and localizes stable invalid-input and collision outcomes.",
+    "Migration 20261010090000 preserves the existing production index identities, refuses preexisting collisions and is bound byte-exactly to the selective executor.",
+    "A fresh encrypted full logical backup and focal restore preceded the selective release. Production preflight, dry-run, authorized apply, general postflight, aggregate audit and transactional rollback probes passed.",
+    "The historical exact-platform matrix remains evidence for the unchanged Account details save/reload path. No complete matrix was repeated solely because the Product SHA changed.",
+    "Other Account/Profile subflows retain their own scope and evidence."
+  ]
+}
