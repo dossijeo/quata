@@ -216,7 +216,10 @@ class OfficialRepositoryImpl(
                             translationGroupId = groupId,
                             uploadedMedia = uploadedMedia,
                         )
-                        if (reconciled.isEmpty()) cleanupUnreferencedOfficialMedia(uploadedMedia)
+                        Log.w(
+                            OFFICIAL_REPOSITORY_LOG_TAG,
+                            "official post insert outcome uncertain visibleRows=${reconciled.size}; uploaded media preserved",
+                        )
                     } catch (reconciliationFailure: Throwable) {
                         failure.addSuppressed(reconciliationFailure)
                     }

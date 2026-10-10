@@ -129,8 +129,15 @@ test("all active post video producers use authenticated Supabase Storage and ret
   assert.match(androidFeed, /supabaseApi\.uploadPostVideo[\s\S]*supabaseApi\.deletePostMediaObject/);
   assert.match(androidOfficial, /supabaseApi\.uploadPostVideo/);
   assert.match(androidOfficial, /supabaseApi\.deletePostMediaObject/);
-  assert.match(androidOfficial, /reconcileCreatedOfficialPosts[\s\S]*if \(reconciled\.isEmpty\(\)\) cleanupUnreferencedOfficialMedia/);
+  assert.match(androidOfficial, /reconcileCreatedOfficialPosts[\s\S]*if \(reconciled\.isEmpty\(\)\) \{[\s\S]*cleanupUnreferencedOfficialMedia/);
   assert.match(androidApi, /getOfficialPostsForCreateReconciliation[\s\S]*translation_group_id[\s\S]*SupabaseCacheMode\.NETWORK_ONLY/);
+  const uncertainCatchStart = androidOfficial.indexOf("} catch (failure: Throwable) {");
+  const uncertainCatchEnd = androidOfficial.indexOf("\n                throw failure", uncertainCatchStart);
+  assert.ok(uncertainCatchStart >= 0 && uncertainCatchEnd > uncertainCatchStart);
+  const uncertainInsertCatch = androidOfficial.slice(uncertainCatchStart, uncertainCatchEnd);
+  assert.match(uncertainInsertCatch, /reconcileCreatedOfficialPosts/);
+  assert.match(uncertainInsertCatch, /uploaded media preserved/);
+  assert.doesNotMatch(uncertainInsertCatch, /cleanupUnreferencedOfficialMedia/);
   assert.match(androidApi, /openStream: \(\) -> InputStream/);
   assert.match(androidHttp, /sink\.writeAll\(input\.source\(\)\)/);
   assert.doesNotMatch(web, /wp-json\/quqos\/v1\/upload-video/);
