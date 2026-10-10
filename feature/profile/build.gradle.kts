@@ -1,3 +1,5 @@
+import org.jetbrains.compose.ExperimentalComposeLibrary
+
 plugins {
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.multiplatform")
@@ -5,6 +7,7 @@ plugins {
     id("org.jetbrains.compose")
 }
 
+@OptIn(ExperimentalComposeLibrary::class)
 kotlin {
     androidLibrary { namespace = "com.quata.feature.profile"; compileSdk = 36; minSdk = 26 }
     iosX64(); iosArm64(); iosSimulatorArm64()
@@ -23,6 +26,7 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+            implementation(compose.uiTest)
         }
         androidMain.dependencies { }
         iosMain.dependencies {

@@ -405,4 +405,4 @@ private const val MaxEmergencyContacts = 5
 internal const val IosProfileSessionResolutionTimeoutMillis = 5_000L
 private val IosProfilePostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosProfileIdentifier = Regex("[A-Za-z0-9_-]+")
-private val IosProfileWritableColumns = setOf("display_name", "nombre", "neighborhood", "barrio", "country_code", "code", "phone_local", "phone", "telefono", "avatar_url")
+private val IosProfileWritableColumns = setOf("display_name", "nombre", "neighborhood", "barrio", "country_code", "code", "phone_local", "phone_normalized", "phone_e164", "phone", "telefono", "avatar_url")

@@ -223,6 +223,8 @@ private fun String?.isNewUploadedAvatar(originalAvatarUri: String?): Boolean {
 }
 
 internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {
+    val localDigits = phone.filter(Char::isDigit)
+    val e164 = "+${countryCode.filter(Char::isDigit)}$localDigits"
     put("display_name", displayName)
     put("nombre", displayName)
     put("neighborhood", neighborhood)
@@ -230,7 +232,9 @@ internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {
     put("country_code", countryCode)
     put("code", countryCode)
     put("phone_local", phone)
-    put("phone", "+${countryCode.filter(Char::isDigit)}${phone.filter(Char::isDigit)}")
+    put("phone_normalized", localDigits)
+    put("phone_e164", e164)
+    put("phone", e164)
     put("telefono", phone)
     put("avatar_url", avatarUri.cleanProfileValue())
 }

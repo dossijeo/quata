@@ -16,12 +16,14 @@ class WebProfileGatewayContractTest {
         val transport = RecordingTransport()
         val gateway = WebProfileRemoteGateway(transport)
 
-        gateway.saveProfile("profile-1", mapOf("display_name" to "Ada", "forbidden" to "drop"))
+        gateway.saveProfile("profile-1", mapOf("display_name" to "Ada", "phone_e164" to "+240555123", "phone_normalized" to "555123", "forbidden" to "drop"))
 
         assertEquals(listOf("PATCH community_profiles"), transport.operations)
         assertEquals(mapOf("id" to "eq.profile-1"), transport.lastQuery)
         val body = Json.parseToJsonElement(transport.lastBody!!).jsonObject
         assertEquals("Ada", body.getValue("display_name").jsonPrimitive.content)
+        assertEquals("+240555123", body.getValue("phone_e164").jsonPrimitive.content)
+        assertEquals("555123", body.getValue("phone_normalized").jsonPrimitive.content)
         assertTrue("forbidden" !in body)
     }
 
