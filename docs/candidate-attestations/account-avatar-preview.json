@@ -38,14 +38,15 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "a33fec48bab077ccd507edb671846bf5c4825b8a",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
     "ProfileScreenHost now owns preview open state, semantic anchors, the common fullscreen overlay and back dismissal for Android, Web and iOS.",
     "Android reuses AttachmentFullscreenMediaContent; Web and iOS render the exact decoded avatar source uncropped with ContentScale.Fit.",
     "The focused Wasm rendered interaction verified the exact source plus close/return and passed 1/1 and the three platform adapters compiled. No complete E2E matrix was repeated only for the SHA.",
-    "The historical account-avatar.json receipt remains scoped to authenticated edit, save, restore and cleanup and is not relabeled as preview evidence."
+    "The historical account-avatar.json receipt remains scoped to authenticated edit, save, restore and cleanup and is not relabeled as preview evidence.",
+    "The inventory correction deliberately avoids claiming the unintegrated media-producer catalogue; this unit closes only the Account avatar preview gap."
   ]
 }
