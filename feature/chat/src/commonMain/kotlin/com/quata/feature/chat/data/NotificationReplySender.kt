@@ -15,7 +15,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
-enum class NotificationReplyOutcome { Sent, Failed, Rejected }
+enum class NotificationReplyOutcome { Sent, Queued, Failed, Rejected }
 
 /** Background text replies use the same authenticated Chat RPC, without creating a UI repository. */
 class NotificationReplySender(

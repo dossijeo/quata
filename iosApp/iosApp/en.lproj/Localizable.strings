@@ -4,6 +4,8 @@
 "notification_reply_hint" = "Message";
 "notification_reply_failed_title" = "Reply not sent";
 "notification_reply_failed_body" = "Tap to open the chat and try again.";
+"notification_reply_queued_title" = "Reply queued";
+"notification_reply_queued_body" = "It will be sent when Qüata reconnects. Tap to open the chat.";
 "ios_profile_account_password_incorrect" = "The password is incorrect.";
 "ios_profile_account_operation_failed" = "The operation could not be completed. Try again.";
 "ios_profile_account_operation_error_title" = "Account operation";

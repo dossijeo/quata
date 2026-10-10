@@ -10,6 +10,8 @@ final class IosNotificationReplyActionTests: XCTestCase {
             let localized = try XCTUnwrap(Bundle(path: path))
             XCTAssertEqual(localized.localizedString(forKey: "notification_reply", value: nil, table: nil), reply)
             XCTAssertNotEqual(localized.localizedString(forKey: "notification_reply_failed_body", value: nil, table: nil), "notification_reply_failed_body")
+            XCTAssertNotEqual(localized.localizedString(forKey: "notification_reply_queued_title", value: nil, table: nil), "notification_reply_queued_title")
+            XCTAssertNotEqual(localized.localizedString(forKey: "notification_reply_queued_body", value: nil, table: nil), "notification_reply_queued_body")
         }
     }
 
@@ -27,6 +29,17 @@ final class IosNotificationReplyActionTests: XCTestCase {
     func testFailureNotificationOpensChatWithoutOfferingAnotherInlineSend() {
         let routing: [AnyHashable: Any] = ["conversation_id": "sb:7", "recipient_profile_id": "actor-a"]
         let content = IosNotificationReplyAction.failedContent(userInfo: routing)
+        XCTAssertEqual(content.categoryIdentifier, "")
+        XCTAssertEqual(content.userInfo["conversation_id"] as? String, "sb:7")
+        XCTAssertEqual(content.userInfo["recipient_profile_id"] as? String, "actor-a")
+        XCTAssertEqual(content.userInfo.count, 2)
+        XCTAssertFalse(content.title.isEmpty)
+        XCTAssertFalse(content.body.isEmpty)
+    }
+
+    func testQueuedNotificationKeepsOnlyExactChatRouting() {
+        let routing: [AnyHashable: Any] = ["conversation_id": "sb:7", "recipient_profile_id": "actor-a"]
+        let content = IosNotificationReplyAction.queuedContent(userInfo: routing)
         XCTAssertEqual(content.categoryIdentifier, "")
         XCTAssertEqual(content.userInfo["conversation_id"] as? String, "sb:7")
         XCTAssertEqual(content.userInfo["recipient_profile_id"] as? String, "actor-a")

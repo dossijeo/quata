@@ -274,6 +274,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             self.compositionRoot.sendNotificationReply(target: target, recipient: recipient,
                 text: text, clientID: clientID, completion: completion)
         }
+        compositionRoot.setPendingNotificationReplyDeliveredHandler { clientID in
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [clientID])
+        }
         let launchUrl = launchOptions?[.url] as? URL
         compositionRoot.start(launchUrl: launchUrl)
         return true
@@ -558,11 +561,14 @@ private final class IosAppCompositionRoot {
             .createIosNotificationsRuntimeBootstrap(chatRepository: chatRuntimeBootstrap.repository())
     }()
     private lazy var notificationReplyRuntime: IosNotificationReplyRuntime? = {
-        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
-        return IosNotificationReplyRuntime(
+        guard let configuration = runtimeConfiguration,
+              let renewableAuthSession,
+              let chatRuntimeBootstrap else { return nil }
+        return IosNotificationReplyRuntimeKt.createIosNotificationReplyRuntime(
             configuration: IosChatRuntimeConfiguration(supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey),
-            authSession: renewableAuthSession)
+            authSession: renewableAuthSession,
+            chatRepository: chatRuntimeBootstrap.repository())
     }()
 
     private var validatedTouchFlowProfileId: String? {
@@ -590,6 +596,10 @@ private final class IosAppCompositionRoot {
         guard let notificationReplyRuntime else { completion(.rejected); return }
         notificationReplyRuntime.send(conversationId: target.conversationId, recipientProfileId: recipient,
             text: text, clientMessageId: clientID, completion: completion)
+    }
+
+    func setPendingNotificationReplyDeliveredHandler(_ handler: @escaping (String) -> Void) {
+        notificationReplyRuntime?.setPendingReplyDeliveredHandler(handler: handler)
     }
 
     private var notificationCountObserver: IosNotificationCountObserver?
@@ -1393,6 +1403,7 @@ private final class IosAppCompositionRoot {
                     validated: validated.boolValue,
                     installAuthenticatedSession: {
                         self.setValidatedAuthenticatedSession(true)
+                        self.notificationReplyRuntime?.resumeAfterSessionValidation()
                         self.authenticatedHost.preserveVisibleRouteAfterAuthenticationUpgrade()
                         _ = self.installRestoredFeedSessionIfAvailable()
                         self.authenticatedHost.refreshVisibleRouteAfterAuthentication()
