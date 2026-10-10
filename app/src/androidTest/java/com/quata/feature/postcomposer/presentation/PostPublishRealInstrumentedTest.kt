@@ -122,9 +122,14 @@ class PostPublishRealInstrumentedTest {
             saveScreenshot("android-post-publish-composer-opened")
 
             if (mode == "text") {
-                compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
-                    .performScrollTo()
-                    .performClick()
+                val restoredTextDraft = runCatching {
+                    compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                }.isSuccess
+                if (!restoredTextDraft) {
+                    compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                }
                 compose.waitUntil(20_000) {
                     runCatching { compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
                 }
@@ -160,10 +165,31 @@ class PostPublishRealInstrumentedTest {
                         }.isSuccess
                     }
                     compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+                        .performScrollTo()
                         .performClick()
+                    compose.waitForIdle()
+                    saveScreenshot("android-post-publish-composer-emoji-after-cell-tap")
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                                .config.getOrNull(SemanticsProperties.EditableText)
+                                ?.text
+                                ?.contains("😀") == true
+                        }.getOrDefault(false)
+                    }
                     compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
                         .assertTextContains(bodyText, substring = true)
                         .assertTextContains("😀", substring = true)
+                    compose.onNodeWithTag(ComposerEmojiButtonTestTag, useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithTag("community.emoji.panel", useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                        }.isFailure
+                    }
                 }
             } else {
                 compose.waitUntil(20_000) {

@@ -911,7 +911,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let input = app.descendants(matching: .any).matching(identifier: "composer-text-input").firstMatch
-        let insertedText = elementText(input)
+        let deadline = Date().addingTimeInterval(10)
+        var insertedText = elementText(input)
+        while !insertedText.contains("😀"), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            insertedText = elementText(input)
+        }
         XCTAssertTrue(insertedText.contains(marker), "Emoji insertion must preserve the exact post marker.")
         XCTAssertTrue(insertedText.contains("😀"), "The frequent picker cell must insert the catalog emoji into the post draft.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-emoji-inserted")

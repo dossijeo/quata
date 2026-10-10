@@ -192,8 +192,20 @@ try {
       report.steps.push("web_text_written_by_localhost_opt_in_product_bridge_after_compose_keyboard_limit");
     });
     if (options.emojiPicker) {
-      await clickSemanticElement(page, "composer-emoji", { reinforcePhysical: true });
-      await clickSemanticElement(page, "community.emoji.cell.frequent.0", { reinforcePhysical: true });
+      const emojiTrigger = await semanticLocator(page, "composer-emoji");
+      report.diagnostics.emojiTriggerBeforeClick = await emojiTrigger.evaluate((node) => ({
+        rect: node.getBoundingClientRect().toJSON(),
+        text: node.textContent,
+        ariaLabel: node.getAttribute("aria-label"),
+        role: node.getAttribute("role"),
+      }));
+      // Compose/Wasm exports a semantic DOM anchor over the canvas. Dispatch exactly one real
+      // pointer click at its bounds; invoking the DOM anchor and then reinforcing it would toggle
+      // the picker twice.
+      await clickSemanticElement(page, "composer-emoji", { physicalOnly: true });
+      report.evidence.emojiAfterTrigger = await screenshot(page, "web-post-publish-emoji-after-trigger");
+      await semanticLocator(page, "community.emoji.panel");
+      await clickSemanticElement(page, "community.emoji.cell.frequent.0", { physicalOnly: true });
       await page.waitForFunction((expected) => {
         const state = globalThis.__quataPostComposerE2eProduct?.state?.();
         return Number(state?.textLength ?? 0) > expected;
@@ -564,11 +576,18 @@ function wordpressProxyHeaders(request) {
   return headers;
 }
 
-async function clickSemanticElement(page, id, { reinforcePhysical = false } = {}) {
+async function clickSemanticElement(page, id, { reinforcePhysical = false, physicalOnly = false } = {}) {
   const locator = await semanticLocator(page, id);
   await locator.waitFor({ state: "attached", timeout: 20_000 });
   await locator.scrollIntoViewIfNeeded().catch(() => null);
+  await locator.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" })).catch(() => null);
+  await delay(350);
   const box = await locator.boundingBox();
+  if (physicalOnly) {
+    if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    return;
+  }
   await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
     if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

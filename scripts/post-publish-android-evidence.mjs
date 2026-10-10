@@ -117,11 +117,7 @@ try {
   const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  const evidenceFiles = options.failAfterUpload
-    ? [...baseEvidenceFiles.slice(0, 2), "android-post-storage-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
-    : options.failOnce
-    ? [...baseEvidenceFiles.slice(0, 2), "android-post-progress-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
-    : baseEvidenceFiles;
+  const evidenceFiles = expectedEvidenceFiles();
   for (const file of evidenceFiles) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
   }
@@ -315,10 +311,20 @@ async function copyEvidenceIfPresent() {
   const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  for (const file of evidenceFiles) {
+  for (const file of expectedEvidenceFiles()) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
   }
   report.evidence.directory = resolve(evidenceDir);
+}
+
+function expectedEvidenceFiles() {
+  const files = options.failAfterUpload
+    ? [...baseEvidenceFiles.slice(0, 2), "android-post-storage-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
+    : options.failOnce
+    ? [...baseEvidenceFiles.slice(0, 2), "android-post-progress-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
+    : [...baseEvidenceFiles];
+  if (options.emojiPicker) files.splice(2, 0, "android-post-publish-composer-emoji-after-cell-tap.png");
+  return files;
 }
 
 async function adbRunAsCat(devicePath, localPath) {

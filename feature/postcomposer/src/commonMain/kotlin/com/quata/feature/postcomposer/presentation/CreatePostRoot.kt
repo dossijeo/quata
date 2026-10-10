@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -31,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -285,6 +288,14 @@ fun CreatePostRoot(
     val currentDraftActorLease by rememberUpdatedState(durableDraftActorLease)
     val scope = rememberCoroutineScope()
     val emojiDismissState = rememberCommunityEmojiPanelDismissState { emojiOpen = false }
+    val emojiPanelBringIntoViewRequester = remember { BringIntoViewRequester() }
+
+    LaunchedEffect(emojiOpen) {
+        if (emojiOpen) {
+            withFrameNanos { }
+            emojiPanelBringIntoViewRequester.bringIntoView()
+        }
+    }
 
     LaunchedEffect(durableDraftStore, draftActorProfileId) {
         val store = durableDraftStore ?: return@LaunchedEffect
@@ -586,7 +597,10 @@ fun CreatePostRoot(
                         ComposerActionButtonContent(
                             copy.emoji,
                             { Icon(Icons.Filled.InsertEmoticon, null) },
-                            { emojiOpen = !emojiOpen },
+                            {
+                                if (!emojiOpen) focusManager.clearFocus(force = true)
+                                emojiOpen = !emojiOpen
+                            },
                             Modifier
                                 .testTag(ComposerEmojiButtonTestTag)
                                 .trackCommunityEmojiTriggerBounds(emojiDismissState),
@@ -603,7 +617,9 @@ fun CreatePostRoot(
                                     }
                                     viewModel.onEvent(CreatePostUiEvent.TextChanged(textValue.text))
                                 },
-                                modifier = Modifier.trackCommunityEmojiPanelBounds(emojiDismissState),
+                                modifier = Modifier
+                                    .bringIntoViewRequester(emojiPanelBringIntoViewRequester)
+                                    .trackCommunityEmojiPanelBounds(emojiDismissState),
                             )
                         }
                     },
