@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "2c047268a93f45bbe7d79888bdb0eb8ab1876107",
-  "certification": "ios-notification-reply-exact-http-boundary-local-platform-test-passed-independent-review-pending-final-ci-pending",
+  "certification": "ios-notification-reply-exact-http-boundary-local-platform-test-passed-independent-review-passed-final-ci-pending",
   "evidence": {
     "iosNotificationReplyHttpBoundary": {
       "status": "passed",
@@ -38,8 +38,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "96f5535f07bee0be80a447aa4c883b0901a92a4c",
     "blockingFindings": []
   },
   "notes": [
