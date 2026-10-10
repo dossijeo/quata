@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "test:post-composer-draft-restoration-contract": "node --test scripts/post-composer-draft-restoration-contract.test.mjs",
-    "test:shell-navigation-exact-restoration-contract": "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs scripts/shell-navigation-android-process-death-contract.test.mjs",
+    "test:shell-navigation-exact-restoration-contract": "node --test scripts/shell-navigation-exact-restoration-contract.test.mjs scripts/shell-navigation-android-process-death-contract.test.mjs scripts/shell-navigation-route-catalog-contract.test.mjs",
     "test:web-test-contract": "node --test scripts/web-test-contract.test.mjs",
     "test:e2e-recorder-contract": "node --test scripts/e2e-recorder-contract.test.mjs",
     "test:chat-inbox-pagination-contract": "node --test scripts/chat-inbox-pagination-contract.test.mjs",
