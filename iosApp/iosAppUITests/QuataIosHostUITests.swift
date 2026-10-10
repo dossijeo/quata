@@ -192,6 +192,64 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testAuthRecoveryFailurePreservesInputAndExplicitRetryReturnsToLogin() {
+        let app = fixtureApp("auth-failure-retry", authDestination: "recovery", spanishLocale: true)
+        app.launch()
+
+        typePrivatePhone("799000000000", into: "auth.recovery.phone", in: app)
+        let question = app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.question")
+            .firstMatch
+        XCTAssertTrue(question.waitForLabelOrValue(containing: "primer barrio", timeout: 10))
+        typePrivateText("Synthetic answer", into: "auth.recovery.secret-answer", in: app)
+        typePrivateText("Synthetic-password-8!", into: "auth.recovery.new-password", in: app)
+        tapAfterDismissingKeyboard("auth.recovery.submit", in: app)
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-recovery-attempt-1")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The first native Recovery submit must reach the deterministic transport once.",
+        )
+        let error = app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.error")
+            .firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 10))
+        XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-recovery-rejected", timeout: 5))
+        for identifier in [
+            "auth.recovery.phone",
+            "auth.recovery.secret-answer",
+            "auth.recovery.new-password",
+        ] {
+            let preservedInput = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            XCTAssertTrue(preservedInput.waitForExistence(timeout: 5))
+            XCTAssertTrue(preservedInput.isHittable, "Expected preserved Recovery input \(identifier) to remain visible.")
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-recovery-failure-preserved")
+
+        tapAfterDismissingKeyboard("auth.recovery.submit", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-recovery-attempt-2")
+                .firstMatch.waitForExistence(timeout: 10),
+            "One explicit native retry must issue the second Recovery transport attempt.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-recovery-success")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The retry succeeds only when the complete Recovery request matches the first attempt.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.submit")
+                .firstMatch.waitForExistence(timeout: 10),
+            "A successful Recovery retry must return to the real shared Login form.",
+        )
+    }
+
     func testAuthLaunchFixtureCanColdStartSharedRecoverySurface() {
         let app = fixtureApp("auth-launch", authDestination: "recovery")
         app.launch()
