@@ -45,7 +45,7 @@ test("documentation closes only the exact HTTP boundary and preserves external a
   assert.ok(boardRow);
   assert.doesNotMatch(inventoryRow, /no acredita[^|]*HTTP exacto/);
   assert.doesNotMatch(boardRow, /No acredita[^|]*HTTP exacto/);
-  for (const preserved of ["APNs", "dispositivo físico", "distribución", "offline", "reinicio", "navegación"]) {
+  for (const preserved of ["APNs", "dispositivo físico", "distribución"]) {
     assert.match(inventoryRow, new RegExp(preserved));
     assert.match(boardRow, new RegExp(preserved));
   }

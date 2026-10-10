@@ -68,9 +68,20 @@ final class IosNotificationTapDelegate: NSObject, UNUserNotificationCenterDelega
               let target = IosNotificationDeepLinkAdapter().targetFromApnsPayload(userInfo: userInfo),
               let replyHandler else { completion(); return }
         let requestID = response.notification.request.identifier
-        replyHandler(target, recipient, input.userText, "notification-reply-\(UUID().uuidString)") { outcome in
+        let clientID = "notification-reply-\(UUID().uuidString)"
+        replyHandler(target, recipient, input.userText, clientID) { outcome in
             if outcome == .sent {
                 center.removeDeliveredNotifications(withIdentifiers: [requestID])
+            } else if outcome == .queued {
+                center.removeDeliveredNotifications(withIdentifiers: [requestID])
+                let routing: [AnyHashable: Any] = [
+                    "conversation_id": target.conversationId,
+                    "recipient_profile_id": recipient,
+                ]
+                let request = UNNotificationRequest(identifier: clientID,
+                    content: IosNotificationReplyAction.queuedContent(userInfo: routing), trigger: nil)
+                center.add(request) { _ in Self.completeOnMain(completion) }
+                return
             } else if outcome == .failed {
                 let routing: [AnyHashable: Any] = [
                     "conversation_id": target.conversationId,
