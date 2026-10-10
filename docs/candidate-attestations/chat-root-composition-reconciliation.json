@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CHAT"
+  ],
+  "status": "passed",
+  "productSha": "1693596f0a2736c155a0b2d7a41f212978c1100c",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-go-final-ci-pending",
+  "evidence": {
+    "chatRootComposition": {
+      "status": "passed",
+      "sha": "1693596f0a2736c155a0b2d7a41f212978c1100c",
+      "report": "docs/candidate-attestations/evidence/chat-root-composition-reconciliation-b4218428.json",
+      "reportSha256": "4fb14a493e85d621ad12e2f289aa38927f222416196089434ab2ea01cad81780",
+      "reportStatus": "passed",
+      "reportGitHead": "b42184288560edbb9ec49f6e1bfafd0c161d448e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "chat_root_composition_and_legacy_contracts_20_of_20_passed",
+        "thirty_six_thematic_receipts_with_explicit_unit_coverage_preserved",
+        "chat_translation_receipt_included",
+        "ci_fast_and_web_wave2_wiring_present",
+        "ci_fast_contracts_904_of_904_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-root-composition-reconciliation-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "The Chat root is composed only from thirty-six existing passed thematic receipts with explicit coverage of each capability named by the root, including CHAT-TRANSLATION.",
+    "The reconciliation removes the generic root-wide recertification placeholder; it preserves the exact limits owned by Chat child units and system flows, including physical permissions and routing, external providers and destinations, OS network topologies, push, audio, attachments and SOS.",
+    "No runtime, backend, platform evidence receipt or CI workflow changed.",
+    "The cumulative Chat-owned delta was recomposed over composed-root predecessor 6bb9ea43. Product 1693596f preserves the Chat composition sources, contract and report from previously reviewed Product 2e7b20c3; aggregate package wiring was reapplied to the current predecessor, so the historical 904/904 fast suite was not repeated solely for commit identity.",
+    "Independent exact-head review is pending for the recomposed head."
+  ]
+}
