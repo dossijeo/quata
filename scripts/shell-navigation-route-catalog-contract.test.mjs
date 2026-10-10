@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const assertExactCatalog = (actual, expected) => assert.deepEqual([...actual].sort(), [...expected].sort());
 
 const [destinations, policy, android, web, ios, inventory] = await Promise.all([
   source("core/src/commonMain/kotlin/com/quata/core/navigation/AppDestinations.kt"),
@@ -51,13 +52,13 @@ test("Android registers every common destination or its owning nested host", () 
   const registeredNavHosts = [...android.matchAll(
     /composable\(\s*(?:route\s*=\s*)?AppDestinations\.(\w+)\.route/g,
   )].map((match) => match[1]).sort();
-  assert.deepEqual(registeredNavHosts, navHostDestinations);
+  assertExactCatalog(registeredNavHosts, navHostDestinations);
 
   const specialOwners = declaredDestinations
     .map(({ name }) => name)
     .filter((name) => !registeredNavHosts.includes(name))
     .sort();
-  assert.deepEqual(specialOwners, ["About", "UserProfile", "WhatsNew"]);
+  assertExactCatalog(specialOwners, ["About", "UserProfile", "WhatsNew"]);
   assert.match(android, /StartupDestination\.WhatsNew[\s\S]*WhatsNewScreen/);
   assert.match(android, /onLogoClick = \{ isAboutDialogOpen = true \}/);
   assert.match(android, /key = "global_user_profile"/);
@@ -69,7 +70,7 @@ test("Web maps every product route family and keeps exact nested identifiers", (
   const acceptedLiteralFragments = [...parser.matchAll(/\.equals\("([^"]+)"/g)]
     .map((match) => match[1])
     .sort();
-  assert.deepEqual(acceptedLiteralFragments, [
+  assertExactCatalog(acceptedLiteralFragments, [
     "about", "auth", "chat", "communities", "composer", "login", "notifications",
     "official", "official-editor", "profile", "release-history", "settings",
     "share-target", "share-target-error", "whats-new",
@@ -82,6 +83,21 @@ test("Web maps every product route family and keeps exact nested identifiers", (
   assert.match(parser, /route = "post\/\$postId"/);
   assert.match(parser, /return WebNavigationState\(route = "feed"/);
   assert.match(web, /quataChatUrl\(conversationId, messageId\)/);
+});
+
+test("catalog guards reject an added or disconnected route", () => {
+  assert.throws(
+    () => assertExactCatalog(["Feed", "DetachedRoute"], ["Feed"]),
+    assert.AssertionError,
+  );
+  assert.throws(
+    () => assertExactCatalog(["feed", "unconnected-fragment"], ["feed"]),
+    assert.AssertionError,
+  );
+  assert.throws(
+    () => assertExactCatalog(["About", "WhatsNew"], ["About", "UserProfile", "WhatsNew"]),
+    assert.AssertionError,
+  );
 });
 
 test("iOS has a closed PendingRoute catalog with symmetric persistence", () => {
