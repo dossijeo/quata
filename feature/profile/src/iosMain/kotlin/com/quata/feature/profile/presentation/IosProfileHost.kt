@@ -1,6 +1,9 @@
 package com.quata.feature.profile.presentation
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -14,6 +17,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +43,7 @@ import com.quata.core.platform.DocumentViewerFailureReason
 import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
 import com.quata.core.ui.components.IosRemoteAvatar
+import com.quata.core.ui.components.IosRemoteImage
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -117,6 +123,16 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
                 isLandscapeLayout = { isLandscape },
                 isImeVisible = { isImeVisible },
                 avatar = { name, avatarUrl -> IosRemoteAvatar(name, name, avatarUrl, Modifier.size(56.dp)) },
+                avatarPreview = { name, avatarUrl, modifier ->
+                    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        IosRemoteImage(
+                            imageUrl = avatarUrl,
+                            contentDescription = name,
+                            modifier = Modifier.fillMaxWidth(0.82f).aspectRatio(1f),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
+                },
                 avatarActions = { onAvatarChanged -> IosProfileAvatarActions(dependencies, onAvatarChanged) },
                 emergencyContactRow = { contact: EmergencyContactCandidate, selected, toggle ->
                     EmergencyUserRowContent(

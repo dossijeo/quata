@@ -1,15 +1,18 @@
 package com.quata.feature.profile.presentation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.common.AppDispatchers
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayCloseTestTag
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -28,6 +31,54 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
 class ProfilePrefixRenderedInteractionTest {
     @Test
+    fun renderedAvatarOpensTheSharedFullscreenPreview() = runComposeUiTest {
+        val repository = PrefixRepository()
+        val scheduler = TestCoroutineScheduler()
+        var previewName: String? = null
+        var previewUri: String? = null
+        setContent {
+            QuataTheme {
+                ProfileScreenHost(
+                    repository = repository,
+                    strings = profileStrings(),
+                    touchFlowEnabled = false,
+                    onTouchFlowEnabledChange = {},
+                    themeMode = QuataThemeMode.System,
+                    onThemeModeChange = {},
+                    onLogout = {},
+                    onDeactivateAccount = {},
+                    onDeleteAccountData = {},
+                    slots = ProfileScreenSlots(
+                        avatar = { _, _ -> Box(androidx.compose.ui.Modifier.size(56.dp)) },
+                        avatarPreview = { name, uri, modifier ->
+                            previewName = name
+                            previewUri = uri
+                            Box(modifier)
+                        },
+                        emergencyContactRow = { _, _, _ -> },
+                    ),
+                    dispatchers = AppDispatchers(default = StandardTestDispatcher(scheduler)),
+                )
+            }
+        }
+
+        scheduler.runCurrent()
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag(ProfileAvatarPreviewOpenTestTag).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag(ProfileAvatarPreviewOpenTestTag).performClick()
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag(ProfileAvatarPreviewRootTestTag).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag(ProfileAvatarPreviewRootTestTag).fetchSemanticsNode()
+        onNodeWithTag(ProfileAvatarPreviewMediaTestTag).fetchSemanticsNode()
+        runOnIdle {
+            assertEquals("Ada", previewName)
+            assertEquals("https://cdn.example/avatar.jpg", previewUri)
+        }
+        mainClock.advanceTimeBy(1_000)
+        onNodeWithTag(QuataFullscreenMediaOverlayCloseTestTag).performClick()
+        mainClock.advanceTimeBy(1_000)
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag(ProfileAvatarPreviewRootTestTag).fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
     fun renderedSelectorOptionAndSavePreserveTheActorPhoneAndSelectedPrefix() = runComposeUiTest {
         val repository = PrefixRepository()
         val scheduler = TestCoroutineScheduler()
@@ -45,6 +96,7 @@ class ProfilePrefixRenderedInteractionTest {
                     onDeleteAccountData = {},
                     slots = ProfileScreenSlots(
                         avatar = { _, _ -> Box(androidx.compose.ui.Modifier) },
+                        avatarPreview = { _, _, _ -> },
                         emergencyContactRow = { _, _, _ -> },
                     ),
                     dispatchers = AppDispatchers(default = StandardTestDispatcher(scheduler)),
@@ -90,6 +142,7 @@ private class PrefixRepository : ProfileRepository {
     private fun editModel(code: String) = ProfileEditModel(
         profile = UserProfile(
             displayName = "Ada",
+            avatarUri = "https://cdn.example/avatar.jpg",
             neighborhood = "Centro",
             countryCode = code,
             phone = "600000000",
