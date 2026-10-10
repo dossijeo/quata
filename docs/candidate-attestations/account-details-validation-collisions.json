@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "b828bb3aa598f43b9679ffdc4a1f76f559e737be",
-  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-pending-final-ci-pending",
+  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-passed-final-ci-pending",
   "evidence": {
     "validationAndCollision": {
       "status": "passed",
@@ -31,8 +31,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "46f9930b4ab073737a9102f1743e49496789a52f",
     "blockingFindings": []
   },
   "notes": [
@@ -42,7 +42,7 @@
     "Web and iOS preserve structured PostgREST 23505 information only as a sanitized known-constraint marker; unrelated HTTP 409 and unrelated uniqueness failures are not mislabeled as phone collisions.",
     "The historical exact-platform matrix remains evidence for the unchanged Account details save/reload path. No complete matrix was repeated solely because the Product SHA changed.",
     "The twelve owned commits were replayed over repaired PR #602 head bd35d80c83762fd21b2d2c4d99ce4a077b4d15ce (prefix Product ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b). Product b828bb3aa598f43b9679ffdc4a1f76f559e737be adds only the reviewed capability-hash refresh after the unchanged collision runtime; the production release and exact-platform evidence remain historical and no new apply or platform execution is attributed.",
-    "The prior exact-head review found no P0-P3. A fresh review is required for the recomposed head before publication.",
+    "Independent exact-head review of 46f9930b4ab073737a9102f1743e49496789a52f returned GO with no P0-P3 and confirmed fail-closed country-aware semantics, historical release custody and unchanged focal runtime.",
     "Independent exact-head review of 68d995969b425850ff04a50ec658772639bff819 returned GO with no P0-P3 and confirmed fail-closed semantics, historical release custody and byte identity of the focal runtime/test blobs."
   ]
 }
