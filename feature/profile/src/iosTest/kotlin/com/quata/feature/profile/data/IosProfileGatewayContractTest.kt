@@ -155,7 +155,7 @@ class IosProfileGatewayContractTest {
         assertEquals("PATCH", request.method)
         assertTrue(request.url.endsWith("/rest/v1/community_profiles?id=eq.profile-1"))
         assertEquals("Bearer access-token", request.headers["Authorization"])
-        assertEquals("{\"display_name\":\"Ada\",\"phone_e164\":\"+240555123\",\"phone_normalized\":\"555123\"}", request.body)
+        assertEquals("{\"display_name\":\"Ada\", \"phone_e164\":\"+240555123\", \"phone_normalized\":\"555123\"}", request.body)
     }
 
     @Test
