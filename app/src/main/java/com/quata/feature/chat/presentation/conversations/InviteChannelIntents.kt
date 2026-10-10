@@ -81,7 +81,27 @@ fun launchQuataInvitation(
     message: String,
     chooserTitle: String
 ) {
-    val intent = when (target.route) {
+    try {
+        val requestedIntent = quataInvitationIntent(contact, target, message)
+        val resolvedComponent = requestedIntent.component
+            ?: requestedIntent.resolveActivity(context.packageManager)
+            ?: throw ActivityNotFoundException("No explicit invite handler is available")
+        check(target.packageName == null || resolvedComponent.packageName == target.packageName) {
+            "Resolved invite handler does not match the selected package"
+        }
+        context.startActivity(Intent(requestedIntent).setComponent(resolvedComponent))
+    } catch (_: ActivityNotFoundException) {
+        val fallback = target.component?.let { shareToComponentIntent(message, it) }
+            ?: genericInviteChooser(context, message, chooserTitle)
+        context.startActivity(fallback)
+    }
+}
+
+internal fun quataInvitationIntent(
+    contact: ChatInviteContact,
+    target: InviteTarget,
+    message: String,
+): Intent = when (target.route) {
         InviteRoute.Sms -> smsInviteIntent(contact)
             .apply { target.component?.let(::setComponent) }
             .putExtra("sms_body", message)
@@ -95,14 +115,6 @@ fun launchQuataInvitation(
         )
         InviteRoute.AppShare -> shareToComponentIntent(message, requireNotNull(target.component))
     }
-    try {
-        context.startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        val fallback = target.component?.let { shareToComponentIntent(message, it) }
-            ?: genericInviteChooser(context, message, chooserTitle)
-        context.startActivity(fallback)
-    }
-}
 
 fun whatsAppInviteUri(internationalPhone: String, message: String): Uri =
     Uri.parse("https://wa.me/${internationalPhone.filter(Char::isDigit)}?text=${encodeQueryValue(message)}")

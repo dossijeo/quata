@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "b331d0f231f044d5fae116c25197d8b3c719ac32",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "conversation_invites_composition_contract_5_of_5_passed",
+    "android_instrumented_dispatch_5_of_5_passed",
+    "web_wasm_rendered_dispatch_1_of_1_passed",
+    "ios_x64_rendered_dispatch_1_of_1_passed",
+    "two_platform_receipts_preserved",
+    "third_party_delivery_boundary_preserved",
+    "ci_fast_contracts_915_of_915_passed",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "CONV-INVITES",
+    "ownedPathClosed": true,
+    "thirdPartyEffectsExternal": true,
+    "internalAcceptRejectInvented": false,
+    "runtimeChanged": true,
+    "backendChanged": false,
+    "platformEvidenceChanged": true,
+    "android": {
+      "result": "passed",
+      "tests": 5,
+      "selectionMappingFilteringDispatch": true,
+      "exactActionSendTo": true,
+      "exactSmsPayload": true
+    },
+    "webWasm": {
+      "result": "passed",
+      "tests": 1,
+      "visibleTargetClicked": true,
+      "exactSharePayloadOnce": true
+    },
+    "iosX64": {
+      "result": "passed",
+      "tests": 1,
+      "visibleTargetClicked": true,
+      "exactSharePayloadOnce": true,
+      "executionCheckoutHead": "cd9f75b8a",
+      "productAdapterSha256": "49e6f624e73f1cd99bd1c2b859db790f4467e4d8471a828978f509364932ef28",
+      "productAdapterByteIdenticalToProduct": true,
+      "testSha256": "929f3312e68a043084cadd1f8f3340c0a764c1bbf6f2b576bb898053cb51719a"
+    },
+    "sourceSha256": {
+      "androidIntent": "366045e4b2fcb1309ebc1a7528c618afc59ed647b53236072e3e281f6268c3b6",
+      "androidInstrumentedTest": "b7c7a443b4577ff42ddbf7ffcba83a910c71a8d71b215050fa0eee3e7a40504f",
+      "commonInviteAdapter": "49e6f624e73f1cd99bd1c2b859db790f4467e4d8471a828978f509364932ef28",
+      "commonRenderedTest": "929f3312e68a043084cadd1f8f3340c0a764c1bbf6f2b576bb898053cb51719a"
+    }
+  },
+  "notes": [
+    "The prior independent-review P1 was resolved with executable Android and rendered common dispatch coverage instead of weakening the claimed scope.",
+    "Android, Web/Wasm and iOS x64 execute the Qüata-owned path through selection or visible target interaction and exact dispatch assertions.",
+    "Receipt, installation and delivery after handoff remain external third-party effects; no internal accept/reject workflow was invented."
+  ]
+}

@@ -218,6 +218,8 @@ en Chrome de escritorio; no sustituye el adaptador, la UI, el mapeo, el filtro n
 [Platform attestation](./candidate-attestations/conversation-invites-parity.json) ·
 [Web Contact Picker attestation](./candidate-attestations/conversation-invites-web-contact-picker.json).
 
+El alcance propio de `CONV-INVITES` queda en GO focal: Android, Web/Wasm e iOS seleccionan o materializan un contacto, aplican el matching y filtrado comunes y entregan exactamente un payload al canal nativo de copiar/compartir. La recepción, instalación y entrega que dependen de una aplicación o persona tercera no son observables ni controlables desde Qüata y permanecen como frontera externa, no como pendiente funcional, de paridad o de evidencia de la aplicación. No existe un flujo interno de aceptar/rechazar que deba añadirse.
+
 Tras integrar el cambio concurrente de `CONV-NEW`, el focal iOS se repitió sobre `c2d5f215`: el
 picker compacto se expande una vez si el teclado de búsqueda sigue visible antes de activar la misma
 acción etiquetada. ContactsUI, la fila seleccionada, el canal común y el cierre de ambas superficies

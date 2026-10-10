@@ -2,8 +2,13 @@ package com.quata.feature.chat.presentation.conversations
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import com.quata.core.platform.PlatformContact
 import com.quata.feature.chat.domain.ChatInviteContact
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,5 +59,47 @@ class InviteChannelIntentsInstrumentedTest {
         assertTrue("Chrome must not be offered for a phone invitation", "com.android.chrome" !in packages)
         assertTrue("Drive must not be offered for a phone invitation", "com.google.android.apps.docs" !in packages)
         assertTrue("Gmail must not be offered for a phone invitation", "com.google.android.gm" !in packages)
+    }
+
+    @Test
+    fun selectedPlatformContactMapsFiltersAndDispatchesTheExactSmsPayloadOnce() {
+        val mapped = platformContactsForChatInvites(
+            listOf(
+                PlatformContact(
+                    displayName = " Ada Test ",
+                    phones = listOf("+34 699 000 101", "699-000-101"),
+                    emails = listOf("ada@example.test"),
+                ),
+            ),
+        )
+        val selected = filterInviteContacts(mapped, "Ada Test").single()
+        val message = "Hola desde Qüata"
+        val context = RecordingContext(ApplicationProvider.getApplicationContext())
+
+        launchQuataInvitation(
+            context = context,
+            contact = selected,
+            target = InviteTarget(id = "sms", label = "SMS", route = InviteRoute.Sms),
+            message = message,
+            chooserTitle = "Invitar",
+        )
+
+        assertEquals(1, context.started.size)
+        val intent = context.started.single()
+        assertEquals(Intent.ACTION_SENDTO, intent.action)
+        assertEquals("smsto:%2B34%20699%20000%20101", intent.dataString)
+        assertEquals("+34 699 000 101", intent.data?.schemeSpecificPart)
+        assertEquals(message, intent.getStringExtra("sms_body"))
+        assertNotNull("phone and message must leave through an explicit component", intent.component)
+        assertEquals("platform-contact:34699000101:699000101", selected.id)
+        assertEquals(setOf("34699000101", "699000101"), selected.phoneKeys)
+    }
+
+    private class RecordingContext(base: Context) : ContextWrapper(base) {
+        val started = mutableListOf<Intent>()
+
+        override fun startActivity(intent: Intent) {
+            started += Intent(intent)
+        }
     }
 }
