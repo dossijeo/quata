@@ -1,0 +1,38 @@
+{
+  "check": "NATIVE-AUTH-REFRESH-HTTP-BOUNDARY-001",
+  "status": "passed",
+  "productSha": "cd9f75b8acf386ef9b2fcd523428cbbc1f327198",
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "executionSha": "8d2c66587eece573c3a331997d75fa0970baceb1",
+      "productBlobsMatchExecution": true,
+      "suite": "com.quata.data.supabase.NativeAuthRefreshHttpBoundaryTest",
+      "resultSha256": "7d62df22af328fe26518636cf739f9884a69b054005d5312650e5e3fbf1c67b4"
+    },
+    "ios": {
+      "status": "passed",
+      "executionSha": "cd9f75b8acf386ef9b2fcd523428cbbc1f327198",
+      "workingTreeDirty": false,
+      "suite": "iosX64Test.com.quata.core.session.IosSupabaseAuthSessionRefresherTest",
+      "resultSha256": "863d045ad315fb2f6af80369cf4340dbd54aa05fe1dafb4c3a0740c4f9608f44"
+    }
+  },
+  "assertions": {
+    "productionRequestBuilderUsed": true,
+    "method": "POST",
+    "path": "/auth/v1/token",
+    "query": "grant_type=refresh_token",
+    "publishableHeadersPresent": true,
+    "jsonBodyContainsOnlyOwnedRefreshToken": true,
+    "accessTokenAbsentFromBody": true,
+    "replacementSessionParsed": true,
+    "credentialsRecorded": false
+  },
+  "cleanup": {
+    "backendMutation": false,
+    "syntheticTransportOnly": true,
+    "residue": 0
+  },
+  "limits": "The focal suites prove the exact Android OkHttp and iOS URLSession request boundary built by production refresh code and the replacement-session response boundary. They complement the existing real HTTP 400/401 rejection and server-side rotation evidence. They do not decrypt TLS packets, recertify unrelated Auth routes, enable Google OAuth, or broaden APNs and physical-device claims."
+}

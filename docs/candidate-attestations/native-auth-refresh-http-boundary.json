@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "FLOW-DEEP-LINKS"
+  ],
+  "status": "passed",
+  "productSha": "1068632fe66cefafcec7338e92bbbe319352fda6",
+  "scope": "exact native refresh request and replacement-session HTTP boundary on Android and iOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "1068632fe66cefafcec7338e92bbbe319352fda6",
+      "report": "docs/candidate-attestations/evidence/native-auth-refresh-http-boundary-cd9f75b8.json",
+      "reportSha256": "709c78f1254537411c7271ef1610d6c0aa12afa49eca4ae7ce54135d6d375ca6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "nativeTestPassed": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_synthetic_http_response_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "1068632fe66cefafcec7338e92bbbe319352fda6",
+      "report": "docs/candidate-attestations/evidence/native-auth-refresh-http-boundary-cd9f75b8.json",
+      "reportSha256": "709c78f1254537411c7271ef1610d6c0aa12afa49eca4ae7ce54135d6d375ca6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "nativeTestPassed": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_synthetic_http_response_no_backend_mutation"
+      }
+    }
+  },
+  "validation": [
+    "Android production SupabaseHttpClient refresh boundary test passed",
+    "iOS x64 production IosSupabaseAuthSessionRefresher boundary suite passed",
+    "both platforms assert POST, exact endpoint and query, required publishable headers, refresh-only JSON body and replacement-session parsing",
+    "no credential value, packet payload or backend object was recorded"
+  ],
+  "notes": [
+    "This evidence closes the actionable native refresh request-boundary gap without claiming decrypted TLS packet capture.",
+    "Existing real-device-host evidence remains authoritative for terminal HTTP 400/401 rejection, exact-session retirement and server-side refresh-token rotation.",
+    "Android uses the production OkHttp refreshAuthSession path with an intercepting synthetic response. iOS captures the fully materialized NSURLRequest immediately before the normal URLSession executor, so method, URL, headers and body are asserted on the native request object.",
+    "The current recomposed Product 1068632fe66cefafcec7338e92bbbe319352fda6 preserves all three focal Android/iOS runtime and test blobs byte-for-byte from previously reviewed Product fd3752b6c and executed Product cd9f75b8a; only reviewed Auth continuity and failure/retry predecessor history changed after replay onto 03725cb6f3469a10478cc170600bb7cf55f25465. The Android result was executed on 8d2c66587, and the final iOS focal suite ran from a clean exact Product cd9f75b8a checkout, so neither platform run is attributed to this ancestry-only recomposition.",
+    "Google OAuth, APNs, physical iOS hardware and unrelated Auth routes remain separate units."
+  ]
+}
