@@ -4,6 +4,22 @@ import test from "node:test";
 
 const source = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const assertExactCatalog = (actual, expected) => assert.deepEqual([...actual].sort(), [...expected].sort());
+const extractAndroidNavHosts = (sourceText) => [...sourceText.matchAll(
+  /composable\(\s*(?:route\s*=\s*)?AppDestinations\.(\w+)\.route/g,
+)].map((match) => match[1]);
+const extractWebParser = (sourceText) => sourceText.match(
+  /internal fun String\.toWebNavigationState\(\): WebNavigationState \{([\s\S]*?)\n\}/,
+)?.[1];
+const extractAcceptedWebLiteralFragments = (parser) => [...parser.matchAll(/\.equals\("([^"]+)"/g)]
+  .map((match) => match[1]);
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const assertWebLiteralRouteMapping = (parser, input, output) => assert.match(
+  parser,
+  new RegExp(
+    `\\.equals\\("${escapeRegex(input)}"[\\s\\S]{0,220}?WebNavigationState\\(route = "${escapeRegex(output)}"`,
+  ),
+  `${input} -> ${output}`,
+);
 
 const [destinations, policy, android, web, ios, inventory] = await Promise.all([
   source("core/src/commonMain/kotlin/com/quata/core/navigation/AppDestinations.kt"),
@@ -49,9 +65,7 @@ test("Android registers every common destination or its owning nested host", () 
     "OfficialPostEditor", "RichTextEditorQa", "CreatePost", "Conversations", "Chat",
     "Notifications", "ReleaseHistory", "Profile",
   ].sort();
-  const registeredNavHosts = [...android.matchAll(
-    /composable\(\s*(?:route\s*=\s*)?AppDestinations\.(\w+)\.route/g,
-  )].map((match) => match[1]).sort();
+  const registeredNavHosts = extractAndroidNavHosts(android).sort();
   assertExactCatalog(registeredNavHosts, navHostDestinations);
 
   const specialOwners = declaredDestinations
@@ -65,16 +79,25 @@ test("Android registers every common destination or its owning nested host", () 
 });
 
 test("Web maps every product route family and keeps exact nested identifiers", () => {
-  const parser = web.match(/internal fun String\.toWebNavigationState\(\): WebNavigationState \{([\s\S]*?)\n\}/)?.[1];
+  const parser = extractWebParser(web);
   assert.ok(parser, "Web route parser missing");
-  const acceptedLiteralFragments = [...parser.matchAll(/\.equals\("([^"]+)"/g)]
-    .map((match) => match[1])
-    .sort();
+  const acceptedLiteralFragments = extractAcceptedWebLiteralFragments(parser).sort();
   assertExactCatalog(acceptedLiteralFragments, [
     "about", "auth", "chat", "communities", "composer", "login", "notifications",
     "official", "official-editor", "profile", "release-history", "settings",
     "share-target", "share-target-error", "whats-new",
   ]);
+  [
+    ["auth", "auth"], ["login", "auth"], ["share-target", "share-target"],
+    ["share-target-error", "share-target-error"], ["settings", "settings"],
+    ["notifications", "notifications"], ["profile", "profile"], ["composer", "composer"],
+    ["official-editor", "official-editor"], ["communities", "communities"],
+    ["official", "official"], ["chat", "chat"],
+  ].forEach(([input, output]) => assertWebLiteralRouteMapping(parser, input, output));
+  assert.match(
+    parser,
+    /\.equals\("whats-new"[\s\S]*\.equals\("about"[\s\S]*\.equals\("release-history"[\s\S]*WebNavigationState\(route = trim\('\/'\)\.lowercase\(\)/,
+  );
   assert.match(parser, /quataChatDeepLinkOrNull\(\)/);
   assert.match(parser, /route = "chat\/\$\{chat\.conversationId\}"/);
   assert.match(parser, /quataOfficialPostIdOrNull\(\)/);
@@ -85,18 +108,29 @@ test("Web maps every product route family and keeps exact nested identifiers", (
   assert.match(web, /quataChatUrl\(conversationId, messageId\)/);
 });
 
-test("catalog guards reject an added or disconnected route", () => {
+test("catalog guards reject a route added to a real extractor or mapped to the wrong destination", () => {
   assert.throws(
-    () => assertExactCatalog(["Feed", "DetachedRoute"], ["Feed"]),
+    () => assertExactCatalog(
+      extractAndroidNavHosts(`${android}\ncomposable(AppDestinations.DetachedRoute.route)`),
+      extractAndroidNavHosts(android),
+    ),
+    assert.AssertionError,
+  );
+  const parser = extractWebParser(web);
+  assert.ok(parser, "Web route parser missing");
+  assert.throws(
+    () => assertExactCatalog(
+      extractAcceptedWebLiteralFragments(`${parser}\ntrim('/').equals("unconnected-fragment")`),
+      extractAcceptedWebLiteralFragments(parser),
+    ),
     assert.AssertionError,
   );
   assert.throws(
-    () => assertExactCatalog(["feed", "unconnected-fragment"], ["feed"]),
-    assert.AssertionError,
-  );
-  assert.throws(
-    () => assertExactCatalog(["About", "WhatsNew"], ["About", "UserProfile", "WhatsNew"]),
-    assert.AssertionError,
+    () => assertWebLiteralRouteMapping(
+      parser.replace('WebNavigationState(route = "settings"', 'WebNavigationState(route = "feed"'),
+      "settings",
+      "settings",
+    ),
   );
 });
 
