@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-NOTIFICATION-REPLY"
+  ],
+  "status": "passed",
+  "productSha": "2c047268a93f45bbe7d79888bdb0eb8ab1876107",
+  "certification": "ios-notification-reply-exact-http-boundary-local-platform-test-passed-independent-review-passed-final-ci-pending",
+  "evidence": {
+    "iosNotificationReplyHttpBoundary": {
+      "status": "passed",
+      "sha": "2c047268a93f45bbe7d79888bdb0eb8ab1876107",
+      "report": "docs/candidate-attestations/evidence/ios-notification-reply-http-boundary-5990ff5b.json",
+      "reportSha256": "eda79e08dec5c0149eb3125629bcd3cdedee05444d481365bd1cf202d568e1ef",
+      "reportStatus": "passed",
+      "reportGitHead": "5990ff5b376522bd79ec6084de5e8ea91ace6af2",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "windows_compileTestKotlinIosX64_passed",
+        "macos_iosX64_focal_test_exact_product_4_of_4_passed",
+        "source_and_documentation_contract_4_of_4_passed",
+        "contract_wired_into_both_fast_suites",
+        "remote_focal_patch_restored_without_residue",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "macos_focal_patch_restored_and_no_backend_or_product_data_mutated"
+      }
+    }
+  },
+  "preflight": [
+    ".\\gradlew.bat :feature:chat:compileTestKotlinIosX64 --no-daemon --no-configuration-cache --console=plain",
+    "bash gradlew :feature:chat:iosX64Test --tests *IosNotificationReplyHttpBoundaryTest* --no-daemon --no-configuration-cache --console=plain",
+    "node --test scripts/ios-notification-reply-http-boundary-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ios-notification-reply-http-boundary.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "passed",
+    "reviewedSha": "96f5535f07bee0be80a447aa4c883b0901a92a4c",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The production notification delegate remains connected through IosNotificationReplyRuntime and IosChatPostgrestTransport. The focal XCTest observes the native request materialized by that path with a hermetic executor; it does not claim a live remote HTTP response.",
+    "The historical focal XCTest on Product 5990ff5b observed the exact PostgREST URL, POST method, authenticated headers, JSON body and timeout. The recomposed Product retains byte-identical transport, XCTest and contract blobs without attributing a new execution.",
+    "Inside one transport call, only a 401 for the same actor may refresh and replay once. Actor replacement fails closed before that replay, while HTTP 403 and 500 do not refresh or replay internally.",
+    "NotificationReplySender retains its existing bounded three attempts for transport failures; this unit makes no claim that 403/500 suppress those sender-level attempts.",
+    "The focal contract is wired into test:web-wave2-contracts and test:ci-fast-contracts. The complete local fast suite had two unrelated missing-pg failures in this fresh worktree; final CI remains authoritative for the complete gate.",
+    "The optional Wasm Node attempt failed before test execution on the known Node 22 skiko.wasm loader boundary and is not counted as acceptance.",
+    "This closes only the exact iOS HTTP boundary. APNs, physical-device behavior, distribution, offline/restart lifecycle and post-reply navigation remain explicit limits.",
+    "The unit was replayed over frozen PR #600; the iOS transport, focal XCTest and contract blobs are byte-identical to historical Product 5990ff5b, so the 4/4 execution remains historical and no new platform run is attributed."
+  ]
+}

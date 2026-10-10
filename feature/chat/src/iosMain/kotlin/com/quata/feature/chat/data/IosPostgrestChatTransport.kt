@@ -52,20 +52,17 @@ class IosChatPostgrestTransport(
     private val expectedProfileId: String? = null,
 ) : ChatPostgrestTransport {
     override suspend fun post(functionName: String, body: String): ChatPostgrestResponse = runCatching {
-        require(functionName.matches(IosRpcName)) { "ios_chat_rpc_name_invalid" }
         val initialSession = currentSession()
-        executeIosChatRequestWithSingleRefresh(
+        executeIosChatPostgrestRequest(
+            configuration = configuration,
+            functionName = functionName,
+            body = body,
             initialSession = initialSession,
             expectedProfileId = expectedProfileId,
             latestSession = authSession::restoredSession,
             forceRefresh = { authSession.currentSession(forceRefresh = true) },
-        ) { session ->
-            authenticatedRequest("${configuration.restBaseUrl()}/rpc/$functionName", session).apply {
-                setHTTPMethod("POST")
-                setHTTPBody(body.encodeToByteArray().toIosData())
-                setValue("application/json", "Content-Type")
-            }.execute(requestTimeoutMillis).body.toIosString()
-        }
+            requestTimeoutMillis = requestTimeoutMillis,
+        )
     }.fold(
         onSuccess = ChatPostgrestResponse::Success,
         onFailure = ChatPostgrestResponse::Failure,
@@ -75,17 +72,6 @@ class IosChatPostgrestTransport(
         ?.takeIf { it.bearerToken.isNotBlank() }
         ?: error("ios_chat_session_missing")
 
-    private fun authenticatedRequest(urlString: String, session: AuthSession): NSMutableURLRequest {
-        val url = NSURL(string = urlString) ?: error("ios_chat_url_invalid")
-        check(expectedProfileId == null || session.userId == expectedProfileId) {
-            "ios_chat_session_changed"
-        }
-        return NSMutableURLRequest.requestWithURL(url).apply {
-            setValue(configuration.publishableKey(), "apikey")
-            setValue("Bearer ${session.bearerToken}", "Authorization")
-            setValue("application/json", "Accept")
-        }
-    }
 }
 
 /** Reads the same renewable Keychain session used by interactive Auth and Feed. */
@@ -188,6 +174,44 @@ private data class IosChatHttpResponse(val body: NSData)
 internal class IosChatHttpStatusException(
     val status: Int?,
 ) : RuntimeException("ios_chat_http_${status ?: "unknown"}")
+
+internal suspend fun executeIosChatPostgrestRequest(
+    configuration: IosChatRuntimeConfiguration,
+    functionName: String,
+    body: String,
+    initialSession: AuthSession,
+    expectedProfileId: String?,
+    latestSession: () -> AuthSession?,
+    forceRefresh: suspend () -> AuthSession?,
+    requestTimeoutMillis: Long,
+    executeRequest: suspend (NSMutableURLRequest, Long) -> String = { request, timeoutMillis ->
+        request.execute(timeoutMillis).body.toIosString()
+    },
+): String {
+    require(functionName.matches(IosRpcName)) { "ios_chat_rpc_name_invalid" }
+    require(requestTimeoutMillis > 0L) { "ios_chat_timeout_invalid" }
+    return executeIosChatRequestWithSingleRefresh(
+        initialSession = initialSession,
+        expectedProfileId = expectedProfileId,
+        latestSession = latestSession,
+        forceRefresh = forceRefresh,
+    ) { session ->
+        check(expectedProfileId == null || session.userId == expectedProfileId) {
+            "ios_chat_session_changed"
+        }
+        val url = NSURL(string = "${configuration.restBaseUrl()}/rpc/$functionName")
+            ?: error("ios_chat_url_invalid")
+        val request = NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod("POST")
+            setHTTPBody(body.encodeToByteArray().toIosData())
+            setValue(configuration.publishableKey(), "apikey")
+            setValue("Bearer ${session.bearerToken}", "Authorization")
+            setValue("application/json", "Accept")
+            setValue("application/json", "Content-Type")
+        }
+        executeRequest(request, requestTimeoutMillis)
+    }
+}
 
 internal suspend fun executeIosChatRequestWithSingleRefresh(
     initialSession: AuthSession,
