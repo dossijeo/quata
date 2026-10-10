@@ -38,8 +38,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "118c90361c2b16feb24c8dbd18ae61b602f58122",
     "blockingFindings": []
   },
   "notes": [
