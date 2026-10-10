@@ -158,6 +158,14 @@ destino propio del botón. Recibo: `notification-settings-api-diagnostic-report.
 Ambas ejecuciones conservan `settingsDestinationAccepted: false`; no alteran la
 evidencia histórica del bundle `fa72792e` ni cierran el inventario del flujo.
 
+La auditoría posterior confirma que el producto llama a la única API pública
+específica disponible, `UIApplication.openNotificationSettingsURLString`. El contrato
+`ios-notification-settings-boundary-contract.test.mjs` fija esa selección y exige
+conservar los recibos negativos. Como la llamada devolvió apertura pero el proceso
+externo permaneció en la raíz de Ajustes, la página interna se clasifica como frontera
+del sistema/Simulator; no se relabela como aceptación funcional ni se introduce
+navegación privada no soportada.
+
 La evidencia del proveedor sigue separada: ocho contratos del cliente APNs y el
 ensayo SQL aislado acreditan sus casos controlados. El probe alojado HTTP/2 obtuvo
 respuesta upstream `405` sin credenciales APNs; acredita transporte, no autenticación
