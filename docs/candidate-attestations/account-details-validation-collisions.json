@@ -3,7 +3,7 @@
   "units": ["ACCOUNT-DETAILS"],
   "status": "passed",
   "productSha": "512b5bf563beb786861c15d6f8d38c2e58e07994",
-  "certification": "invalid-input-and-collision-closed-backend-release-complete-independent-exact-head-review-pending-final-ci-pending",
+  "certification": "invalid-input-and-country-aware-collision-closed-backend-release-complete-independent-review-go-final-ci-pending",
   "evidence": {
     "validationAndCollision": {
       "status": "passed",
@@ -24,7 +24,7 @@
     "node scripts/account-details-collision-postdeploy.mjs",
     "git diff --check"
   ],
-  "review": {"status": "pending", "reviewedSha": null, "blockingFindings": []},
+  "review": {"status": "passed", "reviewedSha": "8ccde0fd23601f49a4af405d9da1f09acd7c2997", "blockingFindings": []},
   "notes": [
     "The shared Account details runtime validates and normalizes before mutation, suppresses repeated Save while active and localizes stable invalid-input and collision outcomes.",
     "Independent review found that migration 20261010090000 incorrectly imposed global local-number uniqueness. Forward migration 20261010101500 replaces it with country_code plus phone_local and phone_e164 identity; the earlier evidence remains marked superseded.",
