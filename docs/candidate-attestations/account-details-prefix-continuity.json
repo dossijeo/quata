@@ -51,7 +51,7 @@
     "The Auth bridge updates linked users only by auth_user_id, fails closed on every occupied email for an unlinked profile, and requires exact PostgREST cardinality to match the returned phone rows before actor resolution. Truncated or ambiguous lookups are rejected.",
     "Android and iOS compile the changed shared runtime; the exact native save/reload evidence from Product SHA bc34d1eb remains historical and was not repeated solely because this SHA changed.",
     "This unit closes only the documented prefix-change limit. Exhaustive invalid-input and collision validation and the other Account/Profile subflows remain explicit limits.",
-    "The product series was replayed over merged PR #601 squash b5006abd9d0b9b0c7fde69b2580f21464b5416bf. The owned runtime, test and contract blobs remain byte-identical to historical Product d595a0c1 except for the reviewed capability-hash refresh required by the new base; no platform execution is attributed to this rebase.",
+    "The product series was replayed over merged PR #601 squash b5006abd9d0b9b0c7fde69b2580f21464b5416bf. That rebase preserved the owned runtime, common tests and contracts byte-identical to historical Product d595a0c1 apart from the reviewed capability-hash refresh; the subsequent candidate-only iOS assertion correction is recorded separately below.",
     "The candidate-only iOS assertion now matches the production serializer's valid comma-space formatting. The exact Kotlin/Native focal test passed on the Intel macOS VM after the CI artifact identified whitespace as the sole mismatch; runtime and historical platform evidence are unchanged."
   ]
 }
