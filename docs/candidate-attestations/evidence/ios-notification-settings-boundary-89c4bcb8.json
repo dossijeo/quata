@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "89c4bcb80bac1441b38e32d5b9dd210be4527908",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "notification_settings_supported_url_contract_2_of_2_passed",
+    "historical_opened_true_root_settings_results_preserved_as_negative",
+    "ci_fast_suite_wires_boundary_contract",
+    "ci_fast_contracts_898_of_898_passed",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "productApi": "UIApplication.openNotificationSettingsURLString",
+    "historicalSettingsDestinationAccepted": false,
+    "classification": "external_system_simulator_boundary",
+    "functionalAcceptanceClaimed": false
+  }
+}
