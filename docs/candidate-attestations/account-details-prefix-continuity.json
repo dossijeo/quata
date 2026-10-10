@@ -4,12 +4,12 @@
     "ACCOUNT-DETAILS"
   ],
   "status": "passed",
-  "productSha": "6235e4c2f508ceb72b72af02af59554c6dd5ef28",
-  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-passed-final-ci-pending",
+  "productSha": "ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b",
+  "certification": "prefix-change-and-actor-continuity-focal-tests-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "prefixContinuity": {
       "status": "passed",
-      "sha": "6235e4c2f508ceb72b72af02af59554c6dd5ef28",
+      "sha": "ffb4c025fc5a6fa72d0ef78e47d4300a2c13655b",
       "report": "docs/candidate-attestations/evidence/account-details-prefix-continuity-d595a0c1.json",
       "reportSha256": "4f50144e66cc01d4c83bfb3735e0f3f25c7b5b511b0944fe1f7948497bdcae89",
       "reportStatus": "passed",
@@ -41,8 +41,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "passed",
-    "reviewedSha": "c0c0f9b54f481cd563347a4a237c9b603cbf824e",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
@@ -52,6 +52,6 @@
     "Android and iOS compile the changed shared runtime; the exact native save/reload evidence from Product SHA bc34d1eb remains historical and was not repeated solely because this SHA changed.",
     "This unit closes only the documented prefix-change limit. Exhaustive invalid-input and collision validation and the other Account/Profile subflows remain explicit limits.",
     "The product series was replayed over merged PR #601 squash b5006abd9d0b9b0c7fde69b2580f21464b5416bf. The owned runtime, test and contract blobs remain byte-identical to historical Product d595a0c1 except for the reviewed capability-hash refresh required by the new base; no platform execution is attributed to this rebase.",
-    "Independent exact-head review of c0c0f9b54f481cd563347a4a237c9b603cbf824e returned GO with no P0-P3 after the board distinguished the recomposed Product from historical execution custody."
+    "The candidate-only iOS assertion now matches the production serializer's valid comma-space formatting. The exact Kotlin/Native focal test passed on the Intel macOS VM after the CI artifact identified whitespace as the sole mismatch; runtime and historical platform evidence are unchanged."
   ]
 }
