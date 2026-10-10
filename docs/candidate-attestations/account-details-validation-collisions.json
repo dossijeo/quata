@@ -1,15 +1,15 @@
 {
-  "version": 1,
+  "version": 2,
   "units": ["ACCOUNT-DETAILS"],
   "status": "passed",
-  "productSha": "7a86afb3b2e6150cc77cbcdc6946bdbb7bac1213",
+  "productSha": "512b5bf563beb786861c15d6f8d38c2e58e07994",
   "certification": "invalid-input-and-collision-closed-backend-release-complete-independent-exact-head-review-pending-final-ci-pending",
   "evidence": {
     "validationAndCollision": {
       "status": "passed",
-      "sha": "7a86afb3b2e6150cc77cbcdc6946bdbb7bac1213",
-      "report": "docs/candidate-attestations/evidence/account-details-validation-collisions-42b901f1.json",
-      "reportSha256": "db2494286b23a8c9f4812a9a2e29cb776acd9b0c5e2c85d5d6ce7ea4de6fbc32",
+      "sha": "512b5bf563beb786861c15d6f8d38c2e58e07994",
+      "report": "docs/candidate-attestations/evidence/account-details-validation-collisions-512b5bf5.json",
+      "reportSha256": "3e7cda5b1b1790714d55672517f1d6c8a023ff661dd231766da2b488c0988014",
       "requireReportArtifact": true,
       "cleanup": {"verified": true, "mode": "production_transactional_rollback_residue_zero"}
     }
@@ -19,16 +19,17 @@
     ".\\gradlew.bat :feature:profile:wasmJsBrowserTest --tests com.quata.feature.profile.data.KmpProfileRepositoryTest --tests com.quata.feature.profile.presentation.ProfileViewModelLifecycleTest --console=plain --no-daemon",
     ".\\gradlew.bat :app:compileDebugKotlin :web:compileKotlinWasmJs :feature:profile:compileKotlinIosX64 --console=plain --no-daemon",
     "scripts/new-db-logical-backup.ps1 -Scope Full plus focal restore drill",
-    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for migration 20261010090000",
-    "scripts/run-db-release-safety.ps1 postflight for migration 20261010090000",
+    "scripts/run-selective-db-release.ps1 dry-run and authorized apply for forward migration 20261010101500",
+    "scripts/run-db-release-safety.ps1 postflight for migration 20261010101500",
     "node scripts/account-details-collision-postdeploy.mjs",
     "git diff --check"
   ],
   "review": {"status": "pending", "reviewedSha": null, "blockingFindings": []},
   "notes": [
     "The shared Account details runtime validates and normalizes before mutation, suppresses repeated Save while active and localizes stable invalid-input and collision outcomes.",
-    "Migration 20261010090000 preserves the existing production index identities, refuses preexisting collisions and is bound byte-exactly to the selective executor.",
-    "A fresh encrypted full logical backup and focal restore preceded the selective release. Production preflight, dry-run, authorized apply, general postflight, aggregate audit and transactional rollback probes passed.",
+    "Independent review found that migration 20261010090000 incorrectly imposed global local-number uniqueness. Forward migration 20261010101500 replaces it with country_code plus phone_local and phone_e164 identity; the earlier evidence remains marked superseded.",
+    "A second fresh encrypted full logical backup and focal restore preceded the corrective selective release. Production preflight, dry-run, authorized apply, general postflight, aggregate audit and transactional rollback probes passed.",
+    "Web and iOS preserve structured PostgREST 23505 information only as a sanitized known-constraint marker; unrelated HTTP 409 and unrelated uniqueness failures are not mislabeled as phone collisions.",
     "The historical exact-platform matrix remains evidence for the unchanged Account details save/reload path. No complete matrix was repeated solely because the Product SHA changed.",
     "Other Account/Profile subflows retain their own scope and evidence."
   ]

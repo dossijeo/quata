@@ -2,7 +2,7 @@
   "version": 1,
   "unit": "ACCOUNT-DETAILS",
   "scope": "invalid-input-and-phone-collision",
-  "status": "passed",
+  "status": "superseded",
   "productSha": "7a86afb3b2e6150cc77cbcdc6946bdbb7bac1213",
   "runtimeSha": "42b901f115d365d506cbf25f00d6fdeffb6537c5",
   "migration": {
@@ -10,7 +10,7 @@
     "file": "20261010090000_profile_phone_uniqueness.sql",
     "sha256": "2c1be23a5ece0c970a300464648ec148ce0e023437ead79791171bae0f45fada",
     "releaseSourceSha": "42b901f115d365d506cbf25f00d6fdeffb6537c5",
-    "release": "committed",
+    "release": "committed_then_corrected_by_20261010101500",
     "ledgerPostflight": "passed",
     "catalogPostconditions": "passed"
   },
@@ -22,7 +22,7 @@
     "iosX64Compilation": "passed",
     "disposablePostgres": "fresh_apply_idempotent_reapply_duplicate_precondition_and_rollback_passed",
     "productionAggregateAudit": "passed_zero_inconsistencies_zero_collisions",
-    "productionTransactionalProbe": "passed_two_23505_rejections_rollback_residue_zero",
+    "productionTransactionalProbe": "superseded_global_local_number_semantics",
     "diffCheck": "passed"
   },
   "releaseCustody": {
@@ -53,8 +53,8 @@
     "Valid display name, neighborhood, country prefix and local phone are compatibility-normalized once in the shared runtime.",
     "Repeated Save while a mutation is active is suppressed before another coroutine or repository call is created.",
     "A database uniqueness failure from the profile patch is mapped to a stable localized collision result without masking later recovery, SOS or unrelated failures.",
-    "Production contains no conflicting phone aliases, both named uniqueness indexes are valid and the selective migration is present exactly once.",
-    "The production collision probes exercised real constraints inside an outer rollback and left zero residue."
+    "The original release proved that global local-number indexes rejected duplicates, but independent review found that this contradicted country-aware Auth resolution.",
+    "Forward migration 20261010101500 replaces these indexes and the authoritative evidence is account-details-validation-collisions-512b5bf5.json."
   ],
   "limits": [
     "No complete native UI matrix was repeated solely for this Product SHA; Android, Web/Wasm and iOS compiled the changed shared runtime and the focused Wasm browser suite executed it.",
