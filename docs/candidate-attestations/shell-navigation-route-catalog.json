@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
+  "productSha": "53c4464ff7e66bbc1021066a4c0366a88699a126",
   "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "routeCatalog": {
       "status": "passed",
-      "sha": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
-      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-8452db5f.json",
-      "reportSha256": "809e5af927fdc2fe84fc3a959c21e38ebbffffc9e88792defa11c7b6dd4b9137",
+      "sha": "53c4464ff7e66bbc1021066a4c0366a88699a126",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-53c4464f.json",
+      "reportSha256": "d032581670a3e5f397cdec0a171699111d35d643c1f0388b282b595e4056381d",
       "reportStatus": "passed",
-      "reportGitHead": "8452db5f1689d33ed5678626301cbc4b7ea8a1f9",
+      "reportGitHead": "53c4464ff7e66bbc1021066a4c0366a88699a126",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -21,6 +21,7 @@
         "android_registers_every_common_destination_or_owning_nested_host",
         "web_maps_every_product_route_family_and_exact_nested_identifiers",
         "ios_pending_route_catalog_closed_with_symmetric_persistence",
+        "catalog_guards_reject_added_or_disconnected_route",
         "historical_platform_receipts_preserved",
         "generic_arbitrary_backstack_residual_removed"
       ],
