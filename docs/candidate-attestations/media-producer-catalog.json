@@ -4,16 +4,16 @@
     "OVR-MEDIA"
   ],
   "status": "passed",
-  "productSha": "6357927bd049e4f2074833b293e4f03151cad6bf",
-  "certification": "finite-media-producer-catalog-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "productSha": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
+  "certification": "finite-media-producer-catalog-account-avatar-preview-limit-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "producerCatalog": {
       "status": "passed",
-      "sha": "6357927bd049e4f2074833b293e4f03151cad6bf",
-      "report": "docs/candidate-attestations/evidence/media-producer-catalog-6357927b.json",
-      "reportSha256": "9db2a16738be2cad15cb5efc5edaa230536225ecfdc76f4613f795b26e832ef8",
+      "sha": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
+      "report": "docs/candidate-attestations/evidence/media-producer-catalog-c3c87ea3.json",
+      "reportSha256": "bb8627aaa3fc78d7d8abbba580248bbdc1135b20cf93212c54321c0ca5ae6048",
       "reportStatus": "passed",
-      "reportGitHead": "6357927bd049e4f2074833b293e4f03151cad6bf",
+      "reportGitHead": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -21,7 +21,7 @@
         "shared_android_attachment_viewer_callers_extracted",
         "unregistered_overlay_and_attachment_producer_negative_controls_rejected",
         "all_composed_focal_media_receipts_preserved_passed",
-        "generic_other_producer_residual_removed",
+        "generic_unknown_producer_residual_removed_and_account_avatar_preview_limit_preserved",
         "codec_transport_background_receiver_and_cors_boundaries_preserved"
       ],
       "cleanup": {
@@ -38,12 +38,16 @@
   "review": {
     "status": "pending",
     "reviewedSha": null,
-    "blockingFindings": []
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The initial P2 was corrected by classifying Account avatar preview as a fifth logical producer and preserving it as an explicit uncomposed limit."
+    ]
   },
   "notes": [
     "The exact source extractor finds seven fullscreen overlay adapter files and three registered callers of the shared Android attachment viewer.",
-    "Those adapters compose the finite logical producer catalog Feed, Official, public profile and Chat attachments; platform-specific Official adapters do not create additional product producers.",
+    "Those adapters map to Feed, Official, public profile, Chat attachments and Account avatar preview. Platform-specific Official adapters do not create additional product producers.",
     "Passed focal receipts compose image/video opening and return, durable position, same-source recovery, file export, public-profile media and Chat attachment media.",
+    "Account avatar editing, save and restoration remain certified by account-avatar.json, but the Android fullscreen preview interaction is not covered by that receipt and remains an explicit parity/acceptance limit for Web and iOS.",
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
     "Exhaustive codecs and transports, prolonged background playback, integrated comments, deep scroll, external receivers and historical COEP/CORS compatibility remain explicit thematic boundaries."
   ]

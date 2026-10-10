@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "git": {
-    "head": "6357927bd049e4f2074833b293e4f03151cad6bf",
+    "head": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
     "workingTreeDirty": false
   },
   "steps": [
@@ -9,7 +9,7 @@
     "shared_android_attachment_viewer_callers_extracted",
     "unregistered_overlay_and_attachment_producer_negative_controls_rejected",
     "all_composed_focal_media_receipts_preserved_passed",
-    "generic_other_producer_residual_removed",
+    "generic_unknown_producer_residual_removed_and_account_avatar_preview_limit_preserved",
     "codec_transport_background_receiver_and_cors_boundaries_preserved"
   ],
   "observations": {
@@ -23,9 +23,11 @@
       "Feed",
       "Official",
       "PublicProfile",
-      "ChatAttachments"
+      "ChatAttachments",
+      "AccountAvatarPreview"
     ],
     "fullscreenAdapterFiles": 7,
-    "androidSharedAttachmentViewerCallers": 3
+    "androidSharedAttachmentViewerCallers": 3,
+    "accountAvatarPreviewComposed": false
   }
 }
