@@ -117,3 +117,14 @@ El journal se valida antes de interpolar nombres SQL o borrar Storage: sólo
 admite las dos tablas, sus columnas conocidas, los dos buckets y el prefijo del
 `run-id`. No se versionan credenciales, URLs de origen, IDs de filas, tokens ni
 el journal.
+
+## Cierre productivo 2026-10-10
+
+Product SHA `10b415a09e239b7a3cebb211f83c9982721b5f47` completó el apply y el
+postflight: 43 referencias de fila quedaron ligadas a 41 objetos propios
+(173 617 469 bytes), con igualdad de SHA-256/tamaño, lectura pública CORS y
+ausencia de referencias al origen histórico. El apply quedó precedido por un
+backup Full cifrado y un restore drill focal ligado al manifiesto. Los hashes
+sanitizados y la custodia del cierre están en
+`docs/candidate-attestations/media-historical-cors.json`; el journal privado se
+conserva fuera de Git para rollback.
