@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -75,6 +76,40 @@ class AuthRecoveryProductBridgeInstrumentedTest {
 
         assertEquals(listOf(LegalDocument.Privacy, LegalDocument.ChildSafety), openedLegalDocuments)
         saveScreenshot("android-auth-register-legal-documents")
+    }
+
+    @Test
+    fun sharedLoginOpensSpanishRecoveryAndReturnsToLogin() {
+        val repository = FixtureAuthRepository()
+
+        compose.setContent {
+            QuataTheme(mode = QuataThemeMode.Light) {
+                AuthProductHostContent(
+                    repository = repository,
+                    catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish),
+                    prefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
+                    onAuthenticated = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Olvidé mi contraseña", substring = false, useUnmergedTree = true)
+            .assertExists()
+        compose.onNodeWithTag("auth.forgot-password", useUnmergedTree = true)
+            .performScrollTo()
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag(ForgotPasswordTestTags.Root, useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithText("Volver", substring = false, useUnmergedTree = true)
+            .assertExists()
+        saveScreenshot("android-auth-recovery-from-login")
+
+        compose.onNodeWithTag(ForgotPasswordTestTags.Back, useUnmergedTree = true)
+            .performScrollTo()
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag("auth.submit", useUnmergedTree = true).fetchSemanticsNode()
+        compose.onNodeWithTag(ForgotPasswordTestTags.Root, useUnmergedTree = true).assertDoesNotExist()
+        saveScreenshot("android-auth-recovery-returned-to-login")
     }
 
     @Test
