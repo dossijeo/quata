@@ -19,8 +19,8 @@ class KmpProfileRepositoryTest {
     fun `profile uniqueness failures map to the stable collision code`() {
         listOf(
             "duplicate key value violates unique constraint phone_local_uidx SQLSTATE 23505",
-            "web_profile_patch_http_409",
-            "ios profile status=409",
+            "postgrest_23505_community_profiles_country_phone_local_uidx",
+            "SQLSTATE 23505 community_profiles_phone_e164_uidx",
         ).forEach { message ->
             val mapped = IllegalStateException(message).normalizedProfileSaveFailure()
             assertEquals(ProfilePhoneCollision, mapped.message)
@@ -29,13 +29,20 @@ class KmpProfileRepositoryTest {
 
     @Test
     fun `unrelated profile failures preserve the original throwable`() {
-        val original = IllegalStateException("remote_profile_save_failed")
-        assertTrue(original === original.normalizedProfileSaveFailure())
+        listOf(
+            IllegalStateException("remote_profile_save_failed"),
+            IllegalStateException("web_profile_patch_http_409"),
+            IllegalStateException("SQLSTATE 23505 unrelated_unique_constraint"),
+        ).forEach { original ->
+            assertTrue(original === original.normalizedProfileSaveFailure())
+        }
     }
 
     @Test
     fun `repository surfaces a profile patch collision without later mutations`() = runTest {
-        val remote = FailingProfileRemoteGateway("web_profile_patch_http_409")
+        val remote = FailingProfileRemoteGateway(
+            "postgrest_23505_community_profiles_country_phone_local_uidx",
+        )
         val repository = KmpProfileRepository(
             remote = remote,
             sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),

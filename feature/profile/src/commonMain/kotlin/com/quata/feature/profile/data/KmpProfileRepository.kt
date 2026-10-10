@@ -219,8 +219,8 @@ internal fun Throwable.normalizedProfileSaveFailure(): Throwable {
         .mapNotNull(Throwable::message)
         .joinToString(" ")
         .lowercase()
-    val collision = CollisionMarkers.any(messages::contains) ||
-        Regex("(?:http[_ :]|status[=: ]?)409\\b").containsMatchIn(messages)
+    val collision = messages.contains(ProfilePhoneCollision) ||
+        (messages.contains("23505") && CollisionMarkers.any(messages::contains))
     return if (collision) IllegalStateException(ProfilePhoneCollision, this) else this
 }
 
@@ -305,9 +305,10 @@ private fun String?.cleanProfileValue(): String? = this?.trim()?.takeIf { it.isN
 private const val MaxEmergencyContacts = 5
 private const val EmergencyContactsNetworkTimeoutMillis = 3_500L
 private val CollisionMarkers = listOf(
-    "23505",
     "phone_local_key",
     "phone_local_uidx",
+    "country_phone_local_uidx",
+    "phone_e164_uidx",
     "unique_phone_normalized",
     "phone_unique",
 )

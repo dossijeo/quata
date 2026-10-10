@@ -68,6 +68,21 @@ try {
     from duplicate_groups
   `);
 
+  const e164Duplicates = await client.query(`
+    with duplicate_groups as (
+      select count(*)::int as group_size
+      from public.community_profiles
+      where phone_e164 is not null
+      group by phone_e164
+      having count(*) > 1
+    )
+    select
+      count(*)::int as duplicate_groups,
+      coalesce(sum(group_size), 0)::int as affected_profiles,
+      coalesce(max(group_size), 0)::int as largest_group
+    from duplicate_groups
+  `);
+
   const indexes = await client.query(`
     select
       i.relname as name,
@@ -91,11 +106,12 @@ try {
   `);
 
   const report = {
-    version: 1,
+    version: 2,
     mode: "production-read-only-aggregate",
     status: "passed",
     summary: integerRow(summary.rows[0]),
-    collisions: integerRow(duplicates.rows[0]),
+    countryLocalCollisions: integerRow(duplicates.rows[0]),
+    e164Collisions: integerRow(e164Duplicates.rows[0]),
     indexes: indexes.rows.map(({ name, is_unique, is_valid, definition }) => ({
       name,
       unique: is_unique,

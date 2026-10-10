@@ -12,6 +12,17 @@ import kotlin.test.assertTrue
 
 class WebProfileGatewayContractTest {
     @Test
+    fun mutation_failure_identifies_only_expected_phone_unique_violations() {
+        val collision = """{"code":"23505","message":"duplicate key violates community_profiles_country_phone_local_uidx"}"""
+        assertEquals(
+            "postgrest_23505_community_profiles_country_phone_local_uidx",
+            webPostgrestMutationFailureReason(409, collision),
+        )
+        assertEquals("postgrest_http_409", webPostgrestMutationFailureReason(409, """{"code":"23505","message":"other_key"}"""))
+        assertEquals("postgrest_http_409", webPostgrestMutationFailureReason(409, """{"code":"23503","message":"community_profiles_phone_e164_uidx"}"""))
+    }
+
+    @Test
     fun own_profile_patch_uses_the_direct_android_compatible_contract() = runTest {
         val transport = RecordingTransport()
         val gateway = WebProfileRemoteGateway(transport)
