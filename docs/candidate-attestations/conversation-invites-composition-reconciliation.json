@@ -4,31 +4,32 @@
     "CONV-INVITES"
   ],
   "status": "passed",
-  "productSha": "ff8ed4a63177f9a59a73ea8cc9e129ad01f73943",
-  "certification": "conversation-invites-owned-selection-and-dispatch-executed-third-party-effects-preserved-independent-review-go-final-ci-pending",
+  "productSha": "5e89a445df2f5a5c253ca079078d3a01693917ad",
+  "certification": "conversation-invites-owned-selection-and-explicit-dispatch-executed-third-party-effects-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "conversationInvitesComposition": {
       "status": "passed",
-      "sha": "ff8ed4a63177f9a59a73ea8cc9e129ad01f73943",
-      "report": "docs/candidate-attestations/evidence/conversation-invites-composition-reconciliation-b331d0f2.json",
-      "reportSha256": "75506f95f654f15cbb16cca19ba099e6e3df610fc51f79308ac538992ae3b2d4",
+      "sha": "5e89a445df2f5a5c253ca079078d3a01693917ad",
+      "report": "docs/candidate-attestations/evidence/conversation-invites-explicit-android-dispatch-5e89a445.json",
+      "reportSha256": "8226a5fba3438bd44ba6d3df3f94704c80c8bd8b2d08a7a0f33cd0f60b86ead8",
       "reportStatus": "passed",
-      "reportGitHead": "b331d0f231f044d5fae116c25197d8b3c719ac32",
+      "reportGitHead": "5e89a445df2f5a5c253ca079078d3a01693917ad",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "conversation_invites_composition_contract_5_of_5_passed",
+        "android_compile_debug_android_test_passed",
         "android_instrumented_dispatch_5_of_5_passed",
-        "web_wasm_rendered_dispatch_1_of_1_passed",
-        "ios_x64_rendered_dispatch_1_of_1_passed",
-        "two_platform_receipts_preserved",
+        "explicit_component_required_before_sensitive_dispatch",
+        "selected_package_match_enforced",
+        "web_wasm_rendered_dispatch_receipt_preserved",
+        "ios_x64_rendered_dispatch_receipt_preserved",
         "third_party_delivery_boundary_preserved",
-        "ci_fast_contracts_915_of_915_passed",
         "diff_check_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "focal_platform_fixtures_only_no_backend_mutation_or_third_party_send"
+        "mode": "android_focal_test_only_no_backend_mutation_or_third_party_send"
       }
     }
   },
@@ -42,15 +43,16 @@
     "git diff --check"
   ],
   "review": {
-    "status": "go",
-    "reviewedSha": "2a809456d920b6e77dfed281f677317d84e83728",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
     "The prior independent-review P1 was corrected with executable Android and rendered common dispatch evidence; no claim was relaxed.",
-    "The unit was recomposed onto main 8b2079f9 without renewing platform execution: the Android and common runtime/test blobs remain byte-identical to Product b331d0f2, whose immutable report and reportGitHead are preserved.",
-    "After recomposition, the affected focal contract passed 5/5 and the current main fast-contract set passed 901/901; the historical 915/915 receipt remains tied to the immutable Product b331d0f2 report.",
-    "Android maps and filters the selected contact before one exact ACTION_SENDTO SMS dispatch. Web/Wasm and iOS x64 click the visible common platform-share target and verify the exact payload once.",
+    "The unit was recomposed onto main 8b2079f9; the immutable historical report still preserves the executed Web/Wasm and iOS common dispatch receipts.",
+    "GitHub CodeQL then identified a high-severity implicit-Intent leak in the Android handoff. Product 5e89a445 resolves and fixes a concrete component before startActivity receives phone or message data, and rejects a resolved package that differs from the selected target.",
+    "The affected contract passed 5/5, Android compilation passed and the exact instrumented class passed 5/5 on the API 35 emulator. Web/Wasm and iOS common runtime/test blobs are unchanged, so their historical 1/1 receipts were not repeated solely for the Android repair.",
+    "Android maps and filters the selected contact before one exact explicit-component ACTION_SENDTO SMS dispatch. Web/Wasm and iOS x64 click the visible common platform-share target and verify the exact payload once.",
     "Receipt, installation and delivery by a third-party application or person remain explicit external effects because Qüata cannot observe or control them after dispatch.",
     "No internal accept/reject invitation workflow is invented; backend and third-party applications are not mutated."
   ]

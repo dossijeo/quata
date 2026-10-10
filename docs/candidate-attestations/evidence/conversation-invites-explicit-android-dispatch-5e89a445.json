@@ -1,0 +1,45 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "5e89a445df2f5a5c253ca079078d3a01693917ad",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "conversation_invites_composition_contract_5_of_5_passed",
+    "android_compile_debug_android_test_passed",
+    "android_instrumented_dispatch_5_of_5_passed",
+    "explicit_component_required_before_sensitive_dispatch",
+    "selected_package_match_enforced",
+    "web_wasm_rendered_dispatch_receipt_preserved",
+    "ios_x64_rendered_dispatch_receipt_preserved",
+    "third_party_delivery_boundary_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "CONV-INVITES",
+    "trigger": "GitHub CodeQL flagged one high-severity sensitive-data leak through an implicit Intent on PR 599.",
+    "android": {
+      "result": "passed",
+      "tests": 5,
+      "device": "emulator-5554 API 35",
+      "explicitComponentBeforeStartActivity": true,
+      "selectedPackageMatchEnforced": true,
+      "genericChooserOnlyAsFallback": true,
+      "exactSmsPayloadPreserved": true
+    },
+    "preservedEvidence": {
+      "report": "docs/candidate-attestations/evidence/conversation-invites-composition-reconciliation-b331d0f2.json",
+      "reportSha256": "75506f95f654f15cbb16cca19ba099e6e3df610fc51f79308ac538992ae3b2d4",
+      "webWasmRenderedDispatch": "1/1 passed; common adapter and test unchanged",
+      "iosX64RenderedDispatch": "1/1 passed; common adapter and test unchanged"
+    },
+    "backendChanged": false,
+    "thirdPartySendPerformed": false
+  },
+  "notes": [
+    "Every selected SMS, WhatsApp, Telegram or explicit share handoff resolves to a concrete Android component before startActivity receives the phone or invitation text.",
+    "A resolved component must match the selected package when the target names one; a mismatch fails closed.",
+    "The system chooser remains available only as the existing fallback when no explicit selected component exists.",
+    "No backend, contact fixture, third-party application or recipient was mutated."
+  ]
+}
