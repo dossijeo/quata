@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "1be16887ffb8490710b59ee1ee48a13db4d25032",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "feed_and_conversations_composition_contract_3_of_3_passed",
+        "twenty_four_thematic_receipts_preserved",
+        "ci_fast_and_web_wave2_wiring_present",
+        "ci_fast_contracts_901_of_901_passed",
+        "diff_check_passed"
+  ],
+  "observations": {
+    "roots": [
+      "SCR-FEED",
+      "SCR-CONVERSATIONS"
+    ],
+    "rootResidualLimitsRemoved": true,
+    "thematicLimitsPreserved": true,
+    "runtimeChanged": false,
+    "evidenceChanged": false
+  }
+}
