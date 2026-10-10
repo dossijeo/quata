@@ -4,12 +4,12 @@
     "SCR-CHAT"
   ],
   "status": "passed",
-  "productSha": "131172d6a7d997cfefb32ff921bc1f09696168bf",
-  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-fast-contracts-passed-independent-review-pending-final-ci-pending",
+  "productSha": "cafde56e01ee627d70e47a83f54217f353cea45a",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-focal-contracts-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "chatRootComposition": {
       "status": "passed",
-      "sha": "131172d6a7d997cfefb32ff921bc1f09696168bf",
+      "sha": "cafde56e01ee627d70e47a83f54217f353cea45a",
       "report": "docs/candidate-attestations/evidence/chat-root-composition-reconciliation-b4218428.json",
       "reportSha256": "4fb14a493e85d621ad12e2f289aa38927f222416196089434ab2ea01cad81780",
       "reportStatus": "passed",
@@ -45,7 +45,8 @@
     "The Chat root is composed only from thirty-six existing passed thematic receipts with explicit coverage of each capability named by the root, including CHAT-TRANSLATION.",
     "The reconciliation removes the generic root-wide recertification placeholder; it preserves the exact limits owned by Chat child units and system flows, including physical permissions and routing, external providers and destinations, OS network topologies, push, audio, attachments and SOS.",
     "No runtime, backend, platform evidence receipt or CI workflow changed.",
-    "The cumulative Chat-owned delta was recomposed over composed-root candidate 97d846189958adad805e5ad3aa5e5f9d38daeebd. Product 131172d6a7d997cfefb32ff921bc1f09696168bf preserves the Chat composition contract and report byte-for-byte while retaining inherited inventory closures; the historical 904/904 fast suite is not attributed to this rebase.",
-    "Historical review found one P2 caused by loss of an inherited CONV-INVITES sentence; the corrected Product preserves that predecessor text. A fresh exact-head review is required before publication."
+    "Product cafde56e01ee627d70e47a83f54217f353cea45a replays the Chat-root unit onto frozen predecessor 5a38ea16e62497303de5fa67277c7cacc89b2f3d. All five changed product blobs are byte-identical to previously reviewed Product 131172d6a7d997cfefb32ff921bc1f09696168bf.",
+    "Historical evidence remains bound to report head b42184288560edbb9ec49f6e1bfafd0c161d448e; the historical 904/904 fast suite is not reattributed as a new run.",
+    "A fresh independent exact-head review is required before publication."
   ]
 }
