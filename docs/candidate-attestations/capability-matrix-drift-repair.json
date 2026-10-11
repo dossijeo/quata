@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "decb42499157f7edc62111af6c9d36058675a862",
-  "certification": "platform-capability-source-integrity-reconciled-contract-22-of-22-passed-independent-review-pending-final-ci-pending",
+  "certification": "platform-capability-source-integrity-reconciled-contract-22-of-22-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "contract": {
       "status": "passed",
@@ -36,15 +36,22 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "9085e14111fb03221da787e792f220c2cb9ee0a2",
     "blockingFindings": [],
-    "reviewedProductSha": null
+    "reviewedProductSha": "decb42499157f7edc62111af6c9d36058675a862",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    }
   },
   "notes": [
     "This unit resolves the four capability-suite failures exposed by final CI on the frozen private attachment candidate.",
     "Seven unique source hashes are rebound; repeated declarations intentionally share the same repository-byte digest.",
     "The only executable test change follows the current Web composition function and signed-URL audio control; product semantics are unchanged.",
-    "No platform E2E is attributed to this metadata and contract repair."
+    "No platform E2E is attributed to this metadata and contract repair.",
+    "Independent exact-head review of 9085e14111fb03221da787e792f220c2cb9ee0a2 returned GO without P0-P3 after verifying seven unique hashes across 34 declarations, the scoped signed-URL Web assertion, 22/22 contract, validator, diff-check and clean tree."
   ]
 }
