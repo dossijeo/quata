@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "units": [
+    "CAPABILITY-DRIFT-001"
+  ],
+  "status": "passed",
+  "productSha": "decb42499157f7edc62111af6c9d36058675a862",
+  "certification": "platform-capability-source-integrity-reconciled-contract-22-of-22-passed-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "contract": {
+      "status": "passed",
+      "sha": "decb42499157f7edc62111af6c9d36058675a862",
+      "report": "docs/candidate-attestations/evidence/capability-matrix-drift-repair-decb4249.json",
+      "reportSha256": "63689fd9e95d9b3cbffbdc5b809f4e96f4028b63ee5f06b27e1486caaf502d56",
+      "reportStatus": "passed",
+      "reportGitHead": "decb42499157f7edc62111af6c9d36058675a862",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "capability_matrix_contract_22_of_22_passed",
+        "all_declared_source_hashes_match_repository_bytes",
+        "decisive_source_negative_controls_passed",
+        "apns_noop_negative_control_passed",
+        "community_profile_adapter_selector_matches_current_composition_boundary",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "metadata-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/capability-matrix-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/capability-matrix-drift-repair.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "reviewedProductSha": null
+  },
+  "notes": [
+    "This unit resolves the four capability-suite failures exposed by final CI on the frozen private attachment candidate.",
+    "Seven unique source hashes are rebound; repeated declarations intentionally share the same repository-byte digest.",
+    "The only executable test change follows the current Web composition function and signed-URL audio control; product semantics are unchanged.",
+    "No platform E2E is attributed to this metadata and contract repair."
+  ]
+}
