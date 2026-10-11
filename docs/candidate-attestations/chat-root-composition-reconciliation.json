@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "be540ffb478abcf826a8b1b0dcdae6afff68d6e5",
-  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "chatRootComposition": {
       "status": "passed",
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "7a082a837e62a443a794106368603a29ff0c7016",
     "blockingFindings": []
   },
   "notes": [
@@ -47,7 +47,7 @@
     "No runtime, backend, platform evidence receipt or CI workflow changed.",
     "Product be540ffb478abcf826a8b1b0dcdae6afff68d6e5 replays only the Chat-root unit patch-equivalent onto merged media catalog squash 121f16363be5fab6572c68e64ae1d0ddb31f1841; all eight unit commits map exactly from the previously reviewed series.",
     "Historical evidence remains bound to report head b42184288560edbb9ec49f6e1bfafd0c161d448e; the historical 904/904 fast suite is not reattributed as a new run.",
-    "A fresh independent exact-head review is required after the #611 squash rebase before publication.",
-    "Historical independent reviews remain recorded in Git history; this manifest intentionally returns to pending until the current exact head is reviewed."
+    "Independent exact-head review of 7a082a837e62a443a794106368603a29ff0c7016 returned GO with no P0-P3: 8/8 commits patch-equivalent plus one attestation-only reanchor, 36 receipts and limits preserved, focal contracts 20/20, validator and diff-check passed.",
+    "Historical independent reviews remain attributed only to their original heads."
   ]
 }
