@@ -63,15 +63,10 @@
     "previousReviewedSha": "e3d4f53ed3c52d6245fd465190d238cc7538447d",
     "blockingFindings": [],
     "resolvedFindings": [
-      "Historical review confirmed the finite composition, owner limits, exact-once package wiring and evidence custody."
+      "Historical review confirmed the finite composition, owner limits, exact-once package wiring and evidence custody.",
+      "P2 resolved before final review: pending review no longer predeclares zero finding counts or the current Product as reviewed."
     ],
-    "findingCounts": {
-      "P0": 0,
-      "P1": 0,
-      "P2": 0,
-      "P3": 0
-    },
-    "reviewedProductSha": "e8ffcbbeab7ec5d9750e307942a109dbe49afe53"
+    "reviewedProductSha": null
   },
   "notes": [
     "The public profile overlay is composed from twenty-eight existing passed thematic receipts plus the source-backed PROF-HEADER contract.",
