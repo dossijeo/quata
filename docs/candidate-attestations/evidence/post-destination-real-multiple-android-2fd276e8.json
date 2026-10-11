@@ -1,0 +1,41 @@
+{
+  "check": "POST-DESTINATION-ANDROID-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-10-11T03:21:36.074Z",
+  "git": {
+    "head": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+    "branch": "codex/post-destination-real-multiple"
+  },
+  "attempts": [
+    {
+      "mode": "real-multiple",
+      "status": "passed",
+      "instrumentationTail": "INSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\ncom.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest:\nINSTRUMENTATION_STATUS: test=authenticatedUserExercisesDestinationStatesFromCommonComposer\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=authenticatedUserExercisesDestinationStatesFromCommonComposer\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 24.637\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n"
+    }
+  ],
+  "evidence": {
+    "realMultiple": {
+      "eligibleCount": 186,
+      "defaultWallIdSha256": "8fdcab2048baf8bf905d0b37605bf8ecf791f2a216d0d38cf19d23f3aaf15173",
+      "alternateWallIdSha256": "93ce7227f1d467ca454731900fb83eff8af53f045e07d9dbff522668f30d1e05"
+    },
+    "directory": "C:\\Users\\PC\\.codex\\quata-work\\post-destination-real-multiple-20261011\\build-reports\\android\\post-destination-real-multiple-evidence"
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "owned_fixture_auth_and_web_sessions_revoked_and_verified"
+  ],
+  "cleanup": {
+    "webSessionRevoked": true,
+    "webSessionProbe": {
+      "status": 401,
+      "error": "invalid_web_session"
+    },
+    "refreshTokenRejected": true,
+    "refreshTokenProbe": {
+      "status": 400,
+      "errorCode": "refresh_token_not_found"
+    }
+  },
+  "finishedAt": "2026-10-11T03:22:33.534Z"
+}

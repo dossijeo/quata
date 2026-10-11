@@ -5,17 +5,17 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
+  "productSha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
   "certification": "real-multiple-destination-platform-evidence-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-8b211033.json",
-      "reportSha256": "a640da5167eb3e73dd250bfc5a55370cfff06f8cf067ebe52dad489d0fcae4ab",
+      "sha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-2fd276e8.json",
+      "reportSha256": "58bba17ceb63d3db9ebffe5f714a886126e3526939aa6482c889fd7dce54c644",
       "reportStatus": "passed",
-      "reportGitHead": "8b2110339ca2079e2af052e5e63149bd38e50073",
+      "reportGitHead": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -29,11 +29,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-8b211033.json",
-      "reportSha256": "0e1bc212bf173a31ff40040b7e9652c8fd74bd084a7f818a588eb2f01c4ced5a",
+      "sha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-2fd276e8.json",
+      "reportSha256": "2a084cfe80b0eb8bb4b48fd4b04906e2049b59bc3f9554e29204f1e9e84ed4d2",
       "reportStatus": "passed",
-      "reportGitHead": "8b2110339ca2079e2af052e5e63149bd38e50073",
+      "reportGitHead": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
       "requireReportArtifact": true,
       "requiredSteps": [
         "android_debug_and_test_apks_built",
@@ -46,16 +46,17 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-e6c65684.json",
-      "reportSha256": "6ab24939f5723e28f656ef89821371446371559d99cd5ab4180ece1f4779cbc8",
+      "sha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-2fd276e8.json",
+      "reportSha256": "6529d4f152f5273b6b0f70f9127a8adfb60a92d9441bf302e7f9e2e01cec75ac",
       "reportStatus": "passed",
-      "reportGitHead": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
+      "reportGitHead": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
+        "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+        "mac_checkout_sha_matches_local_candidate",
         "ios_public_runtime_xcconfig_prepared_transiently",
-        "ios_simulator_signed_build_succeeded_on_mac",
         "owned_fixture_auth_and_web_sessions_revoked_and_verified"
       ],
       "cleanup": {
@@ -81,8 +82,8 @@
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
     "Android, Web/Wasm and iOS selected the exact second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post or wall mutation. Authentication updated the actor login metadata and created owned auth/web sessions; every lane revoked its exact web session, invalidated its refresh token and verified both outcomes.",
-    "Web and Android executed at 8b211033. Product e6c65684 changes only the iOS UI replay stabilization and its Node contract; Web and Android runtime, tests and evidence runners are byte-identical and were not repeated solely for that iOS-only repair.",
-    "The successful iOS run used a clean isolated exact-Product worktree, transiently generated the public runtime xcconfig, passed the authenticated seeder and exact alternate-destination XCTest, ran the seeded product-session logout cleanup, and verified restoration of runtime config, generated project, temporary credentials and owned fixture sessions.",
+    "Web, Android and iOS executed at exact Product 2fd276e8 after the cleanup verifier was made fail-closed. The Web-session probe ran while the access token was still valid and required 401 invalid_web_session; the subsequent Auth refresh probe required 400 refresh_token_not_found. Sanitized status and error identifiers are stored in every report.",
+    "The successful iOS run reused the unchanged SimulatorSigned product build from e6c65684 because 2fd276e8 changes only the Node cleanup verifier and its source contract. The exact-Product runner passed the authenticated seeder and exact alternate-destination XCTest, ran the seeded product-session logout cleanup, and verified restoration of runtime config, generated project, temporary credentials and owned fixture sessions.",
     "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
     "No credential, token, raw wall identifier or database connection string is stored in the reports or repository."
   ]

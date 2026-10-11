@@ -1,9 +1,9 @@
 {
   "check": "POST-DESTINATION-WEB-REAL-001",
   "status": "passed",
-  "startedAt": "2026-10-11T02:59:03.194Z",
+  "startedAt": "2026-10-11T03:21:37.265Z",
   "git": {
-    "head": "8b2110339ca2079e2af052e5e63149bd38e50073",
+    "head": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
     "branch": "codex/post-destination-real-multiple",
     "workingTreeDirty": false
   },
@@ -35,7 +35,15 @@
   ],
   "cleanup": {
     "webSessionRevoked": true,
-    "refreshTokenRejected": true
+    "webSessionProbe": {
+      "status": 401,
+      "error": "invalid_web_session"
+    },
+    "refreshTokenRejected": true,
+    "refreshTokenProbe": {
+      "status": 400,
+      "errorCode": "refresh_token_not_found"
+    }
   },
-  "finishedAt": "2026-10-11T02:59:15.915Z"
+  "finishedAt": "2026-10-11T03:21:51.277Z"
 }
