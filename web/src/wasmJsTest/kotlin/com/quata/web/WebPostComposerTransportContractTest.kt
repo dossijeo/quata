@@ -78,6 +78,14 @@ class WebPostComposerTransportContractTest {
             WebComposerHttpContract("DELETE", objectUrl, mapOf("apikey" to "publishable-key", "Authorization" to "Bearer access-token")),
             webComposerStorageDeleteContract(objectUrl, "publishable-key", "access-token"),
         )
+        val bucketUrl = webComposerStorageBucketUrl("https://project.supabase.co", WEB_COMPOSER_COMMUNITY_MEDIA_BUCKET)
+        assertEquals("https://project.supabase.co/storage/v1/object/community-posts", bucketUrl)
+        assertEquals(
+            WebComposerHttpContract("DELETE", bucketUrl, mapOf(
+                "apikey" to "publishable-key", "Authorization" to "Bearer access-token", "Content-Type" to "application/json",
+            )),
+            webComposerStorageBulkDeleteContract(bucketUrl, "publishable-key", "access-token"),
+        )
         assertEquals("community_posts", WEB_COMPOSER_POSTS_TABLE)
         assertEquals(
             "{\"wall_id\":\"wall-1\",\"profile_id\":\"profile-7\",\"body\":\"hello\",\"image_url\":\"https://cdn/image.png\"}",
@@ -87,14 +95,22 @@ class WebPostComposerTransportContractTest {
             "https://project.supabase.co/storage/v1/object/public/community-posts/profile%207/img-1.png",
             webComposerStoragePublicUrl("https://project.supabase.co", "profile 7/img-1.png"),
         )
+        val officialVideo = webComposerStorageObjectUrl("https://project.supabase.co", "profile 7/video-1.mp4")
+        assertEquals("https://project.supabase.co/storage/v1/object/community-posts/profile%207/video-1.mp4", officialVideo)
+        assertEquals(
+            WebComposerStorageTarget(WEB_COMPOSER_COMMUNITY_MEDIA_BUCKET, "profile 7/video-1.mp4"),
+            webComposerStorageRollbackTarget(webComposerStorageRollbackToken(WEB_COMPOSER_COMMUNITY_MEDIA_BUCKET, "profile 7/video-1.mp4")),
+        )
+        assertEquals(
+            WebComposerStorageTarget(WEB_COMPOSER_COMMUNITY_MEDIA_BUCKET, "profile 7/img-1.png"),
+            webComposerStorageRollbackTarget("storage:profile 7/img-1.png"),
+        )
     }
 
     @Test
     fun wordpressEndpointsUseSameOriginProxyOnlyInDevelopment() {
         assertEquals("/wordpress-proxy/wp-admin/admin-ajax.php", webComposerWordpressUrl(configuration, "wp-admin/admin-ajax.php", true))
         assertEquals("https://egquata.com/wp-admin/admin-ajax.php", webComposerWordpressUrl(configuration, "wp-admin/admin-ajax.php", false))
-        assertEquals("/wordpress-proxy/wp-json/quqos/v1/upload-video", webComposerWordpressUrl(configuration, "wp-json/quqos/v1/upload-video", true))
-        assertEquals("https://egquata.com/wp-json/quqos/v1/upload-video", webComposerWordpressUrl(configuration, "wp-json/quqos/v1/upload-video", false))
         assertEquals(
             mapOf("action" to "quqos_delete_post_video", "url" to "https://egquata.com/video.mp4"),
             webComposerVideoDeleteFields("https://egquata.com/video.mp4"),

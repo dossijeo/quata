@@ -77,7 +77,7 @@ class PostComposerRepositoryImpl(
         } else {
             null
         }
-        var uploadedVideoUrl: String? = null
+        var uploadedVideoStoragePath: String? = null
         val videoUrl = if (draft.type == PostComposerType.Video) {
             val media = mediaUploadOptimizer.prepareVideoUploadStream(
                 uriString = draft.videoUri ?: error("Selecciona o graba un video"),
@@ -85,8 +85,9 @@ class PostComposerRepositoryImpl(
                 fallbackFileNameBase = "video"
             )
             val upload = try {
-                wordpressClient.uploadPostVideoRest(
-                    fileName = media.fileName,
+                supabaseApi.uploadPostVideo(
+                    profileId = session.userId,
+                    extension = media.extension,
                     mimeType = media.mimeType,
                     contentLength = media.sizeBytes,
                     openStream = media::openStream
@@ -96,11 +97,10 @@ class PostComposerRepositoryImpl(
             }
             Log.d(
                 POST_COMPOSER_LOG_TAG,
-                "video upload completed success=${upload.success} hasUrl=${!upload.data?.url.isNullOrBlank()} " +
-                    "error=${upload.errorMessage?.take(240)}"
+                "video storage upload completed hasUrl=${!upload.publicUrl.isNullOrBlank()}"
             )
-            (upload.data?.url ?: error(upload.errorMessage ?: "WordPress no devolvio URL de video"))
-                .also { uploadedVideoUrl = it }
+            uploadedVideoStoragePath = upload.key?.takeIf(String::isNotBlank)
+            upload.publicUrl ?: error("Supabase no devolvio URL de video")
         } else {
             null
         }
@@ -125,10 +125,10 @@ class PostComposerRepositoryImpl(
                     "body=${(throwable as? SupabaseApiException)?.responseBody?.take(800)}",
                 throwable
             )
-            uploadedVideoUrl?.let { orphanUrl ->
-                runCatching { wordpressClient.deletePostVideoAjax(orphanUrl) }
+            uploadedVideoStoragePath?.let { orphanPath ->
+                runCatching { supabaseApi.deletePostMediaObject(orphanPath) }
                     .onFailure { cleanupError ->
-                        Log.w(POST_COMPOSER_LOG_TAG, "Could not clean orphan uploaded video: $orphanUrl", cleanupError)
+                        Log.w(POST_COMPOSER_LOG_TAG, "Could not clean orphan uploaded video: $orphanPath", cleanupError)
                     }
             }
             uploadedImageStoragePath?.let { orphanPath ->

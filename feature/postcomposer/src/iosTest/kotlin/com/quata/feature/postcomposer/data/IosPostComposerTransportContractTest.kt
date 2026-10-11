@@ -60,16 +60,30 @@ class IosPostComposerTransportContractTest {
             mapOf("Accept" to "application/json", "apikey" to "publishable-key", "Authorization" to "Bearer access-token"),
             iosComposerHttpContract(objectUrl, "DELETE", null, "publishable-key", "access-token", false, null).headers,
         )
+        val bucketUrl = configuration.iosComposerStorageBucketUrl(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET)
+        assertEquals("https://project.supabase.co/storage/v1/object/community-posts", bucketUrl)
+        assertEquals(
+            mapOf(
+                "Accept" to "application/json", "Content-Type" to "application/json",
+                "apikey" to "publishable-key", "Authorization" to "Bearer access-token",
+            ),
+            iosComposerHttpContract(bucketUrl, "DELETE", "application/json", "publishable-key", "access-token", false, null).headers,
+        )
+        val officialVideo = configuration.iosComposerStorageObjectUrl("profile 7/video-1.mp4")
+        assertEquals("https://project.supabase.co/storage/v1/object/community-posts/profile%207/video-1.mp4", officialVideo)
+        assertEquals(
+            IosComposerStorageTarget(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET, "profile 7/video-1.mp4"),
+            iosComposerStorageRollbackTarget(iosComposerStorageRollbackToken(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET, "profile 7/video-1.mp4")),
+        )
+        assertEquals(
+            IosComposerStorageTarget(IOS_COMPOSER_COMMUNITY_MEDIA_BUCKET, "profile 7/img-1.png"),
+            iosComposerStorageRollbackTarget("storage:profile 7/img-1.png"),
+        )
     }
 
     @Test
-    fun wordpressVideoUploadAndDeleteUsePublicWordpressContracts() {
-        assertEquals("https://egquata.com/wp-json/quqos/v1/upload-video", configuration.iosComposerWordpressVideoUploadUrl())
+    fun wordpressModerationAndLegacyDeleteUsePublicWordpressContract() {
         assertEquals("https://egquata.com/wp-admin/admin-ajax.php", configuration.iosComposerWordpressAdminAjaxUrl())
-        assertEquals(
-            mapOf("Accept" to "application/json", "Content-Type" to "multipart/form-data; boundary=boundary-1"),
-            iosComposerHttpContract(configuration.iosComposerWordpressVideoUploadUrl(), "POST", "multipart/form-data; boundary=boundary-1", null, null, false, null).headers,
-        )
         assertEquals(
             mapOf("Accept" to "application/json", "Content-Type" to "application/x-www-form-urlencoded"),
             iosComposerHttpContract(configuration.iosComposerWordpressAdminAjaxUrl(), "POST", "application/x-www-form-urlencoded", null, null, false, null).headers,

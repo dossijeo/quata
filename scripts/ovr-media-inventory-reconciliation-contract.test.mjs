@@ -30,8 +30,8 @@ test("OVR-MEDIA composes only passed Android, Web and iOS receipts", async () =>
 });
 
 test("inventories retire recovered playback and file export as pending limits", () => {
-  assert.match(screenInventory, /fallo recuperable y Retry de la misma fuente dejan de ser límite/);
-  assert.match(screenInventory, /Descargar y Compartir PNG y MP4 dejan de ser límite/);
+  assert.match(screenInventory, /continuidad de vídeo, posición durable, Retry y Descargar\/Compartir/);
+  assert.match(screenInventory, /\[recuperación\]\(\.\/candidate-attestations\/media-playback-recovery\.json\)/);
   assert.match(screenInventory, /media-playback-recovery\.json/);
   assert.match(screenInventory, /media-file-export\.json/);
   assert.match(migrationBoard, /El fallo recuperable y Retry de la misma fuente ya están acreditados/);
@@ -44,14 +44,15 @@ test("material external and exhaustive boundaries remain explicit", () => {
   assert.match(screenInventory, /codecs y transportes exhaustivos/);
   assert.match(screenInventory, /reproducción prolongada en segundo plano/);
   assert.match(screenInventory, /receptores externos/);
-  assert.match(screenInventory, /COEP\/CORS/);
+  assert.match(screenInventory, /activación\/validación futura de COEP/);
   assert.match(migrationBoard, /codecs y transportes exhaustivos/);
   assert.match(migrationBoard, /receptores externos/);
-  assert.match(migrationBoard, /COEP\/CORS/);
+  assert.match(migrationBoard, /activación\/validación futura de COEP/);
+  assert.match(migrationBoard, /La deuda CORS histórica queda cerrada/);
 });
 
 test("the reconciliation does not claim unrelated media producers", () => {
-  assert.match(screenInventory, /El GO no se extiende a otros productores de media/);
+  assert.match(screenInventory, /no declara un catálogo exhaustivo de productores/);
   assert.match(migrationBoard, /otros productores de media/);
   assert.match(screenInventory, /comentarios integrados, la restauración profunda de scroll/);
 });

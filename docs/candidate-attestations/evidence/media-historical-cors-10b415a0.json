@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "10b415a09e239b7a3cebb211f83c9982721b5f47",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "encrypted_full_backup_created",
+    "focal_restore_drill_passed_cleanup_verified",
+    "production_dry_run_passed",
+    "production_apply_passed",
+    "production_postflight_passed",
+    "database_historical_reference_residue_zero",
+    "storage_content_and_cors_verified",
+    "media_producer_contract_10_of_10_passed",
+    "android_compile_passed",
+    "web_wasm_tests_passed",
+    "ios_x64_compilation_passed",
+    "independent_exact_head_review_go",
+    "diff_check_passed"
+  ],
+  "production": {
+    "appliedAt": "2026-10-10T23:01:29.113Z",
+    "rows": 43,
+    "distinctTargets": 41,
+    "totalBytes": 173617469,
+    "mappingSha256": "0e1c7d1c618bcd5d1e712252f64ddec505cac492cc374d3d584a3774c1b48e6e",
+    "sourceSetSha256": "875a0a9ed7685381de267402b3136242b5929c8cabd545bbef10840a63991823",
+    "historicalReferenceResidue": 0,
+    "publicCorsVerifiedTargets": 41,
+    "journalState": "applied_and_verified"
+  },
+  "artifacts": {
+    "auditSha256": "f4fc2af37b50d7b172928ad4469baf30e0934da4bfe2031e589c4a14c6d62448",
+    "backupManifestSha256": "a9cb05cb75c2e6fd2c54b398b118d9d4fe54bc48ee41e91df4efcbdac322d1b6",
+    "restoreProofSha256": "a086dc6c12f7fe79671881d9740c5934355e5630b7d5ef47da4ee9ab8c412879",
+    "dryRunSha256": "b31fd663224c5711cc18121d1869505d950836b752199dc1366f904229550d39",
+    "applySha256": "75a64391017e2b0cf75ae44d5871fd156dd2a2c283e6688126628a731ab47982",
+    "postflightSha256": "d04541cdbc004db846404424f07c02d9c036f77cc0590b06de2a21d60a0d0223"
+  },
+  "cleanup": {
+    "verified": true,
+    "mode": "committed_owned_targets_retained_private_rollback_journal_available"
+  },
+  "limits": [
+    "coep_hosting_activation_and_validation",
+    "exhaustive_codec_and_transport_matrix",
+    "prolonged_background_playback",
+    "external_receiver_behavior"
+  ],
+  "notes": [
+    "No credential, token, row identifier, source URL, destination URL, object path or local backup path is recorded in this artifact.",
+    "Two earlier apply attempts stopped before authentication completed and before any storage or database mutation; the successful exact-head apply used the corrected current auth-bridge envelope parser.",
+    "Historical platform viewer evidence was not repeated solely because this backend migration changed the Product SHA."
+  ]
+}
