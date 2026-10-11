@@ -4,16 +4,16 @@
     "CHAT-COMPOSER"
   ],
   "status": "passed",
-  "productSha": "1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d",
+  "productSha": "db047d0382b2ca1320ff119ee820c7e622eda60d",
   "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d",
-      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-1ea556f8.json",
-      "reportSha256": "0d3bf8b5c206ca2651d3f1eaaca8dd41c0158e147932b1db537ed755cc996753",
+      "sha": "db047d0382b2ca1320ff119ee820c7e622eda60d",
+      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-db047d03.json",
+      "reportSha256": "3c756abf402d8d81b30f4498d37d3a238d8ec7f2101e139f43e6d663ad2c3699",
       "reportStatus": "passed",
-      "reportGitHead": "1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d",
+      "reportGitHead": "db047d0382b2ca1320ff119ee820c7e622eda60d",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -38,8 +38,8 @@
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "16efb3be8d41463e883cf86c299fcd7b7a35ef92",
-    "previousReviewedHead": "9b0f67abf721a0ac0636f2547e494161917294b2",
+    "reviewedSha": "a9de3ddf4ac5280f62c8a1511f79d8b331c34ed8",
+    "previousReviewedHead": "16efb3be8d41463e883cf86c299fcd7b7a35ef92",
     "blockingFindings": []
   },
   "notes": [
@@ -49,6 +49,7 @@
     "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
     "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox.",
     "The five-commit unit was replayed over frozen FLOW-SHELL-NAV candidate 477510f60dd78ca06b6996a6fc97a1d4ef552c1f. Product 1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d preserves the reviewed composition delta; the package conflict retained all current gates and wires this contract once into each affected aggregate. Historical platform evidence was not repeated solely for ancestry.",
-    "Independent exact-head review of 16efb3be8d41463e883cf86c299fcd7b7a35ef92 returned GO with no P0-P3 after confirming the bounded delta, identical contract blob, package multiset, thematic ownership, 17/17 contracts, validator, report hash, diff-check, clean tree and absence of secret material."
+    "Independent exact-head review of 16efb3be8d41463e883cf86c299fcd7b7a35ef92 returned GO with no P0-P3 after confirming the bounded delta, identical contract blob, package multiset, thematic ownership, 17/17 contracts, validator, report hash, diff-check, clean tree and absence of secret material.",
+    "Product SHA db047d0382b2ca1320ff119ee820c7e622eda60d replays the same seven-commit unit over merged #613 squash 400f88608f577c72bf56276e88aa17e9061105dc. Range-diff maps every commit exactly and the product tree delta is unchanged; only attestation identities are renewed, so no platform matrix was repeated solely for ancestry."
   ]
 }
