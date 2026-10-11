@@ -4,12 +4,12 @@
     "FLOW-EMOJI"
   ],
   "status": "passed",
-  "productSha": "07ab721b47e25773b8343c70801114b34e2eca41",
-  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-review-passed-final-ci-pending",
+  "productSha": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
+  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-exact-head-review-pending-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "07ab721b47e25773b8343c70801114b34e2eca41",
+      "sha": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
       "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-12b81087.json",
       "reportSha256": "2708dd62ae8e2bd0627ed14f6a1b8dcd44b527becd654c8fa852be8d7189a639",
       "reportStatus": "passed",
@@ -33,13 +33,13 @@
         "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
       }
     },
-    "postComposerCandidateRecomposition": {
+    "finalPostComposerRecomposition": {
       "status": "passed",
-      "sha": "07ab721b47e25773b8343c70801114b34e2eca41",
-      "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-07ab721b.json",
-      "reportSha256": "f726d29a74059830960d5568011ef066f95d73dfafd560e03d91f68e8310c0ca",
+      "sha": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
+      "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-479c75d5.json",
+      "reportSha256": "2f908c12d50f7cd7cd2954ac884f7f33d99ca3a928089fb130207cba9825f6ed",
       "reportStatus": "passed",
-      "reportGitHead": "07ab721b47e25773b8343c70801114b34e2eca41",
+      "reportGitHead": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -66,9 +66,9 @@
     "git diff --check"
   ],
   "review": {
-    "status": "passed",
-    "reviewedSha": "f55a0d9c467202614e5347dc27cb8f82eebb9511",
-    "previousReviewedSha": "18955a168a0c72d5ecd3ac9d03343cca32b355cf",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "f55a0d9c467202614e5347dc27cb8f82eebb9511",
     "blockingFindings": [],
     "findingCounts": {
       "P0": 0,
@@ -90,6 +90,7 @@
     "Product 12b810875da8a0488c431df300b0df28545cc80d preserves the FLOW-EMOJI composition over final reviewed Post Composer 2ad799319dc04f5b103ef31c0103c5adb3459afe; the only intentional product-delta adjustment is receipt hash 3797492ad7375a5156559b900b1e3ba9e53148a3defbe05facb9f1441a3ce207 for the final reviewed Post Composer bytes. Historical execution remains at its original heads.",
     "Independent exact-head review of 18955a168a0c72d5ecd3ac9d03343cca32b355cf returned GO without P0-P3 after reproducing all affected gates and verifying no platform execution reattribution.",
     "Product 07ab721b47e25773b8343c70801114b34e2eca41 preserves the FLOW-EMOJI composition over final Post Composer candidate a2a079d0b3f6c5e6f563fee2708ddfe8ed46fe2c; the only intentional product-delta adjustment is receipt hash 03d065624cdd9cd91c126ebcfe45be3e22ee2cf415535009d1cd01755430446f for the final reviewed Post Composer bytes. Historical execution remains at its original heads.",
-    "Independent exact-head review of f55a0d9c467202614e5347dc27cb8f82eebb9511 returned GO without P0-P3 after verifying the preserved composition delta, the exact Post Composer receipt rebind, six owner receipts, repo-wide source extraction, owner boundaries, report hash f726d29a74059830960d5568011ef066f95d73dfafd560e03d91f68e8310c0ca, historical custody, contract 6/6, validator, diff-check and clean tree."
+    "Independent exact-head review of f55a0d9c467202614e5347dc27cb8f82eebb9511 returned GO without P0-P3 after verifying the preserved composition delta, the exact Post Composer receipt rebind, six owner receipts, repo-wide source extraction, owner boundaries, report hash f726d29a74059830960d5568011ef066f95d73dfafd560e03d91f68e8310c0ca, historical custody, contract 6/6, validator, diff-check and clean tree.",
+    "Product 479c75d5b0429e601ebf218b3a58076c3f40b8d7 preserves the FLOW-EMOJI composition over final independently reviewed Post Composer 75ebe906463f2f09713b3385c0315e0e6fd42138; the only intentional product-delta adjustment is receipt hash d4da5b2a42934bd15d34928b153494f9cfd8fb82a47ab0efb8d9bf8dd98fc42c for the final reviewed Post Composer bytes. Historical execution remains at its original heads; fresh independent exact-head review is required before publication."
   ]
 }
