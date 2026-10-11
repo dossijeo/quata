@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "65819aaf867c8409b899b76e4db6c38b6135e861",
-  "certification": "finite-post-detail-origin-catalog-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "certification": "finite-post-detail-origin-catalog-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "originCatalog": {
       "status": "passed",
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "cf5d650c069285744aa5f1f01dc3fb7861cf4f36",
     "blockingFindings": [],
     "resolvedFindings": [
       "The fourth-host negative control feeds a synthetic invocation through the same source extractor before exact catalog comparison.",
