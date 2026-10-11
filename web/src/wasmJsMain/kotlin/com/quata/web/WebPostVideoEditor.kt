@@ -768,12 +768,16 @@ private fun webPostVideoEditorExportEditedJs(
           canvas.width = Math.max(2, Number(outputWidth) || 720);
           canvas.height = Math.max(2, Number(outputHeight) || 1280);
           const context = canvas.getContext('2d');
-          if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
+          if (!context) {
+            failOnce('web_post_video_editor_canvas_context_unavailable');
+            return;
+          }
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
           const captureTickRate = fps;
           stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
-            throw Error('web_post_video_editor_media_recorder_unavailable');
+            failOnce('web_post_video_editor_media_recorder_unavailable');
+            return;
           }
           const canvasTrack = stream.getVideoTracks?.()[0] || null;
           if (!removeAudio && typeof video.captureStream === 'function') {
@@ -794,19 +798,27 @@ private fun webPostVideoEditorExportEditedJs(
             : ['video/mp4;codecs=avc1.42E01E'];
           const requestedMimeType = compatibleMimeTypes.find(type => globalThis.MediaRecorder.isTypeSupported?.(type) === true);
           if (!requestedMimeType) {
-            throw Error('web_post_video_editor_cross_platform_codec_unavailable');
+            failOnce('web_post_video_editor_cross_platform_codec_unavailable');
+            return;
           }
-          recorder = new globalThis.MediaRecorder(stream, {
-            mimeType: requestedMimeType,
-            videoBitsPerSecond: Math.max(200000, Number(outputTargetBitrate) || 1200000)
-          });
+          try {
+            recorder = new globalThis.MediaRecorder(stream, {
+              mimeType: requestedMimeType,
+              videoBitsPerSecond: Math.max(200000, Number(outputTargetBitrate) || 1200000)
+            });
+          } catch (_) {
+            failOnce('web_post_video_editor_cross_platform_codec_unavailable');
+            return;
+          }
           const mimeType = String(recorder.mimeType || requestedMimeType);
           const normalizedMimeType = mimeType.toLowerCase();
           if (!normalizedMimeType.startsWith('video/mp4') || !normalizedMimeType.includes('avc1')) {
-            throw Error('web_post_video_editor_cross_platform_codec_unavailable');
+            failOnce('web_post_video_editor_cross_platform_codec_unavailable');
+            return;
           }
           if (hasAudioTrack && !normalizedMimeType.includes('opus') && !normalizedMimeType.includes('mp4a')) {
-            throw Error('web_post_video_editor_cross_platform_audio_codec_unavailable');
+            failOnce('web_post_video_editor_cross_platform_audio_codec_unavailable');
+            return;
           }
           recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
           recorder.onerror = event => failOnce(event?.error?.message || 'web_post_video_editor_recorder_failed');
@@ -882,7 +894,10 @@ private fun webPostVideoEditorExportEditedJs(
           };
           const caption = String(captionStyle || '');
           const captionSegments = parseCaptionDocument(captionDocumentWire);
-          if (caption && !captionSegments.length) throw Error('web_post_video_editor_caption_transcript_missing');
+          if (caption && !captionSegments.length) {
+            failOnce('web_post_video_editor_caption_transcript_missing');
+            return;
+          }
           const sourceWidth = Math.max(1, video.videoWidth || canvas.width);
           const sourceHeight = Math.max(1, video.videoHeight || canvas.height);
           function parseCaptionDocument(value) {
