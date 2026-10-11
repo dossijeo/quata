@@ -4,12 +4,12 @@
     "SCR-CHAT"
   ],
   "status": "passed",
-  "productSha": "d8d6fb6b6396a716fed7c82472ae2af4ee1598c7",
-  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-focal-contracts-passed-independent-review-passed-final-ci-pending",
+  "productSha": "be540ffb478abcf826a8b1b0dcdae6afff68d6e5",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "chatRootComposition": {
       "status": "passed",
-      "sha": "d8d6fb6b6396a716fed7c82472ae2af4ee1598c7",
+      "sha": "be540ffb478abcf826a8b1b0dcdae6afff68d6e5",
       "report": "docs/candidate-attestations/evidence/chat-root-composition-reconciliation-b4218428.json",
       "reportSha256": "4fb14a493e85d621ad12e2f289aa38927f222416196089434ab2ea01cad81780",
       "reportStatus": "passed",
@@ -37,17 +37,17 @@
     "git diff --check"
   ],
   "review": {
-    "status": "go",
-    "reviewedSha": "f1fdf77ae56ee348063c3a478d18820f71a3007f",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
     "The Chat root is composed only from thirty-six existing passed thematic receipts with explicit coverage of each capability named by the root, including CHAT-TRANSLATION.",
     "The reconciliation removes the generic root-wide recertification placeholder; it preserves the exact limits owned by Chat child units and system flows, including physical permissions and routing, external providers and destinations, OS network topologies, push, audio, attachments and SOS.",
     "No runtime, backend, platform evidence receipt or CI workflow changed.",
-    "Product d8d6fb6b6396a716fed7c82472ae2af4ee1598c7 replays the Chat-root unit onto the frozen OVR-MEDIA Lane B predecessor 24819548f539b4a3a62f5c26e367de32ff21d53a while retaining the current package wiring from that predecessor.",
+    "Product be540ffb478abcf826a8b1b0dcdae6afff68d6e5 replays only the Chat-root unit patch-equivalent onto merged media catalog squash 121f16363be5fab6572c68e64ae1d0ddb31f1841; all eight unit commits map exactly from the previously reviewed series.",
     "Historical evidence remains bound to report head b42184288560edbb9ec49f6e1bfafd0c161d448e; the historical 904/904 fast suite is not reattributed as a new run.",
-    "A fresh independent exact-head review is required before publication.",
-    "Independent exact-head review of f1fdf77ae56ee348063c3a478d18820f71a3007f returned GO with no P0-P3 findings after reproducing the focal contract, validator and predecessor diff-check; package.json contains no CR bytes and the tree was clean."
+    "A fresh independent exact-head review is required after the #611 squash rebase before publication.",
+    "Historical independent reviews remain recorded in Git history; this manifest intentionally returns to pending until the current exact head is reviewed."
   ]
 }
