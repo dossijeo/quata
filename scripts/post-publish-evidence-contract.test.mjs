@@ -216,6 +216,14 @@ test("post destination evidence uses real multiple destinations plus determinist
   assert.match(realDestinationFixture, /logout\?scope=local/);
   assert.match(realDestinationFixture, /destination_fixture_web_session_cleanup_unverified/);
   assert.match(realDestinationFixture, /destination_fixture_auth_cleanup_unverified/);
+  assert.match(realDestinationFixture, /webProbePayload\?\.error !== "invalid_web_session"/);
+  assert.match(realDestinationFixture, /refreshProbe\.status !== 400/);
+  assert.match(realDestinationFixture, /refreshProbePayload\?\.error_code !== "refresh_token_not_found"/);
+  assert.ok(
+    realDestinationFixture.indexOf("const webProbe = await fetch") <
+      realDestinationFixture.indexOf("const authLogout = await fetch"),
+    "web-session revocation must be verified before revoking the access token",
+  );
   assert.match(webDestinationRunner, /POST-DESTINATION-WEB-REAL-001/);
   assert.match(webDestinationRunner, /real-multiple/);
   assert.match(webDestinationRunner, /selectRealAlternateDestination/);
