@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER"
+  ],
+  "status": "passed",
+  "productSha": "db047d0382b2ca1320ff119ee820c7e622eda60d",
+  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "db047d0382b2ca1320ff119ee820c7e622eda60d",
+      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-db047d03.json",
+      "reportSha256": "3c756abf402d8d81b30f4498d37d3a238d8ec7f2101e139f43e6d663ad2c3699",
+      "reportStatus": "passed",
+      "reportGitHead": "db047d0382b2ca1320ff119ee820c7e622eda60d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "common_product_composer_and_registered_controls_composed",
+        "plain_reply_edit_and_attachment_draft_custody_composed",
+        "typing_presence_and_session_stress_receipts_preserved",
+        "durable_remote_replay_and_cleanup_receipt_preserved",
+        "draft_cross_tab_and_ime_lifecycle_receipts_preserved",
+        "emoji_and_attachment_ownership_preserved",
+        "generic_composer_root_residual_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-composer-root-composition-reconciliation-contract.test.mjs scripts/chat-typing-presence-contract.test.mjs scripts/chat-outbox-durable-evidence-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-composer-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "a9de3ddf4ac5280f62c8a1511f79d8b331c34ed8",
+    "previousReviewedHead": "16efb3be8d41463e883cf86c299fcd7b7a35ef92",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The common product host mounts one composer whose registered controls cover input, send, reply, edit, emoji, attachment, camera and audio acquisition.",
+    "Passed receipts compose actor- and conversation-bound plain, reply, edit and attachment drafts; cross-tab attachment custody; IME/viewport behavior; authenticated typing presence and multi-party session handling; and durable accepted-send replay.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
+    "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox.",
+    "The five-commit unit was replayed over frozen FLOW-SHELL-NAV candidate 477510f60dd78ca06b6996a6fc97a1d4ef552c1f. Product 1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d preserves the reviewed composition delta; the package conflict retained all current gates and wires this contract once into each affected aggregate. Historical platform evidence was not repeated solely for ancestry.",
+    "Independent exact-head review of 16efb3be8d41463e883cf86c299fcd7b7a35ef92 returned GO with no P0-P3 after confirming the bounded delta, identical contract blob, package multiset, thematic ownership, 17/17 contracts, validator, report hash, diff-check, clean tree and absence of secret material.",
+    "Product SHA db047d0382b2ca1320ff119ee820c7e622eda60d replays the same seven-commit unit over merged #613 squash 400f88608f577c72bf56276e88aa17e9061105dc. Range-diff maps every commit exactly and the product tree delta is unchanged; only attestation identities are renewed, so no platform matrix was repeated solely for ancestry."
+  ]
+}
