@@ -5,6 +5,12 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, resolve } from "node:path";
+import {
+  destinationCleanupSummary,
+  destinationFixtureSummary,
+  retireDestinationActorSession,
+  selectRealAlternateDestination,
+} from "./post-destination-real-fixture.mjs";
 
 const CHECK = "POST-DESTINATION-WEB-REAL-001";
 const OPT_IN = "I_ACCEPT_WEB_POST_DESTINATION_FIXTURE";
@@ -24,12 +30,16 @@ const report = {
 
 let server;
 let browser;
+let backend;
+let session;
 
 try {
-  const backend = await publicConfig();
+  backend = await publicConfig();
   const credentials = await loadCredentials();
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);
-  const session = await login(backend, credentials.a, `post-destination-web-${randomUUID()}`);
+  session = await login(backend, credentials.a, `post-destination-web-${randomUUID()}`);
+  const realMultipleFixture = await selectRealAlternateDestination(backend, session);
+  report.evidence.realMultiple = destinationFixtureSummary(realMultipleFixture);
   browser = await chromium.launch({
     executablePath: options.chrome,
     headless: true,
@@ -48,7 +58,7 @@ try {
   report.steps.push("real_profile_authenticated_without_logging_credentials");
 
   for (const mode of options.modes) {
-    report.attempts.push(await runAttempt(context, mode));
+    report.attempts.push(await runAttempt(context, mode, realMultipleFixture));
   }
   const failed = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failed) throw new Error(`web_destination_attempt_failed:${failed.mode}`);
@@ -59,6 +69,18 @@ try {
 } finally {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
+  if (backend && session) {
+    await retireDestinationActorSession(backend, session).then((cleanup) => {
+      report.cleanup = cleanup;
+      report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
+    }).catch((cleanupError) => {
+      report.cleanup = {
+        error: safeFailure(cleanupError),
+        ...destinationCleanupSummary(cleanupError?.cleanup),
+      };
+      report.status = "failed";
+    });
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(resolve(options.output, ".."), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`);
@@ -72,7 +94,7 @@ if (report.status !== "passed") {
   console.log("Post destination Web evidence passed.");
 }
 
-async function runAttempt(context, mode) {
+async function runAttempt(context, mode, realMultipleFixture) {
   const page = await context.newPage();
   try {
     await page.addInitScript(({ mode, optIn }) => {
@@ -86,11 +108,16 @@ async function runAttempt(context, mode) {
     const opened = await screenshot(page, `web-post-destination-opened-${mode}`);
     await clickComposerType(page);
     const form = await screenshot(page, `web-post-destination-form-${mode}`);
-    if (mode === "multiple") {
-      await clickSemanticElement(page, "composer-destination-option.e2e-wall-bata");
-      await page.waitForFunction(() => globalThis.__quataPostComposerE2eProduct?.state?.()?.selectedDestinationWallId === "e2e-wall-bata", null, { timeout: 8_000 });
-      const selected = await screenshot(page, "web-post-destination-multiple-selected");
-      return { mode, status: "passed", anchors: ["composer-destination-option.e2e-wall-bata", "composer-destination-selected"], evidence: { opened, form, selected } };
+    if (mode === "real-multiple") {
+      const option = `composer-destination-option.${realMultipleFixture.alternateWallId}`;
+      await clickSemanticElement(page, option);
+      await page.waitForFunction(
+        (wallId) => globalThis.__quataPostComposerE2eProduct?.state?.()?.selectedDestinationWallId === wallId,
+        realMultipleFixture.alternateWallId,
+        { timeout: 8_000 },
+      );
+      const selected = await screenshot(page, "web-post-destination-real-multiple-selected");
+      return { mode, status: "passed", anchors: ["composer-destination-option.<real-wall-id>", "composer-destination-selected"], evidence: { opened, form, selected } };
     }
     const expected = mode === "empty" ? "composer-destination-empty" : "composer-destination-error";
     await semanticLocator(page, expected).then((locator) => locator.waitFor({ state: "attached", timeout: 10_000 }));
@@ -200,7 +227,7 @@ function parseArgs(args) {
     chrome: process.env.QUATA_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/post-destination-evidence.json"),
     evidenceDir: resolve("build-reports/web/post-destination-evidence"),
-    modes: ["multiple", "empty", "failure"],
+    modes: ["real-multiple", "empty", "failure"],
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -213,7 +240,7 @@ function parseArgs(args) {
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
     if (key === "--modes") parsed.modes = value.split(",").map((item) => item.trim()).filter(Boolean);
   }
-  if (parsed.modes.some((mode) => !["multiple", "empty", "failure"].includes(mode))) throw new Error("invalid_destination_mode");
+  if (parsed.modes.some((mode) => !["real-multiple", "empty", "failure"].includes(mode))) throw new Error("invalid_destination_mode");
   return parsed;
 }
 

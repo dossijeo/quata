@@ -3,13 +3,21 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import {
+  destinationCleanupSummary,
+  destinationFixtureSummary,
+  loadPublicBackendConfig,
+  loginDestinationActor,
+  retireDestinationActorSession,
+  selectRealAlternateDestination,
+} from "./post-destination-real-fixture.mjs";
 
 const CHECK = "POST-DESTINATION-ANDROID-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const deviceCredentialsPath = "app-internal:post-destination-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/post-destination-credentials.json";
 const deviceEvidencePath = "files/post-publish-evidence";
-const defaultModes = ["multiple", "empty", "failure"];
+const defaultModes = ["real-multiple", "empty", "failure"];
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -23,9 +31,15 @@ const report = {
 
 const adb = process.env.ADB?.trim() || "adb";
 let localCredentials;
+let backend;
+let fixtureSession;
 
 try {
   const credentials = (await loadCredentials(options.credentialsFile)).a;
+  backend = await loadPublicBackendConfig();
+  fixtureSession = await loginDestinationActor(backend, credentials, "quata-post-destination-android-evidence");
+  const realMultipleFixture = await selectRealAlternateDestination(backend, fixtureSession);
+  report.evidence.realMultiple = destinationFixtureSummary(realMultipleFixture);
   localCredentials = join("build-reports", "android", `post-destination-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
   await writeFile(
@@ -45,6 +59,7 @@ try {
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
   await run(adb, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
+  await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
@@ -55,11 +70,18 @@ try {
       "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest#authenticatedUserExercisesDestinationStatesFromCommonComposer",
       "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
       "-e", "quataPostDestinationEvidenceMode", mode,
+      "-e", "quataPostDestinationAlternateWallId", realMultipleFixture.alternateWallId,
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ]);
     const attempt = { mode, status: "failed", instrumentationTail: redactedTail(output) };
-    if (!/OK \(\d+ tests?\)/.test(output)) throw new Error(`android_instrumentation_not_ok:${mode}`);
-    if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(output)) throw new Error(`android_instrumentation_semantic_failure:${mode}`);
+    if (!/OK \(\d+ tests?\)/.test(output)) {
+      report.attempts.push(attempt);
+      throw new Error(`android_instrumentation_not_ok:${mode}`);
+    }
+    if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(output)) {
+      report.attempts.push(attempt);
+      throw new Error(`android_instrumentation_semantic_failure:${mode}`);
+    }
     report.attempts.push({ ...attempt, status: "passed" });
   }
 
@@ -78,6 +100,18 @@ try {
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
   await rm(localCredentials ?? "", { force: true }).catch(() => {});
+  if (backend && fixtureSession) {
+    await retireDestinationActorSession(backend, fixtureSession).then((cleanup) => {
+      report.cleanup = cleanup;
+      report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
+    }).catch((cleanupError) => {
+      report.cleanup = {
+        error: safeFailure(cleanupError),
+        ...destinationCleanupSummary(cleanupError?.cleanup),
+      };
+      report.status = "failed";
+    });
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });

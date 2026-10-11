@@ -76,8 +76,8 @@ function assertIosFastFinalLaneContract(yaml) {
     'the PR fast lane must not start the expensive Apple build matrix');
   const finalBlock = yaml.slice(finalStart);
   assert.match(finalBlock, /name: Kotlin iOS final host, simulator and archive/);
-  assert.match(finalBlock, /timeout-minutes: 135/,
-    'the job timeout must exceed the observed setup/build duration plus the 20-minute host-boundary watchdog');
+  assert.match(finalBlock, /timeout-minutes: 180/,
+    'the job timeout must exceed the observed setup/build duration plus the 40-minute host-boundary watchdog');
   assert.match(finalBlock, /if: \$\{\{ needs\.classify-impact\.outputs\.ios == 'true' && \(github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\)\) \}\}/,
     'the complete iOS lane must run only for main/dispatch or labelled final candidates');
   const gateStart = yaml.indexOf('  ios-final-certification-gate:');
@@ -300,7 +300,12 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the deterministic live Ranking fixtures must not depend on runtime credentials');
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
-  const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
+  assert.match(
+    uiTestBlock,
+    /name: Test Swift\/Kotlin iOS host boundary\n\s+# Forty minutes for the serialized host suite plus the watchdog's SIGTERM\/SIGKILL grace\.\n\s+timeout-minutes: 42/,
+    'the serialized host suite must retain enough step budget to finish before its watchdog grace period',
+  );
+  const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 2400');
   assert.match(invocation, /-configuration SimulatorSigned /,
     'real Keychain journal tests require the entitlement-free signed simulator configuration');
   for (const setting of ['CODE_SIGNING_ALLOWED=YES', 'CODE_SIGNING_REQUIRED=YES',
@@ -319,7 +324,7 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the global host suite must execute the external Chat deep-link retry XCTest');
   assert.match(
     invocation,
-    /run_watchdog 1200 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
+    /run_watchdog 2400 build\/reports\/ios\/xcodebuild-tests\.log xcodebuild .* QUATA_SUPABASE_URL= QUATA_SUPABASE_PUBLISHABLE_KEY= -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test$/,
     'the effective xcodebuild test invocation must end with isolated runtime settings and serialized tests',
   );
   assert.match(

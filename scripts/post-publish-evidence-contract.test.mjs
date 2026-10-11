@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { destinationCleanupSummary, retireDestinationActorSession } from "./post-destination-real-fixture.mjs";
 
 const webRunner = readFileSync(new URL("./post-publish-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = readFileSync(new URL("./post-publish-android-evidence.mjs", import.meta.url), "utf8");
@@ -45,6 +46,7 @@ const androidDestinationRunner = readFileSync(new URL("./post-destination-androi
 const webDestinationRunner = readFileSync(new URL("./post-destination-web-evidence.mjs", import.meta.url), "utf8");
 const iosDestinationRunner = readFileSync(new URL("./post-destination-ios-evidence.mjs", import.meta.url), "utf8");
 const iosDestinationWrapper = readFileSync(new URL("./run-ios-post-destination-ui-test.sh", import.meta.url), "utf8");
+const realDestinationFixture = readFileSync(new URL("./post-destination-real-fixture.mjs", import.meta.url), "utf8");
 const androidImageEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/imageeditor/QuataImageEditorDialog.kt", import.meta.url), "utf8");
 const commonImageEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/ImageEditorModels.kt", import.meta.url), "utf8");
 const commonPostImageEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/PostImageEditorContent.kt", import.meta.url), "utf8");
@@ -183,12 +185,12 @@ test("common destination selector exposes stable anchors for all platform replay
   assert.match(commonCreatePostViewModel, /destinationRequired/);
 });
 
-test("post destination evidence uses common repository states and platform semantic anchors", () => {
+test("post destination evidence uses real multiple destinations plus deterministic fail-safe states", () => {
   assert.match(commonDestinationEvidenceRepository, /class DestinationEvidencePostComposerRepository/);
   assert.match(commonDestinationEvidenceRepository, /"empty" -> Result\.success\(emptyList\(\)\)/);
   assert.match(commonDestinationEvidenceRepository, /"failure" -> Result\.failure/);
-  assert.match(commonDestinationEvidenceRepository, /"multiple" -> Result\.success/);
-  assert.match(commonDestinationEvidenceRepository, /e2e-wall-bata/);
+  assert.doesNotMatch(commonDestinationEvidenceRepository, /"multiple"/);
+  assert.doesNotMatch(commonDestinationEvidenceRepository, /e2e-wall-/);
   assert.match(webPostComposerRoute, /quata-post-destination-e2e/);
   assert.match(webPostComposerRoute, /I_ACCEPT_WEB_POST_DESTINATION_FIXTURE/);
   assert.match(webPostComposerRoute, /DestinationEvidencePostComposerRepository/);
@@ -198,24 +200,108 @@ test("post destination evidence uses common repository states and platform seman
   assert.match(androidPostPublishTest, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
   assert.match(androidPostPublishTest, /ComposerDestinationErrorTestTag/);
   assert.match(androidPostPublishTest, /ComposerDestinationEmptyTestTag/);
-  assert.match(androidPostPublishTest, /e2e-wall-bata/);
+  assert.match(androidPostPublishTest, /quataPostDestinationAlternateWallId/);
+  assert.match(androidPostPublishTest, /real-multiple/);
   assert.match(iosApp, /QUATA_IOS_POST_DESTINATION_E2E_MODE/);
   assert.match(iosPostPublishTest, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
   assert.match(iosPostPublishTest, /composer-destination-error/);
   assert.match(iosPostPublishTest, /composer-destination-empty/);
-  assert.match(iosPostPublishTest, /e2e-wall-bata/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID/);
+  assert.match(iosPostPublishTest, /real-multiple/);
+  assert.match(realDestinationFixture, /community_members/);
+  assert.match(realDestinationFixture, /community_walls_stats/);
+  assert.match(realDestinationFixture, /eligible\.length < 2/);
+  assert.match(realDestinationFixture, /alternateWallId: eligible\[1\]\.id/);
+  assert.match(realDestinationFixture, /retireDestinationActorSession/);
+  assert.match(realDestinationFixture, /quata-web-push/);
+  assert.match(realDestinationFixture, /logout\?scope=local/);
+  assert.match(realDestinationFixture, /destination_fixture_web_session_cleanup_unverified/);
+  assert.match(realDestinationFixture, /destination_fixture_auth_cleanup_unverified/);
+  assert.match(realDestinationFixture, /webProbePayload\?\.error !== "invalid_web_session"/);
+  assert.match(realDestinationFixture, /refreshProbe\.status !== 400/);
+  assert.match(realDestinationFixture, /refreshProbePayload\?\.error_code !== "refresh_token_not_found"/);
+  assert.ok(
+    realDestinationFixture.indexOf("const webProbe = await fetchImpl") <
+      realDestinationFixture.indexOf("const authLogout = await fetchImpl"),
+    "web-session revocation must be verified before revoking the access token",
+  );
   assert.match(webDestinationRunner, /POST-DESTINATION-WEB-REAL-001/);
+  assert.match(webDestinationRunner, /real-multiple/);
+  assert.match(webDestinationRunner, /selectRealAlternateDestination/);
   assert.match(webDestinationRunner, /composer-destination-error/);
   assert.match(webDestinationRunner, /composer-feedback-error/);
   assert.match(androidDestinationRunner, /POST-DESTINATION-ANDROID-REAL-001/);
   assert.match(androidDestinationRunner, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
+  assert.match(androidDestinationRunner, /selectRealAlternateDestination/);
+  assert.match(androidDestinationRunner, /owned_fixture_auth_and_web_sessions_revoked_and_verified/);
   assert.match(iosDestinationRunner, /POST-DESTINATION-IOS-REAL-001/);
+  assert.match(iosDestinationRunner, /selectRealAlternateDestination/);
+  assert.match(iosDestinationRunner, /ios_public_runtime_xcconfig_prepared_transiently/);
+  assert.match(iosDestinationRunner, /ios-public-runtime-config-backup\.sh/);
+  assert.match(iosDestinationRunner, /ios-public-client-config\.py/);
+  assert.match(iosDestinationRunner, /runtimeConfigRestored/);
+  assert.match(iosDestinationRunner, /removeAndVerifyRemoteCredentials/);
+  assert.match(iosDestinationRunner, /temporaryCredentialsRemoved/);
+  assert.match(iosDestinationRunner, /owned_fixture_auth_and_web_sessions_revoked_and_verified/);
   assert.match(iosDestinationWrapper, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
+  assert.match(iosDestinationWrapper, /testClearAuthenticatedSessionAfterVisualGates/);
+  assert.match(iosDestinationWrapper, /trap cleanup_on_exit EXIT/);
+  assert.match(androidPostPublishTest, /assertIsSelected/);
+  assert.match(androidPostPublishTest, /authRepository\.logout\(\)/);
+  assert.match(iosPostPublishTest, /assertDestinationSelected/);
+  assert.match(iosPostPublishTest, /destination\.isSelected/);
+  assert.match(iosPostPublishTest, /authenticated primary destination/);
+  assert.match(iosPostPublishTest, /composer-destination-selector/);
   assert.match(iosDestinationWrapper, /IOS_POST_DESTINATION_UI_GATE_PASSED/);
   for (const runner of [webDestinationRunner, androidDestinationRunner, iosDestinationRunner]) {
     assert.doesNotMatch(runner, /community_posts/);
     assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+    assert.match(runner, /\.\.\.destinationCleanupSummary\(cleanupError\?\.cleanup\)/);
+    assert.match(runner, /report\.status = "failed"/);
   }
+});
+
+test("destination cleanup still retires Auth when Web-session cleanup fails", async () => {
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    if (url.includes("/functions/v1/quata-web-push")) {
+      throw new Error("simulated_web_cleanup_network_failure");
+    }
+    if (url.includes("/auth/v1/logout?scope=local")) {
+      return { ok: true, status: 204, json: async () => null };
+    }
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({ error_code: "refresh_token_not_found" }),
+      };
+    }
+    throw new Error(`unexpected_cleanup_request:${url}`);
+  };
+
+  let failure;
+  try {
+    await retireDestinationActorSession(
+      { url: "https://example.invalid", key: "public-key" },
+      { accessToken: "access", refreshToken: "refresh", webSessionToken: "web" },
+      fetchImpl,
+    );
+  } catch (error) {
+    failure = error;
+  }
+
+  assert.match(failure?.message ?? "", /destination_fixture_web_session_cleanup_network_failure/);
+  assert.deepEqual(failure?.cleanup, {
+    webSessionRevoked: false,
+    webSessionProbe: null,
+    refreshTokenRejected: true,
+    refreshTokenProbe: { status: 400, errorCode: "refresh_token_not_found" },
+  });
+  assert.deepEqual(destinationCleanupSummary(failure?.cleanup), failure?.cleanup);
+  assert.equal(calls.some((url) => url.includes("/auth/v1/logout?scope=local")), true);
+  assert.equal(calls.some((url) => url.includes("/auth/v1/token?grant_type=refresh_token")), true);
 });
 
 test("post location uses common anchors and the shared remote metadata codec", () => {

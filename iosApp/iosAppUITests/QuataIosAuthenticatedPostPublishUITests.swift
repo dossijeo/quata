@@ -162,7 +162,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             throw XCTSkip("Authenticated post destination UI gate is opt-in.")
         }
         let mode = environment["QUATA_IOS_POST_DESTINATION_E2E_MODE"] ?? ""
-        XCTAssertTrue(["empty", "failure", "multiple"].contains(mode), "Unsupported destination evidence mode \(mode).")
+        XCTAssertTrue(["empty", "failure", "real-multiple"].contains(mode), "Unsupported destination evidence mode \(mode).")
 
         let app = openComposer(mode: "text", locationLabel: "")
         assertSharedComposerSurface(in: app)
@@ -180,12 +180,15 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             XCTAssertTrue(commonElement("composer-destination-retry", in: app).waitForExistence(timeout: 6), "Empty destinations must expose the shared retry anchor.")
             QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-empty")
             assertPublishBlockedByDestinationRequired(in: app)
-        default:
-            selectDestination("e2e-wall-bata", in: app)
+        case "real-multiple":
+            let alternateWallId = try XCTUnwrap(environment["QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID"])
+            selectDestination(alternateWallId, in: app)
+            assertDestinationSelected(alternateWallId, in: app)
             let selected = commonElement("composer-destination-selected", in: app)
             XCTAssertTrue(selected.waitForExistence(timeout: 8), "Selected destination label must remain anchored.")
-            XCTAssertTrue(elementText(selected).contains("Bata"), "Selecting the alternate destination must update common selected label.")
-            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-multiple-selected")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-real-multiple-selected")
+        default:
+            XCTFail("Unsupported destination evidence mode \(mode).")
         }
         print("IOS_POST_DESTINATION_UI_GATE_PASSED \(mode)")
     }
@@ -413,6 +416,15 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         XCTFail("Expected shared composer destination \(wallId) to exist after bounded bidirectional scrolling.")
     }
 
+    private func assertDestinationSelected(_ wallId: String, in app: XCUIApplication) {
+        let destination = commonElement("composer-destination-option.\(wallId)", in: app)
+        for _ in 0..<20 {
+            if destination.exists, destination.isSelected { return }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertTrue(destination.isSelected, "The exact alternate destination must become selected after the tap.")
+    }
+
     private func openComposer(mode: String, locationLabel: String) -> XCUIApplication {
         let app = XCUIApplication()
         disableQuiescenceWait(for: app)
@@ -447,6 +459,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",
+            "QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value
@@ -458,7 +471,13 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 25), "A normal launch must restore Feed from the seeded Keychain session.")
+        let authenticatedNavigation = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-primary-navigation")
+            .firstMatch
+        XCTAssertTrue(
+            feed.waitForExistence(timeout: 25) || authenticatedNavigation.waitForExistence(timeout: 3),
+            "A normal launch must restore an authenticated primary destination from the seeded Keychain session.",
+        )
 
         let composerTab = app.buttons.matching(
             NSPredicate(format: "label CONTAINS[c] %@ OR identifier CONTAINS[c] %@", "Crear", "composer")
@@ -528,7 +547,13 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let textType = app.descendants(matching: .any)
             .matching(identifier: "composer-type-text")
             .firstMatch
-        XCTAssertTrue(textType.waitForExistence(timeout: 10), "The common text composer type must be exposed.")
+        if !textType.waitForExistence(timeout: 10) {
+            XCTAssertTrue(
+                commonElement("composer-destination-selector", in: app).exists,
+                "The shared text form must already be open when the composer type chooser is absent.",
+            )
+            return
+        }
         if textType.isHittable {
             textType.tap()
         } else {

@@ -1993,7 +1993,7 @@ private final class IosAppCompositionRoot {
             )
             : repository
         let destinationMode = ProcessInfo.processInfo.environment["QUATA_IOS_POST_DESTINATION_E2E_MODE"]?.lowercased()
-        let evidenceRepository: PostComposerRepository = ["empty", "failure", "multiple"].contains(destinationMode ?? "")
+        let evidenceRepository: PostComposerRepository = ["empty", "failure"].contains(destinationMode ?? "")
             ? DestinationEvidencePostComposerRepository(
                 delegate: composerRepository,
                 mode: destinationMode ?? ""

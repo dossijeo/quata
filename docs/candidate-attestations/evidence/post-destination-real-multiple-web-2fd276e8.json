@@ -1,0 +1,49 @@
+{
+  "check": "POST-DESTINATION-WEB-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-10-11T03:21:37.265Z",
+  "git": {
+    "head": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+    "branch": "codex/post-destination-real-multiple",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "mode": "real-multiple",
+      "status": "passed",
+      "anchors": [
+        "composer-destination-option.<real-wall-id>",
+        "composer-destination-selected"
+      ],
+      "evidence": {
+        "opened": "build-reports/web/post-destination-real-multiple-evidence/web-post-destination-opened-real-multiple.png",
+        "form": "build-reports/web/post-destination-real-multiple-evidence/web-post-destination-form-real-multiple.png",
+        "selected": "build-reports/web/post-destination-real-multiple-evidence/web-post-destination-real-multiple-selected.png"
+      }
+    }
+  ],
+  "evidence": {
+    "realMultiple": {
+      "eligibleCount": 186,
+      "defaultWallIdSha256": "8fdcab2048baf8bf905d0b37605bf8ecf791f2a216d0d38cf19d23f3aaf15173",
+      "alternateWallIdSha256": "93ce7227f1d467ca454731900fb83eff8af53f045e07d9dbff522668f30d1e05"
+    }
+  },
+  "steps": [
+    "real_profile_authenticated_without_logging_credentials",
+    "owned_fixture_auth_and_web_sessions_revoked_and_verified"
+  ],
+  "cleanup": {
+    "webSessionRevoked": true,
+    "webSessionProbe": {
+      "status": 401,
+      "error": "invalid_web_session"
+    },
+    "refreshTokenRejected": true,
+    "refreshTokenProbe": {
+      "status": 400,
+      "errorCode": "refresh_token_not_found"
+    }
+  },
+  "finishedAt": "2026-10-11T03:21:51.277Z"
+}
