@@ -69,4 +69,3 @@ test("migration board records composition without claiming new platform executio
   assert.match(migrationBoard, /No atribuye una nueva ejecución Android, Web\/Wasm o iOS/);
   assert.match(migrationBoard, /no amplía audio fuera de Chat/);
 });
-
