@@ -5,13 +5,13 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "cabd7fb8be175801636da574db94ef73d7fb46a6",
-  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-go-final-CI-pending",
+  "productSha": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "cabd7fb8be175801636da574db94ef73d7fb46a6",
+      "sha": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-2fd276e8.json",
       "reportSha256": "7b443bfa4de484d32fcd084db2bbf22f637940669275564e8365f920ef0340f1",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "cabd7fb8be175801636da574db94ef73d7fb46a6",
+      "sha": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-2fd276e8.json",
       "reportSha256": "e8411e7ee58ac757038de7fe78c55bf33a200789a7c3060ac4fdbf57604195af",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "cabd7fb8be175801636da574db94ef73d7fb46a6",
+      "sha": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-2fd276e8.json",
       "reportSha256": "04109395bfe423afcb86ccf725c00e34bfd593516bdffed2e769ca19eb6871d9",
       "reportStatus": "passed",
@@ -66,15 +66,15 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "cabd7fb8be175801636da574db94ef73d7fb46a6",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-recomposition-cabd7fb8.json",
-      "reportSha256": "b682b5633b157215931f5c3f411c4521ce0c121035387793e6eb849e1173b214",
+      "sha": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-recomposition-e1e10654.json",
+      "reportSha256": "10cd5f5184bce305d94b7ec5ea4bb65576dacdc208d82fae34532a53a0768868",
       "reportStatus": "passed",
-      "reportGitHead": "cabd7fb8be175801636da574db94ef73d7fb46a6",
+      "reportGitHead": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "twenty_one_commits_patch_equivalent",
+        "twenty_four_commits_patch_equivalent",
         "current_post_publish_contract_27_of_27_passed",
         "historical_post_publish_contract_28_of_28_preserved",
         "destination_runner_syntax_passed",
@@ -100,8 +100,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "900f4f5603a20b2031b953dc195441b8f45ce2f9",
+    "status": "PENDING",
+    "reviewedSha": null,
     "previousReviewedHead": "62bdb826736d933a1893957b2e2205a003e64ec4",
     "previousReviewedSha": "dd7c6e7af3955dd2b98e033b91753e9b22d50a9f",
     "blockingFindings": [],
@@ -135,12 +135,12 @@
     "Independent exact-head review of dd7c6e7af3955dd2b98e033b91753e9b22d50a9f returned GO with no P0-P3 after the runner-level partial-cleanup persistence fix.",
     "The cleanup negative records both sanitized branch outcomes, proves Auth logout and refresh rejection after forced Web failure, and source contracts require all three runners to persist those outcomes while leaving report.status failed.",
     "Independent final exact-head review of 62bdb826736d933a1893957b2e2205a003e64ec4 returned GO with no P0-P3 after confirming the 15/15 patch-equivalent replay, exact eligible[1] selection among 186 real destinations without publish, fail-closed Web/Auth cleanup, 401/400 rejection probes, 28/28 contract, report hashes, runner syntax, validator, diff-check, clean tree, focal secret scan and precise historical iOS build custody.",
-    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. Current Product d53495c247a080c3773421b9082888df72ea64fd preserves the fifteen historical commits patch-equivalent over the reviewed Lane B chain ending at 88887ce4651e7aad3c01531193061fc519ae994f; four later commits only reanchor candidate metadata. The current affected contract passes 27/27; the historical recomposition report retains its exact 28/28 result because the removed Post Composer emoji assertion belongs to the separate FLOW-EMOJI unit. Platform E2E was not renewed solely for ancestry.",
-    "Rebased onto FLOW-DEEP-LINKS row-repair exact-head 88887ce4651e7aad3c01531193061fc519ae994f. Range-diff preserves all nineteen commits patch-equivalent; no production, platform or backend action was repeated for ancestry.",
+    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. A historical recomposition Product d53495c247a080c3773421b9082888df72ea64fd preserved fifteen commits over the then-current Lane B chain ending at 88887ce4651e7aad3c01531193061fc519ae994f. The current affected contract passes 27/27; the preserved historical result was 28/28 before the separate FLOW-EMOJI assertion moved out of this unit. Platform E2E was not renewed solely for ancestry.",
+    "A historical rebase onto FLOW-DEEP-LINKS row-repair head 88887ce4651e7aad3c01531193061fc519ae994f preserved nineteen commits patch-equivalent; that custody remains historical and does not claim review of the current recomposition.",
     "Historical pre-rebase exact-head review of 7ca92462649562eaede3c2c95ec79898a8ddcff4 returned GO with no P0-P3. It is retained as prior custody and does not claim review of the recomposed head.",
-    "Product SHA cabd7fb8be175801636da574db94ef73d7fb46a6 replays all 21 destination-series commits over FLOW-DEEP-LINKS row-repair head 2727b58fbfa3219dffe41d74dd710e806e45a05e. Range-diff maps 21/21 exactly; current affected contracts and compilation gates are renewed without repeating platform E2E solely for ancestry.",
+    "Product SHA e1e1065492cdaa7b5b609ec33d7f11b931cd987b replays all 24 destination-series commits over FLOW-DEEP-LINKS row-repair head eccf99dba40a90d298e5da8b5c517f30c9f4ab7f. Range-diff maps 24/24 exactly; current affected contracts and compilation gates are renewed without repeating platform E2E solely for ancestry.",
     "Checked-in platform projections now use repository-relative or sanitized checkout paths; host usernames and absolute local paths were removed without changing the historical execution attribution.",
     "The recomposition report distinguishes the current 27/27 affected contract from the preserved historical 28/28 result.",
-    "Independent rereview of exact head 900f4f5603a20b2031b953dc195441b8f45ce2f9 returned GO with no P0-P3 after verifying sanitized projections, four hashes, current 27/27 versus historical 28/28 attribution, 21/21 range equivalence, validator, diff-check and clean tree."
+    "Historical independent rereview of exact head 900f4f5603a20b2031b953dc195441b8f45ce2f9 returned GO with no P0-P3 after verifying sanitized projections, four hashes, current 27/27 versus historical 28/28 attribution, 21/21 range equivalence, validator, diff-check and clean tree."
   ]
 }
