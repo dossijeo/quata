@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "a260d17441e4b891acdeda2cd301f7810b4b6217",
-  "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-go-final-ci-pending",
+  "productSha": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
+  "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "routeCatalog": {
       "status": "passed",
-      "sha": "a260d17441e4b891acdeda2cd301f7810b4b6217",
-      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-a260d174.json",
-      "reportSha256": "69327cfe65a3cf8bfcce52d6bcbb6ade7bce8ac17d8701285285c813e4d4d320",
+      "sha": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-9f0018eb.json",
+      "reportSha256": "8dc41ae1082dc4ec0d661a764ce1f3a8feb4e73ee2cb88eeb3c30238a38e524b",
       "reportStatus": "passed",
-      "reportGitHead": "a260d17441e4b891acdeda2cd301f7810b4b6217",
+      "reportGitHead": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -37,8 +37,9 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "fde79663853e4164e82c9242476ef474b3517e4a",
+    "status": "pending",
+    "reviewedSha": null,
+    "previousReviewedHead": "fde79663853e4164e82c9242476ef474b3517e4a",
     "blockingFindings": [],
     "resolvedFindings": [
       "Historical review corrections remain encoded in the exact-set, route-output binding and negative-control assertions.",
@@ -50,6 +51,6 @@
     "Existing exact root, Chat, post, public-profile and Notifications-to-Chat receipts remain bound to their original executed products; this unit attributes no new platform execution.",
     "Scroll, multimedia position and destination-internal state stay with the feature that owns them. They are not additional shell routes and are not recast as generic FLOW-SHELL-NAV limits.",
     "No application runtime, backend, platform adapter, CI workflow or historical evidence artifact changed.",
-    "Independent exact-head review returned GO with no P0-P3 findings on fde79663853e4164e82c9242476ef474b3517e4a; 13/13 focal contracts, validator, report hash and diff-check pass, with a clean tree."
+    "The twelve-commit unit was replayed over merged PR #612 squash cc3021aadabddba230a5b679dd978c79cf702707. Product 9f0018eb0b2fd288bfe673863151f8b9328bc86e preserves the reviewed route-catalog delta while the current report renews only the source-contract receipt; historical platform evidence was not repeated solely for ancestry."
   ]
 }
