@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "9d016d5e53f7cfdb3d53bd8c4f67ab9580852f4b",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "public_profile_root_composition_contract_3_of_3_passed",
+    "twenty_eight_thematic_receipts_and_source_backed_header_preserved",
+    "ci_fast_and_web_wave2_wiring_present",
+    "ci_fast_contracts_907_of_907_passed",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "root": "OVR-PUBLIC-PROFILE",
+    "rootResidualLimitRemoved": true,
+    "thematicLimitsPreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false
+  }
+}
