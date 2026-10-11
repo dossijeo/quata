@@ -4,16 +4,16 @@
     "OVR-COMMENTS"
   ],
   "status": "passed",
-  "productSha": "374a2b03c07c0a39129bf0b0c652439591c709fe",
-  "certification": "finite-comments-origin-catalog-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
+  "productSha": "2e674d19ee29012e69149b0399bd823bf0d1df85",
+  "certification": "finite-comments-origin-catalog-composed-thematic-limits-preserved-recomposed-independent-review-pending-final-ci-pending",
   "evidence": {
     "originCatalog": {
       "status": "passed",
-      "sha": "374a2b03c07c0a39129bf0b0c652439591c709fe",
-      "report": "docs/candidate-attestations/evidence/comments-origin-catalog-374a2b03.json",
-      "reportSha256": "f3ac1952f141267abdfbbc1a90390a900a84b712aee9efdcebd254f7340c1016",
+      "sha": "2e674d19ee29012e69149b0399bd823bf0d1df85",
+      "report": "docs/candidate-attestations/evidence/comments-origin-catalog-2e674d19.json",
+      "reportSha256": "4f729f42dde78f48e71112684f79bf62cad30169ac071ad3f3b6d7134e5f3560",
       "reportStatus": "passed",
-      "reportGitHead": "374a2b03c07c0a39129bf0b0c652439591c709fe",
+      "reportGitHead": "2e674d19ee29012e69149b0399bd823bf0d1df85",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -36,16 +36,22 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "ddf9da0be406c12efcf575ab7e07270d9305b698",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "productSha": "2e674d19ee29012e69149b0399bd823bf0d1df85",
     "blockingFindings": [],
-    "resolvedFindings": [
-      "The comments-origin guard is wired into both web-wave2 and ci-fast authoritative gates."
-    ],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "scope": "Independent exact-head review must verify the comments-origin catalog after squash recomposition over #615.",
     "historicalReviewedShas": [
       "588ed01b57185dcbc3921508eeb34428dbb39c7f",
       "687ee4a5c8218c5bd5420917d2c5f217fccce455",
-      "670c67df9f5e8a72fcb729c27264c7cc1c79381f"
+      "670c67df9f5e8a72fcb729c27264c7cc1c79381f",
+      "ddf9da0be406c12efcf575ab7e07270d9305b698"
     ]
   },
   "notes": [
@@ -54,6 +60,6 @@
     "Passed focal receipts compose comment, reply, author profile, deep pagination, translator, emoji, rollback, selector states and the iOS keyboard edge for the finite owner catalog.",
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
     "Non-focal network failures and comment operations absent from the composed receipts remain explicit thematic boundaries.",
-    "Product SHA 374a2b03c07c0a39129bf0b0c652439591c709fe preserves the reviewed bounded delta over frozen OVR-POST-DETAIL candidate 40e0464ee52aff50ed461e651b915a80aa6d2324. No platform matrix was repeated solely for ancestry."
+    "Product SHA 2e674d19ee29012e69149b0399bd823bf0d1df85 preserves the reviewed bounded delta over merged OVR-POST-DETAIL squash 102d40edb695c0fa505ffd0592536606cee25fb0, whose tree exactly matches frozen candidate 40e0464ee52aff50ed461e651b915a80aa6d2324. No platform matrix was repeated solely for ancestry."
   ]
 }
