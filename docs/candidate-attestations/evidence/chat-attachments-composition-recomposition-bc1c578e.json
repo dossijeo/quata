@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "bc1c578e9cabf827e81ac1746399feb0911bbd1c",
+    "workingTreeDirty": false
+  },
+  "unit": "CHAT-ATTACHMENTS",
+  "productSha": "bc1c578e9cabf827e81ac1746399feb0911bbd1c",
+  "predecessorSha": "829bfd663fa9142a6390513591d6adbf35acaaa9",
+  "historicalProductSha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+  "steps": [
+    "product_delta_preserved_with_confidentiality_receipt_hash_rebound",
+    "chat_attachments_composition_contract_3_of_3_passed",
+    "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+    "android_v32_compatibility_and_external_boundaries_preserved",
+    "historical_platform_and_database_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalExecutionReexecuted": false,
+    "baseConflict": "prof-shared-chat-documents-confidentiality receipt hash updated to current reviewed manifest bytes"
+  },
+  "notes": [
+    "The CHAT-ATTACHMENTS composition delta is preserved over the repaired CHAT-AUDIO head.",
+    "The only intentional product deviation from the historical patch is the exact SHA-256 rebound for the current reviewed confidentiality manifest.",
+    "The affected 3/3 contract was renewed; historical platform and database execution remains bound to its original heads."
+  ]
+}
