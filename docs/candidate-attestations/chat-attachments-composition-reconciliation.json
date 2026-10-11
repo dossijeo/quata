@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "bc1c578e9cabf827e81ac1746399feb0911bbd1c",
-  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -58,11 +58,20 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "195e3be94e666da237185f883765e7ec9cf11649",
     "previousReviewedSha": "a42ac6e80f617d415c9860199c83b3be4c3a705b",
     "blockingFindings": [],
-    "reviewedProductSha": null
+    "reviewedProductSha": "bc1c578e9cabf827e81ac1746399feb0911bbd1c",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "resolvedFindings": [
+      "Independent exact-head review confirmed the preserved composition delta, necessary confidentiality receipt hash rebound, nine receipts, v32 and external boundaries, report hashes, historical custody, 3/3 contract, validator, diff-check and clean tree."
+    ]
   },
   "notes": [
     "Eight existing owner receipts compose CHAT-ATTACHMENTS picker, deterministic negative paths, upload rollback, media, document viewer actions, Retry and the HTTP boundary; the ninth receipt preserves actor-bound confidentiality for private Storage.",
@@ -72,6 +81,7 @@
     "The focal contract binds all nine receipts to exact SHA-256 values, requires passed owner evidence, guards the inventory wording and wires the contract exactly once into each affected aggregate.",
     "This unit is based on the reviewed CHAT-AUDIO Lane B head b9b5d3b1ea920d1fad6f1ca2a42e4efe9c4cd6cf and must be recomposed over its eventual squash before publication.",
     "Independent review of exact head a42ac6e80f617d415c9860199c83b3be4c3a705b returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, nine exact receipt and report hashes, exact-once aggregate wiring, preserved Android v32 and external boundaries, and absence of newly attributed platform or database execution.",
-    "Current Product bc1c578e9cabf827e81ac1746399feb0911bbd1c preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO head 829bfd663fa9142a6390513591d6adbf35acaaa9 and rebinds only the exact confidentiality-manifest SHA-256 to current reviewed bytes e8764ced. Contract 3/3, validator and diff-check pass; historical execution is not reattributed."
+    "Current Product bc1c578e9cabf827e81ac1746399feb0911bbd1c preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO head 829bfd663fa9142a6390513591d6adbf35acaaa9 and rebinds only the exact confidentiality-manifest SHA-256 to current reviewed bytes e8764ced. Contract 3/3, validator and diff-check pass; historical execution is not reattributed.",
+    "Independent exact-head review of 195e3be94e666da237185f883765e7ec9cf11649 returned GO without P0-P3 after verifying the preserved delta, confidentiality receipt hash e8764ced, nine receipts, Android v32 and external boundaries, report hash bacb9cad, historical custody, 3/3 contract, validator, diff-check and clean tree."
   ]
 }
