@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
-  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-independent-review-pending-final-ci-pending",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -36,8 +36,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "a42ac6e80f617d415c9860199c83b3be4c3a705b",
     "blockingFindings": []
   },
   "notes": [
@@ -46,6 +46,7 @@
     "The controlled public compatibility path remains restricted to identified Android v32 clients and stays distinguishable so it can be retired when those clients no longer exist.",
     "No runtime, backend, platform evidence receipt or CI workflow changed. Historical Android, Web/Wasm, iOS and database executions remain bound to their original Product and evidence heads.",
     "The focal contract binds all nine receipts to exact SHA-256 values, requires passed owner evidence, guards the inventory wording and wires the contract exactly once into each affected aggregate.",
-    "This unit is based on the reviewed CHAT-AUDIO Lane B head b9b5d3b1ea920d1fad6f1ca2a42e4efe9c4cd6cf and must be recomposed over its eventual squash before publication."
+    "This unit is based on the reviewed CHAT-AUDIO Lane B head b9b5d3b1ea920d1fad6f1ca2a42e4efe9c4cd6cf and must be recomposed over its eventual squash before publication.",
+    "Independent review of exact head a42ac6e80f617d415c9860199c83b3be4c3a705b returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, nine exact receipt and report hashes, exact-once aggregate wiring, preserved Android v32 and external boundaries, and absence of newly attributed platform or database execution."
   ]
 }
