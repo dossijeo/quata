@@ -1,12 +1,12 @@
 {
   "status": "passed",
   "git": {
-    "head": "bc1c578e9cabf827e81ac1746399feb0911bbd1c",
+    "head": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
     "workingTreeDirty": false
   },
   "unit": "CHAT-ATTACHMENTS",
-  "productSha": "bc1c578e9cabf827e81ac1746399feb0911bbd1c",
-  "predecessorSha": "829bfd663fa9142a6390513591d6adbf35acaaa9",
+  "productSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+  "predecessorSha": "8ca4de71901461bd81e265ffcfef9885b0b537c6",
   "historicalProductSha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
   "steps": [
     "product_delta_preserved_with_confidentiality_receipt_hash_rebound",
@@ -24,8 +24,8 @@
     "baseConflict": "prof-shared-chat-documents-confidentiality receipt hash updated to current reviewed manifest bytes"
   },
   "notes": [
-    "The CHAT-ATTACHMENTS composition delta is preserved over the repaired CHAT-AUDIO head.",
-    "The only intentional product deviation from the historical patch is the exact SHA-256 rebound for the current reviewed confidentiality manifest.",
-    "The affected 3/3 contract was renewed; historical platform and database execution remains bound to its original heads."
+    "The CHAT-ATTACHMENTS composition delta is preserved over the reviewed CHAT-AUDIO candidate head.",
+    "The exact SHA-256 binding for the current confidentiality manifest remains unchanged and reviewed.",
+    "Only the affected 3/3 contract is renewed; historical platform and database execution remains bound to its original heads."
   ]
 }
