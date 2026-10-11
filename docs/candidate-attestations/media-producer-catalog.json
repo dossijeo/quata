@@ -4,16 +4,16 @@
     "OVR-MEDIA"
   ],
   "status": "passed",
-  "productSha": "d60069ffd5baabb4e18e949e209c7213d5678216",
-  "certification": "finite-media-producer-catalog-composed-final-review-pending",
+  "productSha": "43f120d2e05e40eeb0da46c30795b26ec15aad24",
+  "certification": "finite-media-producer-catalog-composed-affected-contracts-pass-final-review-pending",
   "evidence": {
     "producerCatalog": {
       "status": "passed",
-      "sha": "d60069ffd5baabb4e18e949e209c7213d5678216",
-      "report": "docs/candidate-attestations/evidence/media-producer-catalog-d60069ff.json",
-      "reportSha256": "31f79603949e53ab185f0d0822b387a4d8603c0c2efeaa285182d920438c47e3",
+      "sha": "43f120d2e05e40eeb0da46c30795b26ec15aad24",
+      "report": "docs/candidate-attestations/evidence/media-producer-catalog-43f120d2.json",
+      "reportSha256": "8c4625c8e8da19f8f3fe06e21d83cd333ca61e0847b54036342eca9d1b18c3c4",
       "reportStatus": "passed",
-      "reportGitHead": "d60069ffd5baabb4e18e949e209c7213d5678216",
+      "reportGitHead": "43f120d2e05e40eeb0da46c30795b26ec15aad24",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
