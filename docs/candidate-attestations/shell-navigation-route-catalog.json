@@ -4,16 +4,16 @@
     "FLOW-SHELL-NAV"
   ],
   "status": "passed",
-  "productSha": "8f6f89e70fb8db9100b1ab9181cfed842cfa2f1b",
+  "productSha": "a260d17441e4b891acdeda2cd301f7810b4b6217",
   "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "routeCatalog": {
       "status": "passed",
-      "sha": "8f6f89e70fb8db9100b1ab9181cfed842cfa2f1b",
-      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-8f6f89e7.json",
-      "reportSha256": "feb818a207a33e07fbd299afdb556f3081ab48918c08d66433483617a9dc8748",
+      "sha": "a260d17441e4b891acdeda2cd301f7810b4b6217",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-a260d174.json",
+      "reportSha256": "69327cfe65a3cf8bfcce52d6bcbb6ade7bce8ac17d8701285285c813e4d4d320",
       "reportStatus": "passed",
-      "reportGitHead": "8f6f89e70fb8db9100b1ab9181cfed842cfa2f1b",
+      "reportGitHead": "a260d17441e4b891acdeda2cd301f7810b4b6217",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -37,11 +37,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "919b11ab5ccbbbcab603ea2cfc77aa7287f61881",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [
-      "Two P2 review findings were corrected: platform catalogs now compare exact extracted sets, Web literal inputs are bound to their route outputs, negative controls use the real extractors/parser, and the evidence file is normalized."
+      "Historical review corrections remain encoded in the exact-set, route-output binding and negative-control assertions; the rebased exact head requires final independent review."
     ]
   },
   "notes": [
@@ -49,6 +49,6 @@
     "Existing exact root, Chat, post, public-profile and Notifications-to-Chat receipts remain bound to their original executed products; this unit attributes no new platform execution.",
     "Scroll, multimedia position and destination-internal state stay with the feature that owns them. They are not additional shell routes and are not recast as generic FLOW-SHELL-NAV limits.",
     "No application runtime, backend, platform adapter, CI workflow or historical evidence artifact changed.",
-    "Independent exact-head review returned GO with no P0-P3 findings on 919b11ab5ccbbbcab603ea2cfc77aa7287f61881 after reproducing 13/13 contracts, validator, report hash, diff-check and clean-tree check."
+    "Rebased onto the current Lane B predecessor with the decisive contract and inventory semantics preserved; final independent exact-head review is pending."
   ]
 }
