@@ -247,9 +247,13 @@ async function exerciseVideoEditor(page, { mute, cancelOnly = false, exerciseCap
     return anchors;
   }
   await invokeVideoEditorAction(page, "export");
-  await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 180_000 });
+  await page.waitForFunction(() => ["success", "failed"].includes(globalThis.__quataPostVideoEditorExport?.status), null, { timeout: 180_000 });
+  const terminalExportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  if (terminalExportState?.status !== "success") {
+    throw new Error(terminalExportState?.message || "web_post_video_editor_export_failed");
+  }
   anchors.export = anchors["post-video-editor.export"];
-  anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  anchors.exportState = terminalExportState;
   assertWebVideoEditorExportParity(anchors.exportState, { expectCaptions: exerciseCaptions, expectMute: mute });
   return anchors;
 }
@@ -375,6 +379,10 @@ function assertWebVideoEditorExportParity(exportState, { expectCaptions = false,
     }
   }
   if (!exportState.output || exportState.output.size <= 0) throw new Error("web_video_editor_export_empty_output");
+  const outputMimeType = String(exportState.output.mimeType || "").toLowerCase();
+  if (!outputMimeType.startsWith("video/mp4") || !outputMimeType.includes("avc1")) {
+    throw new Error(`web_video_editor_export_cross_platform_mime:${outputMimeType || "missing"}`);
+  }
   if (!isSupportedVideoEditorProfile(exportState.output.outputWidth, exportState.output.outputHeight)) {
     throw new Error(`web_video_editor_export_unexpected_dimensions:${exportState.output.outputWidth}x${exportState.output.outputHeight}`);
   }
@@ -387,7 +395,7 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
     throw new Error("web_video_editor_export_missing_blob_reference");
   }
   await mkdir(options.evidenceDir, { recursive: true });
-  const outputPath = resolve(options.evidenceDir, `web-post-video-editor-export-${label}.webm`);
+  const outputPath = resolve(options.evidenceDir, `web-post-video-editor-export-${label}.mp4`);
   const base64 = await page.evaluate(async (blobReference) => {
     const response = await fetch(blobReference);
     if (!response.ok) throw new Error(`web_video_editor_blob_fetch_${response.status}`);
@@ -414,9 +422,11 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
   const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
   const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
   if (!videoStream) throw new Error("web_video_editor_physical_video_stream_missing");
+  if (videoStream.codec_name !== "h264") throw new Error(`web_video_editor_physical_video_codec:${videoStream.codec_name || "missing"}`);
   if (mute && audioStream) throw new Error("web_video_editor_physical_audio_stream_present_after_mute");
   if (!mute && sourceHasAudio && !audioStream) throw new Error("web_video_editor_physical_audio_stream_missing_without_mute");
   if (!mute && !sourceHasAudio && audioStream) throw new Error("web_video_editor_physical_audio_stream_created_from_silent_source");
+  if (audioStream && audioStream.codec_name !== "opus") throw new Error(`web_video_editor_physical_audio_codec:${audioStream.codec_name || "missing"}`);
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
   if (width !== Number(exportState.output?.outputWidth || 0) || height !== Number(exportState.output?.outputHeight || 0)) {
@@ -450,6 +460,7 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
     sourceHasAudio,
     video: { codec: videoStream.codec_name, width, height },
     audioStreamPresent: Boolean(audioStream),
+    audioCodec: audioStream?.codec_name || null,
     audioProbe,
     captionPixelProbe,
     captionControlPixelProbe,

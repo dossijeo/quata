@@ -804,6 +804,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.doesNotMatch(webPostVideoEditor, /Math\.max\(2500, 1000 \/ fps \* 75\)/);
   assert.match(webPostVideoEditor, /const minimumCaptureFrames = Math\.max\(1, Math\.ceil\(\(durationMs \/ 1000\) \* Math\.min\(captureTickRate, 24\)\)\)/);
   assert.match(webPostVideoEditor, /drawnFrameCount >= minimumCaptureFrames/);
+  assert.match(webPostVideoEditor, /elapsedMs >= maximumCaptureWallMs/);
   assert.match(webPostVideoEditor, /elapsedAtStopMs/);
   assert.doesNotMatch(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
@@ -911,7 +912,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.doesNotMatch(webPostVideoEditor, /captionWords = String\(captionStyle/);
   assert.match(webVideoEditorRunner, /invokeVideoEditorAction\(page, "cropMode", "Square"\)/);
   assert.match(webVideoEditorRunner, /invokeVideoEditorAction\(page, "reset"\)/);
-  assert.match(webVideoEditorRunner, /web-post-video-editor-export-\$\{label\}\.webm/);
+  assert.match(webVideoEditorRunner, /web-post-video-editor-export-\$\{label\}\.mp4/);
+  assert.match(webVideoEditorRunner, /videoStream\.codec_name !== "h264"/);
+  assert.match(webVideoEditorRunner, /audioStream\.codec_name !== "opus"/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_document_missing_timings/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_document_invalid_word_timings/);
   assert.doesNotMatch(webPostVideoEditor, /webPostVideoEditorExportCopy/);

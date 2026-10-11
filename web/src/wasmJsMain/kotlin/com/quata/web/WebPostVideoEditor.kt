@@ -788,13 +788,26 @@ private fun webPostVideoEditorExportEditedJs(
           let elapsedAtStopMs = 0;
           let recorderStarted = false;
           let recorderStopRequested = false;
-          const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp8')
-            ? 'video/webm;codecs=vp8'
-            : 'video/webm';
+          const hasAudioTrack = (stream.getAudioTracks?.().length || 0) > 0;
+          const compatibleMimeTypes = hasAudioTrack
+            ? ['video/mp4;codecs=avc1.42E01E,opus', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2']
+            : ['video/mp4;codecs=avc1.42E01E'];
+          const requestedMimeType = compatibleMimeTypes.find(type => globalThis.MediaRecorder.isTypeSupported?.(type) === true);
+          if (!requestedMimeType) {
+            throw Error('web_post_video_editor_cross_platform_codec_unavailable');
+          }
           recorder = new globalThis.MediaRecorder(stream, {
-            mimeType,
+            mimeType: requestedMimeType,
             videoBitsPerSecond: Math.max(200000, Number(outputTargetBitrate) || 1200000)
           });
+          const mimeType = String(recorder.mimeType || requestedMimeType);
+          const normalizedMimeType = mimeType.toLowerCase();
+          if (!normalizedMimeType.startsWith('video/mp4') || !normalizedMimeType.includes('avc1')) {
+            throw Error('web_post_video_editor_cross_platform_codec_unavailable');
+          }
+          if (hasAudioTrack && !normalizedMimeType.includes('opus') && !normalizedMimeType.includes('mp4a')) {
+            throw Error('web_post_video_editor_cross_platform_audio_codec_unavailable');
+          }
           recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
           recorder.onerror = event => failOnce(event?.error?.message || 'web_post_video_editor_recorder_failed');
           function stopRecorderOnce() {
@@ -830,11 +843,10 @@ private fun webPostVideoEditorExportEditedJs(
                 physicalBackgroundBlur: true,
               };
               const reference = globalThis.URL.createObjectURL(blob);
-              const extension = mimeType.includes('webm') ? 'webm' : 'mp4';
               globalThis.__quataPostVideoEditorBlobMetadata = globalThis.__quataPostVideoEditorBlobMetadata || new Map();
               globalThis.__quataPostVideoEditorBlobMetadata.set(reference, {
                 mimeType,
-                name: 'video.' + extension,
+                name: 'video.mp4',
                 size: blob.size
               });
               resolve(reference);
@@ -854,6 +866,7 @@ private fun webPostVideoEditorExportEditedJs(
           const durationMs = Math.max(500, endMs - startMs);
           const stopPaddingMs = 0;
           const minimumCaptureFrames = Math.max(1, Math.ceil((durationMs / 1000) * Math.min(captureTickRate, 24)));
+          const maximumCaptureWallMs = durationMs + 500;
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -1026,7 +1039,8 @@ private fun webPostVideoEditorExportEditedJs(
               drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
               const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs && drawnFrameCount >= minimumCaptureFrames;
-              if (reachedCaptureTail) {
+              const reachedCaptureDeadline = elapsedMs >= maximumCaptureWallMs;
+              if (reachedCaptureTail || reachedCaptureDeadline) {
                 elapsedAtStopMs = elapsedMs;
                 try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}
                 try { clearTimeout(timer); } catch (_) {}

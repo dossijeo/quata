@@ -79,4 +79,49 @@ class MediaPlaybackRecoveryInstrumentedTest {
             recoveredVideo.delete()
         }
     }
+
+    @Test
+    fun webH264OpusMp4ReachesAPlayableState() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val webExport = File(
+            instrumentation.targetContext.cacheDir,
+            "web-h264-opus-${System.nanoTime()}.mp4",
+        )
+
+        try {
+            instrumentation.context.assets.open("quata-web-h264-opus.mp4").use { input ->
+                webExport.outputStream().use(input::copyTo)
+            }
+            compose.setContent {
+                QuataTheme(mode = QuataThemeMode.Dark) {
+                    AttachmentViewerDialog(
+                        attachment = AttachmentPreview(
+                            name = "Web H.264 Opus fixture",
+                            uri = webExport.toURI().toString(),
+                            mimeType = "video/mp4",
+                        ),
+                        onDismiss = {},
+                    )
+                }
+            }
+
+            compose.waitUntil(20_000) {
+                runCatching {
+                    val state = compose.onNodeWithTag("fullscreen-media.video", useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                        .config
+                        .getOrNull(SemanticsProperties.StateDescription)
+                    state == "playing" || state == "paused"
+                }.getOrDefault(false)
+            }
+            check(
+                runCatching {
+                    compose.onNodeWithTag(QuataMediaPlaybackFailureTestTag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isFailure,
+            ) { "Web H.264/Opus fixture exposed a playback failure" }
+        } finally {
+            webExport.delete()
+        }
+    }
 }
