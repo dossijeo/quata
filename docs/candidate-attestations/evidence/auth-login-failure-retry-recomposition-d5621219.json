@@ -2,12 +2,12 @@
   "version": 1,
   "status": "passed",
   "git": {
-    "head": "aff2fdb87d4113a8382f9c7f945a05a060ce8ac0",
+    "head": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
     "workingTreeDirty": false
   },
   "unit": "SCR-AUTH-LOGIN",
-  "productSha": "aff2fdb87d4113a8382f9c7f945a05a060ce8ac0",
-  "predecessorSha": "e77e0f4585235ffe3f7f8023bdbb3b87215768e6",
+  "productSha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+  "predecessorSha": "712dfb7ed7cb1036978491a388818cbd324f9554",
   "historicalProductSha": "f56bd12efd344e219388d0ffe7957341b9b34f02",
   "historicalExecutionSha": "a8a06e43691bdc251377caa1bd68ba3d1d6830a5",
   "steps": [
@@ -36,6 +36,7 @@
   },
   "notes": [
     "The Login failure/retry Product commit replays with the exact stable patch ID over the reviewed FLOW-EMOJI root predecessor.",
-    "The two runtime files and rendered common test are byte-identical to the prior reviewed Product; affected gates were renewed without attributing new native UI or backend execution."
+    "The two runtime files and rendered common test are byte-identical to the prior reviewed Product; affected gates were renewed without attributing new native UI or backend execution.",
+    "Recomposed over the final independently reviewed FLOW-EMOJI root; no native UI or backend execution is reattributed."
   ]
 }

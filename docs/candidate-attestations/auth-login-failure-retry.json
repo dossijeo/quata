@@ -4,12 +4,12 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "aff2fdb87d4113a8382f9c7f945a05a060ce8ac0",
-  "certification": "rendered-common-login-failure-retry-complete-recomposed-gates-passed-independent-review-go-final-CI-pending",
+  "productSha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+  "certification": "rendered-common-login-failure-retry-complete-recomposed-gates-passed-independent-review-pending-final-CI-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "aff2fdb87d4113a8382f9c7f945a05a060ce8ac0",
+      "sha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
       "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-a8a06e43.json",
       "reportSha256": "bbac6065136d338b11324912b310233f622615b482d217231620a796672f47fa",
       "reportStatus": "passed",
@@ -32,11 +32,11 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "aff2fdb87d4113a8382f9c7f945a05a060ce8ac0",
-      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-aff2fdb8.json",
-      "reportSha256": "255102ab5aca2004dde721961bf489fbacd849383dbca9b131b389e620bc7864",
+      "sha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-d5621219.json",
+      "reportSha256": "b95821a56afe8dc86c8637da97d1538ce00801914ce72a0d4e53889e80ce0ee6",
       "reportStatus": "passed",
-      "reportGitHead": "aff2fdb87d4113a8382f9c7f945a05a060ce8ac0",
+      "reportGitHead": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -62,12 +62,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "fe674e09515806a38f3b3f3f19ec47df1f1bdbfd",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "fe674e09515806a38f3b3f3f19ec47df1f1bdbfd",
     "blockingFindings": [],
-    "resolvedFindings": [
-      "Exact Product patch-id and 3/3 owned blobs verified; synchronous reservation, duplicate suppression, credential preservation, one retry success, affected Gradle gates, validator, hashes and diff-check passed without reattributing native UI or backend execution."
-    ]
+    "resolvedFindings": []
   },
   "notes": [
     "The real common Login form exposes a stable auth.error semantic anchor and keeps both entered credentials after a failed phone/password submission.",
@@ -80,6 +79,7 @@
     "Independent review of 0d2625c61f6ef61811064a668d8ffee1cef838cb returned GO without P0-P3; validator, diff-check, JSON and secret scan passed with a clean tree.",
     "Independent exact-head review of e3bc23625965138adb1f14f223883881e914d3c4 returned GO without P0-P3 after confirming 16/16 patch equivalence, five byte-identical Product blobs, synchronous reservation, duplicate suppression, preserved credentials, single retry success, historical-only execution attribution, validator, hashes, diff-check and clean tree.",
     "Current Product aff2fdb87d4113a8382f9c7f945a05a060ce8ac0 replays the exact Login failure/retry patch over reviewed FLOW-EMOJI root e77e0f4585235ffe3f7f8023bdbb3b87215768e6; all three owned blobs remain byte-identical, affected Web/Android/iOS common gates pass, and no native UI or backend execution is reattributed.",
-    "Independent exact-head review of fe674e09515806a38f3b3f3f19ec47df1f1bdbfd returned GO without P0-P3: Product patch-id is exact, all three owned blobs are byte-identical, affected gates pass, and historical evidence remains bound to a8a06e43."
+    "Independent exact-head review of fe674e09515806a38f3b3f3f19ec47df1f1bdbfd returned GO without P0-P3: Product patch-id is exact, all three owned blobs are byte-identical, affected gates pass, and historical evidence remains bound to a8a06e43.",
+    "Current Product d562121955bff9f9f8826b1bfc71539e0a7b30ec replays the exact Login failure/retry patch over final independently reviewed FLOW-EMOJI root 712dfb7ed7cb1036978491a388818cbd324f9554; three owned blobs remain byte-identical and historical execution remains bound to a8a06e43."
   ]
 }
