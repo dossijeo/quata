@@ -4,16 +4,16 @@
     "CHAT-COMPOSER"
   ],
   "status": "passed",
-  "productSha": "f541a88460bd6d6794c6b00b5d4876f8cb0a7e6d",
-  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
+  "productSha": "3e91b0e62af5f37682c527c3dcc410e1365240fd",
+  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "f541a88460bd6d6794c6b00b5d4876f8cb0a7e6d",
-      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-f541a884.json",
-      "reportSha256": "b9d5b004f1815c7878fe0bf29e0fda50961cf72644e1f4bbdf4bd6a2a0b2c9e8",
+      "sha": "3e91b0e62af5f37682c527c3dcc410e1365240fd",
+      "report": "docs/candidate-attestations/evidence/chat-composer-root-composition-reconciliation-3e91b0e6.json",
+      "reportSha256": "4459bc1567526352be3435030984c7ee13a24c6cb07f5159e5a503176c85629a",
       "reportStatus": "passed",
-      "reportGitHead": "f541a88460bd6d6794c6b00b5d4876f8cb0a7e6d",
+      "reportGitHead": "3e91b0e62af5f37682c527c3dcc410e1365240fd",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "fe6d5db2465b3ad1a370f18c0e4478bcf7d706be",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
@@ -47,6 +47,6 @@
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
     "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
     "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox.",
-    "Independent exact-head review returned GO with no P0-P3 findings on fe6d5db2465b3ad1a370f18c0e4478bcf7d706be after reproducing 17/17 contracts, validator, report hash, diff-check and clean-tree check."
+    "Rebased onto the reviewed finite shell-route catalog without changing the CHAT-COMPOSER contract semantics; final independent exact-head review is pending."
   ]
 }
