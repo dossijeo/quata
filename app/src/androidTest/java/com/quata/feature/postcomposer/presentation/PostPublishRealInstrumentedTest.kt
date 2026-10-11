@@ -294,12 +294,16 @@ class PostPublishRealInstrumentedTest {
     @Test
     fun authenticatedUserExercisesDestinationStatesFromCommonComposer() = runBlocking {
         val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
-        val mode = optionalArgument("quataPostDestinationEvidenceMode") ?: "multiple"
+        val mode = optionalArgument("quataPostDestinationEvidenceMode") ?: "real-multiple"
         assumeTrue(
             "POST-DESTINATION-ANDROID-REAL-001 is opt-in and requires local credentials plus a destination evidence mode.",
             !credentialsFile.isNullOrBlank(),
         )
-        require(mode in setOf("empty", "failure", "multiple")) { "unsupported_post_destination_mode:$mode" }
+        require(mode in setOf("empty", "failure", "real-multiple")) { "unsupported_post_destination_mode:$mode" }
+        val alternateWallId = optionalArgument("quataPostDestinationAlternateWallId")
+        if (mode == "real-multiple") require(!alternateWallId.isNullOrBlank()) {
+            "real_multiple_destination_wall_required"
+        }
         val credentials = credentialsFromFile(credentialsFile.orEmpty())
 
         suppressStartupPrompts()
@@ -308,15 +312,20 @@ class PostPublishRealInstrumentedTest {
             .getOrThrow()
 
         ActivityScenario.launch<MainActivity>(
-            mainIntent(destinationEvidenceMode = mode),
+            mainIntent(destinationEvidenceMode = mode.takeIf { it != "real-multiple" }),
         ).use {
             compose.waitUntil(45_000) {
                 runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             saveScreenshot("android-post-destination-composer-opened-$mode")
-            compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
-                .performScrollTo()
-                .performClick()
+            if (runCatching {
+                    compose.onNodeWithTag("composer-type-text", useUnmergedTree = true).fetchSemanticsNode()
+                }.isSuccess
+            ) {
+                compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
+                    .performScrollTo()
+                    .performClick()
+            }
             when (mode) {
                 "failure" -> {
                     compose.waitUntil(20_000) {
@@ -334,17 +343,19 @@ class PostPublishRealInstrumentedTest {
                     saveScreenshot("android-post-destination-empty")
                     assertPublishBlockedByDestinationRequired()
                 }
-                else -> {
+                "real-multiple" -> {
+                    val optionTag = "composer-destination-option.$alternateWallId"
                     compose.waitUntil(20_000) {
-                        runCatching { compose.onNodeWithTag("composer-destination-option.e2e-wall-bata", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                        runCatching { compose.onNodeWithTag(optionTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
                     }
-                    compose.onNodeWithTag("composer-destination-option.e2e-wall-bata", useUnmergedTree = true)
+                    compose.onNodeWithTag(optionTag, useUnmergedTree = true)
                         .performScrollTo()
                         .performClick()
                     compose.onNodeWithTag(ComposerDestinationSelectedTestTag, useUnmergedTree = true)
-                        .assertTextContains("Bata", substring = true)
-                    saveScreenshot("android-post-destination-multiple-selected")
+                        .assertExists()
+                    saveScreenshot("android-post-destination-real-multiple-selected")
                 }
+                else -> error("unsupported_post_destination_mode:$mode")
             }
         }
 

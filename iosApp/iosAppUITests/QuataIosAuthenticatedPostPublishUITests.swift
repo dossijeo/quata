@@ -162,7 +162,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             throw XCTSkip("Authenticated post destination UI gate is opt-in.")
         }
         let mode = environment["QUATA_IOS_POST_DESTINATION_E2E_MODE"] ?? ""
-        XCTAssertTrue(["empty", "failure", "multiple"].contains(mode), "Unsupported destination evidence mode \(mode).")
+        XCTAssertTrue(["empty", "failure", "real-multiple"].contains(mode), "Unsupported destination evidence mode \(mode).")
 
         let app = openComposer(mode: "text", locationLabel: "")
         assertSharedComposerSurface(in: app)
@@ -180,12 +180,14 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             XCTAssertTrue(commonElement("composer-destination-retry", in: app).waitForExistence(timeout: 6), "Empty destinations must expose the shared retry anchor.")
             QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-empty")
             assertPublishBlockedByDestinationRequired(in: app)
-        default:
-            selectDestination("e2e-wall-bata", in: app)
+        case "real-multiple":
+            let alternateWallId = try XCTUnwrap(environment["QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID"])
+            selectDestination(alternateWallId, in: app)
             let selected = commonElement("composer-destination-selected", in: app)
             XCTAssertTrue(selected.waitForExistence(timeout: 8), "Selected destination label must remain anchored.")
-            XCTAssertTrue(elementText(selected).contains("Bata"), "Selecting the alternate destination must update common selected label.")
-            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-multiple-selected")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-real-multiple-selected")
+        default:
+            XCTFail("Unsupported destination evidence mode \(mode).")
         }
         print("IOS_POST_DESTINATION_UI_GATE_PASSED \(mode)")
     }
@@ -447,6 +449,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",
+            "QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value

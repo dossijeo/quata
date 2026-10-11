@@ -45,6 +45,7 @@ const androidDestinationRunner = readFileSync(new URL("./post-destination-androi
 const webDestinationRunner = readFileSync(new URL("./post-destination-web-evidence.mjs", import.meta.url), "utf8");
 const iosDestinationRunner = readFileSync(new URL("./post-destination-ios-evidence.mjs", import.meta.url), "utf8");
 const iosDestinationWrapper = readFileSync(new URL("./run-ios-post-destination-ui-test.sh", import.meta.url), "utf8");
+const realDestinationFixture = readFileSync(new URL("./post-destination-real-fixture.mjs", import.meta.url), "utf8");
 const androidImageEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/imageeditor/QuataImageEditorDialog.kt", import.meta.url), "utf8");
 const commonImageEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/ImageEditorModels.kt", import.meta.url), "utf8");
 const commonPostImageEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/PostImageEditorContent.kt", import.meta.url), "utf8");
@@ -183,12 +184,12 @@ test("common destination selector exposes stable anchors for all platform replay
   assert.match(commonCreatePostViewModel, /destinationRequired/);
 });
 
-test("post destination evidence uses common repository states and platform semantic anchors", () => {
+test("post destination evidence uses real multiple destinations plus deterministic fail-safe states", () => {
   assert.match(commonDestinationEvidenceRepository, /class DestinationEvidencePostComposerRepository/);
   assert.match(commonDestinationEvidenceRepository, /"empty" -> Result\.success\(emptyList\(\)\)/);
   assert.match(commonDestinationEvidenceRepository, /"failure" -> Result\.failure/);
-  assert.match(commonDestinationEvidenceRepository, /"multiple" -> Result\.success/);
-  assert.match(commonDestinationEvidenceRepository, /e2e-wall-bata/);
+  assert.doesNotMatch(commonDestinationEvidenceRepository, /"multiple"/);
+  assert.doesNotMatch(commonDestinationEvidenceRepository, /e2e-wall-/);
   assert.match(webPostComposerRoute, /quata-post-destination-e2e/);
   assert.match(webPostComposerRoute, /I_ACCEPT_WEB_POST_DESTINATION_FIXTURE/);
   assert.match(webPostComposerRoute, /DestinationEvidencePostComposerRepository/);
@@ -198,18 +199,34 @@ test("post destination evidence uses common repository states and platform seman
   assert.match(androidPostPublishTest, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
   assert.match(androidPostPublishTest, /ComposerDestinationErrorTestTag/);
   assert.match(androidPostPublishTest, /ComposerDestinationEmptyTestTag/);
-  assert.match(androidPostPublishTest, /e2e-wall-bata/);
+  assert.match(androidPostPublishTest, /quataPostDestinationAlternateWallId/);
+  assert.match(androidPostPublishTest, /real-multiple/);
   assert.match(iosApp, /QUATA_IOS_POST_DESTINATION_E2E_MODE/);
   assert.match(iosPostPublishTest, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
   assert.match(iosPostPublishTest, /composer-destination-error/);
   assert.match(iosPostPublishTest, /composer-destination-empty/);
-  assert.match(iosPostPublishTest, /e2e-wall-bata/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID/);
+  assert.match(iosPostPublishTest, /real-multiple/);
+  assert.match(realDestinationFixture, /community_members/);
+  assert.match(realDestinationFixture, /community_walls_stats/);
+  assert.match(realDestinationFixture, /eligible\.length < 2/);
+  assert.match(realDestinationFixture, /alternateWallId: eligible\[1\]\.id/);
   assert.match(webDestinationRunner, /POST-DESTINATION-WEB-REAL-001/);
+  assert.match(webDestinationRunner, /real-multiple/);
+  assert.match(webDestinationRunner, /selectRealAlternateDestination/);
   assert.match(webDestinationRunner, /composer-destination-error/);
   assert.match(webDestinationRunner, /composer-feedback-error/);
   assert.match(androidDestinationRunner, /POST-DESTINATION-ANDROID-REAL-001/);
   assert.match(androidDestinationRunner, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
+  assert.match(androidDestinationRunner, /selectRealAlternateDestination/);
   assert.match(iosDestinationRunner, /POST-DESTINATION-IOS-REAL-001/);
+  assert.match(iosDestinationRunner, /selectRealAlternateDestination/);
+  assert.match(iosDestinationRunner, /ios_public_runtime_xcconfig_prepared_transiently/);
+  assert.match(iosDestinationRunner, /ios-public-runtime-config-backup\.sh/);
+  assert.match(iosDestinationRunner, /ios-public-client-config\.py/);
+  assert.match(iosDestinationRunner, /runtimeConfigRestored/);
+  assert.match(iosDestinationRunner, /removeAndVerifyRemoteCredentials/);
+  assert.match(iosDestinationRunner, /temporaryCredentialsRemoved/);
   assert.match(iosDestinationWrapper, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
   assert.match(iosDestinationWrapper, /IOS_POST_DESTINATION_UI_GATE_PASSED/);
   for (const runner of [webDestinationRunner, androidDestinationRunner, iosDestinationRunner]) {

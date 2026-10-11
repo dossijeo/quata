@@ -6,12 +6,13 @@ set -euo pipefail
 : "${QUATA_IOS_DERIVED_DATA_PATH:?Build the signed simulator test bundle first and set QUATA_IOS_DERIVED_DATA_PATH.}"
 : "${QUATA_IOS_SIMULATOR_UDID:?Set QUATA_IOS_SIMULATOR_UDID.}"
 : "${QUATA_IOS_POST_DESTINATION_E2E_MODE:?Set QUATA_IOS_POST_DESTINATION_E2E_MODE.}"
+: "${QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID:?Set QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID.}"
 : "${QUATA_IOS_POST_DESTINATION_UI_LOG_DIR:=build/reports/ios/post-destination-ui}"
 : "${QUATA_IOS_POST_DESTINATION_UI_TIMEOUT_SECONDS:=240}"
 : "${QUATA_IOS_POST_DESTINATION_UI_RESULT_BUNDLE_DIR:=}"
 
 case "$QUATA_IOS_POST_DESTINATION_E2E_MODE" in
-  empty|failure|multiple) ;;
+  empty|failure|real-multiple) ;;
   *) echo "Unsupported QUATA_IOS_POST_DESTINATION_E2E_MODE=$QUATA_IOS_POST_DESTINATION_E2E_MODE" >&2; exit 2 ;;
 esac
 
@@ -83,6 +84,7 @@ def patch_target(target, hint=''):
     if 'QuataIosUITests' in name:
         env['QUATA_IOS_POST_DESTINATION_UI_E2E'] = '1'
         env['QUATA_IOS_POST_DESTINATION_E2E_MODE'] = os.environ['QUATA_IOS_POST_DESTINATION_E2E_MODE']
+        env['QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID'] = os.environ['QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID']
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):

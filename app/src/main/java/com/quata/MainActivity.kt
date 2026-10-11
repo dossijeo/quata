@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
             val postDestinationEvidenceMode = intent?.getStringExtra(EXTRA_POST_DESTINATION_EVIDENCE_MODE)
                 ?.lowercase()
-                ?.takeIf { BuildConfig.DEBUG && it in setOf("empty", "failure", "multiple") }
+                ?.takeIf { BuildConfig.DEBUG && it in setOf("empty", "failure") }
             val postProgressRollbackFailOnceForEvidence = BuildConfig.DEBUG &&
                 intent?.getBooleanExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE, false) == true
             val postStorageRollbackFailAfterUploadForEvidence = BuildConfig.DEBUG &&

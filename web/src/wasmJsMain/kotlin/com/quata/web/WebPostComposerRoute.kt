@@ -254,7 +254,7 @@ private fun webPostComposerDestinationEvidenceMode(): String? = js(
       if (!local || params.get('quata-post-destination-e2e') !== '1') return null;
       if (globalThis.localStorage?.getItem('quata_post_destination_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_DESTINATION_FIXTURE') return null;
       const mode = String(globalThis.localStorage?.getItem('quata_post_destination_e2e_mode') || '').toLowerCase();
-      return ['empty', 'failure', 'multiple'].includes(mode) ? mode : null;
+      return ['empty', 'failure'].includes(mode) ? mode : null;
     })()
     """,
 )

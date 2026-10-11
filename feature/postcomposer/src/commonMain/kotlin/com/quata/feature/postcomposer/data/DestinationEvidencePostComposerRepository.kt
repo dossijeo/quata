@@ -17,12 +17,6 @@ class DestinationEvidencePostComposerRepository(
         when (mode.lowercase()) {
             "empty" -> Result.success(emptyList())
             "failure" -> Result.failure(IllegalStateException("post_composer_e2e_destination_load_failed"))
-            "multiple" -> Result.success(
-                listOf(
-                    PostComposerDestination("e2e-wall-centro", "Centro", "Destino por defecto", isDefault = true),
-                    PostComposerDestination("e2e-wall-bata", "Bata", "Destino alternativo"),
-                ),
-            )
             else -> delegate.loadDestinations()
         }
 
