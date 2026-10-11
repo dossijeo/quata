@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "5395f680113fca56e3c4ca1278eed0e8b507707d",
-  "certification": "web-mp4-h264-active-producer-and-android-ios-playback-exact-fixture-independent-review-pending",
+  "certification": "web-mp4-h264-active-producer-and-android-ios-playback-exact-fixture-independent-review-go",
   "evidence": {
     "web": {
       "status": "passed",
@@ -82,8 +82,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "b69ec451da371d8e00cac71846a9cf49683c7113",
     "blockingFindings": []
   },
   "notes": [
