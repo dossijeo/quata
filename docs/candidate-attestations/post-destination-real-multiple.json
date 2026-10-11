@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
-  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-iOS-time-budget-repaired-review-pending-final-CI-pending",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-iOS-time-budget-repaired-independent-review-GO-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
@@ -127,13 +127,14 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
+    "status": "GO",
+    "reviewedSha": "567a562950d55c1540b9fa970469e85c6ac9a04d",
     "previousReviewedSha": "ff716698491d04dddb9494fa74ed7fa73c26ec3f",
     "blockingFindings": [],
     "resolvedFindings": [
-      "The previous independent review remains historical custody for the unchanged feature implementation.",
-      "The CI-only budget repair awaits independent exact-head review before the candidate is re-frozen."
+      "The workflow-only repair gives the serialized suite a 2400-second watchdog inside a 42-minute step and a 180-minute job.",
+      "XCTest 90/180-second limits, complete test selection, serialization, signing and runtime remain unchanged.",
+      "The previous feature review remains historical custody; the repaired head passes the iOS workflow contract 65/65, CI fast contracts 966/966, validator, hashes and diff-check."
     ],
     "reviewedProductSha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080"
   },
@@ -155,6 +156,7 @@
     "Independent exact-head review of 7525de4b478e37e34ff3a774d326e7b50e1a5e12 returned GO with no P0-P3 after confirming 28/28 patch equivalence, historical platform attribution, report custody, affected gates, a clean tree and the focal secret/path scan.",
     "After #617 merged as 8ddc4dbd5781d77866364c8c0cd76f12945a1ffd with a tree identical to candidate 710518537865e33277f9166c09c7d5d20ea49e49, Product e498f465c809fd302f6c7c382233901e224f55e0 and the full 31-commit branch were replayed exactly over the squash. The previous GO reviews remain historical provenance; the post-squash recomposition was then reviewed independently at ff716698491d04dddb9494fa74ed7fa73c26ec3f.",
     "Independent exact-head review of ff716698491d04dddb9494fa74ed7fa73c26ec3f returned GO with no P0-P3 after confirming candidate/squash tree identity, 31/31 branch replay, 13/13 Product equivalence, historical platform attribution, report custody and all affected gates.",
-    "GitHub run 38150470325 reached the serialized iOS host suite on the exact candidate and exhausted its 1200-second global watchdog with exit 124 while XCTest was still advancing. Product f5a3c00e2477bac42da12ee5f19d2bb285ac3080 changes only the iOS job/step/watchdog budgets and the fail-closed workflow contract; per-test limits, full test selection, signing and runtime remain unchanged."
+    "GitHub run 38150470325 reached the serialized iOS host suite on the exact candidate and exhausted its 1200-second global watchdog with exit 124 while XCTest was still advancing. Product f5a3c00e2477bac42da12ee5f19d2bb285ac3080 changes only the iOS job/step/watchdog budgets and the fail-closed workflow contract; per-test limits, full test selection, signing and runtime remain unchanged.",
+    "Independent exact-head review of 567a562950d55c1540b9fa970469e85c6ac9a04d returned GO with no P0-P3. It confirmed the budget nesting, unchanged per-test limits and full selection, intact signing/runtime, coherent hashes and precise historical evidence attribution; definitive sufficiency remains assigned to the exact-head GitHub iOS final job."
   ]
 }
