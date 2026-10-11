@@ -108,7 +108,7 @@ class IosChatAttachmentUploader(
         val name = file.displayName.safeFileName()
         val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
         val mimeType = file.mimeType?.trim()?.takeIf(String::isNotEmpty) ?: extension.defaultMimeType()
-        val storagePath = "$cleanProfileId/${NSUUID.UUID().UUIDString.lowercase()}/$name"
+        val storagePath = "$cleanProfileId/chat/${NSUUID.UUID().UUIDString.lowercase()}/$name"
         val request = authenticatedUploadRequest(
             "${configuration.storageBaseUrl()}/object/$ChatAttachmentsBucket/${storagePath.iosPathComponent()}",
             data,
@@ -122,6 +122,7 @@ class IosChatAttachmentUploader(
             sizeBytes = data.length.toLong(),
             name = name,
             extension = extension,
+            storageBucket = ChatAttachmentsBucket,
         )
     }
 
@@ -345,7 +346,7 @@ private fun String.iosPathComponent(): String = split('/').joinToString("/") { s
     }
 }
 
-private const val ChatAttachmentsBucket = "chat-attachments"
+private const val ChatAttachmentsBucket = ChatAttachmentPublicUrlPolicy.PrivateBucket
 internal object IosChatNetworkTimeouts {
     const val RpcRequestMillis = 15_000L
     // Uploads can contain camera video/audio and must not inherit the short inbox RPC budget.

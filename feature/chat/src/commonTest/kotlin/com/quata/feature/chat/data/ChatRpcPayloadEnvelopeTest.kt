@@ -3,11 +3,66 @@ package com.quata.feature.chat.data
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class ChatRpcPayloadEnvelopeTest {
+    @Test
+    fun resolvesPrivateAttachmentFromStableStorageIdentity() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments/author/id/file.pdf","storage_bucket":"chat-attachments","storage_path":"author/id/file.pdf","name":"file.pdf","mime_type":"application/pdf"}]}]}""",
+        )
+        val signed = "https://project.supabase.co/storage/v1/object/sign/chat-attachments/author/id/file.pdf?token=header.payload.signature"
+        val observed = mutableListOf<ChatAttachmentStorageObject>()
+
+        val message = parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+            currentProfileId = "reader",
+            signer = ChatAttachmentUrlSigner { storageObject ->
+                observed += storageObject
+                signed
+            },
+        ).single()
+
+        assertEquals(listOf(ChatAttachmentStorageObject("chat-attachments", "author/id/file.pdf")), observed)
+        assertEquals(signed, message.attachmentUri)
+    }
+
+    @Test
+    fun privateAttachmentMappingFailsClosedWithoutStorageIdentity() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments/author/id/file.pdf"}]}]}""",
+        )
+
+        assertFailsWith<IllegalStateException> {
+            parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages("reader", ChatAttachmentUrlSigner { "unused" })
+        }
+    }
+
+    @Test
+    fun deletedMessageDoesNotSignOrExposeItsAttachmentAndDoesNotBlockValidMessages() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","is_deleted":true,"attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments-private/author/chat/deleted/file.pdf","storage_bucket":"chat-attachments-private","storage_path":"author/chat/deleted/file.pdf","name":"deleted.pdf","mime_type":"application/pdf"}]},{"id":11,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments-private/author/chat/valid/file.pdf","storage_bucket":"chat-attachments-private","storage_path":"author/chat/valid/file.pdf","name":"valid.pdf","mime_type":"application/pdf"}]}]}""",
+        )
+        val signed = mutableListOf<ChatAttachmentStorageObject>()
+
+        val messages = parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+            currentProfileId = "reader",
+            signer = ChatAttachmentUrlSigner { objectRef ->
+                signed += objectRef
+                "https://project.supabase.co/storage/v1/object/sign/${objectRef.bucket}/${objectRef.path}?token=signed"
+            },
+        )
+
+        assertEquals(listOf(ChatAttachmentStorageObject("chat-attachments-private", "author/chat/valid/file.pdf")), signed)
+        assertTrue(messages.first().isDeleted)
+        assertEquals(null, messages.first().attachmentUri)
+        assertEquals(null, messages.first().attachmentName)
+        assertTrue(messages.last().attachmentUri?.contains("/object/sign/") == true)
+    }
+
     @Test
     fun mergesRootAndUpdateVariantsWithoutDuplicatingRecords() {
         val payload = Json.parseToJsonElement(

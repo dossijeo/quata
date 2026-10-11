@@ -10,6 +10,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import com.quata.feature.chat.data.ChatAttachmentPublicUrlPolicy
 
 /**
  * Browser-only Storage adapter. The shared Chat feature only deals with [PlatformFile] references;
@@ -40,14 +41,14 @@ class WebChatAttachmentUploader(
         val mimeType = file.mimeType?.takeIf { it.isNotBlank() } ?: "application/octet-stream"
         val result = browserUploadChatAttachment(
             sourceReference = file.reference,
-            uploadUrl = "$baseUrl/storage/v1/object/chat-attachments/${path.encodeStoragePath()}",
+            uploadUrl = "$baseUrl/storage/v1/object/${ChatAttachmentPublicUrlPolicy.PrivateBucket}/${path.encodeStoragePath()}",
             apiKey = apiKey,
             accessToken = credentials.accessToken,
             mimeType = mimeType,
         )
         return UploadedWebChatAttachment(
             storagePath = path,
-            publicUrl = "$baseUrl/storage/v1/object/public/chat-attachments/${path.encodeStoragePath()}",
+            publicUrl = "$baseUrl/storage/v1/object/public/${ChatAttachmentPublicUrlPolicy.PrivateBucket}/${path.encodeStoragePath()}",
             mimeType = result.mimeType ?: mimeType,
             sizeBytes = result.sizeBytes ?: file.sizeBytes,
             name = name,
@@ -67,7 +68,7 @@ class WebChatAttachmentUploader(
             .takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("web_chat_attachment_delete_path_missing")
         return browserDeleteChatAttachment(
-            deleteUrl = "$baseUrl/storage/v1/object/chat-attachments",
+            deleteUrl = "$baseUrl/storage/v1/object/${ChatAttachmentPublicUrlPolicy.PrivateBucket}",
             apiKey = apiKey,
             accessToken = credentials.accessToken,
             storagePath = cleanPath,

@@ -164,6 +164,12 @@ const approvedReleases = [
       ["20261010101500", "4e423db5fc68fe5e42411824a49242efdd0ae2e875c56a2b225bc4ebb0f0991e"],
     ]),
   },
+  {
+    dependencyMode: "none",
+    migrations: new Map([
+      ["20261011110000", "a6decab131ab558dfa4f4607cbb3e27d87df3592e4c0f445c00001cf476967d0"],
+    ]),
+  },
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -1340,6 +1346,46 @@ async function assertProductPostconditions(client, selectedVersions, installedVe
     `)).rows[0] ?? {};
     if (Object.values(identity).some((value) => value !== true)) {
       throw new Error("selective_release_profile_phone_country_identity_postcondition_failed");
+    }
+  }
+  if (selectedVersions.includes("20261011110000")) {
+    const confidentiality = (await client.query(`
+      select
+        (select public is false from storage.buckets where id='chat-attachments-private') as private_bucket_closed,
+        (select public is true from storage.buckets where id='chat-attachments') as v32_legacy_bucket_preserved,
+        to_regprocedure('public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)') is not null as v2_exists,
+        not has_function_privilege('anon', 'public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)', 'execute') as anon_v2_denied,
+        has_function_privilege('authenticated', 'public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)', 'execute') as authenticated_v2_allowed,
+        to_regprocedure('public.quata_chat_private_object_is_linked(text,text)') is not null
+          and not has_function_privilege('anon', 'public.quata_chat_private_object_is_linked(text,text)', 'execute')
+          and has_function_privilege('authenticated', 'public.quata_chat_private_object_is_linked(text,text)', 'execute')
+          and pg_get_functiondef('public.quata_chat_private_object_is_linked(text,text)'::regprocedure) ~ 'SECURITY DEFINER'
+          as global_link_guard,
+        not has_function_privilege('anon', 'public.quata_chat_attachment_json(bigint)', 'execute')
+          and not has_function_privilege('authenticated', 'public.quata_chat_attachment_json(bigint)', 'execute')
+          and not has_function_privilege('anon', 'public.quata_chat_message_json(bigint,uuid)', 'execute')
+          and not has_function_privilege('authenticated', 'public.quata_chat_message_json(bigint,uuid)', 'execute')
+          and not has_function_privilege('anon', 'public.quata_chat_thread_json(bigint,uuid)', 'execute')
+          and not has_function_privilege('authenticated', 'public.quata_chat_thread_json(bigint,uuid)', 'execute') as serializers_private,
+        (select count(*)=4 from pg_policies
+          where schemaname='storage' and tablename='objects'
+            and policyname in (
+              'chat_attachments_private_insert_own',
+              'chat_attachments_private_update_own',
+              'chat_attachments_private_delete_own',
+              'chat_attachments_private_select_visible'
+            )) as policies_exact,
+        pg_get_functiondef('public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)'::regprocedure)
+          ~ 'chat-attachments-private' as v2_private_bucket_guard,
+        pg_get_functiondef('public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)'::regprocedure)
+          ~ 'conversation_user_state' as v2_visibility_guard,
+        pg_get_functiondef('public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)'::regprocedure)
+          ~ 'storage[.]objects' as v2_object_guard,
+        pg_get_functiondef('public.quata_chat_register_attachment_v2(uuid,bigint,text,text,text,text,text,bigint,text,jsonb)'::regprocedure)
+          ~ 'owner_id = auth[.]uid[(][)][ ]*::text' as v2_owner_guard
+    `)).rows[0] ?? {};
+    if (Object.values(confidentiality).some((value) => value !== true)) {
+      throw new Error("selective_release_chat_attachments_private_v2_postcondition_failed");
     }
   }
 }

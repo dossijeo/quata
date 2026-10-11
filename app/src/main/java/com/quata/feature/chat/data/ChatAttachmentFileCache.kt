@@ -34,7 +34,7 @@ internal class ChatAttachmentFileCache(
         .readTimeout(45, TimeUnit.SECONDS)
         .build(),
     private val canonicalUrlResolver: (String) -> String? = { remoteUrl ->
-        ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(
+        ChatAttachmentPublicUrlPolicy.authenticatedUrlOrNull(
             supabaseUrl = supabaseUrl,
             publicUrl = remoteUrl,
         )

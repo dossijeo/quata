@@ -970,7 +970,7 @@ async function verifyAttachmentPickerWeb(page, source, outcome, config, state, r
   let registerFailureInjected = false;
   try {
     if (outcome === "register-failure") {
-      await page.route("**/rest/v1/rpc/quata_chat_register_attachment", async (route) => {
+      await page.route("**/rest/v1/rpc/quata_chat_register_attachment_v2", async (route) => {
         registerFailureInjected = true;
         await route.fulfill({
           status: 500,

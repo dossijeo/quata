@@ -527,7 +527,7 @@ data class QuataChatRegisterAttachmentRequest(
     val p_actor_profile_id: String,
     val p_thread_id: Long,
     val p_file_url: String,
-    val p_storage_bucket: String = "chat-attachments",
+    val p_storage_bucket: String = "chat-attachments-private",
     val p_storage_path: String? = null,
     val p_mime_type: String = "application/octet-stream",
     val p_name: String? = null,

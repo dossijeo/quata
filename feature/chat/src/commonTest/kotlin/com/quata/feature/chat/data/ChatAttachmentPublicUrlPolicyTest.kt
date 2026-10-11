@@ -11,6 +11,20 @@ class ChatAttachmentPublicUrlPolicyTest {
     @Test
     fun acceptsOnlyCanonicalPublicChatBucketObjectUrls() {
         assertEquals(attachment, ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(supabaseUrl, attachment))
+        assertEquals(
+            "https://project-ref.supabase.co/storage/v1/object/authenticated/chat-attachments/user-7/message-4/photo.png",
+            ChatAttachmentPublicUrlPolicy.authenticatedUrlOrNull(supabaseUrl, attachment),
+        )
+    }
+
+    @Test
+    fun acceptsPrivateV2BucketPointerAndBuildsAuthenticatedUrl() {
+        val privatePointer = attachment.replace("chat-attachments", "chat-attachments-private")
+        assertEquals(privatePointer, ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(supabaseUrl, privatePointer))
+        assertEquals(
+            privatePointer.replace("/object/public/", "/object/authenticated/"),
+            ChatAttachmentPublicUrlPolicy.authenticatedUrlOrNull(supabaseUrl, privatePointer),
+        )
     }
 
     @Test
@@ -29,5 +43,6 @@ class ChatAttachmentPublicUrlPolicyTest {
         assertNull(ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(supabaseUrl, attachment.replace("photo.png", "photo name.png")))
         assertNull(ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(supabaseUrl, attachment.replace("chat-attachments", "avatars")))
         assertNull(ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull("http://project-ref.supabase.co", attachment))
+        assertNull(ChatAttachmentPublicUrlPolicy.authenticatedUrlOrNull(supabaseUrl, "$attachment?token=attacker"))
     }
 }

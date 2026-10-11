@@ -3,6 +3,7 @@ package com.quata.data.supabase
 import com.quata.core.config.AppConfig
 import com.quata.core.data.loadCompleteKeyset
 import com.quata.core.model.AuthSession
+import com.quata.feature.chat.data.ChatAttachmentStorageAccessPolicy
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -21,6 +22,21 @@ class SupabaseCommunityApi(
         client.ensureFreshSession(force)
 
     suspend fun logout(bearerToken: String, global: Boolean = false) = client.logout(bearerToken, global)
+
+    suspend fun signChatAttachment(storageBucket: String?, storagePath: String?): String {
+        val storageObject = ChatAttachmentStorageAccessPolicy.storageObjectOrNull(storageBucket, storagePath)
+            ?: error("android_profile_attachment_storage_identity_missing")
+        val signed = client.createSignedObjectUrl(
+            path = storageObject.path,
+            bucket = storageObject.bucket,
+            expiresInSeconds = ChatAttachmentStorageAccessPolicy.SignedUrlLifetimeSeconds,
+        )
+        return ChatAttachmentStorageAccessPolicy.signedUrlOrNull(
+            supabaseUrl = AppConfig.SUPABASE_URL,
+            storageObject = storageObject,
+            candidateUrl = signed,
+        ) ?: error("android_profile_attachment_signed_url_invalid")
+    }
 
     suspend fun getActiveWallsStats(limit: Int = 250): List<CommunityWallStats> = client.getList(
         "community_walls_stats",
@@ -1116,7 +1132,7 @@ class SupabaseCommunityApi(
         sizeBytes: Long? = null,
         extension: String? = null
     ): JsonElement = client.rpc<QuataChatRegisterAttachmentRequest, JsonElement>(
-        "quata_chat_register_attachment",
+        "quata_chat_register_attachment_v2",
         QuataChatRegisterAttachmentRequest(
             p_actor_profile_id = profileId,
             p_thread_id = threadId,
@@ -1317,11 +1333,11 @@ class SupabaseCommunityApi(
             ?.takeIf { it.isNotBlank() }
             ?: "file"
         val path = "$profileId/chat/${System.currentTimeMillis()}-${randomToken()}-$safeName.$cleanExtension"
-        return client.uploadObject(path, bytes, mimeType, upsert = true, bucket = "chat-attachments")
+        return client.uploadObject(path, bytes, mimeType, upsert = true, bucket = "chat-attachments-private")
     }
 
     suspend fun deleteChatAttachmentObject(storagePath: String) {
-        client.deleteObject(storagePath, bucket = "chat-attachments")
+        client.deleteObject(storagePath, bucket = "chat-attachments-private")
     }
 
     private fun digitsOnly(value: String): String = value.filter(Char::isDigit)

@@ -60,5 +60,7 @@ data class ProfileAttachment(
     val uri: String,
     val mimeType: String?,
     val sentAtMillis: Long?,
-    val senderName: String
+    val senderName: String,
+    val storageBucket: String? = null,
+    val storagePath: String? = null,
 )

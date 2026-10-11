@@ -84,6 +84,7 @@ data class UploadedChatAttachment(
     val sizeBytes: Long?,
     val name: String,
     val extension: String,
+    val storageBucket: String = ChatAttachmentPublicUrlPolicy.PrivateBucket,
 )
 
 /**
@@ -105,6 +106,7 @@ open class PostgrestChatRepository(
     private val outboxFiles: FileCacheService = MemoryChatFileCacheService(),
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     private val outgoingExecutionLock: ChatOutgoingExecutionLock = LocalChatOutgoingExecutionLock,
+    private val attachmentUrlSigner: ChatAttachmentUrlSigner? = null,
 ) : ChatRepository {
     private val conversations = MutableStateFlow<List<Conversation>>(emptyList())
     private val messagesByConversation = mutableMapOf<String, MutableStateFlow<List<Message>>>()
@@ -375,7 +377,7 @@ open class PostgrestChatRepository(
             )
         }
         val envelope = parseChatRpcPayloadEnvelope(rawRoot)
-        mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId))
+        mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toRepositoryMessages(userId))
         val threadId = rawRoot["thread_id"]?.jsonPrimitive?.longOrNull
             ?: rawRoot["thread"]?.jsonObject?.get("thread_id")?.jsonPrimitive?.longOrNull
             ?: envelope.toChatRpcConversations(userId).firstOrNull()?.id?.threadIdForRefresh()
@@ -566,7 +568,7 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_get_inbox_page", inboxPageRequest(userId, cursor, limit))
         updateCurrentUserFrom(envelope, userId)
         val mapped = envelope.toChatRpcConversations(userId)
-        val incoming = envelope.toChatRpcMessages(userId)
+        val incoming = envelope.toRepositoryMessages(userId)
         mergeMessages(incoming)
         markRequestCompleted()
         acknowledgeDelivery(userId, incoming, "inbox_refresh")
@@ -606,7 +608,7 @@ open class PostgrestChatRepository(
     private suspend fun openThread(functionName: String, body: (String) -> String): Result<String> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
         val envelope = rpc(functionName, body(userId)); val mapped = envelope.toChatRpcConversations(userId)
-        mergeConversations(mapped); mergeMessages(envelope.toChatRpcMessages(userId)); markRequestCompleted()
+        mergeConversations(mapped); mergeMessages(envelope.toRepositoryMessages(userId)); markRequestCompleted()
         mapped.firstOrNull()?.id ?: throw IllegalStateException("web_chat_thread_response_missing")
     }.onFailure { updateReadFailure() }
     private suspend fun sendTextMessage(
@@ -766,7 +768,7 @@ open class PostgrestChatRepository(
         persistClaimed(delivered, leaseToken)
         active = delivered
         mergeConversations(envelope.toChatRpcConversations(actorId))
-        mergeMessages(envelope.toChatRpcMessages(actorId))
+        mergeMessages(envelope.toRepositoryMessages(actorId))
         cleanupDeliveredOutgoing(delivered, leaseToken).getOrThrow()
         markRequestCompleted()
     }.onFailure { error ->
@@ -848,15 +850,18 @@ open class PostgrestChatRepository(
         markRequestCompleted()
     }.onFailure { updateReadFailure() }
     private fun allMessages(): List<Message> = messagesByConversation.values.flatMap { it.value }
+    private suspend fun ChatRpcPayloadEnvelope.toRepositoryMessages(actorId: String): List<Message> =
+        attachmentUrlSigner?.let { signer -> toSignedChatRpcMessages(actorId, signer) }
+            ?: toChatRpcMessages(actorId)
     private suspend fun uploadAndRegisterAttachment(profileId: String, threadId: Long, file: PlatformFile): Long {
         val uploaded = attachmentUploader.upload(profileId, file)
         val body = buildJsonObject {
-            put("p_actor_profile_id", profileId); put("p_thread_id", threadId); put("p_file_url", uploaded.publicUrl); put("p_storage_bucket", ChatAttachmentsBucket)
+            put("p_actor_profile_id", profileId); put("p_thread_id", threadId); put("p_file_url", uploaded.publicUrl); put("p_storage_bucket", uploaded.storageBucket)
             put("p_storage_path", uploaded.storagePath); put("p_mime_type", uploaded.mimeType); put("p_name", uploaded.name); uploaded.sizeBytes?.let { put("p_size_bytes", it) } ?: put("p_size_bytes", JsonNull)
             put("p_ext", uploaded.extension); put("p_thumb", JsonNull)
         }.toString()
         return try {
-            Json.parseToJsonElement(transport.post("quata_chat_register_attachment", body).successOrThrow()).jsonObject["id"]?.jsonPrimitive?.longOrNull?.takeIf { it > 0L }
+            Json.parseToJsonElement(transport.post("quata_chat_register_attachment_v2", body).successOrThrow()).jsonObject["id"]?.jsonPrimitive?.longOrNull?.takeIf { it > 0L }
                 ?: throw IllegalStateException("web_chat_attachment_registration_missing_id")
         } catch (error: Throwable) {
             val cleaned = runCatching { attachmentUploader.deleteUploadedAttachment(uploaded) }
@@ -873,7 +878,7 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_get_thread", threadRequest(userId, threadId, limit, knownIds))
         updateCurrentUserFrom(envelope, userId)
         mergeConversations(envelope.toChatRpcConversations(userId))
-        val incoming = envelope.toChatRpcMessages(userId)
+        val incoming = envelope.toRepositoryMessages(userId)
         mergeMessages(incoming); markRequestCompleted()
         acknowledgeDelivery(userId, incoming, "thread_refresh")
         messagesState(conversationId).value
@@ -915,7 +920,7 @@ open class PostgrestChatRepository(
         val envelope = rpc("quata_chat_get_favorites_page", favoritesPageRequest(actorId, cursor, limit))
         authenticatedActorId(expectedActorId = actorId)
         updateCurrentUserFrom(envelope, actorId)
-        val messages = envelope.toChatRpcMessages(actorId)
+        val messages = envelope.toRepositoryMessages(actorId)
             .filter { it.isFavorite && !it.isDeleted }
         if (envelope.favoritesHasMore && envelope.favoritesNextCursor == null) {
             error("chat_favorites_cursor_missing")
@@ -1088,7 +1093,7 @@ open class PostgrestChatRepository(
         const val CandidatePageSize = 100
         const val DefaultPollIntervalMillis = 30_000L
         const val MinimumPollIntervalMillis = 5_000L
-        const val ChatAttachmentsBucket = "chat-attachments"
+        const val ChatAttachmentsBucket = ChatAttachmentPublicUrlPolicy.PrivateBucket
         const val MaxOutboxAttempts = 5
         const val OutboxLeaseMillis = 5 * 60_000L
     }

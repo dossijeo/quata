@@ -120,6 +120,27 @@ fun ChatRpcPayloadEnvelope.toChatRpcMessages(currentProfileId: String): List<Mes
     return messages.map { it.toChatRpcMessage(currentProfileId, profilesById) }
 }
 
+/** Resolves private Storage objects before exposing attachment URLs to platform UI. */
+suspend fun ChatRpcPayloadEnvelope.toSignedChatRpcMessages(
+    currentProfileId: String,
+    signer: ChatAttachmentUrlSigner,
+): List<Message> {
+    val profilesById = profileRecords().associateBy { it.id }
+    return messages.map { message ->
+        val attachment = message.takeUnless { it.booleanAt("is_deleted") == true }
+            ?.arrayAt("attachments")
+            ?.firstOrNull() as? JsonObject
+        val signedUrl = attachment?.let { value ->
+            val storageObject = ChatAttachmentStorageAccessPolicy.storageObjectOrNull(
+                bucket = value.stringAt("storage_bucket"),
+                path = value.stringAt("storage_path"),
+            ) ?: error("chat_attachment_storage_identity_missing")
+            signer.sign(storageObject)
+        }
+        message.toChatRpcMessage(currentProfileId, profilesById, signedUrl)
+    }
+}
+
 private fun JsonObject.toChatRpcConversation(
     currentProfileId: String,
     profiles: Map<String, ChatRpcProfile>,
@@ -166,12 +187,14 @@ private fun JsonObject.toChatRpcConversation(
 private fun JsonObject.toChatRpcMessage(
     currentProfileId: String,
     profiles: Map<String, ChatRpcProfile>,
+    resolvedAttachmentUrl: String? = null,
 ): Message {
     val messageId = longAt("id") ?: 0L
     val threadId = longAt("thread_id") ?: 0L
     val senderId = stringAt("sender_profile_id").orEmpty()
     val sender = objectAt("sender")?.toChatRpcProfile() ?: profiles[senderId]
-    val attachment = arrayAt("attachments").firstOrNull() as? JsonObject
+    val isDeleted = booleanAt("is_deleted") == true
+    val attachment = takeUnless { isDeleted }?.arrayAt("attachments")?.firstOrNull() as? JsonObject
     val deliveryState = when (stringAt("delivery_state")?.uppercase()) {
         "READ" -> MessageDeliveryState.Read
         "DELIVERED" -> MessageDeliveryState.Delivered
@@ -188,14 +211,14 @@ private fun JsonObject.toChatRpcMessage(
         isMine = senderId == currentProfileId,
         isRead = true,
         isEdited = booleanAt("is_edited") == true,
-        isDeleted = booleanAt("is_deleted") == true,
+        isDeleted = isDeleted,
         isFavorite = booleanAt("favorited") == true,
         replyToMessageId = longAt("reply_to_message_id")?.toString(),
         replyToSenderName = stringAt("reply_to_sender_name")
             ?: objectAt("reply_to_sender")?.let { it.stringAt("display_name") ?: it.stringAt("name") ?: it.stringAt("phone_local") },
         replyToText = stringAt("reply_to_body"),
         forwardedFromSenderId = stringAt("forwarded_from_profile_id"),
-        attachmentUri = attachment?.stringAt("url"),
+        attachmentUri = resolvedAttachmentUrl ?: attachment?.stringAt("url"),
         attachmentName = attachment?.stringAt("name"),
         attachmentMimeType = attachment?.stringAt("mime_type"),
         clientMessageId = stringAt("client_message_id"),

@@ -66,7 +66,10 @@ class IosChatAttachmentDownloader(
         publicUrl: String,
         displayName: String? = null,
     ): PlatformResult<PlatformFile> {
-        val canonicalUrl = ChatAttachmentPublicUrlPolicy.canonicalUrlOrNull(
+        // The RPC still carries the stable legacy public-object pointer. Convert it to the
+        // authenticated endpoint in memory; never persist a signed token or send credentials
+        // to a host selected by payload data.
+        val canonicalUrl = ChatAttachmentPublicUrlPolicy.authenticatedUrlOrNull(
             supabaseUrl = configuration.supabaseUrl,
             publicUrl = publicUrl,
         ) ?: return PlatformResult.Failure("ios_chat_attachment_url_invalid")

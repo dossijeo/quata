@@ -71,6 +71,8 @@ import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.whatsnew.presentation.StartupPresentationPolicy
 import com.quata.feature.auth.presentation.AuthProductDestination
 import com.quata.feature.chat.presentation.chat.DocumentRetryEvidenceConversationId
+import com.quata.feature.chat.data.ChatAttachmentStorageAccessPolicy
+import com.quata.feature.chat.data.ChatAttachmentUrlSigner
 import com.quata.feature.profile.domain.SosActorProvider
 import com.quata.feature.profile.domain.SosDispatchCoordinator
 import com.quata.feature.profile.domain.SosDispatchOutcome
@@ -187,6 +189,10 @@ private fun QuataWebApp(
     val authRepository = remember(runtimeConfiguration, platformServices.preferences) {
         WebAuthRepository(runtimeConfiguration, platformServices.preferences)
     }
+    val profileAttachmentUrlSigner = remember(runtimeConfiguration, authRepository) {
+        WebChatAttachmentUrlSigner(runtimeConfiguration, authRepository)
+    }
+    val webNeighborhoodsSlots = rememberWebNeighborhoodsSlots(profileAttachmentUrlSigner)
     val sessionCoordinator = remember(runtimeConfiguration, authRepository) {
         WebPushSessionCoordinator(
             configuration = runtimeConfiguration,
@@ -1690,7 +1696,12 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
     profile = communityProfileStringsForLanguage("es"),
 )
 
-private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
+@Composable
+private fun rememberWebNeighborhoodsSlots(
+    attachmentUrlSigner: ChatAttachmentUrlSigner,
+): WebNeighborhoodsSlots {
+    val scope = rememberCoroutineScope()
+    return remember(attachmentUrlSigner, scope) { WebNeighborhoodsSlots(
     avatar = { user, isLoading, onClick ->
         QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = Modifier.size(44.dp)) {
             BrowserRemoteAvatar(
@@ -1718,16 +1729,37 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
                 )
             }
         },
-        attachment = { attachment, open ->
+        attachment = { attachment, _ ->
+            val storageObject = remember(attachment.storageBucket, attachment.storagePath) {
+                ChatAttachmentStorageAccessPolicy.storageObjectOrNull(
+                    attachment.storageBucket,
+                    attachment.storagePath,
+                )
+            }
+            var signedUrl by remember(storageObject) { mutableStateOf<String?>(null) }
+            LaunchedEffect(storageObject, attachmentUrlSigner) {
+                val stableObject = storageObject ?: return@LaunchedEffect
+                while (true) {
+                    signedUrl = try {
+                        attachmentUrlSigner.sign(stableObject)
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Throwable) {
+                        null
+                    }
+                    delay(240_000L)
+                }
+            }
+            val openSigned = { signedUrl?.let(::openWebCommunityResource) ?: Unit }
             ProfileAttachmentRowContent(
                 attachment = attachment,
                 audioPlayer = {
-                    androidx.compose.material3.Button(onClick = open) {
+                    androidx.compose.material3.Button(onClick = openSigned, enabled = signedUrl != null) {
                         androidx.compose.material3.Text(attachment.name)
                     }
                 },
                 thumbnail = { androidx.compose.material3.Text("↗") },
-                onOpen = open,
+                onOpen = openSigned,
             )
         },
         postMedia = { post, loaded, _ ->
@@ -1754,12 +1786,27 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
             )
         },
         nativeMediaCloseReplacesCommon = true,
-        openAttachment = { attachment -> openWebCommunityResource(attachment.uri) },
+        openAttachment = openAttachment@{ attachment ->
+            val storageObject = ChatAttachmentStorageAccessPolicy.storageObjectOrNull(
+                attachment.storageBucket,
+                attachment.storagePath,
+            )
+            if (storageObject == null && attachment.id.startsWith("avatar-") && attachment.uri.isNotBlank()) {
+                openWebCommunityResource(attachment.uri)
+                return@openAttachment
+            }
+            storageObject ?: return@openAttachment
+            scope.launch {
+                runCatching { attachmentUrlSigner.sign(storageObject) }
+                    .onSuccess(::openWebCommunityResource)
+            }
+        },
         sharePost = { post -> openWebCommunityResource(quataPostUrl(post.id)) },
         commentsTranslationGateway = webCommunityProfileCommentsTranslationGateway,
         commentsTranslatorStrings = quataTranslatorStringsForLanguage("es"),
     ),
-)
+) }
+}
 
 private fun openWebCommunityResource(url: String): Unit =
     js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
