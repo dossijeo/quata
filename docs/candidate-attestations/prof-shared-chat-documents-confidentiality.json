@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
-  "certification": "private-v2-storage-and-unavailable-object-isolation-complete-recomposed-current-independent-review-pending-final-ci-pending",
+  "certification": "private-v2-storage-and-unavailable-object-isolation-complete-recomposed-independent-review-go-final-ci-pending",
   "evidence": {
     "android": {
       "status": "passed",
@@ -126,8 +126,8 @@
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/prof-shared-chat-documents-confidentiality.json"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "b76f0c28f9b70524e2d17a9b00e007835f9aaab5",
     "previousReviewedSha": "77bca25794ccfd7f2d90a13553b67634eef67e23",
     "productSha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
     "blockingFindings": [],
@@ -137,7 +137,7 @@
       "P2": 0,
       "P3": 0
     },
-    "scope": "Pending independent exact-head review of the three-commit replay over merged PR #618."
+    "scope": "Independent exact-head review verified three exact patch IDs, private v2 storage, unavailable-object isolation without fallback, cancellation, separate Android v32 compatibility, exact historical custody, 62/62 contracts, validator, diff-check, secret/path scans and a clean tree."
   },
   "notes": [
     "New clients upload to the private chat-attachments-private bucket and register through quata_chat_register_attachment_v2. Android and Web derive 300-second signed URLs in memory; iOS downloads through the authenticated Storage route with its bearer token.",
@@ -155,6 +155,7 @@
     "Independent exact-head review of 3b154bee4c2f630d1e7202f51a5d7534d8efce08 returned GO with no P0-P3 after confirming 8/8 range equivalence, per-attachment failure isolation, no stored-URL fallback, cancellation propagation, exact historical hashes, unchanged committed migration bytes without reapply, Node 62/62, Web/Wasm 237/237, Android/Web/iOS x64 compilation, validator, diff-check, secret and host-path scans, and a clean tree.",
     "Product d60ead6ad9608588e819a913099abe8708b90d89 and all ten pre-attestation commits replay exactly over frozen POST-TEXT-DESTINATION head 381c058aa7bb6dee9c2917937a23663fbb896ac2. Historical platform and production evidence remains bound to 2500f4838217de8c95c091c138da23d6f83794e1; migration 20261011110000 remains already committed and was not reapplied. Independent exact-head review of 93e732b6001d1fd1962ce436581ff657e5b3d4eb returned GO with no P0-P3.",
     "Current post-rebase gates passed Node 62/62, Android compile plus SupabaseSignedObjectUrlTest, Web/Wasm focal task plus Web compilation, iOS x64 test compilation, validator and diff-check. The iOS test runner was skipped on the Windows host, so actual iOS execution remains attributed only to historical Product 2500f4838217de8c95c091c138da23d6f83794e1.",
-    "Current Product 7283cdb0316d9fda6bb54cb0236c26494bc786a2 replays the implementation, original attestation and unavailable-object correction with identical patch IDs over merged main 8ac7db07. Current affected gates passed: Node 62/62, Android compile and signed-object test, Web/Wasm focal test and Web compile, iOS x64 test compilation, validator and diff-check. Historical platform execution and production database evidence remain bound to Product 2500f483; migration 20261011110000 was not reapplied."
+    "Current Product 7283cdb0316d9fda6bb54cb0236c26494bc786a2 replays the implementation, original attestation and unavailable-object correction with identical patch IDs over merged main 8ac7db07. Current affected gates passed: Node 62/62, Android compile and signed-object test, Web/Wasm focal test and Web compile, iOS x64 test compilation, validator and diff-check. Historical platform execution and production database evidence remain bound to Product 2500f483; migration 20261011110000 was not reapplied.",
+    "Independent exact-head review of b76f0c28f9b70524e2d17a9b00e007835f9aaab5 returned GO without P0-P3 and confirmed the three exact patch IDs, privacy and isolation semantics, separate Android v32 lane, historical evidence and migration attribution, hashes, 62/62 contracts, validator, diff-check, secret/path scans and clean tree."
   ]
 }
