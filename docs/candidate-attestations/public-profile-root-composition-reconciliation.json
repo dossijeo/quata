@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
-  "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
+  "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "publicProfileRootComposition": {
       "status": "passed",
@@ -58,8 +58,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "5762488975f6afd70d29238ca0ae941bbbb2b9d3",
     "previousReviewedSha": "41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d",
     "blockingFindings": [],
     "reviewedProductSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
@@ -89,6 +89,7 @@
     "Independent exact-head review of 8aaf39cedae8bbbe223fb27a7d1f6a0a15d52d82 returned GO without P0-P3 after confirming the corrected pending-review custody, exact Product patch, 28 receipts plus PROF-HEADER, preserved owner limits, exact-once package wiring, 3/3 contract, hashes, validator, diff-check and clean tree.",
     "Current Product b395be4959d70cf16961c4df071a6bfcdcc6c2e4 replays the single composition commit with identical stable patch ID over repaired candidate head e3440e12015f8fa8ed04492b7a7075ccbaac67b7. Contract 3/3, validator and diff-check pass; historical 907/907 is not reattributed.",
     "Independent exact-head review of 41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d returned GO without P0-P3 after confirming patch-id e45dac28, 28 receipts plus PROF-HEADER, owner limits, exact-once wiring, hashes, historical 907/907 custody, 3/3 contract, validator, diff-check, secret scan and clean tree.",
-    "Current Product b395be4959d70cf16961c4df071a6bfcdcc6c2e4 replays the single composition commit with identical stable patch ID over merged squash f534c60128dc05253cc3898cc559a22043e230f5; the predecessor tree equals frozen candidate e3440e12015f8fa8ed04492b7a7075ccbaac67b7. Contract 3/3 is renewed without reattributing historical 907/907."
+    "Current Product b395be4959d70cf16961c4df071a6bfcdcc6c2e4 replays the single composition commit with identical stable patch ID over merged squash f534c60128dc05253cc3898cc559a22043e230f5; the predecessor tree equals frozen candidate e3440e12015f8fa8ed04492b7a7075ccbaac67b7. Contract 3/3 is renewed without reattributing historical 907/907.",
+    "Independent exact-head review of 5762488975f6afd70d29238ca0ae941bbbb2b9d3 returned GO without P0-P3 after the merged-squash reanchor fixed pending-review custody and preserved Product, evidence, owner limits, 3/3 contract, validator and diff-check."
   ]
 }
