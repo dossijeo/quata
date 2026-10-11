@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "3e91b0e62af5f37682c527c3dcc410e1365240fd",
-  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "9b0f67abf721a0ac0636f2547e494161917294b2",
     "blockingFindings": []
   },
   "notes": [
@@ -47,6 +47,6 @@
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
     "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
     "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox.",
-    "Rebased onto the reviewed finite shell-route catalog without changing the CHAT-COMPOSER contract semantics; final independent exact-head review is pending."
+    "Independent exact-head review returned GO with no P0-P3 findings on 9b0f67abf721a0ac0636f2547e494161917294b2 after reproducing 17/17 contracts, validator, report hash, package wiring, diff-check and clean-tree checks."
   ]
 }
