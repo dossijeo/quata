@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "3805343158d4a71400538f380e267303bb631c4c",
+  "certification": "finite-media-producer-catalog-all-inventories-reconciled-independent-review-go-final-ci-pending",
+  "evidence": {
+    "producerCatalog": {
+      "status": "passed",
+      "sha": "3805343158d4a71400538f380e267303bb631c4c",
+      "report": "docs/candidate-attestations/evidence/media-producer-catalog-38053431.json",
+      "reportSha256": "b6044358d96bf07e3264244ba15ef1c2b3ecba1fb08d70263faf8f58da8bac7f",
+      "reportStatus": "passed",
+      "reportGitHead": "3805343158d4a71400538f380e267303bb631c4c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_fullscreen_media_adapter_catalog_extracted",
+        "shared_android_attachment_viewer_callers_extracted",
+        "unregistered_overlay_and_attachment_producer_negative_controls_rejected",
+        "all_composed_focal_media_receipts_preserved_passed",
+        "generic_unknown_producer_residual_removed_and_account_avatar_preview_composed",
+        "codec_transport_background_receiver_and_coep_boundaries_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/media-producer-catalog-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/media-producer-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4ade26a6c35458190b262686cce4171c07050e35",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The historical Account avatar preview limit is closed by the integrated ProfileScreenHost producer and its focal receipt; the catalog now composes it instead of reopening it.",
+      "The final review reproduced all 17 affected contracts, validator, report hash, diff-check and clean-tree checks across the three authoritative inventories."
+    ]
+  },
+  "notes": [
+    "The exact source extractor finds eight fullscreen overlay adapter files and two registered callers of the shared Android attachment viewer.",
+    "Those adapters map to Feed, Official, public profile, Chat attachments and Account avatar preview. Platform-specific Official adapters do not create additional product producers.",
+    "Passed focal receipts compose image/video opening and return, durable position, same-source recovery, file export, public-profile media, Chat attachment media and Account avatar preview.",
+    "Account avatar preview is integrated through ProfileScreenHost and no longer uses the former Android ProfileScreen attachment-viewer caller.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Exhaustive legacy/third-party codecs and transports, prolonged background playback, integrated comments, deep scroll, external receivers and future COEP activation remain explicit thematic boundaries."
+  ]
+}

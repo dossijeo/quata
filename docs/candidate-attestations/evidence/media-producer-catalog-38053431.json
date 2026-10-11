@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "3805343158d4a71400538f380e267303bb631c4c",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "finite_fullscreen_media_adapter_catalog_extracted",
+    "shared_android_attachment_viewer_callers_extracted",
+    "unregistered_overlay_and_attachment_producer_negative_controls_rejected",
+    "all_composed_focal_media_receipts_preserved_passed",
+    "generic_unknown_producer_residual_removed_and_account_avatar_preview_composed",
+    "codec_transport_background_receiver_and_coep_boundaries_preserved"
+  ],
+  "observations": {
+    "unit": "OVR-MEDIA",
+    "contractPassed": 5,
+    "contractFailed": 0,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "logicalProducerCatalog": [
+      "Feed",
+      "Official",
+      "PublicProfile",
+      "ChatAttachments",
+      "AccountAvatarPreview"
+    ],
+    "fullscreenAdapterFiles": 8,
+    "androidSharedAttachmentViewerCallers": 2,
+    "accountAvatarPreviewComposed": true
+  }
+}
