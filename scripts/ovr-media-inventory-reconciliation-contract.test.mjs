@@ -41,11 +41,11 @@ test("inventories retire recovered playback and file export as pending limits", 
 });
 
 test("material external and exhaustive boundaries remain explicit", () => {
-  assert.match(screenInventory, /codecs y transportes exhaustivos/);
+  assert.match(screenInventory, /catálogo exhaustivo de codecs heredados\/terceros y transportes/);
   assert.match(screenInventory, /reproducción prolongada en segundo plano/);
   assert.match(screenInventory, /receptores externos/);
   assert.match(screenInventory, /activación\/validación futura de COEP/);
-  assert.match(migrationBoard, /codecs y transportes exhaustivos/);
+  assert.match(migrationBoard, /catálogo\s+exhaustivo de codecs heredados o de terceros/);
   assert.match(migrationBoard, /receptores externos/);
   assert.match(migrationBoard, /activación\/validación futura de COEP/);
   assert.match(migrationBoard, /La deuda CORS histórica queda cerrada/);

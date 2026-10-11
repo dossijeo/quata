@@ -1,0 +1,40 @@
+{
+  "check": "POST-VIDEO-WEB-CROSS-PLATFORM-CODEC-ANDROID-001",
+  "status": "passed",
+  "git": {
+    "head": "d484e5b56c9f81fa639548705f15db833677c40c",
+    "branch": "codex/web-video-cross-platform-codec",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "platform": "Android",
+    "device": "QuataLivePr336Api35(AVD)",
+    "api": 35
+  },
+  "fixture": {
+    "path": "app/src/androidTest/assets/quata-web-h264-opus.mp4",
+    "origin": "physical Web MediaRecorder export",
+    "sha256": "e2213d891edc68c0b621499d8a7092cd281520769ca4fc0a7d6ff8215a628bf9",
+    "container": "MP4",
+    "videoCodec": "H.264",
+    "audioCodec": "Opus"
+  },
+  "test": {
+    "class": "com.quata.core.ui.components.MediaPlaybackRecoveryInstrumentedTest",
+    "method": "webH264OpusMp4ReachesAPlayableState",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "result": "AttachmentViewerDialog reached playing or paused without exposing the playback-failure state"
+  },
+  "steps": [
+    "exact_product_head_android_instrumentation_executed",
+    "exact_web_generated_fixture_loaded_through_real_media_viewer",
+    "media3_reached_playable_state",
+    "playback_failure_state_absent"
+  ],
+  "cleanup": {
+    "verified": true,
+    "physicalResidue": 0
+  }
+}
