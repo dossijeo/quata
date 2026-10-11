@@ -105,7 +105,7 @@ test("inventories close the generic producer residual and preserve external boun
   assert.match(row, /catálogo finito de productores fullscreen/);
   assert.match(row, /Feed, Official, perfil público, adjuntos de Chat y preview del avatar de Cuenta/);
   assert.doesNotMatch(row, /otros productores/);
-  assert.match(row, /codecs heredados\/terceros y transportes exhaustivos/);
+  assert.match(row, /catálogo exhaustivo de codecs heredados\/terceros y transportes/);
   assert.match(row, /receptores externos/);
   assert.match(row, /COEP/);
   assert.match(board, /OVR-MEDIA[^\n]*catálogo finito de productores fullscreen/);

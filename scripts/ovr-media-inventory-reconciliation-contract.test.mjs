@@ -45,14 +45,15 @@ test("material external and exhaustive boundaries remain explicit", () => {
   assert.match(screenInventory, /reproducción prolongada en segundo plano/);
   assert.match(screenInventory, /receptores externos/);
   assert.match(screenInventory, /activación\/validación futura de COEP/);
-  assert.match(migrationBoard, /catálogo\s+exhaustivo de codecs heredados o de terceros/);
+  assert.match(migrationBoard, /catálogo exhaustivo de codecs heredados\/terceros y transportes/);
   assert.match(migrationBoard, /receptores externos/);
   assert.match(migrationBoard, /activación\/validación futura de COEP/);
   assert.match(migrationBoard, /La deuda CORS histórica queda cerrada/);
 });
 
-test("the reconciliation does not claim unrelated media producers", () => {
-  assert.match(screenInventory, /no declara un catálogo exhaustivo de productores/);
-  assert.match(migrationBoard, /otros productores de media/);
+test("the reconciliation closes the finite fullscreen producer catalog without absorbing thematic boundaries", () => {
+  assert.match(screenInventory, /catálogo finito de productores fullscreen/);
+  assert.doesNotMatch(screenInventory, /otros productores de media/);
+  assert.match(migrationBoard, /ya no existe un productor fullscreen desconocido/);
   assert.match(screenInventory, /comentarios integrados, la restauración profunda de scroll/);
 });
