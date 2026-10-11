@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
-  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -58,8 +58,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "dc8c63b47187f762c4bda879fd58fa07bc175703",
     "previousReviewedSha": "195e3be94e666da237185f883765e7ec9cf11649",
     "blockingFindings": [],
     "reviewedProductSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
@@ -83,6 +83,7 @@
     "Independent review of exact head a42ac6e80f617d415c9860199c83b3be4c3a705b returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, nine exact receipt and report hashes, exact-once aggregate wiring, preserved Android v32 and external boundaries, and absence of newly attributed platform or database execution.",
     "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO head 829bfd663fa9142a6390513591d6adbf35acaaa9 and rebinds only the exact confidentiality-manifest SHA-256 to current reviewed bytes e8764ced. Contract 3/3, validator and diff-check pass; historical execution is not reattributed.",
     "Independent exact-head review of 195e3be94e666da237185f883765e7ec9cf11649 returned GO without P0-P3 after verifying the preserved delta, confidentiality receipt hash e8764ced, nine receipts, Android v32 and external boundaries, report hash bacb9cad, historical custody, 3/3 contract, validator, diff-check and clean tree.",
-    "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO candidate 8ca4de71901461bd81e265ffcfef9885b0b537c6; the confidentiality receipt remains bound to its reviewed bytes. Contract 3/3 is renewed without reattributing historical execution."
+    "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO candidate 8ca4de71901461bd81e265ffcfef9885b0b537c6; the confidentiality receipt remains bound to its reviewed bytes. Contract 3/3 is renewed without reattributing historical execution.",
+    "Independent exact-head review of dc8c63b47187f762c4bda879fd58fa07bc175703 returned GO without P0-P3 after confirming nine receipts, confidentiality hash, Android v32 and external boundaries, historical custody, 3/3 contract, validator and diff-check."
   ]
 }
