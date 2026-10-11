@@ -1,0 +1,42 @@
+{
+  "check": "POST-DESTINATION-IOS-REAL-001",
+  "status": "passed",
+  "startedAt": "2026-10-11T02:45:57.931Z",
+  "git": {
+    "head": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+    "branch": "codex/post-destination-real-multiple",
+    "workingTreeDirty": false
+  },
+  "attempts": [
+    {
+      "mode": "real-multiple",
+      "status": "passed",
+      "remoteLogDir": "build/reports/ios/post-destination-ui/real-multiple"
+    }
+  ],
+  "evidence": {
+    "realMultiple": {
+      "eligibleCount": 186,
+      "defaultWallIdSha256": "8fdcab2048baf8bf905d0b37605bf8ecf791f2a216d0d38cf19d23f3aaf15173",
+      "alternateWallIdSha256": "93ce7227f1d467ca454731900fb83eff8af53f045e07d9dbff522668f30d1e05"
+    },
+    "directory": "C:\\Users\\PC\\.codex\\quata-work\\post-destination-real-multiple-20261011\\build-reports\\ios\\post-destination-real-multiple-evidence"
+  },
+  "steps": [
+    "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_public_runtime_xcconfig_prepared_transiently",
+    "ios_simulator_signed_build_succeeded_on_mac"
+  ],
+  "mac": {
+    "host": "quata-mac",
+    "project": "/Users/gabriel/Documents/Projects/quata-post-destination-real-multiple-20261011",
+    "head": "f969dc357f5788676e085d8dbc226646a3c07c5b"
+  },
+  "environmentCleanup": {
+    "runtimeConfigRestored": true,
+    "ownedXcodeProjectRemoved": true,
+    "temporaryCredentialsRemoved": true
+  },
+  "finishedAt": "2026-10-11T02:49:55.862Z"
+}

@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-TEXT-DESTINATION"
+  ],
+  "status": "passed",
+  "productSha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+  "certification": "real-multiple-destination-platform-evidence-complete-independent-review-pending-final-CI-pending",
+  "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-9636e7b3.json",
+      "reportSha256": "1958ae7294f617c0ac4545e7afb516fedacfe1106fb6e90b5e0ec5e60449350a",
+      "reportStatus": "passed",
+      "reportGitHead": "9636e7b3a86d967b0f241f50bf82b60c8641d335",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "real_profile_authenticated_without_logging_credentials"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "read-only-real-destination-discovery-no-backend-mutation"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-9636e7b3.json",
+      "reportSha256": "cbd6d5283b1cb2bb25544675f1f8d27dbc2b912858a6778ee52625559fb4f877",
+      "reportStatus": "passed",
+      "reportGitHead": "9636e7b3a86d967b0f241f50bf82b60c8641d335",
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "read-only-real-destination-discovery-no-backend-mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-f969dc35.json",
+      "reportSha256": "2f34743da1d5990271066ab3856bdeb58c5abb84292c786fe24891335bc5604b",
+      "reportStatus": "passed",
+      "reportGitHead": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_public_runtime_xcconfig_prepared_transiently",
+        "ios_simulator_signed_build_succeeded_on_mac"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "transient-runtime-config-and-credentials-restored"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/post-publish-evidence-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    ".\\gradlew.bat :web:compileKotlinWasmJs :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-destination-real-multiple.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "resolvedFindings": [],
+    "scopeLimit": "This receipt certifies real multiple-destination discovery and selection without publishing. Deterministic empty and failure/retry states remain covered by the existing validation-state evidence; production currently makes an empty destination set unreachable while active walls exist."
+  },
+  "notes": [
+    "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
+    "Android, Web/Wasm and iOS selected a second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post and required no backend cleanup.",
+    "Web and Android executed at 9636e7b3. Product f969dc35 changes only the iOS evidence runner cleanup/configuration boundary and its Node contract after the first iOS attempt exposed a skipped seeder; Web and Android runtime, tests and evidence runners are byte-identical and were not repeated solely for that iOS-only repair.",
+    "The successful iOS run used a clean isolated exact-Product worktree, transiently generated the public runtime xcconfig, passed the authenticated seeder and destination XCTest, and verified restoration of runtime config, generated project and temporary credentials.",
+    "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
+    "No credential, token, raw wall identifier or database connection string is stored in the reports or repository."
+  ]
+}
