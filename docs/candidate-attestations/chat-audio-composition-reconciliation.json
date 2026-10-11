@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-AUDIO"
+  ],
+  "status": "passed",
+  "productSha": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+  "certification": "chat-audio-composed-internal-residual-removed-external-boundaries-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+      "report": "docs/candidate-attestations/evidence/chat-audio-composition-reconciliation-79d6938c.json",
+      "reportSha256": "3613e74f4abed9579edd7735371abb57f0cc49061581931f1204867da6d402b0",
+      "reportStatus": "passed",
+      "reportGitHead": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "chat_audio_composition_contract_3_of_3_passed",
+        "six_owner_receipts_and_exact_hashes_preserved",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_internal_residual_removed",
+        "physical_and_external_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-audio-composition-reconciliation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-audio-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "Six existing owner receipts compose CHAT-AUDIO playback and recording, same-attachment transport retry, rendered Retry, terminal adapter outcomes, HTTP boundaries and lifecycle or route interruption.",
+    "The reconciliation removes only the generic internal residual. Physical microphone permission or recording, Bluetooth or wired routing, prolonged background playback, real OS proxy or captive-portal topologies and audio outside Chat remain explicit boundaries.",
+    "No runtime, backend, platform evidence receipt or CI workflow changed. Historical Android, Web/Wasm and iOS executions remain bound to their original Product and evidence heads.",
+    "The focal contract binds every owner receipt to its exact SHA-256, requires CHAT-AUDIO ownership and passed evidence, and guards the inventory wording against either reopening an internal residual or erasing external boundaries.",
+    "This unit is based on the reviewed OVR-PUBLIC-PROFILE Lane B head e3d4f53ed3c52d6245fd465190d238cc7538447d and must be recomposed over its eventual squash before publication."
+  ]
+}

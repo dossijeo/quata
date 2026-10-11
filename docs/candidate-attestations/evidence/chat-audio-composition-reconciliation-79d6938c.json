@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "chat_audio_composition_contract_3_of_3_passed",
+    "six_owner_receipts_and_exact_hashes_preserved",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_internal_residual_removed",
+    "physical_and_external_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "CHAT-AUDIO",
+    "ownerReceiptCount": 6,
+    "internalResidualRemoved": true,
+    "externalBoundariesPreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false
+  }
+}
