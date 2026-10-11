@@ -117,6 +117,26 @@ run_and_require() {
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
 ui='QuataIosUITests/QuataIosAuthenticatedPostPublishUITests/testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer'
+cleanup='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testClearAuthenticatedSessionAfterVisualGates'
+cleanup_required=0
+cleanup_session() {
+  if [[ "$cleanup_required" -eq 0 ]]; then return 0; fi
+  set +e
+  run_and_require "$cleanup" testClearAuthenticatedSessionAfterVisualGates "$QUATA_IOS_POST_DESTINATION_UI_LOG_DIR/cleanup.log"
+  local cleanup_status=$?
+  set -e
+  cleanup_required=0
+  return "$cleanup_status"
+}
+cleanup_on_exit() {
+  local status=$?
+  if ! cleanup_session; then status=1; fi
+  exit "$status"
+}
+trap cleanup_on_exit EXIT
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_POST_DESTINATION_UI_LOG_DIR/seed.log"
+cleanup_required=1
 run_and_require "$ui" testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer "$QUATA_IOS_POST_DESTINATION_UI_LOG_DIR/ui.log"
+cleanup_session
+trap - EXIT
 echo "IOS_POST_DESTINATION_UI_GATE_PASSED $QUATA_IOS_POST_DESTINATION_E2E_MODE" >&2

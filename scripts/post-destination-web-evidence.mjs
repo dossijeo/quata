@@ -5,7 +5,11 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, resolve } from "node:path";
-import { destinationFixtureSummary, selectRealAlternateDestination } from "./post-destination-real-fixture.mjs";
+import {
+  destinationFixtureSummary,
+  retireDestinationActorSession,
+  selectRealAlternateDestination,
+} from "./post-destination-real-fixture.mjs";
 
 const CHECK = "POST-DESTINATION-WEB-REAL-001";
 const OPT_IN = "I_ACCEPT_WEB_POST_DESTINATION_FIXTURE";
@@ -25,12 +29,14 @@ const report = {
 
 let server;
 let browser;
+let backend;
+let session;
 
 try {
-  const backend = await publicConfig();
+  backend = await publicConfig();
   const credentials = await loadCredentials();
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);
-  const session = await login(backend, credentials.a, `post-destination-web-${randomUUID()}`);
+  session = await login(backend, credentials.a, `post-destination-web-${randomUUID()}`);
   const realMultipleFixture = await selectRealAlternateDestination(backend, session);
   report.evidence.realMultiple = destinationFixtureSummary(realMultipleFixture);
   browser = await chromium.launch({
@@ -62,6 +68,15 @@ try {
 } finally {
   await browser?.close().catch(() => {});
   await server?.close?.().catch(() => {});
+  if (backend && session) {
+    await retireDestinationActorSession(backend, session).then((cleanup) => {
+      report.cleanup = cleanup;
+      report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
+    }).catch((cleanupError) => {
+      report.cleanup = { error: safeFailure(cleanupError) };
+      report.status = "failed";
+    });
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(resolve(options.output, ".."), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`);

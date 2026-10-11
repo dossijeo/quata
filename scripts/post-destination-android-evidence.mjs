@@ -7,6 +7,7 @@ import {
   destinationFixtureSummary,
   loadPublicBackendConfig,
   loginDestinationActor,
+  retireDestinationActorSession,
   selectRealAlternateDestination,
 } from "./post-destination-real-fixture.mjs";
 
@@ -29,11 +30,13 @@ const report = {
 
 const adb = process.env.ADB?.trim() || "adb";
 let localCredentials;
+let backend;
+let fixtureSession;
 
 try {
   const credentials = (await loadCredentials(options.credentialsFile)).a;
-  const backend = await loadPublicBackendConfig();
-  const fixtureSession = await loginDestinationActor(backend, credentials, "quata-post-destination-android-evidence");
+  backend = await loadPublicBackendConfig();
+  fixtureSession = await loginDestinationActor(backend, credentials, "quata-post-destination-android-evidence");
   const realMultipleFixture = await selectRealAlternateDestination(backend, fixtureSession);
   report.evidence.realMultiple = destinationFixtureSummary(realMultipleFixture);
   localCredentials = join("build-reports", "android", `post-destination-credentials-${randomUUID()}.json`);
@@ -96,6 +99,15 @@ try {
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
   await rm(localCredentials ?? "", { force: true }).catch(() => {});
+  if (backend && fixtureSession) {
+    await retireDestinationActorSession(backend, fixtureSession).then((cleanup) => {
+      report.cleanup = cleanup;
+      report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
+    }).catch((cleanupError) => {
+      report.cleanup = { error: safeFailure(cleanupError) };
+      report.status = "failed";
+    });
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });

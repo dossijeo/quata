@@ -9,6 +9,7 @@ import {
   destinationFixtureSummary,
   loadPublicBackendConfig,
   loginDestinationActor,
+  retireDestinationActorSession,
   selectRealAlternateDestination,
 } from "./post-destination-real-fixture.mjs";
 
@@ -32,11 +33,13 @@ let remoteCredentials;
 let remoteRuntimeBackup;
 let remoteGeneratedXcodeProjectOwned = false;
 let realMultipleFixture;
+let backend;
+let fixtureSession;
 
 try {
   const credentials = (await loadCredentials()).a;
-  const backend = await loadPublicBackendConfig();
-  const fixtureSession = await loginDestinationActor(backend, credentials, "quata-post-destination-ios-evidence");
+  backend = await loadPublicBackendConfig();
+  fixtureSession = await loginDestinationActor(backend, credentials, "quata-post-destination-ios-evidence");
   realMultipleFixture = await selectRealAlternateDestination(backend, fixtureSession);
   report.evidence.realMultiple = destinationFixtureSummary(realMultipleFixture);
   localCredentials = join(await mkdirTemp("quata-ios-post-destination-credentials-"), "credentials.json");
@@ -123,6 +126,15 @@ scripts/build-ios-intel-simulator-signed.sh
   report.environmentCleanup.temporaryCredentialsRemoved =
     !report.environmentCleanup.remoteCredentialsCleanupError &&
     !report.environmentCleanup.localCredentialsCleanupError;
+  if (backend && fixtureSession) {
+    await retireDestinationActorSession(backend, fixtureSession).then((cleanup) => {
+      report.cleanup = cleanup;
+      report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
+    }).catch((cleanupError) => {
+      report.cleanup = { error: safeFailure(cleanupError) };
+      report.status = "failed";
+    });
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });

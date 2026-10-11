@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
@@ -311,9 +312,10 @@ class PostPublishRealInstrumentedTest {
         app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password)
             .getOrThrow()
 
-        ActivityScenario.launch<MainActivity>(
-            mainIntent(destinationEvidenceMode = mode.takeIf { it != "real-multiple" }),
-        ).use {
+        try {
+            ActivityScenario.launch<MainActivity>(
+                mainIntent(destinationEvidenceMode = mode.takeIf { it != "real-multiple" }),
+            ).use {
             compose.waitUntil(45_000) {
                 runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
@@ -351,12 +353,20 @@ class PostPublishRealInstrumentedTest {
                     compose.onNodeWithTag(optionTag, useUnmergedTree = true)
                         .performScrollTo()
                         .performClick()
-                    compose.onNodeWithTag(ComposerDestinationSelectedTestTag, useUnmergedTree = true)
-                        .assertExists()
+                    compose.waitUntil(8_000) {
+                        runCatching {
+                            compose.onNodeWithTag(optionTag, useUnmergedTree = true)
+                                .assertIsSelected()
+                        }.isSuccess
+                    }
+                    compose.onNodeWithTag(optionTag, useUnmergedTree = true).assertIsSelected()
                     saveScreenshot("android-post-destination-real-multiple-selected")
                 }
                 else -> error("unsupported_post_destination_mode:$mode")
+                }
             }
+        } finally {
+            app.container.authRepository.logout()
         }
 
         writeDestinationReport(mode)

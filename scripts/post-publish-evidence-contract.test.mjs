@@ -211,6 +211,11 @@ test("post destination evidence uses real multiple destinations plus determinist
   assert.match(realDestinationFixture, /community_walls_stats/);
   assert.match(realDestinationFixture, /eligible\.length < 2/);
   assert.match(realDestinationFixture, /alternateWallId: eligible\[1\]\.id/);
+  assert.match(realDestinationFixture, /retireDestinationActorSession/);
+  assert.match(realDestinationFixture, /quata-web-push/);
+  assert.match(realDestinationFixture, /logout\?scope=local/);
+  assert.match(realDestinationFixture, /destination_fixture_web_session_cleanup_unverified/);
+  assert.match(realDestinationFixture, /destination_fixture_auth_cleanup_unverified/);
   assert.match(webDestinationRunner, /POST-DESTINATION-WEB-REAL-001/);
   assert.match(webDestinationRunner, /real-multiple/);
   assert.match(webDestinationRunner, /selectRealAlternateDestination/);
@@ -219,6 +224,7 @@ test("post destination evidence uses real multiple destinations plus determinist
   assert.match(androidDestinationRunner, /POST-DESTINATION-ANDROID-REAL-001/);
   assert.match(androidDestinationRunner, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
   assert.match(androidDestinationRunner, /selectRealAlternateDestination/);
+  assert.match(androidDestinationRunner, /owned_fixture_auth_and_web_sessions_revoked_and_verified/);
   assert.match(iosDestinationRunner, /POST-DESTINATION-IOS-REAL-001/);
   assert.match(iosDestinationRunner, /selectRealAlternateDestination/);
   assert.match(iosDestinationRunner, /ios_public_runtime_xcconfig_prepared_transiently/);
@@ -227,7 +233,14 @@ test("post destination evidence uses real multiple destinations plus determinist
   assert.match(iosDestinationRunner, /runtimeConfigRestored/);
   assert.match(iosDestinationRunner, /removeAndVerifyRemoteCredentials/);
   assert.match(iosDestinationRunner, /temporaryCredentialsRemoved/);
+  assert.match(iosDestinationRunner, /owned_fixture_auth_and_web_sessions_revoked_and_verified/);
   assert.match(iosDestinationWrapper, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
+  assert.match(iosDestinationWrapper, /testClearAuthenticatedSessionAfterVisualGates/);
+  assert.match(iosDestinationWrapper, /trap cleanup_on_exit EXIT/);
+  assert.match(androidPostPublishTest, /assertIsSelected/);
+  assert.match(androidPostPublishTest, /authRepository\.logout\(\)/);
+  assert.match(iosPostPublishTest, /assertDestinationSelected/);
+  assert.match(iosPostPublishTest, /destination\.isSelected/);
   assert.match(iosDestinationWrapper, /IOS_POST_DESTINATION_UI_GATE_PASSED/);
   for (const runner of [webDestinationRunner, androidDestinationRunner, iosDestinationRunner]) {
     assert.doesNotMatch(runner, /community_posts/);

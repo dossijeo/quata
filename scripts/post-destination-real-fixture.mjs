@@ -52,6 +52,58 @@ export async function loginDestinationActor(backend, credentials, clientLabel) {
   };
 }
 
+export async function retireDestinationActorSession(backend, session) {
+  if (!session?.accessToken || !session?.refreshToken || !session?.webSessionToken) {
+    throw new Error("destination_fixture_cleanup_session_required");
+  }
+  const webLogout = await fetch(`${backend.url}/functions/v1/quata-web-push`, {
+    method: "POST",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+      "x-client-info": "quata-post-destination-cleanup",
+      "x-quata-web-session": session.webSessionToken,
+    },
+    body: JSON.stringify({ action: "logout" }),
+    signal: AbortSignal.timeout(30_000),
+  }).catch(() => null);
+  if (!webLogout) throw new Error("destination_fixture_web_session_cleanup_network_failure");
+  if (!webLogout.ok) throw new Error(`destination_fixture_web_session_cleanup_http_${webLogout.status}`);
+
+  const authLogout = await fetch(`${backend.url}/auth/v1/logout?scope=local`, {
+    method: "POST",
+    headers: { apikey: backend.key, authorization: `Bearer ${session.accessToken}` },
+    signal: AbortSignal.timeout(30_000),
+  }).catch(() => null);
+  if (!authLogout) throw new Error("destination_fixture_auth_cleanup_network_failure");
+  if (!authLogout.ok) throw new Error(`destination_fixture_auth_cleanup_http_${authLogout.status}`);
+
+  const [webProbe, refreshProbe] = await Promise.all([
+    fetch(`${backend.url}/functions/v1/quata-web-push`, {
+      method: "POST",
+      headers: {
+        apikey: backend.key,
+        authorization: `Bearer ${session.accessToken}`,
+        "content-type": "application/json",
+        "x-client-info": "quata-post-destination-cleanup-probe",
+        "x-quata-web-session": session.webSessionToken,
+      },
+      body: JSON.stringify({ action: "logout" }),
+      signal: AbortSignal.timeout(30_000),
+    }).catch(() => null),
+    fetch(`${backend.url}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { apikey: backend.key, "content-type": "application/json" },
+      body: JSON.stringify({ refresh_token: session.refreshToken }),
+      signal: AbortSignal.timeout(30_000),
+    }).catch(() => null),
+  ]);
+  if (!webProbe || webProbe.status !== 401) throw new Error("destination_fixture_web_session_cleanup_unverified");
+  if (!refreshProbe || refreshProbe.ok) throw new Error("destination_fixture_auth_cleanup_unverified");
+  return { webSessionRevoked: true, refreshTokenRejected: true };
+}
+
 export async function selectRealAlternateDestination(backend, session) {
   const headers = {
     apikey: backend.key,

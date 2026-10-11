@@ -183,6 +183,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         case "real-multiple":
             let alternateWallId = try XCTUnwrap(environment["QUATA_IOS_POST_DESTINATION_ALTERNATE_WALL_ID"])
             selectDestination(alternateWallId, in: app)
+            assertDestinationSelected(alternateWallId, in: app)
             let selected = commonElement("composer-destination-selected", in: app)
             XCTAssertTrue(selected.waitForExistence(timeout: 8), "Selected destination label must remain anchored.")
             QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-real-multiple-selected")
@@ -413,6 +414,15 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTFail("Expected shared composer destination \(wallId) to exist after bounded bidirectional scrolling.")
+    }
+
+    private func assertDestinationSelected(_ wallId: String, in app: XCUIApplication) {
+        let destination = commonElement("composer-destination-option.\(wallId)", in: app)
+        for _ in 0..<20 {
+            if destination.exists, destination.isSelected { return }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertTrue(destination.isSelected, "The exact alternate destination must become selected after the tap.")
     }
 
     private func openComposer(mode: String, locationLabel: String) -> XCUIApplication {
