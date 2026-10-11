@@ -4,16 +4,42 @@
     "FLOW-EMOJI"
   ],
   "status": "passed",
-  "productSha": "12b810875da8a0488c431df300b0df28545cc80d",
+  "productSha": "07ab721b47e25773b8343c70801114b34e2eca41",
   "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-review-passed-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "12b810875da8a0488c431df300b0df28545cc80d",
+      "sha": "07ab721b47e25773b8343c70801114b34e2eca41",
       "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-12b81087.json",
       "reportSha256": "2708dd62ae8e2bd0627ed14f6a1b8dcd44b527becd654c8fa852be8d7189a639",
       "reportStatus": "passed",
       "reportGitHead": "12b810875da8a0488c431df300b0df28545cc80d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "historical_composition_delta_preserved_except_exact_receipt_hash_rebind",
+        "post_composer_receipt_hash_matches_reviewed_predecessor_bytes",
+        "emoji_root_composition_contract_6_of_6_passed",
+        "six_owner_receipts_exact_hashes_preserved",
+        "product_panel_callsites_source_extracted",
+        "android_web_ios_evidence_preserved_without_reattribution",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_emoji_residual_removed",
+        "owner_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    },
+    "postComposerCandidateRecomposition": {
+      "status": "passed",
+      "sha": "07ab721b47e25773b8343c70801114b34e2eca41",
+      "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-07ab721b.json",
+      "reportSha256": "f726d29a74059830960d5568011ef066f95d73dfafd560e03d91f68e8310c0ca",
+      "reportStatus": "passed",
+      "reportGitHead": "07ab721b47e25773b8343c70801114b34e2eca41",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -40,9 +66,9 @@
     "git diff --check"
   ],
   "review": {
-    "status": "passed",
-    "reviewedSha": "18955a168a0c72d5ecd3ac9d03343cca32b355cf",
-    "previousReviewedSha": "9a15eefcc132a5f13026856eb991e9337cb89718",
+    "status": "pending",
+    "reviewedSha": null,
+    "previousReviewedSha": "18955a168a0c72d5ecd3ac9d03343cca32b355cf",
     "blockingFindings": [],
     "findingCounts": {
       "P0": 0,
@@ -62,6 +88,7 @@
     "Product d7dad4a862d39ed29712b0ea064140b3d8b54709 preserves the reviewed FLOW-EMOJI composition delta over final Post Composer predecessor 4088e9f47079972db0059c1b6004dcb852208d35; the sole legitimate base adjustment rebinds the exact Post Composer receipt hash to its reviewed current bytes.",
     "Independent exact-head review of 9a15eefcc132a5f13026856eb991e9337cb89718 returned GO with no P0-P3: the historical delta is preserved except for the legitimate Post Composer receipt hash rebind, all six exact receipts and repo-wide extraction remain closed, and affected gates pass.",
     "Product 12b810875da8a0488c431df300b0df28545cc80d preserves the FLOW-EMOJI composition over final reviewed Post Composer 2ad799319dc04f5b103ef31c0103c5adb3459afe; the only intentional product-delta adjustment is receipt hash 3797492ad7375a5156559b900b1e3ba9e53148a3defbe05facb9f1441a3ce207 for the final reviewed Post Composer bytes. Historical execution remains at its original heads.",
-    "Independent exact-head review of 18955a168a0c72d5ecd3ac9d03343cca32b355cf returned GO without P0-P3 after reproducing all affected gates and verifying no platform execution reattribution."
+    "Independent exact-head review of 18955a168a0c72d5ecd3ac9d03343cca32b355cf returned GO without P0-P3 after reproducing all affected gates and verifying no platform execution reattribution.",
+    "Product 07ab721b47e25773b8343c70801114b34e2eca41 preserves the FLOW-EMOJI composition over final Post Composer candidate a2a079d0b3f6c5e6f563fee2708ddfe8ed46fe2c; the only intentional product-delta adjustment is receipt hash 03d065624cdd9cd91c126ebcfe45be3e22ee2cf415535009d1cd01755430446f for the final reviewed Post Composer bytes. Historical execution remains at its original heads."
   ]
 }
