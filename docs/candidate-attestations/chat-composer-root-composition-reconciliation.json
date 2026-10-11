@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d",
-  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "certification": "chat-composer-root-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "16efb3be8d41463e883cf86c299fcd7b7a35ef92",
     "previousReviewedHead": "9b0f67abf721a0ac0636f2547e494161917294b2",
     "blockingFindings": []
   },
@@ -48,6 +48,7 @@
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
     "Transport, media, permission and connectivity failure boundaries remain with CHAT-MESSAGES, CHAT-ATTACHMENTS, CHAT-AUDIO and FLOW-CONNECTIVITY-PRESENCE. They are not recast as a generic composer-root limitation.",
     "PR #556 already integrated the Web/iOS durable outbox replay after independent review and final gates; Android retains its integrated SQLite outbox.",
-    "The five-commit unit was replayed over frozen FLOW-SHELL-NAV candidate 477510f60dd78ca06b6996a6fc97a1d4ef552c1f. Product 1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d preserves the reviewed composition delta; the package conflict retained all current gates and wires this contract once into each affected aggregate. Historical platform evidence was not repeated solely for ancestry."
+    "The five-commit unit was replayed over frozen FLOW-SHELL-NAV candidate 477510f60dd78ca06b6996a6fc97a1d4ef552c1f. Product 1ea556f8c326ad8d7a2ff66c4ed8ed632438bc2d preserves the reviewed composition delta; the package conflict retained all current gates and wires this contract once into each affected aggregate. Historical platform evidence was not repeated solely for ancestry.",
+    "Independent exact-head review of 16efb3be8d41463e883cf86c299fcd7b7a35ef92 returned GO with no P0-P3 after confirming the bounded delta, identical contract blob, package multiset, thematic ownership, 17/17 contracts, validator, report hash, diff-check, clean tree and absence of secret material."
   ]
 }
