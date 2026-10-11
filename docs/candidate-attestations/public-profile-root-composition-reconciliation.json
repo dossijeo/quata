@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
-  "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
+  "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "publicProfileRootComposition": {
       "status": "passed",
@@ -59,7 +59,7 @@
   ],
   "review": {
     "status": "PENDING",
-    "reviewedSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
+    "reviewedSha": null,
     "previousReviewedSha": "41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d",
     "blockingFindings": [],
     "reviewedProductSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
@@ -70,7 +70,8 @@
       "P3": 0
     },
     "resolvedFindings": [
-      "Independent exact-head review confirmed the exact stable patch, 28 receipts plus PROF-HEADER, owner limits, exact-once wiring, report hashes, historical custody, 3/3 contract, validator, diff-check, secret scan and clean tree."
+      "Independent exact-head review confirmed the exact stable patch, 28 receipts plus PROF-HEADER, owner limits, exact-once wiring, report hashes, historical custody, 3/3 contract, validator, diff-check, secret scan and clean tree.",
+      "The merged-squash reanchor no longer labels independent review as GO before the corrected exact head is reviewed; prior GO remains historical custody."
     ]
   },
   "notes": [
