@@ -1,14 +1,14 @@
 {
   "status": "passed",
   "git": {
-    "head": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+    "head": "c937a4d4f1cd70300cc930854bf77b046ce04279",
     "workingTreeDirty": false
   },
   "unit": "CHAT-ATTACHMENTS",
-  "productSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
-  "predecessorSha": "a65835bdbdedac988df11a672645a076f0e1c28b",
-  "historicalProductSha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
-  "recomposedFromProductSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+  "productSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+  "predecessorSha": "650c8ae9df1efc98d2c61c4e7c2ebc8b2519ca58",
+  "historicalProductSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+  "recomposedFromProductSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
   "steps": [
     "product_delta_patch_equivalent",
     "chat_attachments_composition_contract_3_of_3_passed",
@@ -25,7 +25,7 @@
     "productPatchIdPreserved": true
   },
   "notes": [
-    "The CHAT-ATTACHMENTS composition delta replays with an identical stable patch ID over the frozen CHAT-AUDIO candidate head.",
+    "The CHAT-ATTACHMENTS composition delta replays with an identical stable patch ID over the merged CHAT-AUDIO squash.",
     "The exact confidentiality receipt binding remains preserved.",
     "Only the affected 3/3 contract is renewed; historical platform and database execution remains bound to its original heads.",
     "Android v32 compatibility and external physical or provider boundaries remain explicit."

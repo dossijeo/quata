@@ -4,12 +4,12 @@
     "CHAT-ATTACHMENTS"
   ],
   "status": "passed",
-  "productSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
-  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
+  "productSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-exact-head-review-pending-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+      "sha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
       "report": "docs/candidate-attestations/evidence/chat-attachments-composition-reconciliation-67c7086a.json",
       "reportSha256": "22817ff80b5d9ddcf8a8422a233719731cd2cbe41fa0f43dc8e2031d09555c92",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+      "sha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
       "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-b4324bcd.json",
       "reportSha256": "d779d9ba036b00b0eea9d9284a8b42f607b2b13df1dc3205d3bf3647ccc9f065",
       "reportStatus": "passed",
@@ -51,13 +51,13 @@
         "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
       }
     },
-    "audioCandidateRecomposition": {
+    "mergedAudioRecomposition": {
       "status": "passed",
-      "sha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
-      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-e9f9d0eb.json",
-      "reportSha256": "f740ba720d0cf2f3f60d71c262d2609b505efb3eda7c8b386ae161db611bd9bb",
+      "sha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-c937a4d4.json",
+      "reportSha256": "56aa8dcf31d6dd18964d1ab90214d0abf82bece6d07c4d3b16cc1861c38f768b",
       "reportStatus": "passed",
-      "reportGitHead": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+      "reportGitHead": "c937a4d4f1cd70300cc930854bf77b046ce04279",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -80,11 +80,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "c1ce5390bc20b1d6e33d756d7f22397465c1f717",
-    "previousReviewedSha": "dc8c63b47187f762c4bda879fd58fa07bc175703",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "c1ce5390bc20b1d6e33d756d7f22397465c1f717",
     "blockingFindings": [],
-    "reviewedProductSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+    "reviewedProductSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -108,7 +108,8 @@
     "Independent exact-head review of 195e3be94e666da237185f883765e7ec9cf11649 returned GO without P0-P3 after verifying the preserved delta, confidentiality receipt hash e8764ced, nine receipts, Android v32 and external boundaries, report hash bacb9cad, historical custody, 3/3 contract, validator, diff-check and clean tree.",
     "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO candidate 8ca4de71901461bd81e265ffcfef9885b0b537c6; the confidentiality receipt remains bound to its reviewed bytes. Contract 3/3 is renewed without reattributing historical execution.",
     "Independent exact-head review of dc8c63b47187f762c4bda879fd58fa07bc175703 returned GO without P0-P3 after confirming nine receipts, confidentiality hash, Android v32 and external boundaries, historical custody, 3/3 contract, validator and diff-check.",
-    "Current Product e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd preserves the CHAT-ATTACHMENTS composition delta with identical stable patch ID over frozen CHAT-AUDIO candidate a65835bdbdedac988df11a672645a076f0e1c28b. Contract 3/3 is renewed without reattributing historical platform or database execution.",
-    "Independent exact-head review of c1ce5390bc20b1d6e33d756d7f22397465c1f717 returned GO without P0-P3; owner contract, validator and diff-check remained green."
+    "Current Product c937a4d4f1cd70300cc930854bf77b046ce04279 preserves the CHAT-ATTACHMENTS composition delta with identical stable patch ID over frozen CHAT-AUDIO candidate a65835bdbdedac988df11a672645a076f0e1c28b. Contract 3/3 is renewed without reattributing historical platform or database execution.",
+    "Independent exact-head review of c1ce5390bc20b1d6e33d756d7f22397465c1f717 returned GO without P0-P3; owner contract, validator and diff-check remained green.",
+    "Current Product c937a4d4f1cd70300cc930854bf77b046ce04279 preserves the CHAT-ATTACHMENTS composition delta with identical stable patch ID over merged CHAT-AUDIO squash 650c8ae9df1efc98d2c61c4e7c2ebc8b2519ca58. Contract 3/3 is renewed without reattributing historical platform or database execution. Fresh independent exact-head review is required before publication."
   ]
 }
