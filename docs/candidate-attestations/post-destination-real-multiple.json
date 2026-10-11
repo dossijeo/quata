@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "be82dbefda229cb1f75896a93bd4c39b7f671c31",
-  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-pending-independent-review",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-go-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
@@ -100,8 +100,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "4b60d78deaf19b7cc33d10a57757ac631f30c3f3",
     "previousReviewedHead": "62bdb826736d933a1893957b2e2205a003e64ec4",
     "previousReviewedSha": "dd7c6e7af3955dd2b98e033b91753e9b22d50a9f",
     "blockingFindings": [],
@@ -141,6 +141,7 @@
     "Product SHA be82dbefda229cb1f75896a93bd4c39b7f671c31 replays all 26 current destination-series commits over FLOW-DEEP-LINKS row-repair head 2c398f610953f5f70c0b4c83559c0e5168817914. Range-diff maps 26/26 exactly; affected contracts and compilation gates are renewed without repeating platform E2E solely for ancestry.",
     "Checked-in platform projections now use repository-relative or sanitized checkout paths; host usernames and absolute local paths were removed without changing the historical execution attribution.",
     "The recomposition report distinguishes the current 27/27 affected contract from the preserved historical 28/28 result.",
-    "Historical independent rereview of exact head 900f4f5603a20b2031b953dc195441b8f45ce2f9 returned GO with no P0-P3 after verifying sanitized projections, four hashes, current 27/27 versus historical 28/28 attribution, 21/21 range equivalence, validator, diff-check and clean tree."
+    "Historical independent rereview of exact head 900f4f5603a20b2031b953dc195441b8f45ce2f9 returned GO with no P0-P3 after verifying sanitized projections, four hashes, current 27/27 versus historical 28/28 attribution, 21/21 range equivalence, validator, diff-check and clean tree.",
+    "Independent exact-head review of 4b60d78deaf19b7cc33d10a57757ac631f30c3f3 returned GO with no P0-P3 after confirming 26/26 range equivalence, the attestation-only reanchor, all four report hashes, historical platform custody at 2fd276e8, contracts 27/27, runner syntax, affected Android/Web compilation gates, validator, diff-check, secret and host-path scans, and a clean tree."
   ]
 }
