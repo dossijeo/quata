@@ -4,12 +4,12 @@
     "SCR-CHAT"
   ],
   "status": "passed",
-  "productSha": "cafde56e01ee627d70e47a83f54217f353cea45a",
-  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-focal-contracts-passed-independent-review-passed-final-ci-pending",
+  "productSha": "52285c8b1cb0fccc0b4aaf6716b1d7d2e5fa541f",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-focal-contracts-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "chatRootComposition": {
       "status": "passed",
-      "sha": "cafde56e01ee627d70e47a83f54217f353cea45a",
+      "sha": "52285c8b1cb0fccc0b4aaf6716b1d7d2e5fa541f",
       "report": "docs/candidate-attestations/evidence/chat-root-composition-reconciliation-b4218428.json",
       "reportSha256": "4fb14a493e85d621ad12e2f289aa38927f222416196089434ab2ea01cad81780",
       "reportStatus": "passed",
@@ -37,17 +37,17 @@
     "git diff --check"
   ],
   "review": {
-    "status": "passed",
-    "reviewedSha": "250924df028eac454d5c2279836fa51d413188ce",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": []
   },
   "notes": [
     "The Chat root is composed only from thirty-six existing passed thematic receipts with explicit coverage of each capability named by the root, including CHAT-TRANSLATION.",
     "The reconciliation removes the generic root-wide recertification placeholder; it preserves the exact limits owned by Chat child units and system flows, including physical permissions and routing, external providers and destinations, OS network topologies, push, audio, attachments and SOS.",
     "No runtime, backend, platform evidence receipt or CI workflow changed.",
-    "Product cafde56e01ee627d70e47a83f54217f353cea45a replays the Chat-root unit onto frozen predecessor 5a38ea16e62497303de5fa67277c7cacc89b2f3d. All five changed product blobs are byte-identical to previously reviewed Product 131172d6a7d997cfefb32ff921bc1f09696168bf.",
+    "Product 52285c8b1cb0fccc0b4aaf6716b1d7d2e5fa541f replays the Chat-root unit onto the frozen OVR-MEDIA Lane B predecessor 4dc7187c67afdfee49369874b065b96ee39db86d while retaining the current package wiring from that predecessor.",
     "Historical evidence remains bound to report head b42184288560edbb9ec49f6e1bfafd0c161d448e; the historical 904/904 fast suite is not reattributed as a new run.",
     "A fresh independent exact-head review is required before publication.",
-    "Independent review of exact head 250924df028eac454d5c2279836fa51d413188ce returned GO with no P0-P3 findings after confirming all five product blobs against 131172d6a7d997cfefb32ff921bc1f09696168bf and reproducing the focused contracts 20/20, validator, report-hash verification, diff-check and a clean-tree check."
+    "The historical exact-head review returned GO with no P0-P3 findings. This recomposed head requires a fresh independent exact-head review before publication."
   ]
 }
