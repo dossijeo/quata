@@ -4,12 +4,12 @@
     "PROF-SHARED-CHAT-DOCUMENTS"
   ],
   "status": "passed",
-  "productSha": "2500f4838217de8c95c091c138da23d6f83794e1",
-  "certification": "private-v2-storage-and-affected-platform-contracts-complete-final-ci-pending",
+  "productSha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
+  "certification": "private-v2-storage-and-unavailable-object-isolation-complete-recomposed-current-independent-review-pending-final-ci-pending",
   "evidence": {
     "android": {
       "status": "passed",
-      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "sha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
       "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
       "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
       "reportStatus": "passed",
@@ -28,7 +28,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "sha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
       "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
       "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
       "reportStatus": "passed",
@@ -47,7 +47,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "sha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
       "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
       "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
       "reportStatus": "passed",
@@ -66,7 +66,7 @@
     },
     "database": {
       "status": "passed",
-      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "sha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
       "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
       "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
       "reportStatus": "passed",
@@ -89,23 +89,47 @@
         "verified": true,
         "mode": "committed-release-with-probes-rolled-back-and-zero-residue"
       }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-recomposition-7283cdb0.json",
+      "reportSha256": "b0f27b98f5c4c659e93c72282ab1c6f245b8ce4ca8f03506eef022987b1d79e5",
+      "reportStatus": "passed",
+      "reportGitHead": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "three_selected_product_commits_patch_equivalent",
+        "unavailable_private_attachment_isolated_without_exposing_stored_url",
+        "cancellation_propagation_preserved",
+        "historical_platform_and_database_report_preserved",
+        "production_migration_already_committed_not_reapplied",
+        "node_attachment_contracts_62_of_62_passed",
+        "android_compile_and_signed_url_test_passed",
+        "web_wasm_focal_and_web_compile_passed",
+        "ios_x64_test_compilation_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no-platform-or-production-mutation-during-recomposition"
+      }
     }
   },
   "preflight": [
     "git diff --check",
-    "node --test affected attachment contracts (61/61)",
-    ".\\gradlew.bat :app:compileDebugKotlin",
-    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest",
-    ".\\gradlew.bat :web:compileKotlinWasmJs",
-    "Android SupabaseSignedObjectUrlTest",
-    "iOS x64 ChatAttachmentStorageAccessPolicyTest, ChatAttachmentPublicUrlPolicyTest and ChatRpcPayloadEnvelopeTest",
-    "selective database snapshot, package, dry-run, authorized apply and postflight",
+    "node --test affected attachment contracts (62/62)",
+    ".\\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest --tests com.quata.data.supabase.SupabaseSignedObjectUrlTest",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest :web:compileKotlinWasmJs",
+    ".\\gradlew.bat :feature:chat:compileTestKotlinIosX64",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/prof-shared-chat-documents-confidentiality.json"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2500f4838217de8c95c091c138da23d6f83794e1",
-    "productSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "77bca25794ccfd7f2d90a13553b67634eef67e23",
+    "productSha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
     "blockingFindings": [],
     "findingCounts": {
       "P0": 0,
@@ -113,16 +137,24 @@
       "P2": 0,
       "P3": 0
     },
-    "scope": "Independent review verified the exact product head after correcting the private path, membership visibility, deleted-message handling, signed-URL renewal, public-avatar split and owner binding."
+    "scope": "Pending independent exact-head review of the three-commit replay over merged PR #618."
   },
   "notes": [
-    "New clients upload to the private chat-attachments-private bucket, register through quata_chat_register_attachment_v2 and resolve authenticated signed URLs in memory with a 300-second TTL.",
+    "New clients upload to the private chat-attachments-private bucket and register through quata_chat_register_attachment_v2. Android and Web derive 300-second signed URLs in memory; iOS downloads through the authenticated Storage route with its bearer token.",
+    "Web degrades a missing, malformed or unsignable private attachment to an unavailable attachment without exposing its stored URL or suppressing sibling messages; coroutine cancellation still propagates.",
     "The public chat-attachments bucket remains only for the distinguishable Android v32 compatibility lane and can be retired independently when those clients are gone.",
     "A departed uploader cannot read a linked private object, an active remaining participant can read it, and deleted conversation state denies it. The disposable database probe also verified DELETE policy behavior; production itself forbids direct deletion from storage tables and requires the Storage API.",
     "The encrypted full logical backup and focal restore drill prove database metadata recovery. They do not claim backup or recovery of Storage object bytes.",
     "The historical audit found 409 attachment rows, including 350 references whose Storage object is absent; 343 are linked and 7 are unlinked. This pre-existing inconsistency was not silently backfilled.",
     "Migration 20261011110000 committed atomically from the exact Product SHA. General postflight passed, and the postdeploy visibility probe rolled back all synthetic mutations with zero residue.",
     "No full E2E matrix was repeated solely for SHA identity; final GitHub jobs provide clean-runner recertification.",
-    "The checked-in report is sanitized and contains no credential, connection string, actor/conversation identifier, backup key or private path."
+    "The checked-in report is sanitized and contains no credential, connection string, actor/conversation identifier, backup key or private path.",
+    "Product 86d7520a5c100188bf5b9d160427690b1ddeced3 preserves the private-attachment runtime and bounded unavailable-object isolation correction over POST-TEXT-DESTINATION head c4903b632367e6e51daf21315d0e9e3add0fb866. Range-diff maps all eight current commits exactly. Historical platform and production evidence remains bound to Product 2500f4838217de8c95c091c138da23d6f83794e1; no E2E matrix or database migration was repeated solely for ancestry.",
+    "Historical independent review of exact head f82b87969e74335090056595eb91290a0fdd4298 returned GO with no P0-P3 after verifying the then-current predecessor c1f22dd8, 2/2 implementation/attestation equivalence, report hashes, historical Product 2500f483 custody, 61/61 contracts, validator, diff-check and clean tree. It does not claim review of the current recomposition.",
+    "Independent review of exact head 2fc04f3a51e96b1d757514b2d2fd4dc39b5efbd7 returned GO with no P0-P3 after reproducing 62/62 Node contracts, 237/237 Web/Wasm tests, Android/Web compilation, validator, both report hashes, diff-check, secret scan and clean-tree checks.",
+    "Independent exact-head review of 3b154bee4c2f630d1e7202f51a5d7534d8efce08 returned GO with no P0-P3 after confirming 8/8 range equivalence, per-attachment failure isolation, no stored-URL fallback, cancellation propagation, exact historical hashes, unchanged committed migration bytes without reapply, Node 62/62, Web/Wasm 237/237, Android/Web/iOS x64 compilation, validator, diff-check, secret and host-path scans, and a clean tree.",
+    "Product d60ead6ad9608588e819a913099abe8708b90d89 and all ten pre-attestation commits replay exactly over frozen POST-TEXT-DESTINATION head 381c058aa7bb6dee9c2917937a23663fbb896ac2. Historical platform and production evidence remains bound to 2500f4838217de8c95c091c138da23d6f83794e1; migration 20261011110000 remains already committed and was not reapplied. Independent exact-head review of 93e732b6001d1fd1962ce436581ff657e5b3d4eb returned GO with no P0-P3.",
+    "Current post-rebase gates passed Node 62/62, Android compile plus SupabaseSignedObjectUrlTest, Web/Wasm focal task plus Web compilation, iOS x64 test compilation, validator and diff-check. The iOS test runner was skipped on the Windows host, so actual iOS execution remains attributed only to historical Product 2500f4838217de8c95c091c138da23d6f83794e1.",
+    "Current Product 7283cdb0316d9fda6bb54cb0236c26494bc786a2 replays the implementation, original attestation and unavailable-object correction with identical patch IDs over merged main 8ac7db07. Current affected gates passed: Node 62/62, Android compile and signed-object test, Web/Wasm focal test and Web compile, iOS x64 test compilation, validator and diff-check. Historical platform execution and production database evidence remain bound to Product 2500f483; migration 20261011110000 was not reapplied."
   ]
 }
