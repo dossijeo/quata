@@ -1,11 +1,11 @@
 {
   "status": "passed",
   "git": {
-    "head": "fca81a1ebb5125902a593a8fd8e66064ee749e7a",
+    "head": "cabd7fb8be175801636da574db94ef73d7fb46a6",
     "workingTreeDirty": false
   },
   "steps": [
-    "nine_commits_patch_equivalent",
+    "twenty_one_commits_patch_equivalent",
     "post_publish_contract_28_of_28_passed",
     "destination_runner_syntax_passed",
     "android_test_and_wasm_compilation_passed",
@@ -18,11 +18,11 @@
   ],
   "observations": {
     "unit": "POST-TEXT-DESTINATION",
-    "productSha": "fca81a1ebb5125902a593a8fd8e66064ee749e7a",
-    "predecessorSha": "1fb54be5fbb1ed57aa758779ea7fd15363a93b55",
+    "productSha": "cabd7fb8be175801636da574db94ef73d7fb46a6",
+    "predecessorSha": "2727b58fbfa3219dffe41d74dd710e806e45a05e",
     "historicalExecutionSha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
-    "productCommitsPatchEquivalent": "6/6 historical Product commits plus two cleanup hardening fixes",
-    "completeSeriesPatchEquivalent": "9/9 historical series plus two cleanup hardening fixes",
+    "productCommitsPatchEquivalent": "13/13 historical Product commits",
+    "completeSeriesPatchEquivalent": "21/21 historical series",
     "platformE2eRepeatedForAncestry": false,
     "backendMutationPerformed": false,
     "realAlternateDestinationCount": 186,
@@ -30,7 +30,7 @@
     "ownedSessionsHistoricalCleanupVerified": true
   },
   "notes": [
-    "Product fca81a1e preserves the reviewed nine-commit real alternate-destination series over final FLOW-EMOJI and adds fail-closed cleanup that always attempts Auth retirement after a Web-session cleanup failure and persists both sanitized branch outcomes in each platform report.",
+    "Product cabd7fb8be175801636da574db94ef73d7fb46a6 preserves the reviewed real alternate-destination and fail-closed cleanup series over the current migration chain; range-diff maps all 21 owned commits exactly.",
     "The three platform reports remain bound to exact historical execution Product 2fd276e8; no E2E matrix was repeated solely for ancestry.",
     "Empty and failure/retry remain deterministic non-mutating states because fabricating a production empty set would require an improper global wall mutation.",
     "An executable negative forces Web cleanup failure, proves Auth logout plus refresh-token rejection still run, retains both sanitized outcomes, and source contracts require every platform runner to persist them while keeping the overall report failed."
