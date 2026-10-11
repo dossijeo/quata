@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
-  "certification": "real-multiple-destination-platform-evidence-complete-independent-review-pending-final-CI-pending",
+  "certification": "real-multiple-destination-platform-evidence-complete-independent-review-go-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
@@ -73,10 +73,15 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "go",
+    "reviewedSha": "dd20ea4ba10ac50cc2600cfd5ffa3ac779a640fb",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Exact alternate-destination selection is asserted on Android, Web/Wasm and iOS.",
+      "Owned Web-session revocation is probed before Auth logout and requires 401 invalid_web_session.",
+      "Owned Auth refresh-token rejection requires 400 refresh_token_not_found; sanitized outcomes are retained in all three reports.",
+      "The iOS custody note distinguishes the reused SimulatorSigned build from the exact-Product evidence runner and its verified cleanup."
+    ],
     "scopeLimit": "This receipt certifies real multiple-destination discovery and selection without publishing. Deterministic empty and failure/retry states remain covered by the existing validation-state evidence; production currently makes an empty destination set unreachable while active walls exist."
   },
   "notes": [
