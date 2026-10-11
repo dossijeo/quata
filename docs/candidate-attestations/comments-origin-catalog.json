@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "374a2b03c07c0a39129bf0b0c652439591c709fe",
-  "certification": "finite-comments-origin-catalog-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "certification": "finite-comments-origin-catalog-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "originCatalog": {
       "status": "passed",
@@ -36,8 +36,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "ddf9da0be406c12efcf575ab7e07270d9305b698",
     "blockingFindings": [],
     "resolvedFindings": [
       "The comments-origin guard is wired into both web-wave2 and ci-fast authoritative gates."
