@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "2691cb66efef1ade79ab68686b690f96e75ebf54",
-  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-pending-final-CI-pending",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-GO-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
@@ -100,10 +100,17 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "7525de4b478e37e34ff3a774d326e7b50e1a5e12",
     "previousReviewedSha": "4b60d78deaf19b7cc33d10a57757ac631f30c3f3",
-    "blockingFindings": []
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The current destination series maps 28/28 commits patch-equivalent over FLOW-DEEP-LINKS row-repair head 710518537865e33277f9166c09c7d5d20ea49e49.",
+      "Historical Android, Web and iOS execution remains attributed only to 2fd276e89bbabfafd8d9c6099a950c124d2752f1; no platform E2E was renewed or attributed solely for ancestry.",
+      "The 27/27 current contract, four runner syntax checks, AndroidTest plus Wasm compilation, validator and diff-check pass on the recomposed unit.",
+      "Report custody, SHA-256 hashes, cleanup claims and the focal scan for secrets and private host paths are coherent."
+    ],
+    "reviewedProductSha": "2691cb66efef1ade79ab68686b690f96e75ebf54"
   },
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
@@ -120,6 +127,6 @@
     "Product SHA 2691cb66efef1ade79ab68686b690f96e75ebf54 replays all 28 current destination-series commits over FLOW-DEEP-LINKS row-repair head 710518537865e33277f9166c09c7d5d20ea49e49. Range-diff maps 28/28 exactly; affected contracts and compilation gates are renewed without repeating platform E2E solely for ancestry.",
     "Checked-in platform projections now use repository-relative or sanitized checkout paths; host usernames and absolute local paths were removed without changing the historical execution attribution.",
     "The recomposition report distinguishes the current 27/27 affected contract from the preserved historical 28/28 result.",
-    "Exact-head review is pending for this 28/28 patch-equivalent recomposition over 710518537865e33277f9166c09c7d5d20ea49e49; historical reviews remain provenance only."
+    "Independent exact-head review of 7525de4b478e37e34ff3a774d326e7b50e1a5e12 returned GO with no P0-P3 after confirming 28/28 patch equivalence, historical platform attribution, report custody, affected gates, a clean tree and the focal secret/path scan."
   ]
 }
