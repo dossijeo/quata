@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-COMMENTS"
+  ],
+  "status": "passed",
+  "productSha": "374a2b03c07c0a39129bf0b0c652439591c709fe",
+  "certification": "finite-comments-origin-catalog-composed-thematic-limits-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "originCatalog": {
+      "status": "passed",
+      "sha": "374a2b03c07c0a39129bf0b0c652439591c709fe",
+      "report": "docs/candidate-attestations/evidence/comments-origin-catalog-374a2b03.json",
+      "reportSha256": "f3ac1952f141267abdfbbc1a90390a900a84b712aee9efdcebd254f7340c1016",
+      "reportStatus": "passed",
+      "reportGitHead": "374a2b03c07c0a39129bf0b0c652439591c709fe",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_product_comments_owner_catalog_extracted",
+        "feed_official_and_public_profile_exact_post_selection_preserved",
+        "fourth_product_comments_surface_negative_control_rejected",
+        "all_composed_focal_comments_receipts_preserved_passed",
+        "generic_other_origin_residual_removed",
+        "non_focal_network_and_unattested_operation_boundaries_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/comments-origin-catalog-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/comments-origin-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The comments-origin guard is wired into both web-wave2 and ci-fast authoritative gates."
+    ],
+    "historicalReviewedShas": [
+      "588ed01b57185dcbc3921508eeb34428dbb39c7f",
+      "687ee4a5c8218c5bd5420917d2c5f217fccce455",
+      "670c67df9f5e8a72fcb729c27264c7cc1c79381f"
+    ]
+  },
+  "notes": [
+    "The exact source extractor finds three and only three product comments owners: Feed, Official and public profile.",
+    "The three owners preserve exact selected-post identity when opening their comments surface.",
+    "Passed focal receipts compose comment, reply, author profile, deep pagination, translator, emoji, rollback, selector states and the iOS keyboard edge for the finite owner catalog.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Non-focal network failures and comment operations absent from the composed receipts remain explicit thematic boundaries.",
+    "Product SHA 374a2b03c07c0a39129bf0b0c652439591c709fe preserves the reviewed bounded delta over frozen OVR-POST-DETAIL candidate 40e0464ee52aff50ed461e651b915a80aa6d2324. No platform matrix was repeated solely for ancestry."
+  ]
+}

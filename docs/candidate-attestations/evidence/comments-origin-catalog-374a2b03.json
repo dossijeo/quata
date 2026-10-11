@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "374a2b03c07c0a39129bf0b0c652439591c709fe",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "finite_product_comments_owner_catalog_extracted",
+    "feed_official_and_public_profile_exact_post_selection_preserved",
+    "fourth_product_comments_surface_negative_control_rejected",
+    "all_composed_focal_comments_receipts_preserved_passed",
+    "generic_other_origin_residual_removed",
+    "non_focal_network_and_unattested_operation_boundaries_preserved"
+  ],
+  "observations": {
+    "unit": "OVR-COMMENTS",
+    "contractPassed": 5,
+    "contractFailed": 0,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "commentsOwnerCatalog": [
+      "Feed",
+      "Official",
+      "PublicProfile"
+    ]
+  }
+}
