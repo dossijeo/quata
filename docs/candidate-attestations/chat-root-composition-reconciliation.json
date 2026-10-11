@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "52285c8b1cb0fccc0b4aaf6716b1d7d2e5fa541f",
-  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-focal-contracts-passed-independent-review-pending-final-ci-pending",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-local-focal-contracts-passed-independent-review-passed-final-ci-pending",
   "evidence": {
     "chatRootComposition": {
       "status": "passed",
@@ -37,8 +37,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "go",
+    "reviewedSha": "f1fdf77ae56ee348063c3a478d18820f71a3007f",
     "blockingFindings": []
   },
   "notes": [
@@ -48,6 +48,6 @@
     "Product 52285c8b1cb0fccc0b4aaf6716b1d7d2e5fa541f replays the Chat-root unit onto the frozen OVR-MEDIA Lane B predecessor 4dc7187c67afdfee49369874b065b96ee39db86d while retaining the current package wiring from that predecessor.",
     "Historical evidence remains bound to report head b42184288560edbb9ec49f6e1bfafd0c161d448e; the historical 904/904 fast suite is not reattributed as a new run.",
     "A fresh independent exact-head review is required before publication.",
-    "The historical exact-head review returned GO with no P0-P3 findings. This recomposed head requires a fresh independent exact-head review before publication."
+    "Independent exact-head review of f1fdf77ae56ee348063c3a478d18820f71a3007f returned GO with no P0-P3 findings after reproducing the focal contract, validator and predecessor diff-check; package.json contains no CR bytes and the tree was clean."
   ]
 }
