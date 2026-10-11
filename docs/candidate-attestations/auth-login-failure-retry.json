@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN"
+  ],
+  "status": "passed",
+  "productSha": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+  "certification": "rendered-common-login-failure-retry-complete-recomposed-gates-passed-independent-review-go-final-CI-pending",
+  "evidence": {
+    "commonCompose": {
+      "status": "passed",
+      "sha": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-a8a06e43.json",
+      "reportSha256": "bbac6065136d338b11324912b310233f622615b482d217231620a796672f47fa",
+      "reportStatus": "passed",
+      "reportGitHead": "a8a06e43691bdc251377caa1bd68ba3d1d6830a5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "credentials_entered_in_real_shared_login_form",
+        "first_submit_disabled_while_transport_pending",
+        "duplicate_submit_before_dispatcher_advance_is_ignored",
+        "failure_visible_on_stable_auth_error_semantics",
+        "phone_and_password_preserved_after_failure",
+        "explicit_retry_reuses_exact_credentials_once",
+        "successful_retry_emits_single_authentication_effect"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-f56bd12e.json",
+      "reportSha256": "dfc62d13fe046ae02a86dced642816196a91ad0889ad3c8c514478a17a42c425",
+      "reportStatus": "passed",
+      "reportGitHead": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "three_owned_runtime_and_test_blobs_byte_identical",
+        "synchronous_submission_reservation_and_duplicate_suppression_preserved",
+        "historical_rendered_and_native_compile_evidence_not_reattributed",
+        "affected_gates_repeated",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-no-backend-or-platform-mutation"
+      }
+    }
+  },
+  "preflight": [
+    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
+    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-login-failure-retry.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": [],
+    "previousReviewedSha": "50091af14eed0ae4bdb98918d18ea57f4a2493f4",
+    "historicalReviewedShas": [
+      "13fdb89e75207fff90033ab594813a6d4790e759",
+      "50091af14eed0ae4bdb98918d18ea57f4a2493f4",
+      "0d2625c61f6ef61811064a668d8ffee1cef838cb"
+    ],
+    "resolvedFindings": []
+  },
+  "notes": [
+    "The real common Login form exposes a stable auth.error semantic anchor and keeps both entered credentials after a failed phone/password submission.",
+    "While the first transport call is pending, the shared submit control is disabled. One explicit retry uses the exact same country code, phone and password and emits one success effect.",
+    "The evidence is hermetic and performs no backend mutation. It proves the common rendered component in Chrome Headless and compiles the same common source for Android and iOS x64; it does not claim native UI execution or a real backend outage.",
+    "The aggregate wasmJsTest Node dry-run remains a runner diagnostic because Skiko cannot load skiko.wasm there; wasmJsBrowserTest is the applicable rendered Compose gate and passed all 29 module tests.",
+    "Historical Product 9b54420711ce046f033bfdd0fb58bd11b0cd8f65 replays the eleven-commit Login retry historical series plus its squash reanchor patch-equivalent over reviewed Recovery-continuity head 387a7459a7a01c23a3623771f89cf903c5af13c0. All five Product blobs remain unchanged from the reviewed unit; historical Web/Wasm execution and Android/iOS common compilations are not attributed to ancestry.",
+    "Independent exact-head review of 50091af14eed0ae4bdb98918d18ea57f4a2493f4 returned GO without P0-P3: 11/11 patch-equivalent, five blobs identical, synchronous reservation and duplicate suppression verified, credentials/retry/single success preserved, validator/diff-check/secret scan clean, and no new matrix attributed.",
+    "Historical independent review returned GO with no P0-P3 on cddf40a28dd1b898d87c1c075d079c6f167e9498 and remains recorded only as prior custody.",
+    "Current Product f56bd12efd344e219388d0ffe7957341b9b34f02 applies the Login failure/retry delta over corrected FLOW-EMOJI composition 2680187459086dee4f273820d66c908e9b36c892. Its two runtime files and one rendered test are byte-identical to historical head 1a4489fc4af31ee4c9b4872fc11198d63b45ff6c; no rendered or native matrix is attributed to the ancestry-only recomposition.",
+    "Independent review of 0d2625c61f6ef61811064a668d8ffee1cef838cb returned GO without P0-P3; validator, diff-check, JSON and secret scan passed with a clean tree.",
+    "Independent exact-head review of e3bc23625965138adb1f14f223883881e914d3c4 returned GO without P0-P3 after confirming 16/16 patch equivalence, five byte-identical Product blobs, synchronous reservation, duplicate suppression, preserved credentials, single retry success, historical-only execution attribution, validator, hashes, diff-check and clean tree."
+  ]
+}
