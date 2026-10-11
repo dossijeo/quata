@@ -4,16 +4,16 @@
     "OVR-MEDIA"
   ],
   "status": "passed",
-  "productSha": "43f120d2e05e40eeb0da46c30795b26ec15aad24",
-  "certification": "finite-media-producer-catalog-composed-affected-contracts-pass-final-review-pending",
+  "productSha": "4854bb3f091aacf3f5020e398a288b382072e385",
+  "certification": "finite-media-producer-catalog-all-inventories-reconciled-final-review-pending",
   "evidence": {
     "producerCatalog": {
       "status": "passed",
-      "sha": "43f120d2e05e40eeb0da46c30795b26ec15aad24",
-      "report": "docs/candidate-attestations/evidence/media-producer-catalog-43f120d2.json",
-      "reportSha256": "8c4625c8e8da19f8f3fe06e21d83cd333ca61e0847b54036342eca9d1b18c3c4",
+      "sha": "4854bb3f091aacf3f5020e398a288b382072e385",
+      "report": "docs/candidate-attestations/evidence/media-producer-catalog-4854bb3f.json",
+      "reportSha256": "fe854964d911ec0d2b08384887d3fd3c77e364f98bd9d13576aae81163c0cbd3",
       "reportStatus": "passed",
-      "reportGitHead": "43f120d2e05e40eeb0da46c30795b26ec15aad24",
+      "reportGitHead": "4854bb3f091aacf3f5020e398a288b382072e385",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
