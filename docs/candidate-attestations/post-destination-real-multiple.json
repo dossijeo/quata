@@ -5,13 +5,13 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+  "productSha": "e8abc759b48edf6908ee0cbbf76f450e3de4b7a8",
   "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+      "sha": "e8abc759b48edf6908ee0cbbf76f450e3de4b7a8",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-2fd276e8.json",
       "reportSha256": "58bba17ceb63d3db9ebffe5f714a886126e3526939aa6482c889fd7dce54c644",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+      "sha": "e8abc759b48edf6908ee0cbbf76f450e3de4b7a8",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-2fd276e8.json",
       "reportSha256": "2a084cfe80b0eb8bb4b48fd4b04906e2049b59bc3f9554e29204f1e9e84ed4d2",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+      "sha": "e8abc759b48edf6908ee0cbbf76f450e3de4b7a8",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-2fd276e8.json",
       "reportSha256": "6529d4f152f5273b6b0f70f9127a8adfb60a92d9441bf302e7f9e2e01cec75ac",
       "reportStatus": "passed",
@@ -66,20 +66,21 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+      "sha": "e8abc759b48edf6908ee0cbbf76f450e3de4b7a8",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-recomposition-85e1187b.json",
-      "reportSha256": "cb85a65b94d01ae596dadfac39324ceaf2a69a925ab6b658e358cd9366077302",
+      "reportSha256": "22e72bf488f5e0a76329791445eb442f663932ed27cf3bdacac2dfaefad08c5f",
       "reportStatus": "passed",
-      "reportGitHead": "ba57beb4c3141ee9686c78b48da1b86db0d2bca0",
+      "reportGitHead": "e8abc759b48edf6908ee0cbbf76f450e3de4b7a8",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "nine_commits_patch_equivalent",
-        "post_publish_contract_27_of_27_passed",
+        "post_publish_contract_28_of_28_passed",
         "destination_runner_syntax_passed",
         "android_test_and_wasm_compilation_passed",
         "web_wasm_distribution_passed",
         "swift_parse_xcode_26_6_passed",
+        "auth_cleanup_attempted_after_web_failure_negative_passed",
         "historical_platform_reports_preserved",
         "diff_check_passed"
       ],
@@ -111,10 +112,11 @@
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
     "Android, Web/Wasm and iOS selected the exact second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post or wall mutation. Authentication updated the actor login metadata and created owned auth/web sessions; every lane revoked its exact web session, invalidated its refresh token and verified both outcomes.",
-    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. Current Product 85e1187b preserves the six Product commits and complete nine-commit series patch-equivalent over reviewed FLOW-EMOJI head 1fb54be5; affected contracts, compilations, Web distribution and Swift parse were repeated without renewing platform E2E solely for ancestry.",
+    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. Current Product e8abc759 preserves the six historical Product commits and complete nine-commit series patch-equivalent over reviewed FLOW-EMOJI head 1fb54be5, then fixes cleanup so Auth retirement is attempted even after Web cleanup failure; the executable negative and combined contract pass 28/28 without renewing platform E2E solely for ancestry.",
     "The successful historical iOS run reused the unchanged SimulatorSigned product build from e6c65684 because 2fd276e8 changes only the Node cleanup verifier and its source contract. Its exact-Product runner passed the authenticated seeder and alternate-destination XCTest, ran product-session logout cleanup, did not generate or modify an Xcode project, and verified restoration of runtime config, temporary credentials and owned fixture sessions.",
     "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
     "No credential, token, raw wall identifier or database connection string is stored in the reports or repository.",
-    "The historical independent review of dd20ea4ba10ac50cc2600cfd5ffa3ac779a640fb returned GO; the current recomposed head requires a fresh independent exact-head review before publication."
+    "The historical independent review of dd20ea4ba10ac50cc2600cfd5ffa3ac779a640fb returned GO; the current recomposed head requires a fresh independent exact-head review before publication.",
+    "The cleanup negative records both sanitized branch outcomes, proves Auth logout and refresh rejection after forced Web failure, and still fails the overall cleanup result."
   ]
 }
