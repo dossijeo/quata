@@ -4,12 +4,12 @@
     "OVR-PUBLIC-PROFILE"
   ],
   "status": "passed",
-  "productSha": "21a88509e7f8ed4d497b16fa8319d6e9cf5f0e66",
+  "productSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
   "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "publicProfileRootComposition": {
       "status": "passed",
-      "sha": "21a88509e7f8ed4d497b16fa8319d6e9cf5f0e66",
+      "sha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
       "report": "docs/candidate-attestations/evidence/public-profile-root-composition-reconciliation-9d016d5e.json",
       "reportSha256": "c1f2ebb126b752b1389da1655581d5bf2e15e85b05dafa80513e0300e2b517d3",
       "reportStatus": "passed",
@@ -30,11 +30,11 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "21a88509e7f8ed4d497b16fa8319d6e9cf5f0e66",
-      "report": "docs/candidate-attestations/evidence/public-profile-root-composition-recomposition-21a88509.json",
-      "reportSha256": "546dd8c5d9b312a5ea954aac9bbc329b553e8d9a59967dd0d780354c7b2b31f9",
+      "sha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
+      "report": "docs/candidate-attestations/evidence/public-profile-root-composition-recomposition-b395be49.json",
+      "reportSha256": "59e00d40a11c4147105496673151a4a6a7390770c4cef18d3f4815787444bdda",
       "reportStatus": "passed",
-      "reportGitHead": "21a88509e7f8ed4d497b16fa8319d6e9cf5f0e66",
+      "reportGitHead": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -58,11 +58,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d",
-    "previousReviewedSha": "8aaf39cedae8bbbe223fb27a7d1f6a0a15d52d82",
+    "status": "PENDING",
+    "reviewedSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
+    "previousReviewedSha": "41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d",
     "blockingFindings": [],
-    "reviewedProductSha": "21a88509e7f8ed4d497b16fa8319d6e9cf5f0e66",
+    "reviewedProductSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -86,7 +86,8 @@
     "The full nineteen-commit pre-attestation series, whose Product is ec84eb80d87df0ab27970a8d1dbb47bc87ba3b30, replays exactly over reviewed PROF-SHARED-CHAT-DOCUMENTS head 77bca25794ccfd7f2d90a13553b67634eef67e23. The historical 907/907 aggregate suite remains historical custody; only the affected 3/3 composition contract and documentary gates were renewed. Independent exact-head review of 0afe4919ab7489004397c6b91f3695b615cfa56a returned GO with no P0-P3 after the commit-count wording correction.",
     "Current Product e8ffcbbeab7ec5d9750e307942a109dbe49afe53 replays the single public-profile composition commit with an identical patch ID over frozen PROF-SHARED-CHAT-DOCUMENTS candidate #619. The affected contract passes 3/3, package wiring preserves predecessor scripts, validator and diff-check pass, and historical 907/907 aggregate execution is not reattributed.",
     "Independent exact-head review of 8aaf39cedae8bbbe223fb27a7d1f6a0a15d52d82 returned GO without P0-P3 after confirming the corrected pending-review custody, exact Product patch, 28 receipts plus PROF-HEADER, preserved owner limits, exact-once package wiring, 3/3 contract, hashes, validator, diff-check and clean tree.",
-    "Current Product 21a88509e7f8ed4d497b16fa8319d6e9cf5f0e66 replays the single composition commit with identical stable patch ID over repaired candidate head e3440e12015f8fa8ed04492b7a7075ccbaac67b7. Contract 3/3, validator and diff-check pass; historical 907/907 is not reattributed.",
-    "Independent exact-head review of 41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d returned GO without P0-P3 after confirming patch-id e45dac28, 28 receipts plus PROF-HEADER, owner limits, exact-once wiring, hashes, historical 907/907 custody, 3/3 contract, validator, diff-check, secret scan and clean tree."
+    "Current Product b395be4959d70cf16961c4df071a6bfcdcc6c2e4 replays the single composition commit with identical stable patch ID over repaired candidate head e3440e12015f8fa8ed04492b7a7075ccbaac67b7. Contract 3/3, validator and diff-check pass; historical 907/907 is not reattributed.",
+    "Independent exact-head review of 41bc67b2e28ef0a7cf239f084bab84ccd79d2e0d returned GO without P0-P3 after confirming patch-id e45dac28, 28 receipts plus PROF-HEADER, owner limits, exact-once wiring, hashes, historical 907/907 custody, 3/3 contract, validator, diff-check, secret scan and clean tree.",
+    "Current Product b395be4959d70cf16961c4df071a6bfcdcc6c2e4 replays the single composition commit with identical stable patch ID over merged squash f534c60128dc05253cc3898cc559a22043e230f5; the predecessor tree equals frozen candidate e3440e12015f8fa8ed04492b7a7075ccbaac67b7. Contract 3/3 is renewed without reattributing historical 907/907."
   ]
 }
