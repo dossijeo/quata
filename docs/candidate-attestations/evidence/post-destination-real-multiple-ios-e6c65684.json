@@ -1,9 +1,9 @@
 {
   "check": "POST-DESTINATION-IOS-REAL-001",
   "status": "passed",
-  "startedAt": "2026-10-11T02:45:57.931Z",
+  "startedAt": "2026-10-11T03:12:24.112Z",
   "git": {
-    "head": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+    "head": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
     "branch": "codex/post-destination-real-multiple",
     "workingTreeDirty": false
   },
@@ -26,17 +26,22 @@
     "ios_real_credentials_copied_to_mac_tempfile_without_logging_contents",
     "mac_checkout_sha_matches_local_candidate",
     "ios_public_runtime_xcconfig_prepared_transiently",
-    "ios_simulator_signed_build_succeeded_on_mac"
+    "ios_simulator_signed_build_succeeded_on_mac",
+    "owned_fixture_auth_and_web_sessions_revoked_and_verified"
   ],
   "mac": {
     "host": "quata-mac",
     "project": "/Users/gabriel/Documents/Projects/quata-post-destination-real-multiple-20261011",
-    "head": "f969dc357f5788676e085d8dbc226646a3c07c5b"
+    "head": "e6c65684d6368bd19f90817d07143ea2b5c2c153"
   },
   "environmentCleanup": {
     "runtimeConfigRestored": true,
     "ownedXcodeProjectRemoved": true,
     "temporaryCredentialsRemoved": true
   },
-  "finishedAt": "2026-10-11T02:49:55.862Z"
+  "cleanup": {
+    "webSessionRevoked": true,
+    "refreshTokenRejected": true
+  },
+  "finishedAt": "2026-10-11T03:16:35.886Z"
 }

@@ -1,9 +1,9 @@
 {
   "check": "POST-DESTINATION-WEB-REAL-001",
   "status": "passed",
-  "startedAt": "2026-10-11T02:29:24.569Z",
+  "startedAt": "2026-10-11T02:59:03.194Z",
   "git": {
-    "head": "9636e7b3a86d967b0f241f50bf82b60c8641d335",
+    "head": "8b2110339ca2079e2af052e5e63149bd38e50073",
     "branch": "codex/post-destination-real-multiple",
     "workingTreeDirty": false
   },
@@ -30,7 +30,12 @@
     }
   },
   "steps": [
-    "real_profile_authenticated_without_logging_credentials"
+    "real_profile_authenticated_without_logging_credentials",
+    "owned_fixture_auth_and_web_sessions_revoked_and_verified"
   ],
-  "finishedAt": "2026-10-11T02:29:34.856Z"
+  "cleanup": {
+    "webSessionRevoked": true,
+    "refreshTokenRejected": true
+  },
+  "finishedAt": "2026-10-11T02:59:15.915Z"
 }

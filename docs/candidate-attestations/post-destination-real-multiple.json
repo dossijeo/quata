@@ -5,59 +5,62 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+  "productSha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
   "certification": "real-multiple-destination-platform-evidence-complete-independent-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-9636e7b3.json",
-      "reportSha256": "1958ae7294f617c0ac4545e7afb516fedacfe1106fb6e90b5e0ec5e60449350a",
+      "sha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-8b211033.json",
+      "reportSha256": "a640da5167eb3e73dd250bfc5a55370cfff06f8cf067ebe52dad489d0fcae4ab",
       "reportStatus": "passed",
-      "reportGitHead": "9636e7b3a86d967b0f241f50bf82b60c8641d335",
+      "reportGitHead": "8b2110339ca2079e2af052e5e63149bd38e50073",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "real_profile_authenticated_without_logging_credentials"
+        "real_profile_authenticated_without_logging_credentials",
+        "owned_fixture_auth_and_web_sessions_revoked_and_verified"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "read-only-real-destination-discovery-no-backend-mutation"
+        "mode": "owned-auth-and-web-session-revocation-verified"
       }
     },
     "android": {
       "status": "passed",
-      "sha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-9636e7b3.json",
-      "reportSha256": "cbd6d5283b1cb2bb25544675f1f8d27dbc2b912858a6778ee52625559fb4f877",
+      "sha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-8b211033.json",
+      "reportSha256": "0e1bc212bf173a31ff40040b7e9652c8fd74bd084a7f818a588eb2f01c4ced5a",
       "reportStatus": "passed",
-      "reportGitHead": "9636e7b3a86d967b0f241f50bf82b60c8641d335",
+      "reportGitHead": "8b2110339ca2079e2af052e5e63149bd38e50073",
       "requireReportArtifact": true,
       "requiredSteps": [
-        "android_debug_and_test_apks_built"
+        "android_debug_and_test_apks_built",
+        "owned_fixture_auth_and_web_sessions_revoked_and_verified"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "read-only-real-destination-discovery-no-backend-mutation"
+        "mode": "owned-auth-and-web-session-revocation-verified"
       }
     },
     "ios": {
       "status": "passed",
-      "sha": "f969dc357f5788676e085d8dbc226646a3c07c5b",
-      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-f969dc35.json",
-      "reportSha256": "2f34743da1d5990271066ab3856bdeb58c5abb84292c786fe24891335bc5604b",
+      "sha": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-e6c65684.json",
+      "reportSha256": "6ab24939f5723e28f656ef89821371446371559d99cd5ab4180ece1f4779cbc8",
       "reportStatus": "passed",
-      "reportGitHead": "f969dc357f5788676e085d8dbc226646a3c07c5b",
+      "reportGitHead": "e6c65684d6368bd19f90817d07143ea2b5c2c153",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
         "ios_public_runtime_xcconfig_prepared_transiently",
-        "ios_simulator_signed_build_succeeded_on_mac"
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "owned_fixture_auth_and_web_sessions_revoked_and_verified"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "transient-runtime-config-and-credentials-restored"
+        "mode": "owned-auth-and-web-session-revocation-plus-transient-runtime-config-and-credentials-restored"
       }
     }
   },
@@ -77,9 +80,9 @@
   },
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
-    "Android, Web/Wasm and iOS selected a second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post and required no backend cleanup.",
-    "Web and Android executed at 9636e7b3. Product f969dc35 changes only the iOS evidence runner cleanup/configuration boundary and its Node contract after the first iOS attempt exposed a skipped seeder; Web and Android runtime, tests and evidence runners are byte-identical and were not repeated solely for that iOS-only repair.",
-    "The successful iOS run used a clean isolated exact-Product worktree, transiently generated the public runtime xcconfig, passed the authenticated seeder and destination XCTest, and verified restoration of runtime config, generated project and temporary credentials.",
+    "Android, Web/Wasm and iOS selected the exact second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post or wall mutation. Authentication updated the actor login metadata and created owned auth/web sessions; every lane revoked its exact web session, invalidated its refresh token and verified both outcomes.",
+    "Web and Android executed at 8b211033. Product e6c65684 changes only the iOS UI replay stabilization and its Node contract; Web and Android runtime, tests and evidence runners are byte-identical and were not repeated solely for that iOS-only repair.",
+    "The successful iOS run used a clean isolated exact-Product worktree, transiently generated the public runtime xcconfig, passed the authenticated seeder and exact alternate-destination XCTest, ran the seeded product-session logout cleanup, and verified restoration of runtime config, generated project, temporary credentials and owned fixture sessions.",
     "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
     "No credential, token, raw wall identifier or database connection string is stored in the reports or repository."
   ]
