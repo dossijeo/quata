@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-POST-DETAIL"
+  ],
+  "status": "passed",
+  "productSha": "65819aaf867c8409b899b76e4db6c38b6135e861",
+  "certification": "finite-post-detail-origin-catalog-composed-thematic-limits-preserved-independent-review-go-final-ci-pending",
+  "evidence": {
+    "originCatalog": {
+      "status": "passed",
+      "sha": "65819aaf867c8409b899b76e4db6c38b6135e861",
+      "report": "docs/candidate-attestations/evidence/post-detail-origin-catalog-65819aaf.json",
+      "reportSha256": "b00b530f2d3c91a71e84ede114d04435a5e5ebe5f7950ff9f17f4408f0a13a1a",
+      "reportStatus": "passed",
+      "reportGitHead": "65819aaf867c8409b899b76e4db6c38b6135e861",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_product_post_detail_owner_catalog_extracted",
+        "feed_and_official_deep_links_live_and_ranking_converge_on_existing_hosts",
+        "public_profile_exact_post_and_scroll_identity_preserved",
+        "fourth_product_detail_host_negative_control_rejected",
+        "all_composed_focal_receipts_preserved_passed",
+        "generic_other_origin_residual_removed",
+        "thematic_media_comments_and_connectivity_boundaries_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/post-detail-origin-catalog-contract.test.mjs scripts/post-detail-parity-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-detail-origin-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "cf5d650c069285744aa5f1f01dc3fb7861cf4f36",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The fourth-host negative control feeds a synthetic invocation through the same source extractor before exact catalog comparison.",
+      "The composed closure preserves all later board closures and leaves thematic media, comments and connectivity boundaries with their owning units."
+    ],
+    "historicalReviewedShas": [
+      "12f2b0f4d7168a65e03d43b01056b3a63c66cd54",
+      "98d09600a7f57411a62fa0f3d0835262d987acb8",
+      "3778be21f13e12a635fe0b8f81d87fcaa9186e7b"
+    ]
+  },
+  "notes": [
+    "The exact source extractor finds three and only three product hosts that invoke the shared post-detail chrome: Feed, Official and public profile.",
+    "Live and Ranking select posts inside the Feed or Official host; they do not define an additional detail owner.",
+    "Passed focal receipts compose exact identity, return, actions, media entry, deep scroll and durable video position for the finite owner catalog.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Comments, exhaustive codecs and transports, physical network failures, prolonged background playback, other media producers and external receivers remain with OVR-COMMENTS, OVR-MEDIA and FLOW-CONNECTIVITY-PRESENCE.",
+    "Product SHA 65819aaf867c8409b899b76e4db6c38b6135e861 preserves the reviewed bounded delta over squash 31827064886860b189416e26e070f301d727133f. No platform matrix was repeated solely for ancestry."
+  ]
+}

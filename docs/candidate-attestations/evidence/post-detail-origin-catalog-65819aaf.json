@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "65819aaf867c8409b899b76e4db6c38b6135e861",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "finite_product_post_detail_owner_catalog_extracted",
+    "feed_and_official_deep_links_live_and_ranking_converge_on_existing_hosts",
+    "public_profile_exact_post_and_scroll_identity_preserved",
+    "fourth_product_detail_host_negative_control_rejected",
+    "all_composed_focal_receipts_preserved_passed",
+    "generic_other_origin_residual_removed",
+    "thematic_media_comments_and_connectivity_boundaries_preserved"
+  ],
+  "observations": {
+    "unit": "OVR-POST-DETAIL",
+    "contractPassed": 6,
+    "contractFailed": 0,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "productDetailOwnerCatalog": [
+      "Feed",
+      "Official",
+      "PublicProfile"
+    ],
+    "liveAndRankingCreateAdditionalDetailHost": false
+  }
+}
