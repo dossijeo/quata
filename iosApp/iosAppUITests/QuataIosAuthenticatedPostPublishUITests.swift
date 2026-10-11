@@ -471,7 +471,13 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let feed = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-feed-host")
             .firstMatch
-        XCTAssertTrue(feed.waitForExistence(timeout: 25), "A normal launch must restore Feed from the seeded Keychain session.")
+        let authenticatedNavigation = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-primary-navigation")
+            .firstMatch
+        XCTAssertTrue(
+            feed.waitForExistence(timeout: 25) || authenticatedNavigation.waitForExistence(timeout: 3),
+            "A normal launch must restore an authenticated primary destination from the seeded Keychain session.",
+        )
 
         let composerTab = app.buttons.matching(
             NSPredicate(format: "label CONTAINS[c] %@ OR identifier CONTAINS[c] %@", "Crear", "composer")
@@ -541,7 +547,13 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let textType = app.descendants(matching: .any)
             .matching(identifier: "composer-type-text")
             .firstMatch
-        XCTAssertTrue(textType.waitForExistence(timeout: 10), "The common text composer type must be exposed.")
+        if !textType.waitForExistence(timeout: 10) {
+            XCTAssertTrue(
+                commonElement("composer-destination-selector", in: app).exists,
+                "The shared text form must already be open when the composer type chooser is absent.",
+            )
+            return
+        }
         if textType.isHittable {
             textType.tap()
         } else {

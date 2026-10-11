@@ -241,6 +241,8 @@ test("post destination evidence uses real multiple destinations plus determinist
   assert.match(androidPostPublishTest, /authRepository\.logout\(\)/);
   assert.match(iosPostPublishTest, /assertDestinationSelected/);
   assert.match(iosPostPublishTest, /destination\.isSelected/);
+  assert.match(iosPostPublishTest, /authenticated primary destination/);
+  assert.match(iosPostPublishTest, /composer-destination-selector/);
   assert.match(iosDestinationWrapper, /IOS_POST_DESTINATION_UI_GATE_PASSED/);
   for (const runner of [webDestinationRunner, androidDestinationRunner, iosDestinationRunner]) {
     assert.doesNotMatch(runner, /community_posts/);
