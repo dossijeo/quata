@@ -1,11 +1,11 @@
 {
   "status": "passed",
   "git": {
-    "head": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
+    "head": "be82dbefda229cb1f75896a93bd4c39b7f671c31",
     "workingTreeDirty": false
   },
   "steps": [
-    "twenty_four_commits_patch_equivalent",
+    "twenty_six_commits_patch_equivalent",
     "current_post_publish_contract_27_of_27_passed",
     "historical_post_publish_contract_28_of_28_preserved",
     "destination_runner_syntax_passed",
@@ -19,11 +19,11 @@
   ],
   "observations": {
     "unit": "POST-TEXT-DESTINATION",
-    "productSha": "e1e1065492cdaa7b5b609ec33d7f11b931cd987b",
-    "predecessorSha": "eccf99dba40a90d298e5da8b5c517f30c9f4ab7f",
+    "productSha": "be82dbefda229cb1f75896a93bd4c39b7f671c31",
+    "predecessorSha": "2c398f610953f5f70c0b4c83559c0e5168817914",
     "historicalExecutionSha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
     "productCommitsPatchEquivalent": "13/13 historical Product commits",
-    "completeSeriesPatchEquivalent": "24/24 historical series",
+    "completeSeriesPatchEquivalent": "26/26 current series",
     "platformE2eRepeatedForAncestry": false,
     "backendMutationPerformed": false,
     "realAlternateDestinationCount": 186,
@@ -31,7 +31,7 @@
     "ownedSessionsHistoricalCleanupVerified": true
   },
   "notes": [
-    "Product e1e1065492cdaa7b5b609ec33d7f11b931cd987b preserves the reviewed real alternate-destination and fail-closed cleanup series over the current Lane B chain; range-diff maps all 24 owned commits exactly.",
+    "Product be82dbefda229cb1f75896a93bd4c39b7f671c31 preserves the reviewed real alternate-destination and fail-closed cleanup series over FLOW-DEEP-LINKS row-repair head 2c398f610953f5f70c0b4c83559c0e5168817914; range-diff maps all 26 current commits exactly.",
     "The three platform reports remain bound to exact historical execution Product 2fd276e8; no E2E matrix was repeated solely for ancestry.",
     "Empty and failure/retry remain deterministic non-mutating states because fabricating a production empty set would require an improper global wall mutation.",
     "An executable negative forces Web cleanup failure, proves Auth logout plus refresh-token rejection still run, retains both sanitized outcomes, and source contracts require every platform runner to persist them while keeping the overall report failed.",
