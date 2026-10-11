@@ -4,16 +4,16 @@
     "OVR-MEDIA"
   ],
   "status": "passed",
-  "productSha": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
-  "certification": "finite-media-producer-catalog-account-avatar-preview-limit-preserved-independent-review-go-final-ci-pending",
+  "productSha": "d60069ffd5baabb4e18e949e209c7213d5678216",
+  "certification": "finite-media-producer-catalog-composed-final-review-pending",
   "evidence": {
     "producerCatalog": {
       "status": "passed",
-      "sha": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
-      "report": "docs/candidate-attestations/evidence/media-producer-catalog-c3c87ea3.json",
-      "reportSha256": "bb8627aaa3fc78d7d8abbba580248bbdc1135b20cf93212c54321c0ca5ae6048",
+      "sha": "d60069ffd5baabb4e18e949e209c7213d5678216",
+      "report": "docs/candidate-attestations/evidence/media-producer-catalog-d60069ff.json",
+      "reportSha256": "31f79603949e53ab185f0d0822b387a4d8603c0c2efeaa285182d920438c47e3",
       "reportStatus": "passed",
-      "reportGitHead": "c3c87ea32c17429781f59bd05e41ac70d19fe80c",
+      "reportGitHead": "d60069ffd5baabb4e18e949e209c7213d5678216",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -21,8 +21,8 @@
         "shared_android_attachment_viewer_callers_extracted",
         "unregistered_overlay_and_attachment_producer_negative_controls_rejected",
         "all_composed_focal_media_receipts_preserved_passed",
-        "generic_unknown_producer_residual_removed_and_account_avatar_preview_limit_preserved",
-        "codec_transport_background_receiver_and_cors_boundaries_preserved"
+        "generic_unknown_producer_residual_removed_and_account_avatar_preview_composed",
+        "codec_transport_background_receiver_and_coep_boundaries_preserved"
       ],
       "cleanup": {
         "verified": true,
@@ -36,20 +36,19 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "a481542d44d077794c9515c93efdf4a7d674c55c",
+    "status": "PENDING",
+    "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [
-      "The initial P2 was corrected by classifying Account avatar preview as a fifth logical producer and preserving it as an explicit uncomposed limit."
+      "The historical Account avatar preview limit is closed by the integrated ProfileScreenHost producer and its focal receipt; the catalog now composes it instead of reopening it."
     ]
   },
   "notes": [
-    "The exact source extractor finds seven fullscreen overlay adapter files and three registered callers of the shared Android attachment viewer.",
+    "The exact source extractor finds eight fullscreen overlay adapter files and two registered callers of the shared Android attachment viewer.",
     "Those adapters map to Feed, Official, public profile, Chat attachments and Account avatar preview. Platform-specific Official adapters do not create additional product producers.",
-    "Passed focal receipts compose image/video opening and return, durable position, same-source recovery, file export, public-profile media and Chat attachment media.",
-    "Account avatar editing, save and restoration remain certified by account-avatar.json, but the Android fullscreen preview interaction is not covered by that receipt and remains an explicit parity/acceptance limit for Web and iOS.",
+    "Passed focal receipts compose image/video opening and return, durable position, same-source recovery, file export, public-profile media, Chat attachment media and Account avatar preview.",
+    "Account avatar preview is integrated through ProfileScreenHost and no longer uses the former Android ProfileScreen attachment-viewer caller.",
     "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
-    "Exhaustive codecs and transports, prolonged background playback, integrated comments, deep scroll, external receivers and historical COEP/CORS compatibility remain explicit thematic boundaries.",
-    "Independent exact-head review returned GO with no P0-P3 findings on a481542d44d077794c9515c93efdf4a7d674c55c after reproducing 5/5 contracts, validator, report hash, diff-check and clean-tree check."
+    "Exhaustive legacy/third-party codecs and transports, prolonged background playback, integrated comments, deep scroll, external receivers and future COEP activation remain explicit thematic boundaries."
   ]
 }
