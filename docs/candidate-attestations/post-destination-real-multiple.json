@@ -5,13 +5,13 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "5e8db98b8c97b55397e09370679a386ec7a2b7ac",
+  "productSha": "d53495c247a080c3773421b9082888df72ea64fd",
   "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "5e8db98b8c97b55397e09370679a386ec7a2b7ac",
+      "sha": "d53495c247a080c3773421b9082888df72ea64fd",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-2fd276e8.json",
       "reportSha256": "58bba17ceb63d3db9ebffe5f714a886126e3526939aa6482c889fd7dce54c644",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "5e8db98b8c97b55397e09370679a386ec7a2b7ac",
+      "sha": "d53495c247a080c3773421b9082888df72ea64fd",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-2fd276e8.json",
       "reportSha256": "2a084cfe80b0eb8bb4b48fd4b04906e2049b59bc3f9554e29204f1e9e84ed4d2",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "5e8db98b8c97b55397e09370679a386ec7a2b7ac",
+      "sha": "d53495c247a080c3773421b9082888df72ea64fd",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-2fd276e8.json",
       "reportSha256": "6529d4f152f5273b6b0f70f9127a8adfb60a92d9441bf302e7f9e2e01cec75ac",
       "reportStatus": "passed",
@@ -66,7 +66,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "5e8db98b8c97b55397e09370679a386ec7a2b7ac",
+      "sha": "d53495c247a080c3773421b9082888df72ea64fd",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-recomposition-85e1187b.json",
       "reportSha256": "4b8c6972500415e620aefddbf86b8c8ed7b11f08e85d71c746f94c37780d06fc",
       "reportStatus": "passed",
@@ -116,12 +116,13 @@
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
     "Android, Web/Wasm and iOS selected the exact second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post or wall mutation. Authentication updated the actor login metadata and created owned auth/web sessions; every lane revoked its exact web session, invalidated its refresh token and verified both outcomes.",
-    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. Current Product 5e8db98b8c97b55397e09370679a386ec7a2b7ac preserves the fifteen historical commits patch-equivalent over merged PR #612 squash cc3021aadabddba230a5b679dd978c79cf702707; three later commits only reanchor candidate metadata. The current affected contract passes 27/27; the historical recomposition report retains its exact 28/28 result because the removed Post Composer emoji assertion belongs to the separate FLOW-EMOJI unit. Platform E2E was not renewed solely for ancestry.",
     "The successful historical iOS run reused the unchanged SimulatorSigned product build from e6c65684 because 2fd276e8 changes only the Node cleanup verifier and its source contract. Its exact-Product runner passed the authenticated seeder and alternate-destination XCTest, ran product-session logout cleanup, did not generate or modify an Xcode project, and verified restoration of runtime config, temporary credentials and owned fixture sessions.",
     "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
     "No credential, token, raw wall identifier or database connection string is stored in the reports or repository.",
     "Independent exact-head review of dd7c6e7af3955dd2b98e033b91753e9b22d50a9f returned GO with no P0-P3 after the runner-level partial-cleanup persistence fix.",
     "The cleanup negative records both sanitized branch outcomes, proves Auth logout and refresh rejection after forced Web failure, and source contracts require all three runners to persist those outcomes while leaving report.status failed.",
-    "Independent final exact-head review of 62bdb826736d933a1893957b2e2205a003e64ec4 returned GO with no P0-P3 after confirming the 15/15 patch-equivalent replay, exact eligible[1] selection among 186 real destinations without publish, fail-closed Web/Auth cleanup, 401/400 rejection probes, 28/28 contract, report hashes, runner syntax, validator, diff-check, clean tree, focal secret scan and precise historical iOS build custody."
+    "Independent final exact-head review of 62bdb826736d933a1893957b2e2205a003e64ec4 returned GO with no P0-P3 after confirming the 15/15 patch-equivalent replay, exact eligible[1] selection among 186 real destinations without publish, fail-closed Web/Auth cleanup, 401/400 rejection probes, 28/28 contract, report hashes, runner syntax, validator, diff-check, clean tree, focal secret scan and precise historical iOS build custody.",
+    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. Current Product d53495c247a080c3773421b9082888df72ea64fd preserves the fifteen historical commits patch-equivalent over the reviewed Lane B chain ending at 88887ce4651e7aad3c01531193061fc519ae994f; four later commits only reanchor candidate metadata. The current affected contract passes 27/27; the historical recomposition report retains its exact 28/28 result because the removed Post Composer emoji assertion belongs to the separate FLOW-EMOJI unit. Platform E2E was not renewed solely for ancestry.",
+    "Rebased onto FLOW-DEEP-LINKS row-repair exact-head 88887ce4651e7aad3c01531193061fc519ae994f. Range-diff preserves all nineteen commits patch-equivalent; no production, platform or backend action was repeated for ancestry."
   ]
 }
