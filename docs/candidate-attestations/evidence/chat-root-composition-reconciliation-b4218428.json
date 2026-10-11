@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "b42184288560edbb9ec49f6e1bfafd0c161d448e",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "chat_root_composition_and_legacy_contracts_20_of_20_passed",
+    "thirty_six_thematic_receipts_with_explicit_unit_coverage_preserved",
+    "chat_translation_receipt_included",
+    "ci_fast_and_web_wave2_wiring_present",
+    "ci_fast_contracts_904_of_904_passed",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "root": "SCR-CHAT",
+    "rootResidualLimitRemoved": true,
+    "thematicLimitsPreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false
+  }
+}

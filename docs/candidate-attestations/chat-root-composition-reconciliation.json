@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CHAT"
+  ],
+  "status": "passed",
+  "productSha": "be540ffb478abcf826a8b1b0dcdae6afff68d6e5",
+  "certification": "chat-root-composition-reconciled-thematic-limits-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
+  "evidence": {
+    "chatRootComposition": {
+      "status": "passed",
+      "sha": "be540ffb478abcf826a8b1b0dcdae6afff68d6e5",
+      "report": "docs/candidate-attestations/evidence/chat-root-composition-reconciliation-b4218428.json",
+      "reportSha256": "4fb14a493e85d621ad12e2f289aa38927f222416196089434ab2ea01cad81780",
+      "reportStatus": "passed",
+      "reportGitHead": "b42184288560edbb9ec49f6e1bfafd0c161d448e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "chat_root_composition_and_legacy_contracts_20_of_20_passed",
+        "thirty_six_thematic_receipts_with_explicit_unit_coverage_preserved",
+        "chat_translation_receipt_included",
+        "ci_fast_and_web_wave2_wiring_present",
+        "ci_fast_contracts_904_of_904_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-root-composition-reconciliation-contract.test.mjs scripts/chat-common-root-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "passed",
+    "reviewedSha": "7a082a837e62a443a794106368603a29ff0c7016",
+    "blockingFindings": []
+  },
+  "notes": [
+    "The Chat root is composed only from thirty-six existing passed thematic receipts with explicit coverage of each capability named by the root, including CHAT-TRANSLATION.",
+    "The reconciliation removes the generic root-wide recertification placeholder; it preserves the exact limits owned by Chat child units and system flows, including physical permissions and routing, external providers and destinations, OS network topologies, push, audio, attachments and SOS.",
+    "No runtime, backend, platform evidence receipt or CI workflow changed.",
+    "Product be540ffb478abcf826a8b1b0dcdae6afff68d6e5 replays only the Chat-root unit patch-equivalent onto merged media catalog squash 121f16363be5fab6572c68e64ae1d0ddb31f1841; all eight unit commits map exactly from the previously reviewed series.",
+    "Historical evidence remains bound to report head b42184288560edbb9ec49f6e1bfafd0c161d448e; the historical 904/904 fast suite is not reattributed as a new run.",
+    "Independent exact-head review of 7a082a837e62a443a794106368603a29ff0c7016 returned GO with no P0-P3: 8/8 commits patch-equivalent plus one attestation-only reanchor, 36 receipts and limits preserved, focal contracts 20/20, validator and diff-check passed.",
+    "Historical independent reviews remain attributed only to their original heads."
+  ]
+}
