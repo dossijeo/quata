@@ -16,9 +16,9 @@
         "composer-destination-selected"
       ],
       "evidence": {
-        "opened": "C:\\Users\\PC\\.codex\\quata-work\\post-destination-real-multiple-20261011\\build-reports\\web\\post-destination-real-multiple-evidence\\web-post-destination-opened-real-multiple.png",
-        "form": "C:\\Users\\PC\\.codex\\quata-work\\post-destination-real-multiple-20261011\\build-reports\\web\\post-destination-real-multiple-evidence\\web-post-destination-form-real-multiple.png",
-        "selected": "C:\\Users\\PC\\.codex\\quata-work\\post-destination-real-multiple-20261011\\build-reports\\web\\post-destination-real-multiple-evidence\\web-post-destination-real-multiple-selected.png"
+        "opened": "build-reports/web/post-destination-real-multiple-evidence/web-post-destination-opened-real-multiple.png",
+        "form": "build-reports/web/post-destination-real-multiple-evidence/web-post-destination-form-real-multiple.png",
+        "selected": "build-reports/web/post-destination-real-multiple-evidence/web-post-destination-real-multiple-selected.png"
       }
     }
   ],

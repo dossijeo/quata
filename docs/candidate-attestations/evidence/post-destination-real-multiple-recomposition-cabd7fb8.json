@@ -6,7 +6,8 @@
   },
   "steps": [
     "twenty_one_commits_patch_equivalent",
-    "post_publish_contract_28_of_28_passed",
+    "current_post_publish_contract_27_of_27_passed",
+    "historical_post_publish_contract_28_of_28_preserved",
     "destination_runner_syntax_passed",
     "android_test_and_wasm_compilation_passed",
     "web_wasm_distribution_passed",
@@ -33,6 +34,7 @@
     "Product cabd7fb8be175801636da574db94ef73d7fb46a6 preserves the reviewed real alternate-destination and fail-closed cleanup series over the current migration chain; range-diff maps all 21 owned commits exactly.",
     "The three platform reports remain bound to exact historical execution Product 2fd276e8; no E2E matrix was repeated solely for ancestry.",
     "Empty and failure/retry remain deterministic non-mutating states because fabricating a production empty set would require an improper global wall mutation.",
-    "An executable negative forces Web cleanup failure, proves Auth logout plus refresh-token rejection still run, retains both sanitized outcomes, and source contracts require every platform runner to persist them while keeping the overall report failed."
+    "An executable negative forces Web cleanup failure, proves Auth logout plus refresh-token rejection still run, retains both sanitized outcomes, and source contracts require every platform runner to persist them while keeping the overall report failed.",
+    "The current affected contract passes 27/27. The earlier 28/28 result remains historical custody from before the separate FLOW-EMOJI assertion moved out of this unit."
   ]
 }
