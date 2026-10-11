@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "e8ffcbbeab7ec5d9750e307942a109dbe49afe53",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-PUBLIC-PROFILE",
+  "productSha": "e8ffcbbeab7ec5d9750e307942a109dbe49afe53",
+  "predecessorSha": "9ff12490bcc767de7d4a8b8095384905441ccee4",
+  "historicalProductSha": "ec84eb80d87df0ab27970a8d1dbb47bc87ba3b30",
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "public_profile_root_composition_contract_3_of_3_passed",
+    "current_package_wiring_preserves_predecessor_scripts",
+    "twenty_eight_thematic_receipts_and_source_backed_header_preserved",
+    "historical_ci_fast_907_of_907_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalAggregateReexecuted": false,
+    "productPatchIdPreserved": true
+  },
+  "notes": [
+    "The public-profile root composition product commit replays with the exact patch ID over frozen PROF-SHARED-CHAT-DOCUMENTS candidate #619.",
+    "The overlay composes twenty-eight existing passed thematic receipts plus the source-backed PROF-HEADER contract while preserving every concrete owner-unit limit.",
+    "The affected 3/3 contract was renewed; the historical 907/907 aggregate remains historical custody and is not attributed to this Product SHA."
+  ]
+}

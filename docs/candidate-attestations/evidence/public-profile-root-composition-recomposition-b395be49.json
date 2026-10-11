@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-PUBLIC-PROFILE",
+  "productSha": "b395be4959d70cf16961c4df071a6bfcdcc6c2e4",
+  "predecessorSha": "f534c60128dc05253cc3898cc559a22043e230f5",
+  "historicalProductSha": "ec84eb80d87df0ab27970a8d1dbb47bc87ba3b30",
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "public_profile_root_composition_contract_3_of_3_passed",
+    "current_package_wiring_preserves_predecessor_scripts",
+    "twenty_eight_thematic_receipts_and_source_backed_header_preserved",
+    "historical_ci_fast_907_of_907_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalAggregateReexecuted": false,
+    "productPatchIdPreserved": true
+  },
+  "notes": [
+    "The public-profile root composition product commit replays with the exact stable patch ID over the merged PROF-SHARED-CHAT-DOCUMENTS squash, whose tree equals the frozen candidate tree.",
+    "The overlay still composes twenty-eight passed thematic receipts plus PROF-HEADER while preserving every concrete owner-unit limit.",
+    "Only the affected 3/3 contract is renewed; the historical 907/907 aggregate remains historical custody."
+  ]
+}
