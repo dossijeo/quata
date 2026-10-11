@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-COMMENTS"
+  ],
+  "status": "passed",
+  "productSha": "2e674d19ee29012e69149b0399bd823bf0d1df85",
+  "certification": "finite-comments-origin-catalog-composed-thematic-limits-preserved-recomposed-independent-review-go-final-ci-pending",
+  "evidence": {
+    "originCatalog": {
+      "status": "passed",
+      "sha": "2e674d19ee29012e69149b0399bd823bf0d1df85",
+      "report": "docs/candidate-attestations/evidence/comments-origin-catalog-2e674d19.json",
+      "reportSha256": "4f729f42dde78f48e71112684f79bf62cad30169ac071ad3f3b6d7134e5f3560",
+      "reportStatus": "passed",
+      "reportGitHead": "2e674d19ee29012e69149b0399bd823bf0d1df85",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_product_comments_owner_catalog_extracted",
+        "feed_official_and_public_profile_exact_post_selection_preserved",
+        "fourth_product_comments_surface_negative_control_rejected",
+        "all_composed_focal_comments_receipts_preserved_passed",
+        "generic_other_origin_residual_removed",
+        "non_focal_network_and_unattested_operation_boundaries_preserved"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_source_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/comments-origin-catalog-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/comments-origin-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "046602c0b933ba97844fb67d4e194229e7282639",
+    "productSha": "2e674d19ee29012e69149b0399bd823bf0d1df85",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "scope": "Independent exact-head review verified 3/3 patch equivalence, identical product and predecessor trees, exact Feed/Official/PublicProfile catalog, preserved thematic limits, 5/5 contracts, package wiring, validator, report hash, diff-check, secret scan and clean tree.",
+    "historicalReviewedShas": [
+      "588ed01b57185dcbc3921508eeb34428dbb39c7f",
+      "687ee4a5c8218c5bd5420917d2c5f217fccce455",
+      "670c67df9f5e8a72fcb729c27264c7cc1c79381f",
+      "ddf9da0be406c12efcf575ab7e07270d9305b698"
+    ]
+  },
+  "notes": [
+    "The exact source extractor finds three and only three product comments owners: Feed, Official and public profile.",
+    "The three owners preserve exact selected-post identity when opening their comments surface.",
+    "Passed focal receipts compose comment, reply, author profile, deep pagination, translator, emoji, rollback, selector states and the iOS keyboard edge for the finite owner catalog.",
+    "Historical Android, Web/Wasm and iOS receipts remain bound to their original products. This reconciliation attributes no new platform execution.",
+    "Non-focal network failures and comment operations absent from the composed receipts remain explicit thematic boundaries.",
+    "Product SHA 2e674d19ee29012e69149b0399bd823bf0d1df85 preserves the reviewed bounded delta over merged OVR-POST-DETAIL squash 102d40edb695c0fa505ffd0592536606cee25fb0, whose tree exactly matches frozen candidate 40e0464ee52aff50ed461e651b915a80aa6d2324. No platform matrix was repeated solely for ancestry.",
+    "Independent review of exact head 046602c0b933ba97844fb67d4e194229e7282639 returned GO with no P0-P3 after confirming 3/3 exact range-diff, identical product/base trees, the exact three-owner catalog, preserved thematic limits, 5/5 contracts, package wiring, validator, report hash, diff-check, secret scan and a clean tree."
+  ]
+}
