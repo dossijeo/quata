@@ -4,12 +4,12 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
-  "certification": "rendered-common-login-failure-retry-complete-recomposed-gates-passed-independent-review-go-final-CI-pending",
+  "productSha": "3ea7a79f49718af1d10f4adbeacd6852680c9e05",
+  "certification": "rendered-common-login-failure-retry-complete-recomposed-gates-passed-independent-review-pending-final-CI-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+      "sha": "3ea7a79f49718af1d10f4adbeacd6852680c9e05",
       "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-a8a06e43.json",
       "reportSha256": "bbac6065136d338b11324912b310233f622615b482d217231620a796672f47fa",
       "reportStatus": "passed",
@@ -32,11 +32,11 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
-      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-d5621219.json",
-      "reportSha256": "b95821a56afe8dc86c8637da97d1538ce00801914ce72a0d4e53889e80ce0ee6",
+      "sha": "3ea7a79f49718af1d10f4adbeacd6852680c9e05",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-3ea7a79f.json",
+      "reportSha256": "8b97a7ff680607bc14b11ef2ec8a075b77de8627999ed550273ca894a5fbb7d4",
       "reportStatus": "passed",
-      "reportGitHead": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+      "reportGitHead": "3ea7a79f49718af1d10f4adbeacd6852680c9e05",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -62,9 +62,9 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "4c634ad8327ebc7e73b2af6b432ce0ad2100540b",
-    "previousReviewedSha": "fe674e09515806a38f3b3f3f19ec47df1f1bdbfd",
+    "status": "pending",
+    "reviewedSha": null,
+    "previousReviewedSha": "4c634ad8327ebc7e73b2af6b432ce0ad2100540b",
     "blockingFindings": [],
     "resolvedFindings": [
       "Independent exact-head review confirmed exact patch, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, custody at a8a06e43, affected Wasm/Android/iOS gates, hashes, validator, diff-check and clean tree."
@@ -89,6 +89,7 @@
     "Current Product aff2fdb87d4113a8382f9c7f945a05a060ce8ac0 replays the exact Login failure/retry patch over reviewed FLOW-EMOJI root e77e0f4585235ffe3f7f8023bdbb3b87215768e6; all three owned blobs remain byte-identical, affected Web/Android/iOS common gates pass, and no native UI or backend execution is reattributed.",
     "Independent exact-head review of fe674e09515806a38f3b3f3f19ec47df1f1bdbfd returned GO without P0-P3: Product patch-id is exact, all three owned blobs are byte-identical, affected gates pass, and historical evidence remains bound to a8a06e43.",
     "Current Product d562121955bff9f9f8826b1bfc71539e0a7b30ec replays the exact Login failure/retry patch over final independently reviewed FLOW-EMOJI root 712dfb7ed7cb1036978491a388818cbd324f9554; three owned blobs remain byte-identical and historical execution remains bound to a8a06e43.",
-    "Independent exact-head review of 4c634ad8327ebc7e73b2af6b432ce0ad2100540b returned GO without P0-P3 and confirmed no native/backend execution reattribution."
+    "Independent exact-head review of 4c634ad8327ebc7e73b2af6b432ce0ad2100540b returned GO without P0-P3 and confirmed no native/backend execution reattribution.",
+    "Current Product 3ea7a79f49718af1d10f4adbeacd6852680c9e05 replays the exact Login failure/retry patch over final independently reviewed FLOW-EMOJI root 32ce6869a2d9e089454e7c4f0c17a7d54c5deb7d. The three owned blobs remain byte-identical, affected Web/Android/iOS common gates pass and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5."
   ]
 }
