@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { retireDestinationActorSession } from "./post-destination-real-fixture.mjs";
 
 const webRunner = readFileSync(new URL("./post-publish-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = readFileSync(new URL("./post-publish-android-evidence.mjs", import.meta.url), "utf8");
@@ -220,8 +221,8 @@ test("post destination evidence uses real multiple destinations plus determinist
   assert.match(realDestinationFixture, /refreshProbe\.status !== 400/);
   assert.match(realDestinationFixture, /refreshProbePayload\?\.error_code !== "refresh_token_not_found"/);
   assert.ok(
-    realDestinationFixture.indexOf("const webProbe = await fetch") <
-      realDestinationFixture.indexOf("const authLogout = await fetch"),
+    realDestinationFixture.indexOf("const webProbe = await fetchImpl") <
+      realDestinationFixture.indexOf("const authLogout = await fetchImpl"),
     "web-session revocation must be verified before revoking the access token",
   );
   assert.match(webDestinationRunner, /POST-DESTINATION-WEB-REAL-001/);
@@ -256,6 +257,48 @@ test("post destination evidence uses real multiple destinations plus determinist
     assert.doesNotMatch(runner, /community_posts/);
     assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
   }
+});
+
+test("destination cleanup still retires Auth when Web-session cleanup fails", async () => {
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    if (url.includes("/functions/v1/quata-web-push")) {
+      throw new Error("simulated_web_cleanup_network_failure");
+    }
+    if (url.includes("/auth/v1/logout?scope=local")) {
+      return { ok: true, status: 204, json: async () => null };
+    }
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({ error_code: "refresh_token_not_found" }),
+      };
+    }
+    throw new Error(`unexpected_cleanup_request:${url}`);
+  };
+
+  let failure;
+  try {
+    await retireDestinationActorSession(
+      { url: "https://example.invalid", key: "public-key" },
+      { accessToken: "access", refreshToken: "refresh", webSessionToken: "web" },
+      fetchImpl,
+    );
+  } catch (error) {
+    failure = error;
+  }
+
+  assert.match(failure?.message ?? "", /destination_fixture_web_session_cleanup_network_failure/);
+  assert.deepEqual(failure?.cleanup, {
+    webSessionRevoked: false,
+    webSessionProbe: null,
+    refreshTokenRejected: true,
+    refreshTokenProbe: { status: 400, errorCode: "refresh_token_not_found" },
+  });
+  assert.equal(calls.some((url) => url.includes("/auth/v1/logout?scope=local")), true);
+  assert.equal(calls.some((url) => url.includes("/auth/v1/token?grant_type=refresh_token")), true);
 });
 
 test("post location uses common anchors and the shared remote metadata codec", () => {
