@@ -630,6 +630,8 @@ private fun Map<*, *>.toProfileAttachment(defaultSenderName: String): ProfileAtt
         mimeType = iosNeighborhoodString("mime_type"),
         sentAtMillis = iosNeighborhoodString("created_at_millis")?.toLongOrNull(),
         senderName = iosNeighborhoodString("sender_name")?.takeIf(String::isNotBlank) ?: defaultSenderName,
+        storageBucket = iosNeighborhoodString("storage_bucket"),
+        storagePath = iosNeighborhoodString("storage_path"),
     )
 }
 

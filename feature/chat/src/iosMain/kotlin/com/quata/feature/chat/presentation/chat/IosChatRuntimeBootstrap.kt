@@ -244,7 +244,7 @@ private fun iosChatEvidenceFaultingTransportIfRequested(
                 "quata_chat_delete_messages", "quata_chat_delete_messages_v2" -> "delete"
                 else -> null
             }
-            return if (failAttachmentRegistration && functionName == "quata_chat_register_attachment") {
+            return if (failAttachmentRegistration && functionName == "quata_chat_register_attachment_v2") {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_attachment_register_e2e_failure"))
             } else if (failMute && functionName == "quata_chat_set_muted") {
                 ChatPostgrestResponse.Failure(IllegalStateException("chat_mute_e2e_failure"))

@@ -1341,6 +1341,7 @@ fun AppNavGraph(
                 padding = PaddingValues(0.dp),
                 profile = profile,
                 documentOpenService = container.documentOpenService,
+                attachmentUrlSigner = container.supabaseCommunityApi::signChatAttachment,
                 currentUserId = container.sessionManager.currentSession()?.userId,
                 isOpeningChat = globalProfileState.openingPrivateChatUserId == profile.user.id,
                 openingPrivateChatUserId = globalProfileState.openingPrivateChatUserId,

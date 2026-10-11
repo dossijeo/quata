@@ -22,6 +22,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -395,6 +398,30 @@ class SupabaseHttpClient(
         val cleanPath = path.trimStart('/').takeIf { it.isNotBlank() } ?: return
         val body = JsonObject(mapOf("prefixes" to JsonArray(listOf(JsonPrimitive(cleanPath))))).toString()
         execute("DELETE", "${config.storageUrl}/object/$bucket", body, useContentProfile = false)
+    }
+
+    internal suspend fun createSignedObjectUrl(
+        path: String,
+        bucket: String,
+        expiresInSeconds: Int,
+    ): String {
+        val cleanPath = path.trimStart('/').takeIf { it.isNotBlank() }
+            ?: error("storage_sign_path_missing")
+        val response = execute(
+            method = "POST",
+            url = "${config.storageUrl}/object/sign/$bucket/$cleanPath",
+            body = JsonObject(mapOf("expiresIn" to JsonPrimitive(expiresInSeconds))).toString(),
+            useContentProfile = false,
+        )
+        val signed = json.parseToJsonElement(response).jsonObject["signedURL"]
+            ?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+            ?: error("storage_signed_url_missing")
+        return when {
+            signed.startsWith("https://") -> signed
+            signed.startsWith("/storage/v1/") -> config.projectUrl.trimEnd('/') + signed
+            signed.startsWith("/object/") -> config.storageUrl.trimEnd('/') + signed
+            else -> error("storage_signed_url_invalid")
+        }
     }
 
     fun publicObjectUrl(path: String, bucket: String = config.storageBucket): String =

@@ -57,6 +57,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -126,6 +127,8 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.quata.core.navigation.AuthenticationContinuationCoordinator
 import com.quata.core.navigation.AuthenticationContinuationIntent
@@ -215,6 +218,7 @@ fun CommunityProfileScreen(
     padding: PaddingValues,
     profile: CommunityUserProfile,
     documentOpenService: DocumentOpenService,
+    attachmentUrlSigner: suspend (String?, String?) -> String,
     currentUserId: String? = null,
     isOpeningChat: Boolean = false,
     openingPrivateChatUserId: String? = null,
@@ -341,7 +345,13 @@ fun CommunityProfileScreen(
                     modifier = modifier.then(openAvatar?.let { Modifier.clickable(onClick = it) } ?: Modifier),
                 )
             },
-            attachment = { attachment, open -> ProfileAttachmentRow(attachment, open) },
+            attachment = { attachment, open ->
+                ProfileAttachmentRow(
+                    attachment = attachment,
+                    onOpen = open,
+                    resolveUrl = { attachmentUrlSigner(attachment.storageBucket, attachment.storagePath) },
+                )
+            },
             postMedia = { post, loaded, load ->
                 when {
                     post.imageUrl != null -> AsyncImage(
@@ -354,19 +364,32 @@ fun CommunityProfileScreen(
                 }
             },
             openAttachment = { attachment ->
-                val preview = attachment.toAttachmentPreview()
-                if (preview.isMedia) {
-                    selectedProfileAttachment = preview
-                } else if (!openingDocument) {
+                if (!openingDocument) {
                     openingDocument = true
                     scope.launch {
                         try {
+                            val resolvedUrl = if (attachment.id.startsWith("avatar-") &&
+                                attachment.storageBucket == null && attachment.storagePath == null
+                            ) {
+                                attachment.uri
+                            } else {
+                                attachmentUrlSigner(attachment.storageBucket, attachment.storagePath)
+                            }
+                            val preview = attachment.copy(uri = resolvedUrl).toAttachmentPreview()
+                            if (preview.isMedia) {
+                                selectedProfileAttachment = preview
+                                return@launch
+                            }
                             val result = documentOpenService.open(
-                                PlatformFile(attachment.uri, attachment.name, attachment.mimeType),
+                                PlatformFile(resolvedUrl, attachment.name, attachment.mimeType),
                             )
                             if (result is PlatformResult.Failure || result == PlatformResult.Unsupported) {
                                 Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
                             }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Throwable) {
+                            Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
                         } finally {
                             openingDocument = false
                         }
@@ -430,9 +453,19 @@ fun CommunityProfileScreen(
 }
 
 @Composable
-private fun ProfileAttachmentRow(attachment: ProfileAttachment, onOpen: () -> Unit) {
+private fun ProfileAttachmentRow(
+    attachment: ProfileAttachment,
+    onOpen: () -> Unit,
+    resolveUrl: suspend () -> String,
+) {
     val template = quataTheme()
-    val preview = attachment.toAttachmentPreview()
+    val resolvedUrl by produceState<String?>(null, attachment.storageBucket, attachment.storagePath) {
+        while (true) {
+            value = runCatching { resolveUrl() }.getOrNull()
+            delay(240_000L)
+        }
+    }
+    val preview = attachment.copy(uri = resolvedUrl.orEmpty()).toAttachmentPreview()
     ProfileAttachmentRowContent(
         attachment = attachment,
         audioPlayer = {

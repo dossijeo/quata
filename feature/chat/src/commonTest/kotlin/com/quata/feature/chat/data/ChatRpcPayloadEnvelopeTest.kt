@@ -3,11 +3,104 @@ package com.quata.feature.chat.data
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class ChatRpcPayloadEnvelopeTest {
+    @Test
+    fun resolvesPrivateAttachmentFromStableStorageIdentity() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments/author/id/file.pdf","storage_bucket":"chat-attachments","storage_path":"author/id/file.pdf","name":"file.pdf","mime_type":"application/pdf"}]}]}""",
+        )
+        val signed = "https://project.supabase.co/storage/v1/object/sign/chat-attachments/author/id/file.pdf?token=header.payload.signature"
+        val observed = mutableListOf<ChatAttachmentStorageObject>()
+
+        val message = parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+            currentProfileId = "reader",
+            signer = ChatAttachmentUrlSigner { storageObject ->
+                observed += storageObject
+                signed
+            },
+        ).single()
+
+        assertEquals(listOf(ChatAttachmentStorageObject("chat-attachments", "author/id/file.pdf")), observed)
+        assertEquals(signed, message.attachmentUri)
+    }
+
+    @Test
+    fun privateAttachmentWithoutStorageIdentityIsUnavailableWithoutExposingLegacyUrl() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments/author/id/file.pdf"}]}]}""",
+        )
+
+        val message = parseChatRpcPayloadEnvelope(payload)
+            .toSignedChatRpcMessages("reader", ChatAttachmentUrlSigner { "unused" })
+            .single()
+
+        assertEquals(null, message.attachmentUri)
+    }
+
+    @Test
+    fun signerFailureOnlyMakesItsAttachmentUnavailable() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments-private/author/chat/missing/file.pdf","storage_bucket":"chat-attachments-private","storage_path":"author/chat/missing/file.pdf","name":"missing.pdf","mime_type":"application/pdf"}]},{"id":11,"thread_id":20,"sender_profile_id":"author","body":"still visible"},{"id":12,"thread_id":20,"sender_profile_id":"author","attachments":[{"storage_bucket":"chat-attachments-private","storage_path":"author/chat/present/file.pdf","name":"present.pdf","mime_type":"application/pdf"}]}]}""",
+        )
+
+        val messages = parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+            currentProfileId = "reader",
+            signer = ChatAttachmentUrlSigner { objectRef ->
+                if (objectRef.path.contains("missing")) error("object_not_found")
+                "https://project.supabase.co/storage/v1/object/sign/${objectRef.bucket}/${objectRef.path}?token=signed"
+            },
+        )
+
+        assertEquals(3, messages.size)
+        assertEquals(null, messages[0].attachmentUri)
+        assertEquals("missing.pdf", messages[0].attachmentName)
+        assertEquals("still visible", messages[1].text)
+        assertTrue(messages[2].attachmentUri?.contains("/object/sign/") == true)
+    }
+
+    @Test
+    fun signerCancellationStillCancelsTheWholeMapping() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"storage_bucket":"chat-attachments-private","storage_path":"author/chat/file.pdf"}]}]}""",
+        )
+
+        assertFailsWith<CancellationException> {
+            parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+                "reader",
+                ChatAttachmentUrlSigner { throw CancellationException("cancelled") },
+            )
+        }
+    }
+
+    @Test
+    fun deletedMessageDoesNotSignOrExposeItsAttachmentAndDoesNotBlockValidMessages() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","is_deleted":true,"attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments-private/author/chat/deleted/file.pdf","storage_bucket":"chat-attachments-private","storage_path":"author/chat/deleted/file.pdf","name":"deleted.pdf","mime_type":"application/pdf"}]},{"id":11,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments-private/author/chat/valid/file.pdf","storage_bucket":"chat-attachments-private","storage_path":"author/chat/valid/file.pdf","name":"valid.pdf","mime_type":"application/pdf"}]}]}""",
+        )
+        val signed = mutableListOf<ChatAttachmentStorageObject>()
+
+        val messages = parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+            currentProfileId = "reader",
+            signer = ChatAttachmentUrlSigner { objectRef ->
+                signed += objectRef
+                "https://project.supabase.co/storage/v1/object/sign/${objectRef.bucket}/${objectRef.path}?token=signed"
+            },
+        )
+
+        assertEquals(listOf(ChatAttachmentStorageObject("chat-attachments-private", "author/chat/valid/file.pdf")), signed)
+        assertTrue(messages.first().isDeleted)
+        assertEquals(null, messages.first().attachmentUri)
+        assertEquals(null, messages.first().attachmentName)
+        assertTrue(messages.last().attachmentUri?.contains("/object/sign/") == true)
+    }
+
     @Test
     fun mergesRootAndUpdateVariantsWithoutDuplicatingRecords() {
         val payload = Json.parseToJsonElement(

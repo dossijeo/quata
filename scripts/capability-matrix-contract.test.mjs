@@ -116,12 +116,15 @@ test('REPORT-RPC-001 Web and iOS use the deployed quata_ugc_report actor argumen
 test('COMMUNITY-PROFILE-ADAPTER-001 Web and iOS keep member identity and audio actions functional', async () => {
   const web = await readFile(resolve(import.meta.dirname, '..', 'web/src/wasmJsMain/kotlin/com/quata/web/Main.kt'), 'utf8');
   const ios = await readFile(resolve(import.meta.dirname, '..', 'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'), 'utf8');
-  const webMembers = web.slice(web.indexOf('private val webNeighborhoodsSlots'), web.indexOf('profile = CommunityProfilePlatformSlots'));
+  const webMembers = web.slice(
+    web.indexOf('private fun rememberWebNeighborhoodsSlots'),
+    web.indexOf('private fun openWebCommunityResource'),
+  );
   const iosMembers = ios.slice(ios.indexOf('fun createIosNeighborhoodsHostDependencies'), ios.indexOf('onOpenConversation = onOpenConversation'));
 
   assert.match(webMembers, /BrowserRemoteAvatar\([\s\S]*?avatarUrl = user\.avatarUrl/);
   assert.match(iosMembers, /IosRemoteAvatar\([\s\S]*?avatarUrl = user\.avatarUrl/);
-  assert.match(web, /audioPlayer = \{[\s\S]*?Button\(onClick = open\)/);
+  assert.match(webMembers, /audioPlayer = \{[\s\S]*?(?:androidx\.compose\.material3\.)?Button\(onClick = openSigned\b/);
   assert.match(ios, /audioPlayer = \{[\s\S]*?Button\(onClick = open\)/);
   assert.doesNotMatch(web, /audioPlayer = \{\s*(?:androidx\.compose\.material3\.)?Text\(attachment\.name\)\s*\}/);
   assert.doesNotMatch(ios, /audioPlayer = \{\s*Text\(attachment\.name\)\s*\}/);

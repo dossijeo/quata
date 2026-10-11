@@ -177,7 +177,9 @@ internal class CommunityProfileCacheStore(
             uri = uri,
             mimeType = mimeType,
             sentAtMillis = sentAtMillis,
-            senderName = senderName
+            senderName = senderName,
+            storageBucket = storageBucket,
+            storagePath = storagePath,
         )
 
     private fun StoredProfileAttachment.toDomain(): ProfileAttachment =
@@ -187,7 +189,9 @@ internal class CommunityProfileCacheStore(
             uri = uri,
             mimeType = mimeType,
             sentAtMillis = sentAtMillis,
-            senderName = senderName
+            senderName = senderName,
+            storageBucket = storageBucket,
+            storagePath = storagePath,
         )
 
     private fun StoredCommunityUserProfile.isOlderThan(maxAgeMillis: Long): Boolean =
@@ -259,7 +263,9 @@ internal class CommunityProfileCacheStore(
         val uri: String,
         val mimeType: String? = null,
         val sentAtMillis: Long? = null,
-        val senderName: String
+        val senderName: String,
+        val storageBucket: String? = null,
+        val storagePath: String? = null,
     )
 
     private companion object {

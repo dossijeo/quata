@@ -644,6 +644,8 @@ private fun JsonObject.toProfileAttachment(defaultSenderName: String): ProfileAt
         sentAtMillis = this["created_at_millis"]?.jsonPrimitive?.longOrNull
             ?: webCommunityString("created_at")?.toWebCommunityEpochMillis(),
         senderName = webCommunityString("sender_name")?.takeIf(String::isNotBlank) ?: defaultSenderName,
+        storageBucket = webCommunityString("storage_bucket"),
+        storagePath = webCommunityString("storage_path"),
     )
 }
 

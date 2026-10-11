@@ -39,6 +39,7 @@ class WebChatRepository(
     outgoingStore = BrowserChatOutgoingStore(),
     outboxFiles = BrowserFileCacheService(),
     outgoingExecutionLock = BrowserChatOutgoingExecutionLock(),
+    attachmentUrlSigner = WebChatAttachmentUrlSigner(configuration, authRepository),
 ) {
     private companion object {
         const val DefaultPollIntervalMillis = 30_000L
@@ -100,4 +101,5 @@ private fun UploadedWebChatAttachment.toCommonAttachment() = UploadedChatAttachm
     sizeBytes = sizeBytes,
     name = name,
     extension = extension,
+    storageBucket = com.quata.feature.chat.data.ChatAttachmentPublicUrlPolicy.PrivateBucket,
 )

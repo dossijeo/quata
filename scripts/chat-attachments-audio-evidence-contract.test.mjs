@@ -583,7 +583,7 @@ test("Web attachments/audio evidence does not wait for unfocused audio text befo
 });
 
 test("remote Chat attachment media is materialized before native players/viewers receive it", () => {
-  assert.match(androidAttachmentFileCache, /ChatAttachmentPublicUrlPolicy\.canonicalUrlOrNull/);
+  assert.match(androidAttachmentFileCache, /ChatAttachmentPublicUrlPolicy\.authenticatedUrlOrNull/);
   assert.match(androidAttachmentFileCache, /followRedirects\(false\)/);
   assert.match(androidAttachmentFileCache, /followSslRedirects\(false\)/);
   assert.match(androidAttachmentFileCache, /\.header\("apikey", publishableKey\)/);
@@ -666,7 +666,7 @@ test("Chat audio adapters cover every non-success PlatformResult boundary", () =
 
 test("Chat attachment transports keep HTTP failures before native playback and leave zero residue", () => {
   assert.match(androidAttachmentFileCache, /canonicalUrlResolver: \(String\) -> String\? = \{ remoteUrl ->/);
-  assert.match(androidAttachmentFileCache, /ChatAttachmentPublicUrlPolicy\.canonicalUrlOrNull/);
+  assert.match(androidAttachmentFileCache, /ChatAttachmentPublicUrlPolicy\.authenticatedUrlOrNull/);
   for (const testName of [
     "successfulHttpsDownloadUsesAuthenticatedHeadersAndExactBytes",
     "httpFailureLeavesNoFileAndTheSameDescriptorCanRetry",
@@ -1989,4 +1989,82 @@ test("CHAT-AUDIO renders a failed player and invokes its visible Retry callback"
   assert.match(commonAudioRetryUiTest, /hasAudioAttachmentDescription\(attachmentName\)/);
   assert.match(androidAudioRetryUiTest, /createAndroidComposeRule/);
   assert.match(androidAudioRetryUiTest, /description\.contains\(attachmentName\)/);
+});
+
+test("private Chat attachment client readiness keeps stable storage identity and derives access in memory", async () => {
+  const [
+    policy,
+    envelope,
+    repository,
+    androidHttp,
+    androidApi,
+    androidCache,
+    androidProfileCache,
+    androidProfileUi,
+    webSigner,
+    webRepository,
+    webProfileUi,
+    iosDownloader,
+    profileModel,
+    androidProfileMapper,
+    webProfileMapper,
+    iosProfileMapper,
+  ] = await Promise.all([
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/ChatAttachmentStorageAccess.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/ChatRpcPayloadEnvelope.kt"),
+    source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/data/PostgrestChatRepository.kt"),
+    source("app/src/main/java/com/quata/data/supabase/SupabaseHttpClient.kt"),
+    source("app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt"),
+    source("app/src/main/java/com/quata/feature/chat/data/ChatAttachmentFileCache.kt"),
+    source("app/src/main/java/com/quata/feature/neighborhoods/data/CommunityProfileCacheStore.kt"),
+    source("app/src/main/java/com/quata/feature/neighborhoods/presentation/NeighborhoodsScreen.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatAttachmentUrlSigner.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatRepository.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt"),
+    source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentDownloader.kt"),
+    source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/domain/NeighborhoodModels.kt"),
+    source("app/src/main/java/com/quata/feature/neighborhoods/data/NeighborhoodRepositoryImpl.kt"),
+    source("web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt"),
+    source("feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt"),
+  ]);
+
+  assert.match(policy, /SignedUrlLifetimeSeconds = 300/);
+  assert.match(policy, /ChatAttachmentPublicUrlPolicy\.AllowedBuckets/);
+  assert.match(repository, /quata_chat_register_attachment_v2/);
+  assert.match(repository, /uploaded\.storageBucket/);
+  assert.match(policy, /SignedToken\.matches\(token\)/);
+  assert.match(policy, /if \('\\\\' in value \|\| '\?' in value \|\| '#' in value \|\| '%' in value\) return false/);
+  assert.match(envelope, /toSignedChatRpcMessages/);
+  assert.match(envelope, /catch \(cancelled: CancellationException\)[\s\S]*throw cancelled/);
+  assert.match(envelope, /attachmentUrlResolutionAttempted = attachment != null/);
+  assert.match(envelope, /attachmentUri = if \(attachmentUrlResolutionAttempted\) resolvedAttachmentUrl else attachment\?\.stringAt\("url"\)/);
+  assert.match(repository, /attachmentUrlSigner\?\.let \{ signer -> toSignedChatRpcMessages\(actorId, signer\) \}/);
+
+  assert.match(androidHttp, /object\/sign\/\$bucket\/\$cleanPath/);
+  assert.match(androidHttp, /"expiresIn" to JsonPrimitive\(expiresInSeconds\)/);
+  assert.match(androidApi, /ChatAttachmentStorageAccessPolicy\.signedUrlOrNull/);
+  assert.match(androidCache, /authenticatedUrlOrNull/);
+  assert.match(androidProfileUi, /attachmentUrlSigner\(attachment\.storageBucket, attachment\.storagePath\)/);
+  assert.match(androidProfileUi, /attachment\.copy\(uri = resolvedUrl\.orEmpty\(\)\)/);
+
+  assert.match(webSigner, /credentials: 'omit'/);
+  assert.match(webSigner, /cache: 'no-store'/);
+  assert.match(webSigner, /redirect: 'error'/);
+  assert.match(webSigner, /Authorization: 'Bearer ' \+ accessToken/);
+  assert.match(webSigner, /ChatAttachmentStorageAccessPolicy\.signedUrlOrNull/);
+  assert.match(webRepository, /attachmentUrlSigner = WebChatAttachmentUrlSigner/);
+  assert.match(webProfileUi, /delay\(240_000L\)/);
+  assert.match(webProfileUi, /onOpen = openSigned/);
+  assert.doesNotMatch(webSigner, /object\/public/);
+
+  assert.match(iosDownloader, /authenticatedUrlOrNull/);
+  for (const mapper of [androidProfileMapper, webProfileMapper, iosProfileMapper]) {
+    assert.match(mapper, /storageBucket = .*storage_bucket/);
+    assert.match(mapper, /storagePath = .*storage_path/);
+  }
+  assert.match(profileModel, /val storageBucket: String\? = null/);
+  assert.match(profileModel, /val storagePath: String\? = null/);
+  assert.match(androidProfileCache, /storageBucket = storageBucket/);
+  assert.match(androidProfileCache, /storagePath = storagePath/);
+  assert.doesNotMatch(androidProfileCache, /signedURL|signedUrl|token=/);
 });

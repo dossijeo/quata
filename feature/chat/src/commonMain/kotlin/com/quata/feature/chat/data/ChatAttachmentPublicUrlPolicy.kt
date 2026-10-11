@@ -9,7 +9,11 @@ package com.quata.feature.chat.data
  * platform URL APIs also makes the security boundary testable from common tests.
  */
 object ChatAttachmentPublicUrlPolicy {
-    const val Bucket = "chat-attachments"
+    const val LegacyBucket = "chat-attachments"
+    const val PrivateBucket = "chat-attachments-private"
+    @Deprecated("Use LegacyBucket or PrivateBucket explicitly")
+    const val Bucket = LegacyBucket
+    val AllowedBuckets = setOf(LegacyBucket, PrivateBucket)
 
     /**
      * Returns the canonical URL only when [publicUrl] is an HTTPS public-object URL for this
@@ -19,12 +23,27 @@ object ChatAttachmentPublicUrlPolicy {
     fun canonicalUrlOrNull(supabaseUrl: String, publicUrl: String): String? {
         val base = canonicalSupabaseBaseOrNull(supabaseUrl) ?: return null
         val candidate = publicUrl.trim()
-        val prefix = "$base/storage/v1/object/public/$Bucket/"
-        if (!candidate.startsWith(prefix)) return null
+        val bucket = AllowedBuckets.firstOrNull { candidate.startsWith("$base/storage/v1/object/public/$it/") }
+            ?: return null
+        val prefix = "$base/storage/v1/object/public/$bucket/"
 
         val objectPath = candidate.removePrefix(prefix)
         if (!isCanonicalObjectPath(objectPath)) return null
         return candidate
+    }
+
+    /**
+     * Converts a persisted public-object reference into the same deployment's authenticated
+     * Storage endpoint. The input remains deliberately strict so an attachment supplied by a
+     * different user cannot turn a bearer-authenticated download into an arbitrary request.
+     */
+    fun authenticatedUrlOrNull(supabaseUrl: String, publicUrl: String): String? {
+        val canonical = canonicalUrlOrNull(supabaseUrl, publicUrl) ?: return null
+        val bucket = AllowedBuckets.first { "/storage/v1/object/public/$it/" in canonical }
+        return canonical.replace(
+            oldValue = "/storage/v1/object/public/$bucket/",
+            newValue = "/storage/v1/object/authenticated/$bucket/",
+        )
     }
 
     private fun canonicalSupabaseBaseOrNull(value: String): String? {

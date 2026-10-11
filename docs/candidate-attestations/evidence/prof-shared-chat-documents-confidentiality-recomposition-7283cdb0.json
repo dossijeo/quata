@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
+    "workingTreeDirty": false
+  },
+  "unit": "PROF-SHARED-CHAT-DOCUMENTS",
+  "productSha": "7283cdb0316d9fda6bb54cb0236c26494bc786a2",
+  "historicalExecutionSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+  "predecessorSha": "8ac7db07f0af4e387acd9a764879b0d53353d2b8",
+  "steps": [
+    "three_selected_product_commits_patch_equivalent",
+    "unavailable_private_attachment_isolated_without_exposing_stored_url",
+    "cancellation_propagation_preserved",
+    "historical_platform_and_database_report_preserved",
+    "production_migration_already_committed_not_reapplied",
+    "node_attachment_contracts_62_of_62_passed",
+    "android_compile_and_signed_url_test_passed",
+    "web_wasm_focal_and_web_compile_passed",
+    "ios_x64_test_compilation_passed",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "platformE2eRepeatedForAncestry": false,
+    "databaseMigrationReapplied": false,
+    "productionMutationPerformedDuringRecomposition": false,
+    "historicalProductionPostdeployResidue": 0,
+    "selectedProductPatchIdsPreserved": "3_of_3"
+  },
+  "notes": [
+    "The implementation, original attestation and bounded unavailable-object correction were replayed with identical patch IDs over merged POST-TEXT-DESTINATION main.",
+    "A missing or unsignable private attachment degrades only that attachment to unavailable, never falls back to the stored URL, and does not suppress sibling messages; coroutine cancellation still propagates.",
+    "Platform and production database evidence remains bound to exact historical Product 2500f4838217de8c95c091c138da23d6f83794e1; no matrix or migration was repeated solely for ancestry.",
+    "Migration 20261011110000 is already committed in production and was not reapplied."
+  ]
+}

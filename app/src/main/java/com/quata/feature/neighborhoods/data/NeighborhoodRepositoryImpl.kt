@@ -546,7 +546,9 @@ class NeighborhoodRepositoryImpl(
             uri = uri,
             mimeType = string("mime_type") ?: inferAttachmentMimeType(name, uri, string("ext")),
             sentAtMillis = long("created_at_millis") ?: string("created_at")?.toEpochMillisOrNull(),
-            senderName = string("sender_name")?.takeIf { it.isNotBlank() } ?: defaultSenderName
+            senderName = string("sender_name")?.takeIf { it.isNotBlank() } ?: defaultSenderName,
+            storageBucket = string("storage_bucket"),
+            storagePath = string("storage_path"),
         )
     }
 

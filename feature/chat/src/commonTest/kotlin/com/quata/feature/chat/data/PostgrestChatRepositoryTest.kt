@@ -330,7 +330,7 @@ class PostgrestChatRepositoryTest {
                 override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
                     calls += functionName to body
                     return when (functionName) {
-                        "quata_chat_register_attachment" -> ChatPostgrestResponse.Success("""{"id":123}""")
+                        "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Success("""{"id":123}""")
                         "quata_chat_send_message" -> {
                             sendAttempts += 1
                             if (sendAttempts == 1) {
@@ -363,7 +363,7 @@ class PostgrestChatRepositoryTest {
 
         assertEquals(1, uploads)
         assertEquals(emptyList(), deletedStoragePaths)
-        assertEquals(1, calls.count { it.first == "quata_chat_register_attachment" })
+        assertEquals(1, calls.count { it.first == "quata_chat_register_attachment_v2" })
         assertEquals(2, calls.count { it.first == "quata_chat_send_message" })
         assertTrue(calls.filter { it.first == "quata_chat_send_message" }.all { it.second.contains("\"p_file_ids\":[123]") })
     }
@@ -377,7 +377,7 @@ class PostgrestChatRepositoryTest {
                 override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
                     calls += functionName
                     return when (functionName) {
-                        "quata_chat_register_attachment" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
+                        "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
                         else -> ChatPostgrestResponse.Success("{}")
                     }
                 }
@@ -412,7 +412,7 @@ class PostgrestChatRepositoryTest {
             ).isSuccess,
         )
 
-        assertEquals(listOf("quata_chat_register_attachment"), calls)
+        assertEquals(listOf("quata_chat_register_attachment_v2"), calls)
         assertEquals(listOf("profile-1/photo.jpg"), deletedStoragePaths)
         assertTrue(repository.isMessagePending("client-register-fail"))
     }
@@ -460,7 +460,7 @@ class PostgrestChatRepositoryTest {
             transport = object : ChatPostgrestTransport {
                 override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
                     return when (functionName) {
-                        "quata_chat_register_attachment" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
+                        "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
                         else -> ChatPostgrestResponse.Success("{}")
                     }
                 }
@@ -513,7 +513,7 @@ class PostgrestChatRepositoryTest {
         val repository = PostgrestChatRepository(
             transport = ChatPostgrestTransport { functionName, _ ->
                 when (functionName) {
-                    "quata_chat_register_attachment" -> {
+                    "quata_chat_register_attachment_v2" -> {
                         registrations += 1
                         if (registrations == 1) ChatPostgrestResponse.Failure(IllegalStateException("register_failed"))
                         else ChatPostgrestResponse.Success("""{"id":91}""")
@@ -567,7 +567,7 @@ class PostgrestChatRepositoryTest {
         var sends = 0
         fun transport() = ChatPostgrestTransport { functionName, _ ->
             when (functionName) {
-                "quata_chat_register_attachment" -> ChatPostgrestResponse.Success("""{"id":81}""")
+                "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Success("""{"id":81}""")
                 "quata_chat_send_message" -> { sends += 1; ChatPostgrestResponse.Success("{}") }
                 else -> ChatPostgrestResponse.Success("{}")
             }
@@ -716,7 +716,7 @@ class PostgrestChatRepositoryTest {
         val second = PostgrestChatRepository(
             transport = ChatPostgrestTransport { functionName, _ ->
                 when (functionName) {
-                    "quata_chat_register_attachment" -> ChatPostgrestResponse.Success("""{"id":901}""")
+                    "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Success("""{"id":901}""")
                     else -> ChatPostgrestResponse.Success("{}")
                 }
             },
@@ -769,7 +769,7 @@ class PostgrestChatRepositoryTest {
         val online = PostgrestChatRepository(
             transport = ChatPostgrestTransport { functionName, _ ->
                 when (functionName) {
-                    "quata_chat_register_attachment" -> ChatPostgrestResponse.Success("""{"id":77}""")
+                    "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Success("""{"id":77}""")
                     "quata_chat_send_message" -> { sends += 1; ChatPostgrestResponse.Success("{}") }
                     else -> ChatPostgrestResponse.Success("{}")
                 }
@@ -1131,7 +1131,7 @@ class PostgrestChatRepositoryTest {
         transport = object : ChatPostgrestTransport {
             override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
                 return when (functionName) {
-                    "quata_chat_register_attachment" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
+                    "quata_chat_register_attachment_v2" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
                     else -> ChatPostgrestResponse.Success("{}")
                 }
             }

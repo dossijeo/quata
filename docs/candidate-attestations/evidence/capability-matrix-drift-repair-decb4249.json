@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "decb42499157f7edc62111af6c9d36058675a862",
+    "workingTreeDirty": false
+  },
+  "unit": "CAPABILITY-DRIFT-001",
+  "productSha": "decb42499157f7edc62111af6c9d36058675a862",
+  "steps": [
+    "capability_matrix_contract_22_of_22_passed",
+    "all_declared_source_hashes_match_repository_bytes",
+    "decisive_source_negative_controls_passed",
+    "apns_noop_negative_control_passed",
+    "community_profile_adapter_selector_matches_current_composition_boundary",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformExecutionRepeated": false,
+    "uniqueSourceHashesRebound": 7,
+    "previousGlobalFailures": 4,
+    "currentGlobalFailures": 0,
+    "testCount": 22,
+    "failedTests": 0
+  },
+  "notes": [
+    "The matrix rebinds only source-integrity hashes changed by the reviewed private attachment implementation.",
+    "The Community profile assertion follows the current rememberWebNeighborhoodsSlots composition function and its signed-URL audio control, including the fully qualified Material3 button used by this head.",
+    "No Android, Web/Wasm or iOS runtime source changed in this repair, so platform E2E was not repeated solely for the gate correction."
+  ]
+}

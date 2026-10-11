@@ -41,7 +41,7 @@ const [
 test("common chat repository rolls back uploaded storage only when registration fails", () => {
   assert.match(commonRepository, /suspend fun deleteUploadedAttachment\(uploaded: UploadedChatAttachment\): Boolean = false/);
   assert.match(commonRepository, /val uploaded = attachmentUploader\.upload\(profileId, file\)/);
-  assert.match(commonRepository, /transport\.post\("quata_chat_register_attachment", body\)\.successOrThrow\(\)/);
+  assert.match(commonRepository, /transport\.post\("quata_chat_register_attachment_v2", body\)\.successOrThrow\(\)/);
   assert.match(commonRepository, /catch \(error: Throwable\) \{[\s\S]*runCatching \{ attachmentUploader\.deleteUploadedAttachment\(uploaded\) \}[\s\S]*AttachmentOrphanCleanupFailed/s);
   assert.match(commonRepository, /if \(error is AttachmentOrphanCleanupFailed\) \{[\s\S]*orphanCleanupBlocked = true[\s\S]*attempts = MaxOutboxAttempts/s);
   assert.match(commonRepository, /persistClaimed\(unsafeToRetry, leaseToken\)[\s\S]*projectPendingMessage\(unsafeToRetry\)/s);
@@ -60,7 +60,7 @@ test("web chat storage adapter can delete the uploaded object with authenticated
   assert.match(webRepository, /object : ChatAttachmentUploader/);
   assert.match(webRepository, /override suspend fun deleteUploadedAttachment\(uploaded: UploadedChatAttachment\): Boolean =\s*attachmentUploader\.delete\(uploaded\.storagePath\)/s);
   assert.match(webUploader, /suspend fun delete\(storagePath: String\): Boolean/);
-  assert.match(webUploader, /"\$baseUrl\/storage\/v1\/object\/chat-attachments"/);
+  assert.match(webUploader, /ChatAttachmentPublicUrlPolicy\.PrivateBucket/);
   assert.match(webUploader, /method: 'DELETE'/);
   assert.match(webUploader, /JSON\.stringify\(\{ prefixes: \[storagePath\] \}\)/);
   assert.match(webUploader, /Authorization: `Bearer/);
@@ -97,7 +97,7 @@ test("visual evidence runners exercise register-failure rollback on every platfo
     assert.match(runner, /register_failure_rolled_back_storage/);
   }
 
-  assert.match(webRunner, /page\.route\("\*\*\/rest\/v1\/rpc\/quata_chat_register_attachment"/);
+  assert.match(webRunner, /page\.route\("\*\*\/rest\/v1\/rpc\/quata_chat_register_attachment_v2"/);
   assert.match(webRunner, /outcome === "success" \|\| outcome === "register-failure"/);
   assert.match(webRunner, /while \(!registerFailureInjected && Date\.now\(\) < registerDeadline\)/);
   assert.match(webRunner, /isExpectedAttachmentRegisterFailureFault/);
