@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "4854bb3f091aacf3f5020e398a288b382072e385",
-  "certification": "finite-media-producer-catalog-all-inventories-reconciled-final-review-pending",
+  "certification": "finite-media-producer-catalog-all-inventories-reconciled-independent-review-go-final-ci-pending",
   "evidence": {
     "producerCatalog": {
       "status": "passed",
@@ -36,11 +36,12 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "4ade26a6c35458190b262686cce4171c07050e35",
     "blockingFindings": [],
     "resolvedFindings": [
-      "The historical Account avatar preview limit is closed by the integrated ProfileScreenHost producer and its focal receipt; the catalog now composes it instead of reopening it."
+      "The historical Account avatar preview limit is closed by the integrated ProfileScreenHost producer and its focal receipt; the catalog now composes it instead of reopening it.",
+      "The final review reproduced all 17 affected contracts, validator, report hash, diff-check and clean-tree checks across the three authoritative inventories."
     ]
   },
   "notes": [
