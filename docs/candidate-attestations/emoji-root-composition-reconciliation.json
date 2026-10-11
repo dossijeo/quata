@@ -4,16 +4,16 @@
     "FLOW-EMOJI"
   ],
   "status": "passed",
-  "productSha": "d7dad4a862d39ed29712b0ea064140b3d8b54709",
-  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-review-passed-final-ci-pending",
+  "productSha": "12b810875da8a0488c431df300b0df28545cc80d",
+  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "d7dad4a862d39ed29712b0ea064140b3d8b54709",
-      "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-d7dad4a8.json",
-      "reportSha256": "bd3cc0757d95ba825006ec55c697535409fad6d80983d93426df06e045d9df2c",
+      "sha": "12b810875da8a0488c431df300b0df28545cc80d",
+      "report": "docs/candidate-attestations/evidence/emoji-root-composition-recomposition-12b81087.json",
+      "reportSha256": "2708dd62ae8e2bd0627ed14f6a1b8dcd44b527becd654c8fa852be8d7189a639",
       "reportStatus": "passed",
-      "reportGitHead": "d7dad4a862d39ed29712b0ea064140b3d8b54709",
+      "reportGitHead": "12b810875da8a0488c431df300b0df28545cc80d",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -40,8 +40,9 @@
     "git diff --check"
   ],
   "review": {
-    "status": "passed",
-    "reviewedSha": "9a15eefcc132a5f13026856eb991e9337cb89718",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "9a15eefcc132a5f13026856eb991e9337cb89718",
     "blockingFindings": []
   },
   "notes": [
@@ -50,6 +51,7 @@
     "The reconciliation removes only the generic FLOW-EMOJI residual. Provider or network failures, publication failures and comment failures remain owned by their respective units.",
     "No runtime, backend, CI workflow or platform evidence receipt changed in this composition unit. Historical Android, Web/Wasm and iOS executions remain bound to their original Product and evidence heads.",
     "Product d7dad4a862d39ed29712b0ea064140b3d8b54709 preserves the reviewed FLOW-EMOJI composition delta over final Post Composer predecessor 4088e9f47079972db0059c1b6004dcb852208d35; the sole legitimate base adjustment rebinds the exact Post Composer receipt hash to its reviewed current bytes.",
-    "Independent exact-head review of 9a15eefcc132a5f13026856eb991e9337cb89718 returned GO with no P0-P3: the historical delta is preserved except for the legitimate Post Composer receipt hash rebind, all six exact receipts and repo-wide extraction remain closed, and affected gates pass."
+    "Independent exact-head review of 9a15eefcc132a5f13026856eb991e9337cb89718 returned GO with no P0-P3: the historical delta is preserved except for the legitimate Post Composer receipt hash rebind, all six exact receipts and repo-wide extraction remain closed, and affected gates pass.",
+    "Product 12b810875da8a0488c431df300b0df28545cc80d preserves the FLOW-EMOJI composition over final reviewed Post Composer 2ad799319dc04f5b103ef31c0103c5adb3459afe; the only intentional product-delta adjustment is receipt hash 3797492ad7375a5156559b900b1e3ba9e53148a3defbe05facb9f1441a3ce207 for the final reviewed Post Composer bytes. Historical execution remains at its original heads."
   ]
 }

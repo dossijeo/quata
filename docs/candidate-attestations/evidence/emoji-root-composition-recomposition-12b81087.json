@@ -2,13 +2,13 @@
   "version": 1,
   "unit": "FLOW-EMOJI",
   "status": "passed",
-  "productSha": "d7dad4a862d39ed29712b0ea064140b3d8b54709",
-  "recompositionHead": "d7dad4a862d39ed29712b0ea064140b3d8b54709",
-  "predecessorSha": "4088e9f47079972db0059c1b6004dcb852208d35",
+  "productSha": "12b810875da8a0488c431df300b0df28545cc80d",
+  "recompositionHead": "12b810875da8a0488c431df300b0df28545cc80d",
+  "predecessorSha": "2ad799319dc04f5b103ef31c0103c5adb3459afe",
   "historicalProductSha": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
-  "scope": "Recomposition of the reviewed finite emoji owner catalog over the final Post Composer predecessor, with the exact Post Composer receipt hash rebound to its reviewed current bytes.",
+  "scope": "Recomposition of the reviewed finite emoji owner catalog over the final independently reviewed Post Composer predecessor, with the exact Post Composer receipt hash rebound to its current reviewed bytes.",
   "git": {
-    "head": "d7dad4a862d39ed29712b0ea064140b3d8b54709",
+    "head": "12b810875da8a0488c431df300b0df28545cc80d",
     "workingTreeDirty": false
   },
   "steps": [
@@ -30,9 +30,12 @@
     "platformE2eRepeatedForAncestry": false,
     "ownerReceiptCount": 6,
     "sourceExtractedPanelCallsiteFiles": 6,
-    "postComposerReceiptSha256": "2a9a79299574cca9a2d8a79a2a02fab9cad93961e95606a668e85a131b86927a"
+    "postComposerReceiptSha256": "3797492ad7375a5156559b900b1e3ba9e53148a3defbe05facb9f1441a3ce207"
   },
   "limits": [
     "The composition removes only the generic FLOW-EMOJI residual. Provider, network, publication and comment failures remain owned by their respective units."
+  ],
+  "notes": [
+    "The composition delta is preserved except for the required Post Composer receipt hash rebind after the final review record; historical platform execution is not reattributed."
   ]
 }
