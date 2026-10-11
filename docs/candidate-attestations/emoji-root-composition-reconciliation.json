@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI"
+  ],
+  "status": "passed",
+  "productSha": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
+  "certification": "emoji-finite-consumer-catalog-composed-transport-boundaries-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
+      "report": "docs/candidate-attestations/evidence/emoji-root-composition-reconciliation-4303e12b.json",
+      "reportSha256": "e0e705ae0349a4a77946ec8f25ca9b000048f6893bfdbfdebb7593e623e99fbf",
+      "reportStatus": "passed",
+      "reportGitHead": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "emoji_root_composition_contract_6_of_6_passed",
+        "six_owner_receipts_exact_hashes_preserved",
+        "product_panel_callsites_source_extracted",
+        "android_web_ios_evidence_passed_for_each_platform_receipt",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_emoji_residual_removed",
+        "owner_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/emoji-root-composition-reconciliation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/emoji-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "pending",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "Six exact owner receipts compose the finite product-consumer catalog: Chat, comments in Feed, Official and public profiles, and Post Composer, including full panel sections, mixed emoji and links, profile picker, rollback, empty/error/retry states and an exact authenticated post publish.",
+    "The contract source-extracts every CommunityEmojiPanelContent product callsite and fixes the set at six source files: the Android adapter wrapper plus the five logical product surfaces. Tracked Kotlin production source sets are scanned repo-wide; whitespace and import aliases are recognized, so a new panel callsite fails closed until it receives an owner receipt.",
+    "The reconciliation removes only the generic FLOW-EMOJI residual. Provider or network failures, publication failures and comment failures remain owned by their respective units.",
+    "No runtime, backend, CI workflow or platform evidence receipt changed in this composition unit. Historical Android, Web/Wasm and iOS executions remain bound to their original Product and evidence heads.",
+    "This unit is based on the independently reviewed FLOW-EMOJI Post Composer head 5bc045fb8c2f840069f9d504f2f56d9fc46eca96 and remains local until its predecessor can be promoted sequentially."
+  ]
+}
