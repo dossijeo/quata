@@ -103,6 +103,26 @@ acredita reproducción posterior en los bridges AVFoundation de Feed y Official.
 Permanecen fuera el catálogo exhaustivo de codecs, reproducción prolongada en segundo plano,
 comentarios integrados y productores de media distintos de Feed y Official.
 
+## POST-VIDEO-EDITOR / formato Web reproducible en Android e iOS — candidata
+
+Runtime SHA `d484e5b56c9f81fa639548705f15db833677c40c`; Product SHA `5395f680113fca56e3c4ca1278eed0e8b507707d`. El productor activo del editor
+Web publica sólo MP4/H.264: Chrome usa Opus y los navegadores que lo anuncien pueden usar AAC como
+fallback ordenado. Si MediaRecorder no ofrece uno de esos perfiles, el editor termina con un error
+recuperable explícito; no publica WebM ni rebaja silenciosamente el contrato multiplataforma.
+
+La ejecución Web exact-head recorrió cancelación, mute, audio conservado y fuente sin audio, y
+verificó físicamente contenedor, codecs, trim, dimensiones, captions, crop, blur y señal audible.
+El mismo MP4/H.264/Opus generado por Web (SHA-256
+`e2213d891edc68c0b621499d8a7092cd281520769ca4fc0a7d6ff8215a628bf9`) alcanzó estado reproducible
+en el visor real Media3 de Android API 35 y en AVFoundation sobre iOS Simulator 18.3.1. La instalación
+temporal iOS fue retirada. El runtime iOS 26.5 de la VM falló su propia migración de datos antes de
+ejecutar producto y se conserva sólo como límite del entorno de evidencia.
+[Atestación](./candidate-attestations/post-video-web-cross-platform-codec.json).
+
+Este cierre elimina la incompatibilidad del productor Web activo. Permanecen fuera el catálogo
+exhaustivo de codecs heredados o de terceros, fallos de transporte, otros productores, receptores
+externos, reproducción prolongada en segundo plano y la futura activación de COEP en hosting.
+
 ## OVR-MEDIA / restauración duradera de posición de vídeo Feed — integrada por #568
 
 Product SHA `cf31cb96286b7fa42b31558f552debf32cf5b98a`. El estado común persiste por

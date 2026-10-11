@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "units": [
+    "POST-VIDEO-EDITOR",
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "5395f680113fca56e3c4ca1278eed0e8b507707d",
+  "certification": "web-mp4-h264-active-producer-and-android-ios-playback-exact-fixture-independent-review-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "5395f680113fca56e3c4ca1278eed0e8b507707d",
+      "report": "docs/candidate-attestations/evidence/post-video-web-cross-platform-codec-web-d484e5b5.json",
+      "reportSha256": "d1fbeb99be473f3577a15fd7a761df499df2323da655171d2a865a006a32f4d0",
+      "reportStatus": "passed",
+      "reportGitHead": "d484e5b56c9f81fa639548705f15db833677c40c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_head_authenticated_web_editor_executed",
+        "cancel_muted_unmuted_and_silent_source_paths_passed",
+        "physical_mp4_h264_output_verified",
+        "physical_opus_audio_verified_when_source_had_audio",
+        "mute_and_silent_source_created_no_audio_stream",
+        "trim_dimensions_captions_crop_blur_and_audio_signal_verified",
+        "webm_publish_fallback_absent",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "5395f680113fca56e3c4ca1278eed0e8b507707d",
+      "report": "docs/candidate-attestations/evidence/post-video-web-cross-platform-codec-android-d484e5b5.json",
+      "reportSha256": "17ed5c0752ee7542f81e88bd4f4358c9ea14c714fbbe958d056d00fdd27e2147",
+      "reportStatus": "passed",
+      "reportGitHead": "d484e5b56c9f81fa639548705f15db833677c40c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_product_head_android_instrumentation_executed",
+        "exact_web_generated_fixture_loaded_through_real_media_viewer",
+        "media3_reached_playable_state",
+        "playback_failure_state_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "5395f680113fca56e3c4ca1278eed0e8b507707d",
+      "report": "docs/candidate-attestations/evidence/post-video-web-cross-platform-codec-ios-d484e5b5.json",
+      "reportSha256": "b7f397c067765687e0554471b99404d5f82bc5cd86f8c750265dc33ddb3adebb",
+      "reportStatus": "passed",
+      "reportGitHead": "d484e5b56c9f81fa639548705f15db833677c40c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "exact_product_head_fixture_transferred_with_sha256_match",
+        "avurlasset_reported_playable",
+        "avplayeritem_reached_ready_to_play",
+        "avplayer_advanced_beyond_two_seconds",
+        "temporary_probe_uninstalled_and_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/post-video-codec-parity-contract.test.mjs scripts/post-publish-evidence-contract.test.mjs",
+    "node --check scripts/post-video-editor-web-evidence.mjs",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.ui.components.MediaPlaybackRecoveryInstrumentedTest#webH264OpusMp4ReachesAPlayableState",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/post-video-web-cross-platform-codec.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "Product SHA 5395f680113fca56e3c4ca1278eed0e8b507707d composes the successful-path runtime evidence executed on ancestor d484e5b56c9f81fa639548705f15db833677c40c with a later cleanup correction for rejected codec/context/MediaRecorder/caption setup. The platform reports remain explicitly tied to d484e5b5; the cleanup-only delta is covered by the fail-closed contract and Web compilation and is not represented as a repeated platform E2E run.",
+    "The active Web video-editor producer publishes only MP4/H.264. Chrome uses Opus audio; AAC remains an ordered fallback only for browsers that explicitly advertise H.264/AAC MediaRecorder support.",
+    "No WebM fallback is published. A browser without an accepted MP4/H.264 profile receives the explicit recoverable codec-unavailable error.",
+    "The same physical Web-generated MP4/H.264/Opus fixture, SHA-256 e2213d891edc68c0b621499d8a7092cd281520769ca4fc0a7d6ff8215a628bf9, reached a playable state through Android Media3 and iOS AVFoundation.",
+    "The exact-head Web run also revalidated trim, mute/unmute, silent-source handling, captions, crop geometry, blur and audible-signal probes without backend mutation.",
+    "This unit closes the current Web producer's cross-platform container and codec gap. It does not claim an exhaustive catalog of legacy or third-party codecs, every transport fault, other producers, external receivers, prolonged background playback or future COEP hosting activation.",
+    "The available iOS 26.5 simulator runtime failed its VM data-migration setup before product execution; exact-fixture AVFoundation playback passed on the operational iOS 18.3.1 simulator."
+  ]
+}

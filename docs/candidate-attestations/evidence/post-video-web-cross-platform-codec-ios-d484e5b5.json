@@ -1,0 +1,44 @@
+{
+  "check": "POST-VIDEO-WEB-CROSS-PLATFORM-CODEC-IOS-001",
+  "status": "passed",
+  "git": {
+    "head": "d484e5b56c9f81fa639548705f15db833677c40c",
+    "branch": "codex/web-video-cross-platform-codec",
+    "workingTreeDirty": false
+  },
+  "environment": {
+    "platform": "iOS Simulator",
+    "runtime": "18.3.1",
+    "framework": "AVFoundation"
+  },
+  "fixture": {
+    "path": "app/src/androidTest/assets/quata-web-h264-opus.mp4",
+    "origin": "physical Web MediaRecorder export",
+    "sha256": "e2213d891edc68c0b621499d8a7092cd281520769ca4fc0a7d6ff8215a628bf9",
+    "container": "MP4",
+    "videoCodec": "H.264",
+    "audioCodec": "Opus"
+  },
+  "result": {
+    "playable": true,
+    "videoTrackCount": 1,
+    "audioTrackCount": 1,
+    "itemStatus": "readyToPlay",
+    "playbackSeconds": 2.104,
+    "itemError": null
+  },
+  "steps": [
+    "exact_product_head_fixture_transferred_with_sha256_match",
+    "avurlasset_reported_playable",
+    "avplayeritem_reached_ready_to_play",
+    "avplayer_advanced_beyond_two_seconds",
+    "temporary_probe_uninstalled_and_removed"
+  ],
+  "cleanup": {
+    "verified": true,
+    "physicalResidue": 0
+  },
+  "limitations": [
+    "The available iOS 26.5 simulator runtime failed its VM data-migration setup before product execution; the exact fixture passed on the operational iOS 18.3.1 simulator. This is retained as an evidence-environment limitation, not a playback failure."
+  ]
+}
