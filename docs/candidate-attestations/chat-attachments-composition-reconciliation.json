@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
-  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-exact-head-review-pending-final-ci-pending",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -80,8 +80,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "7737ebce4d196e1c969c3255c9fe8f0369c394d9",
     "previousReviewedSha": "c1ce5390bc20b1d6e33d756d7f22397465c1f717",
     "blockingFindings": [],
     "reviewedProductSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
@@ -93,7 +93,8 @@
     },
     "resolvedFindings": [
       "Independent exact-head review confirmed the preserved composition delta, necessary confidentiality receipt hash rebound, nine receipts, v32 and external boundaries, report hashes, historical custody, 3/3 contract, validator, diff-check and clean tree.",
-      "Independent exact-head review of c1ce5390bc20b1d6e33d756d7f22397465c1f717 returned GO without P0-P3 after verifying the equivalent patch, nine exact receipts and hashes, report hash f740ba72, Android v32 and external boundaries, exact-once wiring, historical custody, contract, validator, diff-check and clean tree."
+      "Independent exact-head review of c1ce5390bc20b1d6e33d756d7f22397465c1f717 returned GO without P0-P3 after verifying the equivalent patch, nine exact receipts and hashes, report hash f740ba72, Android v32 and external boundaries, exact-once wiring, historical custody, contract, validator, diff-check and clean tree.",
+      "Independent exact-head review of 7737ebce4 returned GO without P0-P3 after confirming the exact Product patch ID, nine receipts, confidentiality and report hashes, Android v32 compatibility, external boundaries, historical-only execution attribution, 3/3 contract, validator, exact-once wiring, diff-check and a clean tree."
     ]
   },
   "notes": [
