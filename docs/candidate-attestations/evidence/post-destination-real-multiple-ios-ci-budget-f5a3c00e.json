@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "failure_run_38150470325_identified_watchdog_exit_124",
+    "xctest_progress_proved_product_suite_was_advancing",
+    "per_test_fail_closed_timeouts_preserved",
+    "serialized_host_watchdog_extended_to_2400_seconds",
+    "host_step_budget_extended_to_42_minutes",
+    "ios_job_budget_extended_to_180_minutes",
+    "ios_workflow_contract_65_of_65_passed",
+    "ci_fast_contracts_966_of_966_passed",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "POST-TEXT-DESTINATION",
+    "failedRunId": 38150470325,
+    "failedJobId": 114502773336,
+    "failureExitCode": 124,
+    "failureKind": "serialized_host_suite_global_watchdog_exhausted_while_tests_advanced",
+    "lastCompletedSlowTest": "QuataIosHostUITests.testAuthenticatedProfileSosKeepsRealComposeDraftAboveGlobalKeyboardAcrossRotation",
+    "lastCompletedSlowTestSeconds": 178.284,
+    "nextObservedTest": "QuataIosHostUITests.testProfileSosRejectsSixthContactAndRetriesExactEditedSettings",
+    "xctestPerTestDefaultSeconds": 90,
+    "xctestPerTestMaximumSeconds": 180,
+    "runtimeOrProductChange": false,
+    "platformE2eRepeatedLocally": false
+  },
+  "notes": [
+    "The exact frozen head reached the serialized iOS host suite after every other required check passed.",
+    "The 1200-second command watchdog terminated xcodebuild with exit 124 while XCTest was still advancing; the preceding 178.284-second test reported passed and the next test started.",
+    "The repair changes only CI budgets and their fail-closed source contract. It does not skip a test, relax XCTest per-test limits, change signing, or change product runtime behavior.",
+    "Final proof belongs to the GitHub iOS final job for this exact repaired head."
+  ]
+}

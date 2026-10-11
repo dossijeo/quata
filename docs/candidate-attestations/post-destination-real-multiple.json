@@ -5,13 +5,13 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "e498f465c809fd302f6c7c382233901e224f55e0",
-  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-GO-final-CI-pending",
+  "productSha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-iOS-time-budget-repaired-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e498f465c809fd302f6c7c382233901e224f55e0",
+      "sha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-2fd276e8.json",
       "reportSha256": "7b443bfa4de484d32fcd084db2bbf22f637940669275564e8365f920ef0340f1",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "e498f465c809fd302f6c7c382233901e224f55e0",
+      "sha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-2fd276e8.json",
       "reportSha256": "e8411e7ee58ac757038de7fe78c55bf33a200789a7c3060ac4fdbf57604195af",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e498f465c809fd302f6c7c382233901e224f55e0",
+      "sha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-2fd276e8.json",
       "reportSha256": "04109395bfe423afcb86ccf725c00e34bfd593516bdffed2e769ca19eb6871d9",
       "reportStatus": "passed",
@@ -66,7 +66,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "e498f465c809fd302f6c7c382233901e224f55e0",
+      "sha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-recomposition-e498f465.json",
       "reportSha256": "c34204a99a075145b1abc606fc3f261c136760e29cb542170251eaf2cfe36ab1",
       "reportStatus": "passed",
@@ -90,9 +90,36 @@
         "verified": true,
         "mode": "no_backend_or_platform_mutation_during_recomposition"
       }
+    },
+    "ciRepair": {
+      "status": "passed",
+      "sha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-ci-budget-f5a3c00e.json",
+      "reportSha256": "60261fc829d3e256b133a9ac23d0f4a132568ef230523f8e4d1f5a786718604b",
+      "reportStatus": "passed",
+      "reportGitHead": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "failure_run_38150470325_identified_watchdog_exit_124",
+        "xctest_progress_proved_product_suite_was_advancing",
+        "per_test_fail_closed_timeouts_preserved",
+        "serialized_host_watchdog_extended_to_2400_seconds",
+        "host_step_budget_extended_to_42_minutes",
+        "ios_job_budget_extended_to_180_minutes",
+        "ios_workflow_contract_65_of_65_passed",
+        "ci_fast_contracts_966_of_966_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "ci-budget-only-no-product-or-backend-mutation"
+      }
     }
   },
   "preflight": [
+    "npm run test:ci-fast-contracts",
+    "node --test scripts/ios-build-workflow-contract.test.mjs",
     "node --test scripts/post-publish-evidence-contract.test.mjs",
     ".\\gradlew.bat :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
     ".\\gradlew.bat :web:compileKotlinWasmJs :web:wasmJsBrowserDistribution --no-daemon --console=plain",
@@ -100,17 +127,15 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "ff716698491d04dddb9494fa74ed7fa73c26ec3f",
-    "previousReviewedSha": "195383be4dc33bc873d0e235956b74db865d6b06",
+    "status": "PENDING",
+    "reviewedSha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080",
+    "previousReviewedSha": "ff716698491d04dddb9494fa74ed7fa73c26ec3f",
     "blockingFindings": [],
     "resolvedFindings": [
-      "The FLOW-DEEP-LINKS candidate and squash trees are identical, and the complete pre-attestation branch replays 31/31 commits patch-equivalent over merge 8ddc4dbd5781d77866364c8c0cd76f12945a1ffd.",
-      "All 13 Product commits remain patch-equivalent at e498f465c809fd302f6c7c382233901e224f55e0.",
-      "Historical Android, Web and iOS execution remains attributed exclusively to 2fd276e89bbabfafd8d9c6099a950c124d2752f1; no platform E2E was renewed or attributed for ancestry.",
-      "The current 27/27 contract, four syntax checks, validator, diff-check, evidence hashes, clean tree and focal secret/path scan pass."
+      "The previous independent review remains historical custody for the unchanged feature implementation.",
+      "The CI-only budget repair awaits independent exact-head review before the candidate is re-frozen."
     ],
-    "reviewedProductSha": "e498f465c809fd302f6c7c382233901e224f55e0"
+    "reviewedProductSha": "f5a3c00e2477bac42da12ee5f19d2bb285ac3080"
   },
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
@@ -129,6 +154,7 @@
     "The recomposition report distinguishes the current 27/27 affected contract from the preserved historical 28/28 result.",
     "Independent exact-head review of 7525de4b478e37e34ff3a774d326e7b50e1a5e12 returned GO with no P0-P3 after confirming 28/28 patch equivalence, historical platform attribution, report custody, affected gates, a clean tree and the focal secret/path scan.",
     "After #617 merged as 8ddc4dbd5781d77866364c8c0cd76f12945a1ffd with a tree identical to candidate 710518537865e33277f9166c09c7d5d20ea49e49, Product e498f465c809fd302f6c7c382233901e224f55e0 and the full 31-commit branch were replayed exactly over the squash. The previous GO reviews remain historical provenance; the post-squash recomposition was then reviewed independently at ff716698491d04dddb9494fa74ed7fa73c26ec3f.",
-    "Independent exact-head review of ff716698491d04dddb9494fa74ed7fa73c26ec3f returned GO with no P0-P3 after confirming candidate/squash tree identity, 31/31 branch replay, 13/13 Product equivalence, historical platform attribution, report custody and all affected gates."
+    "Independent exact-head review of ff716698491d04dddb9494fa74ed7fa73c26ec3f returned GO with no P0-P3 after confirming candidate/squash tree identity, 31/31 branch replay, 13/13 Product equivalence, historical platform attribution, report custody and all affected gates.",
+    "GitHub run 38150470325 reached the serialized iOS host suite on the exact candidate and exhausted its 1200-second global watchdog with exit 124 while XCTest was still advancing. Product f5a3c00e2477bac42da12ee5f19d2bb285ac3080 changes only the iOS job/step/watchdog budgets and the fail-closed workflow contract; per-test limits, full test selection, signing and runtime remain unchanged."
   ]
 }
