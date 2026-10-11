@@ -80,7 +80,7 @@
   "review": {
     "status": "GO",
     "reviewedSha": "899bb37d942d0a56e4429176bc34d73eae5d69f2",
-    "previousReviewedSha": null,
+    "previousReviewedSha": "414d62f1a1d3bb77f7a5c386c32ee5323a89add1",
     "blockingFindings": [],
     "reviewedProductSha": "a2fff963b2c6f60e50b2e5b94f152defc4253a6e",
     "findingCounts": {
