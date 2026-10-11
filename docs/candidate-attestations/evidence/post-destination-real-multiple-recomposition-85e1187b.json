@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "ba57beb4c3141ee9686c78b48da1b86db0d2bca0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "nine_commits_patch_equivalent",
+    "post_publish_contract_27_of_27_passed",
+    "destination_runner_syntax_passed",
+    "android_test_and_wasm_compilation_passed",
+    "web_wasm_distribution_passed",
+    "swift_parse_xcode_26_6_passed",
+    "historical_platform_reports_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "POST-TEXT-DESTINATION",
+    "productSha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+    "predecessorSha": "1fb54be5fbb1ed57aa758779ea7fd15363a93b55",
+    "historicalExecutionSha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+    "productCommitsPatchEquivalent": "6/6",
+    "completeSeriesPatchEquivalent": "9/9",
+    "platformE2eRepeatedForAncestry": false,
+    "backendMutationPerformed": false,
+    "realAlternateDestinationCount": 186,
+    "publishPerformed": false,
+    "ownedSessionsHistoricalCleanupVerified": true
+  },
+  "notes": [
+    "The current Product composes the reviewed real alternate-destination selection over the final FLOW-EMOJI head without changing the nine-commit unit series.",
+    "The three platform reports remain bound to exact historical execution Product 2fd276e8; no E2E matrix was repeated solely for ancestry.",
+    "Empty and failure/retry remain deterministic non-mutating states because fabricating a production empty set would require an improper global wall mutation."
+  ]
+}

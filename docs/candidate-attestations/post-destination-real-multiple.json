@@ -5,13 +5,13 @@
     "POST-TEXT-DESTINATION"
   ],
   "status": "passed",
-  "productSha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
-  "certification": "real-multiple-destination-platform-evidence-complete-independent-review-go-final-CI-pending",
+  "productSha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-pending-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-web-2fd276e8.json",
       "reportSha256": "58bba17ceb63d3db9ebffe5f714a886126e3526939aa6482c889fd7dce54c644",
       "reportStatus": "passed",
@@ -29,7 +29,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-android-2fd276e8.json",
       "reportSha256": "2a084cfe80b0eb8bb4b48fd4b04906e2049b59bc3f9554e29204f1e9e84ed4d2",
       "reportStatus": "passed",
@@ -46,7 +46,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2fd276e89bbabfafd8d9c6099a950c124d2752f1",
+      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
       "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-ios-2fd276e8.json",
       "reportSha256": "6529d4f152f5273b6b0f70f9127a8adfb60a92d9441bf302e7f9e2e01cec75ac",
       "reportStatus": "passed",
@@ -63,6 +63,30 @@
         "verified": true,
         "mode": "owned-auth-and-web-session-revocation-plus-transient-runtime-config-and-credentials-restored"
       }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "85e1187be5320dce945917d1a4c8f38e62730fd1",
+      "report": "docs/candidate-attestations/evidence/post-destination-real-multiple-recomposition-85e1187b.json",
+      "reportSha256": "cb85a65b94d01ae596dadfac39324ceaf2a69a925ab6b658e358cd9366077302",
+      "reportStatus": "passed",
+      "reportGitHead": "ba57beb4c3141ee9686c78b48da1b86db0d2bca0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "nine_commits_patch_equivalent",
+        "post_publish_contract_27_of_27_passed",
+        "destination_runner_syntax_passed",
+        "android_test_and_wasm_compilation_passed",
+        "web_wasm_distribution_passed",
+        "swift_parse_xcode_26_6_passed",
+        "historical_platform_reports_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no_backend_or_platform_mutation_during_recomposition"
+      }
     }
   },
   "preflight": [
@@ -73,8 +97,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "go",
-    "reviewedSha": "dd20ea4ba10ac50cc2600cfd5ffa3ac779a640fb",
+    "status": "pending",
+    "reviewedSha": null,
     "blockingFindings": [],
     "resolvedFindings": [
       "Exact alternate-destination selection is asserted on Android, Web/Wasm and iOS.",
@@ -87,9 +111,10 @@
   "notes": [
     "The approved actor authenticated through the real public bridge and resolved 186 product-eligible active walls. Reports retain only SHA-256 digests of the default and alternate wall identifiers.",
     "Android, Web/Wasm and iOS selected the exact second real destination through the shared composer anchors. The pilot stopped before publish, so it created no post or wall mutation. Authentication updated the actor login metadata and created owned auth/web sessions; every lane revoked its exact web session, invalidated its refresh token and verified both outcomes.",
-    "Web, Android and iOS executed at exact Product 2fd276e8 after the cleanup verifier was made fail-closed. The Web-session probe ran while the access token was still valid and required 401 invalid_web_session; the subsequent Auth refresh probe required 400 refresh_token_not_found. Sanitized status and error identifiers are stored in every report.",
-    "The successful iOS run reused the unchanged SimulatorSigned product build from e6c65684 because 2fd276e8 changes only the Node cleanup verifier and its source contract. The exact-Product runner passed the authenticated seeder and exact alternate-destination XCTest, ran the seeded product-session logout cleanup, did not generate or modify an Xcode project, and verified restoration of runtime config, temporary credentials and owned fixture sessions.",
+    "Web, Android and iOS executed at historical Product 2fd276e8 after the cleanup verifier was made fail-closed. Current Product 85e1187b preserves the six Product commits and complete nine-commit series patch-equivalent over reviewed FLOW-EMOJI head 1fb54be5; affected contracts, compilations, Web distribution and Swift parse were repeated without renewing platform E2E solely for ancestry.",
+    "The successful historical iOS run reused the unchanged SimulatorSigned product build from e6c65684 because 2fd276e8 changes only the Node cleanup verifier and its source contract. Its exact-Product runner passed the authenticated seeder and alternate-destination XCTest, ran product-session logout cleanup, did not generate or modify an Xcode project, and verified restoration of runtime config, temporary credentials and owned fixture sessions.",
     "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
-    "No credential, token, raw wall identifier or database connection string is stored in the reports or repository."
+    "No credential, token, raw wall identifier or database connection string is stored in the reports or repository.",
+    "The historical independent review of dd20ea4ba10ac50cc2600cfd5ffa3ac779a640fb returned GO; the current recomposed head requires a fresh independent exact-head review before publication."
   ]
 }
