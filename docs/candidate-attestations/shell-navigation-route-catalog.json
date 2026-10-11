@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-SHELL-NAV"
+  ],
+  "status": "passed",
+  "productSha": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
+  "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-go-final-ci-pending",
+  "evidence": {
+    "routeCatalog": {
+      "status": "passed",
+      "sha": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
+      "report": "docs/candidate-attestations/evidence/shell-navigation-route-catalog-9f0018eb.json",
+      "reportSha256": "8dc41ae1082dc4ec0d661a764ce1f3a8feb4e73ee2cb88eeb3c30238a38e524b",
+      "reportStatus": "passed",
+      "reportGitHead": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "finite_common_destination_catalog_explicit_and_complete",
+        "android_registers_every_common_destination_or_owning_nested_host",
+        "web_maps_every_product_route_family_and_exact_nested_identifiers",
+        "ios_pending_route_catalog_closed_with_symmetric_persistence",
+        "catalog_guards_reject_added_or_misrouted_source_route",
+        "historical_platform_receipts_preserved",
+        "generic_arbitrary_backstack_residual_removed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "source_and_document_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/shell-navigation-route-catalog-contract.test.mjs scripts/shell-navigation-exact-restoration-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/shell-navigation-route-catalog.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "0a2720826472ebd4a9be714fa772af19ca0c462f",
+    "previousReviewedHead": "fde79663853e4164e82c9242476ef474b3517e4a",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Historical review corrections remain encoded in the exact-set, route-output binding and negative-control assertions.",
+      "The rebased manifest review-state contradiction was corrected before final independent review."
+    ]
+  },
+  "notes": [
+    "The contract enumerates the finite current product route catalog and fails if a common destination, Android owner, Web fragment family or iOS PendingRoute is added without being reconciled.",
+    "Existing exact root, Chat, post, public-profile and Notifications-to-Chat receipts remain bound to their original executed products; this unit attributes no new platform execution.",
+    "Scroll, multimedia position and destination-internal state stay with the feature that owns them. They are not additional shell routes and are not recast as generic FLOW-SHELL-NAV limits.",
+    "No application runtime, backend, platform adapter, CI workflow or historical evidence artifact changed.",
+    "The twelve-commit unit was replayed over merged PR #612 squash cc3021aadabddba230a5b679dd978c79cf702707. Product 9f0018eb0b2fd288bfe673863151f8b9328bc86e preserves the reviewed route-catalog delta while the current report renews only the source-contract receipt; historical platform evidence was not repeated solely for ancestry.",
+    "Independent exact-head review of 0a2720826472ebd4a9be714fa772af19ca0c462f returned GO with no P0-P3 after confirming the bounded delta, exact route catalog, negative guards, package gate wiring, 13/13 contracts, validator, report hash, diff-check, clean tree and absence of secret material."
+  ]
+}

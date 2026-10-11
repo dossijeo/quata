@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "9f0018eb0b2fd288bfe673863151f8b9328bc86e",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "finite_common_destination_catalog_explicit_and_complete",
+    "android_registers_every_common_destination_or_owning_nested_host",
+    "web_maps_every_product_route_family_and_exact_nested_identifiers",
+    "ios_pending_route_catalog_closed_with_symmetric_persistence",
+    "catalog_guards_reject_added_or_misrouted_source_route",
+    "historical_platform_receipts_preserved",
+    "generic_arbitrary_backstack_residual_removed"
+  ],
+  "observations": {
+    "unit": "FLOW-SHELL-NAV",
+    "contractPassed": 6,
+    "contractFailed": 0,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "productRouteCatalogFinite": true
+  }
+}
