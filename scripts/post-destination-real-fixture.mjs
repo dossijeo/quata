@@ -183,6 +183,19 @@ export function destinationFixtureSummary(fixture) {
   };
 }
 
+export function destinationCleanupSummary(cleanup) {
+  return {
+    webSessionRevoked: cleanup?.webSessionRevoked === true,
+    webSessionProbe: cleanup?.webSessionProbe?.status === 401 && cleanup?.webSessionProbe?.error === "invalid_web_session"
+      ? { status: 401, error: "invalid_web_session" }
+      : null,
+    refreshTokenRejected: cleanup?.refreshTokenRejected === true,
+    refreshTokenProbe: cleanup?.refreshTokenProbe?.status === 400 && cleanup?.refreshTokenProbe?.errorCode === "refresh_token_not_found"
+      ? { status: 400, errorCode: "refresh_token_not_found" }
+      : null,
+  };
+}
+
 async function getJson(url, headers, label) {
   const response = await fetch(url, { headers, signal: AbortSignal.timeout(30_000) }).catch(() => null);
   if (!response) throw new Error(`${label}_network_failure`);

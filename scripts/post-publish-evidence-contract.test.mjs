@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { retireDestinationActorSession } from "./post-destination-real-fixture.mjs";
+import { destinationCleanupSummary, retireDestinationActorSession } from "./post-destination-real-fixture.mjs";
 
 const webRunner = readFileSync(new URL("./post-publish-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = readFileSync(new URL("./post-publish-android-evidence.mjs", import.meta.url), "utf8");
@@ -256,6 +256,8 @@ test("post destination evidence uses real multiple destinations plus determinist
   for (const runner of [webDestinationRunner, androidDestinationRunner, iosDestinationRunner]) {
     assert.doesNotMatch(runner, /community_posts/);
     assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+    assert.match(runner, /\.\.\.destinationCleanupSummary\(cleanupError\?\.cleanup\)/);
+    assert.match(runner, /report\.status = "failed"/);
   }
 });
 
@@ -297,6 +299,7 @@ test("destination cleanup still retires Auth when Web-session cleanup fails", as
     refreshTokenRejected: true,
     refreshTokenProbe: { status: 400, errorCode: "refresh_token_not_found" },
   });
+  assert.deepEqual(destinationCleanupSummary(failure?.cleanup), failure?.cleanup);
   assert.equal(calls.some((url) => url.includes("/auth/v1/logout?scope=local")), true);
   assert.equal(calls.some((url) => url.includes("/auth/v1/token?grant_type=refresh_token")), true);
 });

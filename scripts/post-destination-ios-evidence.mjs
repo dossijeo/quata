@@ -6,6 +6,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import {
+  destinationCleanupSummary,
   destinationFixtureSummary,
   loadPublicBackendConfig,
   loginDestinationActor,
@@ -131,7 +132,10 @@ scripts/build-ios-intel-simulator-signed.sh
       report.cleanup = cleanup;
       report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
     }).catch((cleanupError) => {
-      report.cleanup = { error: safeFailure(cleanupError) };
+      report.cleanup = {
+        error: safeFailure(cleanupError),
+        ...destinationCleanupSummary(cleanupError?.cleanup),
+      };
       report.status = "failed";
     });
   }

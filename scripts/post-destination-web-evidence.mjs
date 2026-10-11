@@ -6,6 +6,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { extname, resolve } from "node:path";
 import {
+  destinationCleanupSummary,
   destinationFixtureSummary,
   retireDestinationActorSession,
   selectRealAlternateDestination,
@@ -73,7 +74,10 @@ try {
       report.cleanup = cleanup;
       report.steps.push("owned_fixture_auth_and_web_sessions_revoked_and_verified");
     }).catch((cleanupError) => {
-      report.cleanup = { error: safeFailure(cleanupError) };
+      report.cleanup = {
+        error: safeFailure(cleanupError),
+        ...destinationCleanupSummary(cleanupError?.cleanup),
+      };
       report.status = "failed";
     });
   }
