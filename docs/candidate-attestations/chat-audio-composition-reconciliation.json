@@ -4,16 +4,16 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+  "productSha": "5135f788ac2f85be5c1c599c471a2f975346f03d",
   "certification": "chat-audio-composed-internal-residual-removed-external-boundaries-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+      "sha": "5135f788ac2f85be5c1c599c471a2f975346f03d",
       "report": "docs/candidate-attestations/evidence/chat-audio-composition-reconciliation-79d6938c.json",
-      "reportSha256": "3613e74f4abed9579edd7735371abb57f0cc49061581931f1204867da6d402b0",
+      "reportSha256": "cebb4f4be56e712f911855352b02d75184ca42c8aabd3649f32686114993dea1",
       "reportStatus": "passed",
-      "reportGitHead": "79d6938c7fa0e4faff261049c8f28bf77787cb31",
+      "reportGitHead": "5135f788ac2f85be5c1c599c471a2f975346f03d",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
