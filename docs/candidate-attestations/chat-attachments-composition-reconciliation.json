@@ -4,12 +4,12 @@
     "CHAT-ATTACHMENTS"
   ],
   "status": "passed",
-  "productSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+  "productSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
   "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+      "sha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
       "report": "docs/candidate-attestations/evidence/chat-attachments-composition-reconciliation-67c7086a.json",
       "reportSha256": "22817ff80b5d9ddcf8a8422a233719731cd2cbe41fa0f43dc8e2031d09555c92",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+      "sha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
       "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-b4324bcd.json",
       "reportSha256": "d779d9ba036b00b0eea9d9284a8b42f607b2b13df1dc3205d3bf3647ccc9f065",
       "reportStatus": "passed",
@@ -50,6 +50,28 @@
         "verified": true,
         "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
       }
+    },
+    "audioCandidateRecomposition": {
+      "status": "passed",
+      "sha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-e9f9d0eb.json",
+      "reportSha256": "f740ba720d0cf2f3f60d71c262d2609b505efb3eda7c8b386ae161db611bd9bb",
+      "reportStatus": "passed",
+      "reportGitHead": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_patch_equivalent",
+        "chat_attachments_composition_contract_3_of_3_passed",
+        "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+        "android_v32_compatibility_and_external_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
     }
   },
   "preflight": [
@@ -58,11 +80,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "dc8c63b47187f762c4bda879fd58fa07bc175703",
-    "previousReviewedSha": "195e3be94e666da237185f883765e7ec9cf11649",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "dc8c63b47187f762c4bda879fd58fa07bc175703",
     "blockingFindings": [],
-    "reviewedProductSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+    "reviewedProductSha": "e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd",
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -84,6 +106,7 @@
     "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO head 829bfd663fa9142a6390513591d6adbf35acaaa9 and rebinds only the exact confidentiality-manifest SHA-256 to current reviewed bytes e8764ced. Contract 3/3, validator and diff-check pass; historical execution is not reattributed.",
     "Independent exact-head review of 195e3be94e666da237185f883765e7ec9cf11649 returned GO without P0-P3 after verifying the preserved delta, confidentiality receipt hash e8764ced, nine receipts, Android v32 and external boundaries, report hash bacb9cad, historical custody, 3/3 contract, validator, diff-check and clean tree.",
     "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO candidate 8ca4de71901461bd81e265ffcfef9885b0b537c6; the confidentiality receipt remains bound to its reviewed bytes. Contract 3/3 is renewed without reattributing historical execution.",
-    "Independent exact-head review of dc8c63b47187f762c4bda879fd58fa07bc175703 returned GO without P0-P3 after confirming nine receipts, confidentiality hash, Android v32 and external boundaries, historical custody, 3/3 contract, validator and diff-check."
+    "Independent exact-head review of dc8c63b47187f762c4bda879fd58fa07bc175703 returned GO without P0-P3 after confirming nine receipts, confidentiality hash, Android v32 and external boundaries, historical custody, 3/3 contract, validator and diff-check.",
+    "Current Product e9f9d0ebf6cd6d089ff31bc553bb2aab2453bbbd preserves the CHAT-ATTACHMENTS composition delta with identical stable patch ID over frozen CHAT-AUDIO candidate a65835bdbdedac988df11a672645a076f0e1c28b. Contract 3/3 is renewed without reattributing historical platform or database execution."
   ]
 }
