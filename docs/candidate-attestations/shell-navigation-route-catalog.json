@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "a260d17441e4b891acdeda2cd301f7810b4b6217",
-  "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-go-final-ci-pending",
+  "certification": "finite-product-route-catalog-reconciled-historical-platform-evidence-preserved-independent-review-pending-final-ci-pending",
   "evidence": {
     "routeCatalog": {
       "status": "passed",
