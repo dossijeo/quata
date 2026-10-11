@@ -1,0 +1,122 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "2500f4838217de8c95c091c138da23d6f83794e1",
+    "workingTreeDirty": false
+  },
+  "scope": "Private v2 storage and participant-bound visibility for new Chat attachments while preserving the distinguishable Android v32 legacy lane.",
+  "steps": [
+    "android_private_attachment_path_and_signed_url_contracts",
+    "android_signed_object_url_focal_test",
+    "android_compile_debug_kotlin",
+    "web_private_upload_and_signed_url_contracts",
+    "web_wasm_browser_focal_test",
+    "web_compile_kotlin_wasm_js",
+    "ios_private_storage_access_policy_test",
+    "ios_public_url_policy_test",
+    "ios_rpc_payload_test",
+    "encrypted_full_logical_backup_created",
+    "chat_attachment_metadata_restore_drill_passed",
+    "disposable_private_storage_policy_probe_passed",
+    "production_predeploy_probe_rolled_back",
+    "selective_release_snapshot_and_dry_run_passed",
+    "migration_20261011110000_committed_transactionally",
+    "general_database_postflight_passed",
+    "production_postdeploy_visibility_probe_rolled_back_zero_residue",
+    "independent_exact_product_head_review_go_no_p0_p3"
+  ],
+  "cleanup": {
+    "state": "completed",
+    "mode": "Committed migration with disposable, predeploy and postdeploy probes rolled back; synthetic production residue zero.",
+    "residueCounts": {
+      "productionProbeObjects": 0,
+      "productionProbeAttachmentRows": 0
+    },
+    "credentialsCommitted": false,
+    "connectionMaterialCommitted": false,
+    "backupOrKeyPathCommitted": false
+  },
+  "version": 1,
+  "unit": "PROF-SHARED-CHAT-DOCUMENTS",
+  "productSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+  "migration": {
+    "version": "20261011110000",
+    "sha256": "a6decab131ab558dfa4f4607cbb3e27d87df3592e4c0f445c00001cf476967d0",
+    "applyStatus": "passed",
+    "commitStatus": "committed",
+    "generalPostflightStatus": "passed"
+  },
+  "database": {
+    "encryptedFullLogicalBackupCreated": true,
+    "metadataRestoreDrillStatus": "passed",
+    "storageBytesRestoreClaimed": false,
+    "predeployRollbackStatus": "passed",
+    "postdeployRollbackStatus": "passed",
+    "postdeployResidue": 0,
+    "disposablePolicyProbeStatus": "passed"
+  },
+  "platforms": {
+    "android": {
+      "status": "passed",
+      "steps": [
+        "compile_debug_kotlin",
+        "signed_object_url_focal_test",
+        "private_path_and_signed_url_contracts"
+      ]
+    },
+    "web": {
+      "status": "passed",
+      "steps": [
+        "compile_kotlin_wasm_js",
+        "wasm_browser_focal_test",
+        "private_upload_and_signed_url_contracts"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "steps": [
+        "ios_x64_storage_access_policy_test",
+        "ios_x64_public_url_policy_test",
+        "ios_x64_rpc_payload_test"
+      ]
+    }
+  },
+  "contracts": {
+    "status": "passed",
+    "passed": 61,
+    "failed": 0
+  },
+  "securityBoundary": {
+    "newClientBucket": "chat-attachments-private",
+    "newClientRpc": "quata_chat_register_attachment_v2",
+    "signedUrlTtlSeconds": 300,
+    "legacyAndroidV32LanePreserved": true,
+    "departedUploaderReadDenied": true,
+    "remainingParticipantReadAllowed": true,
+    "deletedConversationStateReadDenied": true,
+    "ownerBindingRequired": true
+  },
+  "historicalAudit": {
+    "attachmentRows": 409,
+    "missingStorageObjects": 350,
+    "linkedRowsWithMissingStorageObjects": 343,
+    "unlinkedRowsWithMissingStorageObjects": 7,
+    "backfillPerformed": false
+  },
+  "review": {
+    "status": "GO",
+    "reviewedSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    }
+  },
+  "sanitization": {
+    "containsCredentials": false,
+    "containsConnectionStrings": false,
+    "containsActorOrConversationIds": false,
+    "containsBackupKeyOrPrivatePath": false
+  }
+}

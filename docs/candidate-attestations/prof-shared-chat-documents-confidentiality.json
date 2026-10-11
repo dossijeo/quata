@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-SHARED-CHAT-DOCUMENTS"
+  ],
+  "status": "passed",
+  "productSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+  "certification": "private-v2-storage-and-affected-platform-contracts-complete-final-ci-pending",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
+      "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
+      "reportStatus": "passed",
+      "reportGitHead": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_private_attachment_path_and_signed_url_contracts",
+        "android_signed_object_url_focal_test",
+        "android_compile_debug_kotlin"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "contract-and-focal-test-no-persistent-fixture"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
+      "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
+      "reportStatus": "passed",
+      "reportGitHead": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "web_private_upload_and_signed_url_contracts",
+        "web_wasm_browser_focal_test",
+        "web_compile_kotlin_wasm_js"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "contract-and-focal-test-no-persistent-fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
+      "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
+      "reportStatus": "passed",
+      "reportGitHead": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ios_private_storage_access_policy_test",
+        "ios_public_url_policy_test",
+        "ios_rpc_payload_test"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "ios-x64-focal-tests-no-persistent-fixture"
+      }
+    },
+    "database": {
+      "status": "passed",
+      "sha": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "report": "docs/candidate-attestations/evidence/prof-shared-chat-documents-confidentiality-2500f483.json",
+      "reportSha256": "e243a3032922e7facc825ba99d7275f32a34899ef0516cc9f61a5e30104ad974",
+      "reportStatus": "passed",
+      "reportGitHead": "2500f4838217de8c95c091c138da23d6f83794e1",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "encrypted_full_logical_backup_created",
+        "chat_attachment_metadata_restore_drill_passed",
+        "disposable_private_storage_policy_probe_passed",
+        "production_predeploy_probe_rolled_back",
+        "selective_release_snapshot_and_dry_run_passed",
+        "migration_20261011110000_committed_transactionally",
+        "general_database_postflight_passed",
+        "production_postdeploy_visibility_probe_rolled_back_zero_residue"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "committed-release-with-probes-rolled-back-and-zero-residue"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test affected attachment contracts (61/61)",
+    ".\\gradlew.bat :app:compileDebugKotlin",
+    ".\\gradlew.bat :feature:chat:wasmJsBrowserTest",
+    ".\\gradlew.bat :web:compileKotlinWasmJs",
+    "Android SupabaseSignedObjectUrlTest",
+    "iOS x64 ChatAttachmentStorageAccessPolicyTest, ChatAttachmentPublicUrlPolicyTest and ChatRpcPayloadEnvelopeTest",
+    "selective database snapshot, package, dry-run, authorized apply and postflight",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/prof-shared-chat-documents-confidentiality.json"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+    "productSha": "2500f4838217de8c95c091c138da23d6f83794e1",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "scope": "Independent review verified the exact product head after correcting the private path, membership visibility, deleted-message handling, signed-URL renewal, public-avatar split and owner binding."
+  },
+  "notes": [
+    "New clients upload to the private chat-attachments-private bucket, register through quata_chat_register_attachment_v2 and resolve authenticated signed URLs in memory with a 300-second TTL.",
+    "The public chat-attachments bucket remains only for the distinguishable Android v32 compatibility lane and can be retired independently when those clients are gone.",
+    "A departed uploader cannot read a linked private object, an active remaining participant can read it, and deleted conversation state denies it. The disposable database probe also verified DELETE policy behavior; production itself forbids direct deletion from storage tables and requires the Storage API.",
+    "The encrypted full logical backup and focal restore drill prove database metadata recovery. They do not claim backup or recovery of Storage object bytes.",
+    "The historical audit found 409 attachment rows, including 350 references whose Storage object is absent; 343 are linked and 7 are unlinked. This pre-existing inconsistency was not silently backfilled.",
+    "Migration 20261011110000 committed atomically from the exact Product SHA. General postflight passed, and the postdeploy visibility probe rolled back all synthetic mutations with zero residue.",
+    "No full E2E matrix was repeated solely for SHA identity; final GitHub jobs provide clean-runner recertification.",
+    "The checked-in report is sanitized and contains no credential, connection string, actor/conversation identifier, backup key or private path."
+  ]
+}
