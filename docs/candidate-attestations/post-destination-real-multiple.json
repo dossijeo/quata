@@ -6,7 +6,7 @@
   ],
   "status": "passed",
   "productSha": "fca81a1ebb5125902a593a8fd8e66064ee749e7a",
-  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-pending-final-CI-pending",
+  "certification": "real-multiple-destination-platform-evidence-preserved-recomposed-gates-passed-independent-review-go-final-CI-pending",
   "evidenceKind": "POST_DESTINATION_REAL_MULTIPLE_ANDROID_WEB_IOS",
   "evidence": {
     "web": {
@@ -99,14 +99,15 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "dd7c6e7af3955dd2b98e033b91753e9b22d50a9f",
     "blockingFindings": [],
     "resolvedFindings": [
       "Exact alternate-destination selection is asserted on Android, Web/Wasm and iOS.",
       "Owned Web-session revocation is probed before Auth logout and requires 401 invalid_web_session.",
       "Owned Auth refresh-token rejection requires 400 refresh_token_not_found; sanitized outcomes are retained in all three reports.",
-      "The iOS custody note distinguishes the reused SimulatorSigned build from the exact-Product evidence runner and its verified cleanup."
+      "The iOS custody note distinguishes the reused SimulatorSigned build from the exact-Product evidence runner and its verified cleanup.",
+      "All three platform runners persist the sanitized partial Web/Auth cleanup outcomes and keep the report failed when either branch fails."
     ],
     "scopeLimit": "This receipt certifies real multiple-destination discovery and selection without publishing. Deterministic empty and failure/retry states remain covered by the existing validation-state evidence; production currently makes an empty destination set unreachable while active walls exist."
   },
@@ -117,7 +118,7 @@
     "The successful historical iOS run reused the unchanged SimulatorSigned product build from e6c65684 because 2fd276e8 changes only the Node cleanup verifier and its source contract. Its exact-Product runner passed the authenticated seeder and alternate-destination XCTest, ran product-session logout cleanup, did not generate or modify an Xcode project, and verified restoration of runtime config, temporary credentials and owned fixture sessions.",
     "The existing deterministic empty and failure/retry lanes remain fail-safe UI validation. Empty cannot be represented by a consistent current production account while any active wall exists, and this unit does not deactivate global production walls to fabricate it.",
     "No credential, token, raw wall identifier or database connection string is stored in the reports or repository.",
-    "The historical independent review of dd20ea4ba10ac50cc2600cfd5ffa3ac779a640fb returned GO; the current recomposed head requires a fresh independent exact-head review before publication.",
+    "Independent exact-head review of dd7c6e7af3955dd2b98e033b91753e9b22d50a9f returned GO with no P0-P3 after the runner-level partial-cleanup persistence fix.",
     "The cleanup negative records both sanitized branch outcomes, proves Auth logout and refresh rejection after forced Web failure, and source contracts require all three runners to persist those outcomes while leaving report.status failed."
   ]
 }
