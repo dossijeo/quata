@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
-  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-exact-head-review-pending-final-ci-pending",
+  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-exact-head-review-passed-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -66,8 +66,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "eda13a6d305af852f1a7a76d7640d5eb9ff9bf7f",
     "previousReviewedSha": "f55a0d9c467202614e5347dc27cb8f82eebb9511",
     "blockingFindings": [],
     "findingCounts": {
@@ -77,7 +77,8 @@
       "P3": 0
     },
     "resolvedFindings": [
-      "Independent exact-head review confirmed the legitimate Post Composer receipt rebind, six exact receipts, repo-wide extraction, owner boundaries, historical custody, contract 6/6, report hash, validator, diff-check and clean tree."
+      "Independent exact-head review confirmed the legitimate Post Composer receipt rebind, six exact receipts, repo-wide extraction, owner boundaries, historical custody, contract 6/6, report hash, validator, diff-check and clean tree.",
+      "Independent exact-head review of eda13a6d305af852f1a7a76d7640d5eb9ff9bf7f returned GO without P0-P3 after confirming the preserved historical delta, the sole intentional Post Composer receipt rebind to d4da5b2a, six exact receipts, repo-wide extraction, owner boundaries, historical custody without E2E reattribution, contract 6/6, exact hashes, validator, diff-check, privacy scan and clean tree."
     ]
   },
   "notes": [
