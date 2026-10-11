@@ -4,12 +4,12 @@
     "CHAT-AUDIO"
   ],
   "status": "passed",
-  "productSha": "5135f788ac2f85be5c1c599c471a2f975346f03d",
-  "certification": "chat-audio-composed-internal-residual-removed-external-boundaries-preserved-independent-review-go-final-ci-pending",
+  "productSha": "1185b9097ec944079ddff96f0262ecdfe640e86a",
+  "certification": "chat-audio-composed-internal-residual-removed-external-boundaries-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "5135f788ac2f85be5c1c599c471a2f975346f03d",
+      "sha": "1185b9097ec944079ddff96f0262ecdfe640e86a",
       "report": "docs/candidate-attestations/evidence/chat-audio-composition-reconciliation-79d6938c.json",
       "reportSha256": "cebb4f4be56e712f911855352b02d75184ca42c8aabd3649f32686114993dea1",
       "reportStatus": "passed",
@@ -28,6 +28,27 @@
         "verified": true,
         "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
       }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "1185b9097ec944079ddff96f0262ecdfe640e86a",
+      "report": "docs/candidate-attestations/evidence/chat-audio-composition-recomposition-1185b9097.json",
+      "reportSha256": "2fb16aed72e9e165986d8c499d222b886a4c3925d325883b464eca6c95c3f171",
+      "reportStatus": "passed",
+      "reportGitHead": "1185b9097ec944079ddff96f0262ecdfe640e86a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "three_product_commits_patch_equivalent",
+        "chat_audio_composition_contract_3_of_3_passed",
+        "six_owner_receipts_and_exact_hashes_preserved",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
     }
   },
   "preflight": [
@@ -36,9 +57,14 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "e34afd75fa111286dd764ffd44e78a10fb314027",
-    "blockingFindings": []
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "e34afd75fa111286dd764ffd44e78a10fb314027",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "Historical independent review confirmed the six exact owner receipts, preserved external boundaries and absence of newly attributed platform execution."
+    ],
+    "reviewedProductSha": null
   },
   "notes": [
     "Six existing owner receipts compose CHAT-AUDIO playback and recording, same-attachment transport retry, rendered Retry, terminal adapter outcomes, HTTP boundaries and lifecycle or route interruption.",
@@ -46,6 +72,7 @@
     "No runtime, backend, platform evidence receipt or CI workflow changed. Historical Android, Web/Wasm and iOS executions remain bound to their original Product and evidence heads.",
     "The focal contract binds every owner receipt to its exact SHA-256, requires CHAT-AUDIO ownership and passed evidence, and guards the inventory wording against either reopening an internal residual or erasing external boundaries.",
     "This unit is based on the reviewed OVR-PUBLIC-PROFILE Lane B head e3d4f53ed3c52d6245fd465190d238cc7538447d and must be recomposed over its eventual squash before publication.",
-    "Independent review of exact head e34afd75fa111286dd764ffd44e78a10fb314027 returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, exact receipt and report hashes, exact-once aggregate wiring, preserved external boundaries and absence of newly attributed platform execution."
+    "Independent review of exact head e34afd75fa111286dd764ffd44e78a10fb314027 returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, exact receipt and report hashes, exact-once aggregate wiring, preserved external boundaries and absence of newly attributed platform execution.",
+    "Current Product 1185b9097ec944079ddff96f0262ecdfe640e86a replays the three CHAT-AUDIO product commits with identical stable patch IDs over reviewed OVR-PUBLIC-PROFILE head 18aa057089468a039d8a51e76c041e931c9cee8f. The affected 3/3 contract, validator and diff-check pass; historical platform execution is not reattributed."
   ]
 }
