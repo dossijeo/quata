@@ -55,5 +55,7 @@ test("the reconciliation closes the finite fullscreen producer catalog without a
   assert.match(screenInventory, /catálogo finito de productores fullscreen/);
   assert.doesNotMatch(screenInventory, /otros productores de media/);
   assert.match(migrationBoard, /ya no existe un productor fullscreen desconocido/);
+  assert.match(platformInventory, /catálogo finito de productores fullscreen/);
+  assert.doesNotMatch(platformInventory, /otros productores de media/);
   assert.match(screenInventory, /comentarios integrados, la restauración profunda de scroll/);
 });
