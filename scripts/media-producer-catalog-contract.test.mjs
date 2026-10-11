@@ -48,6 +48,7 @@ const manifestNames = [
   "official-video-viewer.json",
   "profile-detail-media.json",
   "chat-attachment-media.json",
+  "account-avatar-preview.json",
   "media-playback-recovery.json",
   "media-file-export.json",
   "ovr-media-inventory-reconciliation.json",
@@ -67,6 +68,7 @@ test("the fullscreen media overlay adapter catalog is finite and exact", async (
     "feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt",
     "feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt",
     "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/IosOfficialPlatformSlots.kt",
+    "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/ProfileScreenHost.kt",
     "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialHost.kt",
   ]);
 });
@@ -75,7 +77,6 @@ test("the shared Android attachment viewer has only its registered product calle
   assert.deepEqual(await callersOf("AttachmentViewerDialog"), [
     "app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt",
     "app/src/main/java/com/quata/feature/neighborhoods/presentation/NeighborhoodsScreen.kt",
-    "app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt",
   ]);
 });
 
@@ -101,11 +102,12 @@ test("all composed focal media receipts remain passed", () => {
 test("inventories close the generic producer residual and preserve external boundaries", () => {
   const row = screenInventory.split("\n").find((line) => line.startsWith("| `OVR-MEDIA` |"));
   assert.ok(row, "OVR-MEDIA row missing");
-  assert.match(row, /GO compuesto de overlay/);
-  assert.match(row, /Feed, Official, perfil público y adjuntos de Chat/);
-  assert.doesNotMatch(row, /El GO no se extiende a otros productores de media/);
-  assert.match(row, /codecs y transportes exhaustivos/);
+  assert.match(row, /catálogo finito de productores fullscreen/);
+  assert.match(row, /Feed, Official, perfil público, adjuntos de Chat y preview del avatar de Cuenta/);
+  assert.doesNotMatch(row, /otros productores/);
+  assert.match(row, /codecs heredados\/terceros y transportes exhaustivos/);
   assert.match(row, /receptores externos/);
-  assert.match(row, /COEP\/CORS/);
-  assert.match(board, /OVR-MEDIA[^\n]*GO compuesto de overlay/);
+  assert.match(row, /COEP/);
+  assert.match(board, /OVR-MEDIA[^\n]*catálogo finito de productores fullscreen/);
+  assert.match(board, /Feed, Official, perfil público, adjuntos de Chat y preview de avatar de Cuenta/);
 });
