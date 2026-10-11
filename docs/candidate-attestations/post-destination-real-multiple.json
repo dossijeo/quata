@@ -74,7 +74,7 @@
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "twenty_six_commits_patch_equivalent",
+        "twenty_eight_commits_patch_equivalent",
         "current_post_publish_contract_27_of_27_passed",
         "historical_post_publish_contract_28_of_28_preserved",
         "destination_runner_syntax_passed",
