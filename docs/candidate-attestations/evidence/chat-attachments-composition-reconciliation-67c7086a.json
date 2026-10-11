@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "chat_attachments_composition_contract_3_of_3_passed",
+    "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_internal_residual_removed",
+    "android_v32_compatibility_and_external_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "CHAT-ATTACHMENTS",
+    "attachmentOwnerReceiptCount": 8,
+    "confidentialityReceiptCount": 1,
+    "internalResidualRemoved": true,
+    "androidV32CompatibilityPreserved": true,
+    "externalBoundariesPreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS"
+  ],
+  "status": "passed",
+  "productSha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-independent-review-pending-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-reconciliation-67c7086a.json",
+      "reportSha256": "22817ff80b5d9ddcf8a8422a233719731cd2cbe41fa0f43dc8e2031d09555c92",
+      "reportStatus": "passed",
+      "reportGitHead": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "chat_attachments_composition_contract_3_of_3_passed",
+        "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_internal_residual_removed",
+        "android_v32_compatibility_and_external_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-attachments-composition-reconciliation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-attachments-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "blockingFindings": []
+  },
+  "notes": [
+    "Eight existing owner receipts compose CHAT-ATTACHMENTS picker, deterministic negative paths, upload rollback, media, document viewer actions, Retry and the HTTP boundary; the ninth receipt preserves actor-bound confidentiality for private Storage.",
+    "The reconciliation removes only the generic internal residual. Physical OS permissions, external destinations or providers, unsupported formats and real OS proxy, captive-portal or network topologies remain explicit boundaries.",
+    "The controlled public compatibility path remains restricted to identified Android v32 clients and stays distinguishable so it can be retired when those clients no longer exist.",
+    "No runtime, backend, platform evidence receipt or CI workflow changed. Historical Android, Web/Wasm, iOS and database executions remain bound to their original Product and evidence heads.",
+    "The focal contract binds all nine receipts to exact SHA-256 values, requires passed owner evidence, guards the inventory wording and wires the contract exactly once into each affected aggregate.",
+    "This unit is based on the reviewed CHAT-AUDIO Lane B head b9b5d3b1ea920d1fad6f1ca2a42e4efe9c4cd6cf and must be recomposed over its eventual squash before publication."
+  ]
+}
