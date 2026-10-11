@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "a2fff963b2c6f60e50b2e5b94f152defc4253a6e",
+    "workingTreeDirty": false
+  },
+  "unit": "CHAT-AUDIO",
+  "productSha": "a2fff963b2c6f60e50b2e5b94f152defc4253a6e",
+  "predecessorSha": "dfa26172fa5f34c99b8203b2b6f37d6c6c667968",
+  "historicalProductSha": "5135f788ac2f85be5c1c599c471a2f975346f03d",
+  "recomposedFromProductSha": "6dea54f61418c739db43b9d75e7e7d667b229542",
+  "steps": [
+    "three_product_commits_patch_equivalent",
+    "chat_audio_composition_contract_3_of_3_passed",
+    "six_owner_receipts_and_exact_hashes_preserved",
+    "historical_platform_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalPlatformExecutionReexecuted": false,
+    "productPatchIdsPreserved": true,
+    "predecessorTreeMatchesFrozenCandidate": true
+  },
+  "notes": [
+    "The three CHAT-AUDIO product commits replay with identical stable patch IDs over the merged OVR-PUBLIC-PROFILE squash.",
+    "The merged predecessor tree is byte-identical to frozen candidate 6dfaa9ee73e7e9bc87e2e48b3bc49abc68c7bc21.",
+    "The affected 3/3 composition contract is renewed while historical platform evidence remains bound to its original heads.",
+    "The generic internal audio residual remains removed and physical or external boundaries remain explicit."
+  ]
+}
