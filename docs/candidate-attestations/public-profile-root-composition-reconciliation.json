@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "e8ffcbbeab7ec5d9750e307942a109dbe49afe53",
-  "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-pending-final-ci-pending",
+  "certification": "public-profile-overlay-composed-thematic-limits-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "publicProfileRootComposition": {
       "status": "passed",
@@ -58,15 +58,22 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "8aaf39cedae8bbbe223fb27a7d1f6a0a15d52d82",
     "previousReviewedSha": "e3d4f53ed3c52d6245fd465190d238cc7538447d",
     "blockingFindings": [],
     "resolvedFindings": [
       "Historical review confirmed the finite composition, owner limits, exact-once package wiring and evidence custody.",
-      "P2 resolved before final review: pending review no longer predeclares zero finding counts or the current Product as reviewed."
+      "P2 resolved before final review: pending review no longer predeclares zero finding counts or the current Product as reviewed.",
+      "Independent exact-head rereview confirmed the pending-state correction and returned GO without P0-P3."
     ],
-    "reviewedProductSha": null
+    "reviewedProductSha": "e8ffcbbeab7ec5d9750e307942a109dbe49afe53",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    }
   },
   "notes": [
     "The public profile overlay is composed from twenty-eight existing passed thematic receipts plus the source-backed PROF-HEADER contract.",
@@ -79,6 +86,7 @@
     "Independent review of exact head 964847ac0a65eed5e33534fbcd88cf6421e450cd returned GO with no P0-P3 after verifying 28 receipts plus PROF-HEADER, preserved owner limits, exact-once package wiring, 3/3 contract, report hashes, validator, diff-check and clean tree.",
     "Independent exact-head review of 52fc767e4495e7e2a4d2c6e6324c0f9270e13eb9 returned GO with no P0-P3 after resolving the package-script wording P3 and confirming 16/16 range equivalence, 28 receipts plus PROF-HEADER, owner limits, exact-once suite wiring and direct preflight, 3/3 contract, report hashes, validator, diff-check, secret scan and clean tree.",
     "The full nineteen-commit pre-attestation series, whose Product is ec84eb80d87df0ab27970a8d1dbb47bc87ba3b30, replays exactly over reviewed PROF-SHARED-CHAT-DOCUMENTS head 77bca25794ccfd7f2d90a13553b67634eef67e23. The historical 907/907 aggregate suite remains historical custody; only the affected 3/3 composition contract and documentary gates were renewed. Independent exact-head review of 0afe4919ab7489004397c6b91f3695b615cfa56a returned GO with no P0-P3 after the commit-count wording correction.",
-    "Current Product e8ffcbbeab7ec5d9750e307942a109dbe49afe53 replays the single public-profile composition commit with an identical patch ID over frozen PROF-SHARED-CHAT-DOCUMENTS candidate #619. The affected contract passes 3/3, package wiring preserves predecessor scripts, validator and diff-check pass, and historical 907/907 aggregate execution is not reattributed."
+    "Current Product e8ffcbbeab7ec5d9750e307942a109dbe49afe53 replays the single public-profile composition commit with an identical patch ID over frozen PROF-SHARED-CHAT-DOCUMENTS candidate #619. The affected contract passes 3/3, package wiring preserves predecessor scripts, validator and diff-check pass, and historical 907/907 aggregate execution is not reattributed.",
+    "Independent exact-head review of 8aaf39cedae8bbbe223fb27a7d1f6a0a15d52d82 returned GO without P0-P3 after confirming the corrected pending-review custody, exact Product patch, 28 receipts plus PROF-HEADER, preserved owner limits, exact-once package wiring, 3/3 contract, hashes, validator, diff-check and clean tree."
   ]
 }
