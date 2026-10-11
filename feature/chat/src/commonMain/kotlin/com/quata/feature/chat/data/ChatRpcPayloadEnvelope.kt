@@ -5,6 +5,7 @@ import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
 import com.quata.feature.chat.domain.ChatConversationCursor
 import com.quata.feature.chat.domain.ChatFavoriteCursor
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -131,13 +132,24 @@ suspend fun ChatRpcPayloadEnvelope.toSignedChatRpcMessages(
             ?.arrayAt("attachments")
             ?.firstOrNull() as? JsonObject
         val signedUrl = attachment?.let { value ->
-            val storageObject = ChatAttachmentStorageAccessPolicy.storageObjectOrNull(
-                bucket = value.stringAt("storage_bucket"),
-                path = value.stringAt("storage_path"),
-            ) ?: error("chat_attachment_storage_identity_missing")
-            signer.sign(storageObject)
+            try {
+                val storageObject = ChatAttachmentStorageAccessPolicy.storageObjectOrNull(
+                    bucket = value.stringAt("storage_bucket"),
+                    path = value.stringAt("storage_path"),
+                ) ?: return@let null
+                signer.sign(storageObject)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                null
+            }
         }
-        message.toChatRpcMessage(currentProfileId, profilesById, signedUrl)
+        message.toChatRpcMessage(
+            currentProfileId = currentProfileId,
+            profiles = profilesById,
+            resolvedAttachmentUrl = signedUrl,
+            attachmentUrlResolutionAttempted = attachment != null,
+        )
     }
 }
 
@@ -188,6 +200,7 @@ private fun JsonObject.toChatRpcMessage(
     currentProfileId: String,
     profiles: Map<String, ChatRpcProfile>,
     resolvedAttachmentUrl: String? = null,
+    attachmentUrlResolutionAttempted: Boolean = false,
 ): Message {
     val messageId = longAt("id") ?: 0L
     val threadId = longAt("thread_id") ?: 0L
@@ -218,7 +231,7 @@ private fun JsonObject.toChatRpcMessage(
             ?: objectAt("reply_to_sender")?.let { it.stringAt("display_name") ?: it.stringAt("name") ?: it.stringAt("phone_local") },
         replyToText = stringAt("reply_to_body"),
         forwardedFromSenderId = stringAt("forwarded_from_profile_id"),
-        attachmentUri = resolvedAttachmentUrl ?: attachment?.stringAt("url"),
+        attachmentUri = if (attachmentUrlResolutionAttempted) resolvedAttachmentUrl else attachment?.stringAt("url"),
         attachmentName = attachment?.stringAt("name"),
         attachmentMimeType = attachment?.stringAt("mime_type"),
         clientMessageId = stringAt("client_message_id"),

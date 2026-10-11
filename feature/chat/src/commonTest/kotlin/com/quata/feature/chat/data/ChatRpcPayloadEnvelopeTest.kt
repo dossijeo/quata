@@ -3,6 +3,7 @@ package com.quata.feature.chat.data
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,13 +32,50 @@ class ChatRpcPayloadEnvelopeTest {
     }
 
     @Test
-    fun privateAttachmentMappingFailsClosedWithoutStorageIdentity() = runTest {
+    fun privateAttachmentWithoutStorageIdentityIsUnavailableWithoutExposingLegacyUrl() = runTest {
         val payload = Json.parseToJsonElement(
             """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments/author/id/file.pdf"}]}]}""",
         )
 
-        assertFailsWith<IllegalStateException> {
-            parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages("reader", ChatAttachmentUrlSigner { "unused" })
+        val message = parseChatRpcPayloadEnvelope(payload)
+            .toSignedChatRpcMessages("reader", ChatAttachmentUrlSigner { "unused" })
+            .single()
+
+        assertEquals(null, message.attachmentUri)
+    }
+
+    @Test
+    fun signerFailureOnlyMakesItsAttachmentUnavailable() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"url":"https://project.supabase.co/storage/v1/object/public/chat-attachments-private/author/chat/missing/file.pdf","storage_bucket":"chat-attachments-private","storage_path":"author/chat/missing/file.pdf","name":"missing.pdf","mime_type":"application/pdf"}]},{"id":11,"thread_id":20,"sender_profile_id":"author","body":"still visible"},{"id":12,"thread_id":20,"sender_profile_id":"author","attachments":[{"storage_bucket":"chat-attachments-private","storage_path":"author/chat/present/file.pdf","name":"present.pdf","mime_type":"application/pdf"}]}]}""",
+        )
+
+        val messages = parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+            currentProfileId = "reader",
+            signer = ChatAttachmentUrlSigner { objectRef ->
+                if (objectRef.path.contains("missing")) error("object_not_found")
+                "https://project.supabase.co/storage/v1/object/sign/${objectRef.bucket}/${objectRef.path}?token=signed"
+            },
+        )
+
+        assertEquals(3, messages.size)
+        assertEquals(null, messages[0].attachmentUri)
+        assertEquals("missing.pdf", messages[0].attachmentName)
+        assertEquals("still visible", messages[1].text)
+        assertTrue(messages[2].attachmentUri?.contains("/object/sign/") == true)
+    }
+
+    @Test
+    fun signerCancellationStillCancelsTheWholeMapping() = runTest {
+        val payload = Json.parseToJsonElement(
+            """{"messages":[{"id":10,"thread_id":20,"sender_profile_id":"author","attachments":[{"storage_bucket":"chat-attachments-private","storage_path":"author/chat/file.pdf"}]}]}""",
+        )
+
+        assertFailsWith<CancellationException> {
+            parseChatRpcPayloadEnvelope(payload).toSignedChatRpcMessages(
+                "reader",
+                ChatAttachmentUrlSigner { throw CancellationException("cancelled") },
+            )
         }
     }
 

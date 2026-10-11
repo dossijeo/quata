@@ -66,6 +66,13 @@ test("deleted message placeholders never sign or expose private attachment URLs"
   assert.match(envelope, /val attachment = takeUnless \{ isDeleted \}/);
 });
 
+test("one unavailable private object cannot fail a message collection or expose its stored URL", () => {
+  assert.match(envelope, /catch \(cancelled: CancellationException\)[\s\S]*throw cancelled/);
+  assert.match(envelope, /catch \(_: Throwable\)[\s\S]*null/);
+  assert.match(envelope, /attachmentUrlResolutionAttempted = attachment != null/);
+  assert.match(envelope, /attachmentUri = if \(attachmentUrlResolutionAttempted\) resolvedAttachmentUrl else attachment\?\.stringAt\("url"\)/);
+});
+
 test("public profile avatars keep their public route while private attachments stay signed and previews renew", () => {
   assert.match(androidProfile, /attachment\.id\.startsWith\("avatar-"\)/);
   assert.match(androidProfile, /delay\(240_000L\)/);

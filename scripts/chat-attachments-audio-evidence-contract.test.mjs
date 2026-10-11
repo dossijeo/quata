@@ -2035,7 +2035,9 @@ test("private Chat attachment client readiness keeps stable storage identity and
   assert.match(policy, /SignedToken\.matches\(token\)/);
   assert.match(policy, /if \('\\\\' in value \|\| '\?' in value \|\| '#' in value \|\| '%' in value\) return false/);
   assert.match(envelope, /toSignedChatRpcMessages/);
-  assert.match(envelope, /error\("chat_attachment_storage_identity_missing"\)/);
+  assert.match(envelope, /catch \(cancelled: CancellationException\)[\s\S]*throw cancelled/);
+  assert.match(envelope, /attachmentUrlResolutionAttempted = attachment != null/);
+  assert.match(envelope, /attachmentUri = if \(attachmentUrlResolutionAttempted\) resolvedAttachmentUrl else attachment\?\.stringAt\("url"\)/);
   assert.match(repository, /attachmentUrlSigner\?\.let \{ signer -> toSignedChatRpcMessages\(actorId, signer\) \}/);
 
   assert.match(androidHttp, /object\/sign\/\$bucket\/\$cleanPath/);
