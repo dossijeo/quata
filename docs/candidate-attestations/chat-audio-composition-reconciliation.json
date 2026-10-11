@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "5135f788ac2f85be5c1c599c471a2f975346f03d",
-  "certification": "chat-audio-composed-internal-residual-removed-external-boundaries-preserved-independent-review-pending-final-ci-pending",
+  "certification": "chat-audio-composed-internal-residual-removed-external-boundaries-preserved-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -45,6 +45,6 @@
     "The reconciliation removes only the generic internal residual. Physical microphone permission or recording, Bluetooth or wired routing, prolonged background playback, real OS proxy or captive-portal topologies and audio outside Chat remain explicit boundaries.",
     "No runtime, backend, platform evidence receipt or CI workflow changed. Historical Android, Web/Wasm and iOS executions remain bound to their original Product and evidence heads.",
     "The focal contract binds every owner receipt to its exact SHA-256, requires CHAT-AUDIO ownership and passed evidence, and guards the inventory wording against either reopening an internal residual or erasing external boundaries.",
-    "This unit is based on the reviewed OVR-PUBLIC-PROFILE Lane B head e3d4f53ed3c52d6245fd465190d238cc7538447d and must be recomposed over its eventual squash before publication."
+    "This unit is based on the reviewed OVR-PUBLIC-PROFILE Lane B head e3d4f53ed3c52d6245fd465190d238cc7538447d and must be recomposed over its eventual squash before publication.",`n    "Independent review of exact head e34afd75fa111286dd764ffd44e78a10fb314027 returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, exact receipt and report hashes, exact-once aggregate wiring, preserved external boundaries and absence of newly attributed platform execution."
   ]
 }
