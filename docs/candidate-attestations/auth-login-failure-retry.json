@@ -108,7 +108,7 @@
       "status": "passed",
       "sha": "39f4eea5fb075fcf673ba45688baa5deaf79b91a",
       "report": "docs/candidate-attestations/evidence/auth-login-native-failure-retry-recomposition-39f4eea5.json",
-      "reportSha256": "8eb245e9908a828cc2d8410c48f3fa63cf71e685880c42a44c3b8c4e97d195d7",
+      "reportSha256": "dd3569d1c0c5d0b29688ea4401f88e302b1764e9488bbe76439802eaa7dcc6f2",
       "reportStatus": "passed",
       "reportGitHead": "39f4eea5fb075fcf673ba45688baa5deaf79b91a",
       "reportWorkingTreeDirty": false,
@@ -209,4 +209,4 @@
     "Independent exact-head review of 2a8430ed0f13fd3a9df6e7377d861cc54e08f099 returned GO without P0-P3 after confirming exact first two patch IDs, preserved third composition delta, two byte-identical isolated blobs, five exact current hashes including four Swift matrix references, common custody at 62c628bd, bounded historical Android/iOS attribution, contracts 29/29, validator, diff-check and clean tree.",
     "Native Login Product 39f4eea5 is replayed over merged Common Auth reconciliation squash 4e036cbf with identical stable patch IDs and owned Product blobs; affected gates are renewed without reattributing historical Android or iOS execution."
   ]
-}\n
+}

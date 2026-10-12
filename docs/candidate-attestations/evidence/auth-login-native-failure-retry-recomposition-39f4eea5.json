@@ -77,4 +77,4 @@
     "The iOS evidence proves a rejected request, one explicit retry and a success marker; it does not claim absence of later unseen callbacks. Common and Android retain stronger single-effect assertions.",
     "The native Login series was replayed over merged PR #631 squash 4e036cbf; all three stable patch IDs and all five owned Product blobs remain identical to the previously reviewed native composition."
   ]
-}\n
+}
