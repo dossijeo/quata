@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "396d5886b24e103e497402b09e6cfeab123bb743",
-  "certification": "rendered-common-registration-failure-retry-complete-recomposed-gates-passed-independent-exact-head-review-go-final-CI-pending",
+  "productSha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
+  "certification": "rendered-common-registration-failure-retry-complete-recomposed-over-current-login-gates-passed-independent-exact-head-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "396d5886b24e103e497402b09e6cfeab123bb743",
+      "sha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-334c43cf.json",
       "reportSha256": "65c4314a9df6de721d15a8f99ba83a09b38c2adf2ac250ab9ee7ee10bfb19ad4",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "396d5886b24e103e497402b09e6cfeab123bb743",
+      "sha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-396d5886.json",
       "reportSha256": "2be72f6243209204d735c3b56760cd3c6ffb030373427f7ba4bb0617661ec017",
       "reportStatus": "passed",
@@ -54,6 +54,31 @@
         "verified": true,
         "mode": "hermetic-no-backend-or-platform-mutation"
       }
+    },
+    "postCurrentLoginRecomposition": {
+      "status": "passed",
+      "sha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
+      "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-65be4f40.json",
+      "reportSha256": "a61bf847391cc36982e76c9a27fd6c7be65601da4a8cfea781800d6e5f2d1340",
+      "reportStatus": "passed",
+      "reportGitHead": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "single_product_commit_patch_equivalent",
+        "two_owned_runtime_and_test_blobs_byte_identical",
+        "atomic_trylock_duplicate_exclusion_preserved",
+        "seven_fields_and_exact_retry_single_success_preserved",
+        "wasm_browser_rendered_gate_passed",
+        "android_common_compilation_passed",
+        "ios_x64_common_compilation_passed",
+        "historical_rendered_execution_not_reattributed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "reviewed-product-commit-only-affected-common-gates-renewed"
+      }
     }
   },
   "preflight": [
@@ -63,9 +88,9 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "a75c11c80ba0a0cd3daaa2fbc912563453c0c1df",
-    "previousReviewedSha": "e2a9da81dd6c054d617624097fb91ad45cf4301c",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "a75c11c80ba0a0cd3daaa2fbc912563453c0c1df",
     "blockingFindings": [],
     "resolvedFindings": [
       "Independent exact-head review confirmed exact patch-id, two byte-identical blobs, tryLock before launch with release in finally, seven preserved fields, exact retry and one success effect, historical custody at 334c43cf without native/backend reattribution, Wasm 30/30, Android/iOS common compilations, hashes, validator, diff-check, privacy scan and clean tree."
@@ -75,12 +100,14 @@
       "P1": 0,
       "P2": 0,
       "P3": 0
-    }
+    },
+    "reviewedProductSha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5"
   },
   "notes": [
     "The real common Register form renders pending, failure and retry while RegisterViewModel preserves all seven request fields after rejection.",
     "The ViewModel acquires a non-suspending Mutex before launching registration, so an overlapping submit is rejected before transport. One explicit retry reuses the exact request and emits one success effect.",
     "Historical rendered execution remains bound to 334c43cf9a3811e957e472ef1bd4593979098b3a; this recomposition does not claim native UI execution, an enabled production registration endpoint or a real backend outage.",
-    "Current Product 396d5886b24e103e497402b09e6cfeab123bb743 replays the exact registration failure/retry patch over final independently reviewed Login retry a38c9cb0e09ecd1f49283c16bbacffbd1c05b1b6. Both owned blobs remain byte-identical; affected common gates and fresh independent exact-head review are required before publication."
+    "Current Product 396d5886b24e103e497402b09e6cfeab123bb743 replays the exact registration failure/retry patch over final independently reviewed Login retry a38c9cb0e09ecd1f49283c16bbacffbd1c05b1b6. Both owned blobs remain byte-identical; affected common gates and fresh independent exact-head review are required before publication.",
+    "Current Product 65be4f4022eb96c56d9d587b9ca22e5a0534a4b5 preserves stable patch ID ee203e71 over reviewed Login failure/retry cbbd26a6beee2f44bfe277f4699f39c722413871; affected common gates pass without native/backend/E2E reattribution."
   ]
 }
