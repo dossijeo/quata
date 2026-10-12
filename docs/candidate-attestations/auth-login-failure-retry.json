@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "7cb34cc13fb7d0c5e6b8f402df60088a589d49d1",
-  "certification": "rendered-login-failure-retry-common-android-ios-recomposed-current-common-chain-affected-gates-passed-independent-review-pending",
+  "certification": "rendered-login-failure-retry-common-android-ios-recomposed-current-common-chain-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -162,11 +162,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "2a8430ed0f13fd3a9df6e7377d861cc54e08f099",
     "previousReviewedSha": "f177ea434b5f4d899317eabfee85857e75f65f2b",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review of 2a8430ed0f13fd3a9df6e7377d861cc54e08f099 returned GO without P0-P3 after confirming exact first two patch IDs, preserved third composition delta, two byte-identical isolated blobs, five exact current hashes including four Swift matrix references, common custody at 62c628bd, bounded historical Android/iOS attribution, contracts 29/29, validator, diff-check and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -205,6 +207,7 @@
     "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
     "The iOS evidence is intentionally bounded to rejection, preserved input, one explicit retry and its success marker; common and Android retain stronger single-effect assertions.",
     "Independent exact-head review returned GO without P0-P3; final attestation-only head requires confirmation before publication.",
-    "Current native Product 7cb34cc13fb7d0c5e6b8f402df60088a589d49d1 is recomposed over final common reconciliation 437b42a8c82df4a9009e7ae4f4040f5c139e14d9; affected contracts and compilations pass, current composition hashes are recorded, and historical Android/iOS execution is not reattributed. Fresh independent exact-head review is required."
+    "Current native Product 7cb34cc13fb7d0c5e6b8f402df60088a589d49d1 is recomposed over final common reconciliation 437b42a8c82df4a9009e7ae4f4040f5c139e14d9; affected contracts and compilations pass, current composition hashes are recorded, and historical Android/iOS execution is not reattributed. Fresh independent exact-head review is required.",
+    "Independent exact-head review of 2a8430ed0f13fd3a9df6e7377d861cc54e08f099 returned GO without P0-P3 after confirming exact first two patch IDs, preserved third composition delta, two byte-identical isolated blobs, five exact current hashes including four Swift matrix references, common custody at 62c628bd, bounded historical Android/iOS attribution, contracts 29/29, validator, diff-check and clean tree."
   ]
 }
