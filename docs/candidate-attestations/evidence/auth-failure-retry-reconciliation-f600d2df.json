@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "f600d2df644f600dc03f6c2fc6ef16eed1397b7b",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH",
+  "productSha": "f600d2df644f600dc03f6c2fc6ef16eed1397b7b",
+  "predecessorSha": "a421b3f39ef15e78f1717f1c9196bd2a1e7b8971",
+  "historicalProductSha": "6971fc37d1df7fe842bbc5ea9b6033c9c383751e",
+  "productPatchId": "03fe13d09f0e7e47b8fcb095e65af257f287181b",
+  "resultBlobs": [
+    {
+      "path": "docs/MULTIPLATFORM_INVENTORY.md",
+      "gitOid": "da387037c47ecb7aeb44a24a334fed1a944cdf74",
+      "sha256": "68b01d33ebf4076aba32c5975b234b3c8f36fce28da06a42f376cec1a1df3dcb"
+    },
+    {
+      "path": "docs/SCREEN_MIGRATION_INVENTORY_V2.md",
+      "gitOid": "7e72874064ce6a4ebc19e16565d86cd70ce2ee95",
+      "sha256": "1ce4fb4ca547c8e0a9971a9a1667c9f3c276c340f9e1d5f53040bfc14d1995f3"
+    }
+  ],
+  "steps": [
+    "scoped_inventory_result_blobs_match_reviewed_reconciliation",
+    "three_failure_retry_manifests_verified",
+    "login_register_recovery_retry_scope_reconciled",
+    "native_packet_http_trace_boundary_preserved",
+    "continuity_claims_remain_owned_by_continuity_units",
+    "historical_platform_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "receipts": [
+    {
+      "path": "docs/candidate-attestations/auth-login-failure-retry.json",
+      "sha256": "4d7fad3297e1362d64c67086ea5cbcd9d62b623c5a36f97283e5e98009d90dde"
+    },
+    {
+      "path": "docs/candidate-attestations/auth-register-failure-retry.json",
+      "sha256": "589617d7c94ec4b139224497ed190cc14ebc9c453ce8014991af8981ef8fdf00"
+    },
+    {
+      "path": "docs/candidate-attestations/auth-recovery-failure-retry.json",
+      "sha256": "416388c575fa787bd084ac868b61f453ebb3d586e7c9932571e03bfa8fbe1831"
+    }
+  ],
+  "gates": {
+    "candidateAttestationContract": "passed_17_of_17",
+    "validator": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "unrelatedInventoryClosuresPreserved": true,
+    "resultBlobsMatchHistoricalReviewedReconciliation": true
+  },
+  "notes": [
+    "The scoped inventory result blobs are byte-identical to the final reviewed historical reconciliation while the current Product is based on final independently reviewed Recovery.",
+    "The reconciliation consumes the current Login, Register and Recovery manifests and retires only the common rendered retry residual.",
+    "Native UI, real backend outage, packet-level HTTP trace and continuity remain with their owning units; no historical execution is reattributed."
+  ]
+}
