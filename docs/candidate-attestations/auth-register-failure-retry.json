@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-REGISTER"
+  ],
+  "status": "passed",
+  "productSha": "396d5886b24e103e497402b09e6cfeab123bb743",
+  "certification": "rendered-common-registration-failure-retry-complete-recomposed-gates-pending-independent-review",
+  "evidence": {
+    "commonCompose": {
+      "status": "passed",
+      "sha": "396d5886b24e103e497402b09e6cfeab123bb743",
+      "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-334c43cf.json",
+      "reportSha256": "65c4314a9df6de721d15a8f99ba83a09b38c2adf2ac250ab9ee7ee10bfb19ad4",
+      "reportStatus": "passed",
+      "reportGitHead": "334c43cf9a3811e957e472ef1bd4593979098b3a",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "all_registration_fields_prepared_in_real_shared_view_model",
+        "first_submit_disabled_while_transport_pending",
+        "concurrent_second_submit_rejected_before_transport",
+        "failure_visible_on_stable_registration_error_semantics",
+        "all_registration_fields_preserved_after_failure",
+        "explicit_retry_reuses_exact_registration_request_once",
+        "successful_retry_emits_single_authentication_effect"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "396d5886b24e103e497402b09e6cfeab123bb743",
+      "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-396d5886.json",
+      "reportSha256": "2be72f6243209204d735c3b56760cd3c6ffb030373427f7ba4bb0617661ec017",
+      "reportStatus": "passed",
+      "reportGitHead": "396d5886b24e103e497402b09e6cfeab123bb743",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "single_product_commit_patch_equivalent",
+        "two_owned_runtime_and_test_blobs_byte_identical",
+        "atomic_trylock_duplicate_exclusion_preserved",
+        "seven_fields_and_exact_retry_single_success_preserved",
+        "wasm_browser_rendered_gate_passed",
+        "android_common_compilation_passed",
+        "ios_x64_common_compilation_passed",
+        "historical_rendered_execution_not_reattributed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-no-backend-or-platform-mutation"
+      }
+    }
+  },
+  "preflight": [
+    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
+    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-register-failure-retry.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "e2a9da81dd6c054d617624097fb91ad45cf4301c",
+    "blockingFindings": [],
+    "resolvedFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    }
+  },
+  "notes": [
+    "The real common Register form renders pending, failure and retry while RegisterViewModel preserves all seven request fields after rejection.",
+    "The ViewModel acquires a non-suspending Mutex before launching registration, so an overlapping submit is rejected before transport. One explicit retry reuses the exact request and emits one success effect.",
+    "Historical rendered execution remains bound to 334c43cf9a3811e957e472ef1bd4593979098b3a; this recomposition does not claim native UI execution, an enabled production registration endpoint or a real backend outage.",
+    "Current Product 396d5886b24e103e497402b09e6cfeab123bb743 replays the exact registration failure/retry patch over final independently reviewed Login retry a38c9cb0e09ecd1f49283c16bbacffbd1c05b1b6. Both owned blobs remain byte-identical; affected common gates and fresh independent exact-head review are required before publication."
+  ]
+}
