@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-REGISTER",
+  "productSha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+  "predecessorSha": "31cce559bdf21e605bf0f4eface675e8b7c32422",
+  "historicalProductSha": "8fe252ccdaea3439f1c76c4a5260be784c06a63d",
+  "productPatchIds": [
+    "175e16caa354f41cb624ad17a727f6b671eef0cf",
+    "964c15a7a79521060670bb90e78fe325634733ea"
+  ],
+  "ownedEvidence": [
+    {
+      "path": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRegisterFailureRetryInstrumentedTest.kt",
+      "gitOid": "e858e4cc6e089c0c228ef764adb90d1d684d1c9a",
+      "sha256": "03527363356b88f0aed079345cd29e7311153cb106c2e801b98648ce2d1fec47",
+      "historicalByteIdentity": true
+    },
+    {
+      "path": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+      "gitOid": "d86a00180d1fc19eff96556373dc371c3880797c",
+      "sha256": "92fafa487d80f7f185f07285d34785d7ffb7b363bae0c0da98ac69f673df7870",
+      "historicalByteIdentity": false,
+      "ownedMethod": "testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates",
+      "ownedMethodSha256": "136ef4533696222809dec843d1cc388bc4ad6aba89deadf01b540cc7eb2addf8",
+      "historicalOwnedMethodSha256": "136ef4533696222809dec843d1cc388bc4ad6aba89deadf01b540cc7eb2addf8",
+      "ownedMethodByteIdentity": true,
+      "reason": "The shared XCTest file also contains independently reviewed predecessor-only Profile keyboard fixes; the Register-owned method is byte-identical."
+    }
+  ],
+  "steps": [
+    "two_native_runtime_and_test_commits_patch_equivalent",
+    "android_owned_test_blob_byte_identical",
+    "ios_register_owned_method_byte_identical_with_predecessor_only_shared_file_deltas",
+    "seven_field_atomic_failure_and_exact_retry_contract_preserved",
+    "common_register_custody_preserved",
+    "historical_android_and_ios_execution_not_reattributed",
+    "bounded_ios_success_marker_claim_preserved",
+    "native_contracts_passed",
+    "android_instrumentation_compilation_passed",
+    "ios_x64_compilation_passed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "nativeContracts": "passed_29_of_29",
+    "compileDebugAndroidTestKotlin": "passed",
+    "compileKotlinIosX64": "passed",
+    "validator": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "androidOwnedTestBlob": "byte_identical",
+    "iosRegisterOwnedMethod": "byte_identical",
+    "iosSharedFileDelta": "predecessor_only_profile_keyboard_fixes",
+    "androidEvidence": "historical_1_of_1",
+    "iosEvidence": "historical_1_of_1_bounded_success_marker",
+    "nativeLoginPredecessor": "31cce559bdf21e605bf0f4eface675e8b7c32422"
+  },
+  "notes": [
+    "The two native Register commits replay with the same stable patch IDs over the final reviewed native Login failure/retry head.",
+    "The Android Register test blob and the iOS Register-owned XCTest method remain byte-identical to historical Product 8fe252cc; unrelated changes elsewhere in the shared iOS test file come from the reviewed predecessor.",
+    "Android remains bound to historical 1/1 evidence and iOS remains bound to historical SimulatorSigned 1/1 evidence; no platform matrix was repeated solely for ancestry.",
+    "The iOS evidence proves rejection, preserved visible inputs, one explicit exact-request retry and a success marker; it does not exclude later unseen callbacks."
+  ]
+}
