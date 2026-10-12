@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS"
+  ],
+  "status": "passed",
+  "productSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+  "certification": "chat-attachments-composed-internal-residual-removed-v32-and-external-boundaries-preserved-recomposed-gates-passed-independent-review-go-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-reconciliation-67c7086a.json",
+      "reportSha256": "22817ff80b5d9ddcf8a8422a233719731cd2cbe41fa0f43dc8e2031d09555c92",
+      "reportStatus": "passed",
+      "reportGitHead": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "chat_attachments_composition_contract_3_of_3_passed",
+        "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_internal_residual_removed",
+        "android_v32_compatibility_and_external_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-b4324bcd.json",
+      "reportSha256": "d779d9ba036b00b0eea9d9284a8b42f607b2b13df1dc3205d3bf3647ccc9f065",
+      "reportStatus": "passed",
+      "reportGitHead": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_preserved_with_confidentiality_receipt_hash_rebound",
+        "chat_attachments_composition_contract_3_of_3_passed",
+        "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+        "android_v32_compatibility_and_external_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    },
+    "mergedAudioRecomposition": {
+      "status": "passed",
+      "sha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+      "report": "docs/candidate-attestations/evidence/chat-attachments-composition-recomposition-c937a4d4.json",
+      "reportSha256": "56aa8dcf31d6dd18964d1ab90214d0abf82bece6d07c4d3b16cc1861c38f768b",
+      "reportStatus": "passed",
+      "reportGitHead": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_patch_equivalent",
+        "chat_attachments_composition_contract_3_of_3_passed",
+        "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+        "android_v32_compatibility_and_external_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/chat-attachments-composition-reconciliation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/chat-attachments-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "7737ebce4d196e1c969c3255c9fe8f0369c394d9",
+    "previousReviewedSha": "c1ce5390bc20b1d6e33d756d7f22397465c1f717",
+    "blockingFindings": [],
+    "reviewedProductSha": "c937a4d4f1cd70300cc930854bf77b046ce04279",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "resolvedFindings": [
+      "Independent exact-head review confirmed the preserved composition delta, necessary confidentiality receipt hash rebound, nine receipts, v32 and external boundaries, report hashes, historical custody, 3/3 contract, validator, diff-check and clean tree.",
+      "Independent exact-head review of c1ce5390bc20b1d6e33d756d7f22397465c1f717 returned GO without P0-P3 after verifying the equivalent patch, nine exact receipts and hashes, report hash f740ba72, Android v32 and external boundaries, exact-once wiring, historical custody, contract, validator, diff-check and clean tree.",
+      "Independent exact-head review of 7737ebce4 returned GO without P0-P3 after confirming the exact Product patch ID, nine receipts, confidentiality and report hashes, Android v32 compatibility, external boundaries, historical-only execution attribution, 3/3 contract, validator, exact-once wiring, diff-check and a clean tree."
+    ]
+  },
+  "notes": [
+    "Eight existing owner receipts compose CHAT-ATTACHMENTS picker, deterministic negative paths, upload rollback, media, document viewer actions, Retry and the HTTP boundary; the ninth receipt preserves actor-bound confidentiality for private Storage.",
+    "The reconciliation removes only the generic internal residual. Physical OS permissions, external destinations or providers, unsupported formats and real OS proxy, captive-portal or network topologies remain explicit boundaries.",
+    "The controlled public compatibility path remains restricted to identified Android v32 clients and stays distinguishable so it can be retired when those clients no longer exist.",
+    "No runtime, backend, platform evidence receipt or CI workflow changed. Historical Android, Web/Wasm, iOS and database executions remain bound to their original Product and evidence heads.",
+    "The focal contract binds all nine receipts to exact SHA-256 values, requires passed owner evidence, guards the inventory wording and wires the contract exactly once into each affected aggregate.",
+    "This unit is based on the reviewed CHAT-AUDIO Lane B head b9b5d3b1ea920d1fad6f1ca2a42e4efe9c4cd6cf and must be recomposed over its eventual squash before publication.",
+    "Independent review of exact head a42ac6e80f617d415c9860199c83b3be4c3a705b returned GO without P0-P3 after reproducing 3/3 contracts, validator, range diff-check, nine exact receipt and report hashes, exact-once aggregate wiring, preserved Android v32 and external boundaries, and absence of newly attributed platform or database execution.",
+    "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO head 829bfd663fa9142a6390513591d6adbf35acaaa9 and rebinds only the exact confidentiality-manifest SHA-256 to current reviewed bytes e8764ced. Contract 3/3, validator and diff-check pass; historical execution is not reattributed.",
+    "Independent exact-head review of 195e3be94e666da237185f883765e7ec9cf11649 returned GO without P0-P3 after verifying the preserved delta, confidentiality receipt hash e8764ced, nine receipts, Android v32 and external boundaries, report hash bacb9cad, historical custody, 3/3 contract, validator, diff-check and clean tree.",
+    "Current Product b4324bcde0ecb9d20ce081b935b2c18814f1cea5 preserves the CHAT-ATTACHMENTS composition delta over reviewed CHAT-AUDIO candidate 8ca4de71901461bd81e265ffcfef9885b0b537c6; the confidentiality receipt remains bound to its reviewed bytes. Contract 3/3 is renewed without reattributing historical execution.",
+    "Independent exact-head review of dc8c63b47187f762c4bda879fd58fa07bc175703 returned GO without P0-P3 after confirming nine receipts, confidentiality hash, Android v32 and external boundaries, historical custody, 3/3 contract, validator and diff-check.",
+    "Current Product c937a4d4f1cd70300cc930854bf77b046ce04279 preserves the CHAT-ATTACHMENTS composition delta with identical stable patch ID over frozen CHAT-AUDIO candidate a65835bdbdedac988df11a672645a076f0e1c28b. Contract 3/3 is renewed without reattributing historical platform or database execution.",
+    "Independent exact-head review of c1ce5390bc20b1d6e33d756d7f22397465c1f717 returned GO without P0-P3; owner contract, validator and diff-check remained green.",
+    "Current Product c937a4d4f1cd70300cc930854bf77b046ce04279 preserves the CHAT-ATTACHMENTS composition delta with identical stable patch ID over merged CHAT-AUDIO squash 650c8ae9df1efc98d2c61c4e7c2ebc8b2519ca58. Contract 3/3 is renewed without reattributing historical platform or database execution. Fresh independent exact-head review is required before publication."
+  ]
+}

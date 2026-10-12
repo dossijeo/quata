@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+    "workingTreeDirty": false
+  },
+  "unit": "CHAT-ATTACHMENTS",
+  "productSha": "b4324bcde0ecb9d20ce081b935b2c18814f1cea5",
+  "predecessorSha": "8ca4de71901461bd81e265ffcfef9885b0b537c6",
+  "historicalProductSha": "67c7086a11d9949cf9d97d4fc2a8a4f9cfa37dc2",
+  "steps": [
+    "product_delta_preserved_with_confidentiality_receipt_hash_rebound",
+    "chat_attachments_composition_contract_3_of_3_passed",
+    "nine_owner_and_confidentiality_receipts_with_exact_hashes_preserved",
+    "android_v32_compatibility_and_external_boundaries_preserved",
+    "historical_platform_and_database_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalExecutionReexecuted": false,
+    "baseConflict": "prof-shared-chat-documents-confidentiality receipt hash updated to current reviewed manifest bytes"
+  },
+  "notes": [
+    "The CHAT-ATTACHMENTS composition delta is preserved over the reviewed CHAT-AUDIO candidate head.",
+    "The exact SHA-256 binding for the current confidentiality manifest remains unchanged and reviewed.",
+    "Only the affected 3/3 contract is renewed; historical platform and database execution remains bound to its original heads."
+  ]
+}
