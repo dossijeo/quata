@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4",
-  "certification": "rendered-common-login-failure-retry-recomposed-over-current-emoji-root-affected-gates-passed-independent-review-pending",
+  "certification": "rendered-common-login-failure-retry-recomposed-over-current-emoji-root-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -86,15 +86,16 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "78bde34e56e367d09b5cb629f93bf1b2e49ad369",
     "previousReviewedSha": "68f7c235f6fb96bb32fae4757ce718772df1159f",
     "blockingFindings": [],
     "resolvedFindings": [
       "Independent exact-head review confirmed exact patch, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, custody at a8a06e43, affected Wasm/Android/iOS gates, hashes, validator, diff-check and clean tree.",
       "Independent exact-head review of 37f4f77868f327681f369ea53e10a40211dbad67 returned GO without P0-P3 after confirming exact patch-id, three identical blobs, synchronous reservation, duplicate suppression, preserved credentials, exact retry and one success effect, report hash and custody at a8a06e43 without native/backend reattribution, Wasm browser plus Android/iOS common gates, validator, diff-check, privacy scan and clean tree.",
       "Independent exact-head review of 68f7c235f6fb96bb32fae4757ce718772df1159f returned GO without P0-P3 after confirming patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, preserved credentials, exact retry and one success, report 3e5cc55b, custody at a8a06e43 without native/backend reattribution, Wasm browser and Android/iOS common gates, validator, diff-check, privacy scan and clean tree.",
-      "Independent exact-head review of 8e6add8129a4ed851b23947b31f418febaaf6a29 returned GO without P0-P3 after verifying patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, single success, report hashes, custody at a8a06e43 without reattribution, Wasm 29/29 plus Android/iOS common gates, validator, diff-check and clean tree."
+      "Independent exact-head review of 8e6add8129a4ed851b23947b31f418febaaf6a29 returned GO without P0-P3 after verifying patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, single success, report hashes, custody at a8a06e43 without reattribution, Wasm 29/29 plus Android/iOS common gates, validator, diff-check and clean tree.",
+      "Independent exact-head review of 78bde34e56e367d09b5cb629f93bf1b2e49ad369 returned GO without P0-P3 after confirming Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4, stable patch ID 4b8d43fc, three byte-identical owned blobs, report hashes, affected common gates, validator, diff-check, clean tree and custody at a8a06e43 without native/backend/E2E reattribution."
     ],
     "findingCounts": {
       "P0": 0,
@@ -137,6 +138,7 @@
     "Current Product 084eb2b8ef5e5ecc82ab69e88287cbef80a3a60f replays the exact Login failure/retry patch over independently reviewed FLOW-EMOJI root e00d9f6afbaa54481caad8e2ced832834e8084a2; prior Product 20c890b2bdd8a3660f5b4e06cff0087c756f4bae and root 0b3913346829eae4d535359e74a0d501e3ab38f7 remain historical custody. Three owned blobs remain byte-identical and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5. Fresh independent exact-head review is required before publication.",
     "Current Product f3e99baf592dd7367d3f4358c02a4207f1448539 preserves stable patch ID 4b8d43fc over reviewed FLOW-EMOJI root 428e911cdd8fbd2142ee4b8ab25c76fe8f594e5a; affected common gates pass without native/backend/E2E reattribution.",
     "Independent exact-head review of 8e6add8129a4ed851b23947b31f418febaaf6a29 returned GO without P0-P3 after verifying patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, single success, report hashes, custody at a8a06e43 without reattribution, Wasm 29/29 plus Android/iOS common gates, validator, diff-check and clean tree.",
-    "Current Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4 preserves stable patch ID 4b8d43fc over final independently reviewed FLOW-EMOJI root 6be615e5948819e942fd02c4c4f529749e811e60; all three owned blobs remain byte-identical, affected common gates pass, and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5 without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication."
+    "Current Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4 preserves stable patch ID 4b8d43fc over final independently reviewed FLOW-EMOJI root 6be615e5948819e942fd02c4c4f529749e811e60; all three owned blobs remain byte-identical, affected common gates pass, and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5 without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
+    "Independent exact-head review of 78bde34e56e367d09b5cb629f93bf1b2e49ad369 returned GO without P0-P3 after confirming Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4, stable patch ID 4b8d43fc, three byte-identical owned blobs, report hashes, affected common gates, validator, diff-check, clean tree and custody at a8a06e43 without native/backend/E2E reattribution."
   ]
 }
