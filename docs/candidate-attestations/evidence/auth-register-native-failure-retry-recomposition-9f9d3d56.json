@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "9f9d3d560750c173a74c8528c0280de24b65d98e",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-REGISTER",
+  "productSha": "9f9d3d560750c173a74c8528c0280de24b65d98e",
+  "predecessorSha": "fec688aa27379f129b5f8e718b0bafc448050993",
+  "historicalProductSha": "8fe252ccdaea3439f1c76c4a5260be784c06a63d",
+  "productPatchIds": [
+    "175e16caa354f41cb624ad17a727f6b671eef0cf",
+    "964c15a7a79521060670bb90e78fe325634733ea"
+  ],
+  "ownedBlobs": [
+    {
+      "path": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRegisterFailureRetryInstrumentedTest.kt",
+      "gitOid": "e858e4cc6e089c0c228ef764adb90d1d684d1c9a",
+      "sha256": "03527363356b88f0aed079345cd29e7311153cb106c2e801b98648ce2d1fec47"
+    },
+    {
+      "path": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+      "gitOid": "8af3f6fbf0756c05263b622aebc634da33071644",
+      "sha256": "eb38c1da48381baf0598801fc072d02b4d409e3646149418e8aaca0a34dc0c7a"
+    }
+  ],
+  "steps": [
+    "two_native_runtime_and_test_commits_patch_equivalent",
+    "two_owned_native_test_blobs_byte_identical",
+    "seven_field_atomic_failure_and_exact_retry_contract_preserved",
+    "common_register_custody_preserved",
+    "historical_android_and_ios_execution_not_reattributed",
+    "bounded_ios_success_marker_claim_preserved",
+    "native_contracts_passed",
+    "android_instrumentation_compilation_passed",
+    "ios_x64_compilation_passed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "nativeContracts": "passed_29_of_29",
+    "compileDebugAndroidTestKotlin": "passed",
+    "compileKotlinIosX64": "passed",
+    "validator": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "nativeTestBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "ownedNativeTestBlobs": "2_of_2_byte_identical",
+    "androidEvidence": "historical_1_of_1",
+    "iosEvidence": "historical_1_of_1_bounded_success_marker",
+    "commonAuthFailureRetryPredecessor": "fec688aa27379f129b5f8e718b0bafc448050993"
+  },
+  "notes": [
+    "The two native Register commits replay with exact stable patch IDs over the final reviewed native Login failure/retry head.",
+    "Both owned native test blobs are byte-identical to historical Product 8fe252ccdaea3439f1c76c4a5260be784c06a63d.",
+    "Android remains bound to historical 1/1 evidence and iOS remains bound to historical SimulatorSigned 1/1 evidence; no platform matrix is repeated solely for ancestry.",
+    "The iOS evidence proves rejection, preserved visible inputs, one explicit exact-request retry and a success marker; it does not exclude later unseen callbacks."
+  ]
+}
