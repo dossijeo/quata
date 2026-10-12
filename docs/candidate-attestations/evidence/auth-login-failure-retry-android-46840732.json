@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "check": "SCR-AUTH-LOGIN-ANDROID-FAILURE-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "46840732497eb97d1141779235f283eb0a4d8ca5",
+    "workingTreeDirty": false
+  },
+  "platform": "android-native-compose",
+  "commands": [
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.auth.presentation.AuthLoginFailureRetryInstrumentedTest"
+  ],
+  "steps": [
+    "real_shared_login_form_rendered",
+    "credentials_entered_through_native_ui",
+    "first_submit_reaches_fail_once_transport_once",
+    "failure_visible_on_auth_error_semantics",
+    "phone_and_password_preserved_after_failure",
+    "explicit_retry_reuses_exact_request_once",
+    "successful_retry_emits_single_authentication_effect"
+  ],
+  "instrumentation": {
+    "test": "com.quata.feature.auth.presentation.AuthLoginFailureRetryInstrumentedTest.nativeLoginFailurePreservesInputAndExplicitRetryAuthenticates",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 12.339,
+    "device": {
+      "name": "QuataLivePr336Api35",
+      "api": 35
+    }
+  },
+  "integrity": {
+    "instrumentedTestSha256": "7886ecf7bc2cfba32ade2fce1328ac6adeb013881d8f4177d7bc78721d7d3654",
+    "resultXml": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml"
+  },
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "scope": "Hermetic fail-once repository around the real shared Login surface, executed through Android instrumentation. It proves native input preservation and one explicit retry; it does not claim a real backend outage or Register/Recovery coverage."
+}

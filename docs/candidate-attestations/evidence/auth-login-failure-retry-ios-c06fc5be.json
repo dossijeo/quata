@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "check": "SCR-AUTH-LOGIN-IOS-FAILURE-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "c06fc5be3bd84a487baec8c8dc2137c87e96808d",
+    "workingTreeDirty": false
+  },
+  "platform": "ios-simulator-native-compose",
+  "commands": [
+    "bash gradlew :ios-shared:linkDebugFrameworkIosX64 --no-daemon",
+    "xcodegen generate",
+    "xcodebuild -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -sdk iphonesimulator -destination id=<explicit-simulator-udid> -derivedDataPath <private-derived-data-path> ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES -only-testing:QuataIosUITests/QuataIosHostUITests/testAuthLoginFailurePreservesInputAndExplicitRetryAuthenticates test-without-building"
+  ],
+  "steps": [
+    "exact_product_tree_built_for_ios_x86_64_simulator",
+    "validated_hyperv_raster_runtime_loaded",
+    "real_shared_login_form_rendered",
+    "credentials_entered_through_native_ui",
+    "first_submit_reaches_fail_once_transport_once",
+    "failure_visible_on_auth_error_semantics",
+    "phone_and_password_preserved_after_failure",
+    "explicit_retry_with_exact_request_observed",
+    "successful_retry_marker_observed"
+  ],
+  "build": {
+    "host": "configured-intel-macos-vm",
+    "macOS": "26.5.2",
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "architecture": "x86_64",
+    "configuration": "SimulatorSigned",
+    "result": "passed"
+  },
+  "xctest": {
+    "test": "QuataIosHostUITests.testAuthLoginFailurePreservesInputAndExplicitRetryAuthenticates",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 95.924,
+    "resultBundleCustody": "private local host; archive content is not versioned",
+    "resultBundleTarSha256": "b805a21c1eaa1f986267128ef6c515058656e79fc22a883450c4b86d60b9dc47",
+    "simulator": {
+      "name": "Quata-Profile-Safety-Report-18",
+      "model": "iPhone 16 Pro",
+      "os": "iOS 18.3.1 (22D8075)",
+      "architecture": "x86_64"
+    }
+  },
+  "integrity": {
+    "iosFixtureSha256": "72d5129a46cee859c8033cb31525e538d2da80fe30e35ff4f55c3228cfec4baf",
+    "swiftRouteSha256": "7e2cbcf237d4c60ff9571d3c9ea909b6152e5029b2cbab9cbf1058f7e67830ad",
+    "xctestSha256": "0716ccedf737bdaf3acbef0324a007637626d2bba0b0080520d12bdc99ff278b"
+  },
+  "attempts": [
+    {
+      "result": "build_harness_failed",
+      "reason": "The first Xcode invocation still referenced the previously generated XCFramework slice and therefore could not resolve the newly isolated Kotlin fixture file. The exact Product framework was rebuilt and synchronized before retrying."
+    },
+    {
+      "result": "environment_interrupted",
+      "reason": "The first exact-build execution was killed by the Simulator test runner while entering the password. The result bundle records signal kill and no product assertion failure."
+    },
+    {
+      "result": "passed",
+      "productSha": "c06fc5be3bd84a487baec8c8dc2137c87e96808d",
+      "reason": "After a bounded Simulator shutdown, boot and bootstatus preflight, the same built Product passed the focal XCTest 1/1 without source changes."
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "scope": "Local fail-once product fixture and real iOS Simulator UI interaction. It proves native Login rejection, preserved input, one explicit retry and the resulting success marker without credentials, backend or remote mutation. It does not prove absence of additional unseen callbacks and does not claim a real backend outage or Register/Recovery coverage."
+}

@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "7cb34cc13fb7d0c5e6b8f402df60088a589d49d1",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-LOGIN",
+  "productSha": "7cb34cc13fb7d0c5e6b8f402df60088a589d49d1",
+  "predecessorSha": "437b42a8c82df4a9009e7ae4f4040f5c139e14d9",
+  "historicalProductSha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+  "productPatchIds": [
+    "b40579d04f322293f76618172fc50839efb3cc8b",
+    "4994bec358728e7d76350e5d9a47f27f83099cdf",
+    "907ad8843955a6a904974beff5ceb67f1b04bb33"
+  ],
+  "ownedBlobs": [
+    {
+      "path": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthLoginFailureRetryInstrumentedTest.kt",
+      "gitOid": "0b6b5fdfa8e2885d99c97f6c36312ef3b2341094",
+      "sha256": "7886ecf7bc2cfba32ade2fce1328ac6adeb013881d8f4177d7bc78721d7d3654"
+    },
+    {
+      "path": "capabilities/platform-capability-matrix.json",
+      "gitOid": "dce9b8d7b7251ca929e53d7b07312de7b160b949",
+      "sha256": "bcb495dbb5f897e497184da34e7620bf239bd01bcc838f7bf60dae126374d946"
+    },
+    {
+      "path": "feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthFailureRetryFixtureHost.kt",
+      "gitOid": "6e75bd4a4dae3d6e683d1c5974c68a073681448d",
+      "sha256": "72d5129a46cee859c8033cb31525e538d2da80fe30e35ff4f55c3228cfec4baf"
+    },
+    {
+      "path": "iosApp/iosApp/QuataIosApp.swift",
+      "gitOid": "8cb78ccec4e7ac2fa6c4f51ed37d57467f29536c",
+      "sha256": "65f12f49431953b9f8f7642e54ee4cba024df2addfd965dd4488cdf790727011"
+    },
+    {
+      "path": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+      "gitOid": "ffaeadc94622c203315a4e88bb997df01cd6a405",
+      "sha256": "e6148b97ceffffe8f313491abc9a6b3128bea02436f8950f5f2030386a7ae762"
+    }
+  ],
+  "steps": [
+    "three_native_runtime_and_test_commits_replayed_with_composition_hash_repair",
+    "current_five_owned_product_blobs_recorded",
+    "four_ios_app_matrix_hashes_match_current_product_blob",
+    "current_common_login_custody_preserved",
+    "historical_android_and_ios_execution_not_reattributed",
+    "bounded_ios_success_claim_preserved",
+    "native_contracts_passed",
+    "android_instrumentation_compilation_passed",
+    "ios_x64_compilation_passed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "nativeContracts": "passed_29_of_29",
+    "compileDebugAndroidTestKotlin": "passed",
+    "compileKotlinIosX64": "passed",
+    "validator": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "matrixHashRepair": "4_of_4_QuataIosApp.swift_declarations_match_current_product_blob",
+    "commonAuthFailureRetryPredecessor": "437b42a8c82df4a9009e7ae4f4040f5c139e14d9",
+    "unchangedOwnedBlobs": "android_instrumentation_and_ios_fixture_host",
+    "compositionIntegratedWithCurrentPredecessor": true
+  },
+  "notes": [
+    "The first two native Login commits retain exact stable patch IDs; the fixture-isolation commit preserves its delta while reconciling the iOS composition hash against the current predecessor.",
+    "The Android instrumentation and isolated iOS fixture blobs remain byte-identical; the matrix, iOS app composition and host UI test incorporate current predecessor state and are recorded by exact current hashes.",
+    "Android remains bound to historical 1/1 evidence and iOS remains bound to historical SimulatorSigned 1/1 evidence; no platform matrix is repeated solely for ancestry.",
+    "The iOS evidence proves a rejected request, one explicit retry and a success marker; it does not claim absence of later unseen callbacks. Common and Android retain stronger single-effect assertions."
+  ]
+}
