@@ -15,7 +15,7 @@ const receiptHashes = new Map([
   ["flow-emoji-profile-comments.json", "cc86a8734b51791834661849e3c57428e8edecc5572fd97ab8b2561e052f7094"],
   ["flow-emoji-error-rollback.json", "0adec726dc5d8253a1d320f406cb42e02800293c6ae3b7a7981be602c1d35b27"],
   ["flow-emoji-selector-states.json", "83c94670f447e5da933c4293bc7317d826f5b2ba7ccf023f809b448c15a5553d"],
-  ["flow-emoji-post-composer.json", "cceaef6f05a3ddf4457a905d217f2d0f9e9bcc8aab6471580881fb02d8dc007b"],
+  ["flow-emoji-post-composer.json", "62d552695dbd5ea099eefd1137f8beb02d3df6c73a350d19d588b2f3004eb345"],
 ]);
 
 const receipts = await Promise.all([...receiptHashes].map(async ([name, expectedHash]) => {
