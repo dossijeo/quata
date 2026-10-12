@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "status": "passed",
+  "unit": "SCR-AUTH-RECOVERY",
+  "git": {
+    "head": "301e868e7cc863813876e80636e0db19f348722b",
+    "workingTreeDirty": false
+  },
+  "platform": "common-compose-rendered-in-chrome-headless",
+  "commands": [
+    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
+    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "git diff --check"
+  ],
+  "steps": [
+    "registered_phone_resolves_real_shared_recovery_question",
+    "answer_and_new_password_entered_in_real_shared_form",
+    "first_reset_disabled_while_transport_pending",
+    "overlapping_second_reset_rejected_atomically_before_transport",
+    "failure_visible_on_stable_recovery_error_semantics",
+    "phone_answer_and_new_password_preserved_after_failure",
+    "explicit_retry_reuses_exact_reset_request_once",
+    "successful_retry_emits_single_password_updated_effect"
+  ],
+  "result": {
+    "wasmJsBrowserTest": "passed",
+    "moduleTests": 31,
+    "focalTests": 1,
+    "failures": 0,
+    "androidCommonConsumerCompilation": "passed",
+    "iosX64CommonConsumerCompilation": "passed",
+    "backendMutations": 0,
+    "runtimeSha256": "63bf3d1ad8e131927e6225741e14cf699751192699f62f599b953e377086ad14",
+    "testSha256": "412203ebbdeea4dc81a72f0d543734e9cadcf020e667d282e8f013af0cfbdaf8"
+  },
+  "diagnostics": [],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_fixtures": 0,
+        "local_fixtures": 0
+      }
+    }
+  },
+  "scope": "Rendered common password-recovery failure, atomic duplicate-submit exclusion and explicit retry behavior. The test uses a hermetic synthetic PasswordRecoveryRepository around the real shared form and ViewModel; it does not claim native platform UI execution or a real backend outage."
+}

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "310c58f3fb622f866cabfe433595f62865b8172f",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-RECOVERY",
+  "productSha": "310c58f3fb622f866cabfe433595f62865b8172f",
+  "predecessorSha": "c6bfa5c17145d148384256e230b6b227a7f78999",
+  "historicalProductSha": "a67c5f5b08c6f278be5e231da27447a547da47e0",
+  "historicalExecutionSha": "301e868e7cc863813876e80636e0db19f348722b",
+  "productPatchId": "22b15467198f379cd3270b531a4e9967bbf08169",
+  "ownedBlobs": [
+    {
+      "path": "feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordViewModel.kt",
+      "gitOid": "f99c1e4c93968644f809f89b9eb9730bdfff17af",
+      "sha256": "63bf3d1ad8e131927e6225741e14cf699751192699f62f599b953e377086ad14"
+    },
+    {
+      "path": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/RecoveryFailureRetryUiTest.kt",
+      "gitOid": "00462d02f0b90b1c0505af7a1ddabade8bc9655a",
+      "sha256": "412203ebbdeea4dc81a72f0d543734e9cadcf020e667d282e8f013af0cfbdaf8"
+    }
+  ],
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "two_owned_runtime_and_test_blobs_byte_identical",
+    "atomic_trylock_duplicate_reset_exclusion_preserved",
+    "three_fields_and_exact_retry_single_password_updated_preserved",
+    "wasm_browser_rendered_gate_passed",
+    "android_common_compilation_passed",
+    "ios_x64_common_compilation_passed",
+    "historical_rendered_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchId": "exact",
+    "wasmJsBrowserTest": "passed_31_of_31",
+    "compileAndroidMain": "passed",
+    "compileKotlinIosX64": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeatedForAncestry": false,
+    "ownedProductBlobs": "2_of_2_byte_identical"
+  },
+  "notes": [
+    "The Recovery failure/retry Product commit replays with exact stable patch ID 22b15467198f379cd3270b531a4e9967bbf08169 over final independently reviewed Registration failure/retry c6bfa5c17145d148384256e230b6b227a7f78999.",
+    "Both owned runtime and test blobs remain byte-identical to the prior reviewed Recovery Product a67c5f5b08c6f278be5e231da27447a547da47e0.",
+    "Only affected rendered/common gates were renewed successfully; native UI, backend and unrelated E2E execution were not repeated or reattributed."
+  ]
+}
