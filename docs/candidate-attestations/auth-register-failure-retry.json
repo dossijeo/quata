@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
-  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-reviewed-native-login-affected-gates-passed-independent-review-pending",
+  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-reviewed-native-login-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -140,11 +140,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "00bebcd23da0d35c07dd727cfd61fd979c4e20e1",
     "previousReviewedSha": "33a6e5babad741fa8f711661aeabe4960033258d",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review of 00bebcd23da0d35c07dd727cfd61fd979c4e20e1 returned GO without P0-P3 after confirming both stable patch IDs, byte-identical Android evidence, byte-identical iOS Register-owned method with only reviewed predecessor Profile deltas elsewhere in the shared file, historical Android/iOS 1/1 custody without reattribution, 29/29 contracts, Android instrumentation and iOS x64 compilation, hashes, validator, diff-check and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -185,13 +187,14 @@
           "P3": 0
         }
       }
-    ]
+    ],
+    "reviewedProductSha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021"
   },
   "notes": [
     "Common Register failure/retry remains bound to Product 396d5886 and its reviewed common evidence; the native composition carries applicability without reattributing that execution.",
     "The two native commits retain their stable patch IDs. The Android test blob is byte-identical to historical native Product 8fe252cc; the iOS Register-owned method is byte-identical while unrelated predecessor Profile fixes share its enclosing XCTest file.",
     "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
     "The iOS evidence is intentionally bounded to rejection, preserved visible inputs, one explicit exact-request retry and its success marker; it does not exclude later unseen callbacks.",
-    "Fresh independent exact-head review is required before publication."
+    "Independent exact-head review of 00bebcd23 returned GO without P0-P3; the attestation-only review-record head requires final exact-head confirmation before publication."
   ]
 }
