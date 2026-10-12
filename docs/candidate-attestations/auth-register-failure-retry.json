@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
-  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-reviewed-native-login-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
+  "productSha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
+  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-affected-gates-pending-independent-exact-head-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+      "sha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-334c43cf.json",
       "reportSha256": "65c4314a9df6de721d15a8f99ba83a09b38c2adf2ac250ab9ee7ee10bfb19ad4",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "commonRecomposition": {
       "status": "passed",
-      "sha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+      "sha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-396d5886.json",
       "reportSha256": "2be72f6243209204d735c3b56760cd3c6ffb030373427f7ba4bb0617661ec017",
       "reportStatus": "passed",
@@ -57,7 +57,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+      "sha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-android-47d68ae3.json",
       "reportSha256": "fde414c22b886831f4520891e1686d3a87af2430218a5dddb3b74a3961abcd05",
       "reportStatus": "passed",
@@ -81,7 +81,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+      "sha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-ios-e6efa54f.json",
       "reportSha256": "14fea92916fe5fc2228c97b5b63b91fa8e725a260481c9e5bebd9de244c4b460",
       "reportStatus": "passed",
@@ -107,11 +107,11 @@
     },
     "nativeRecomposition": {
       "status": "passed",
-      "sha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
-      "report": "docs/candidate-attestations/evidence/auth-register-native-failure-retry-recomposition-92cc2c0c.json",
-      "reportSha256": "e1ed340eff1c161206c6b22cdc3f749d922802f7ad03b4882ad73c9f03c2f89a",
+      "sha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
+      "report": "docs/candidate-attestations/evidence/auth-register-native-failure-retry-recomposition-d54195c5.json",
+      "reportSha256": "8d44667fb3f1afdb39c3d40e9e7f1d7bb0eb15e8a4cedfaab9d458b467b443b2",
       "reportStatus": "passed",
-      "reportGitHead": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021",
+      "reportGitHead": "d54195c51aec2232e275940e8e43bbeab6ee6917",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -140,13 +140,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "00bebcd23da0d35c07dd727cfd61fd979c4e20e1",
-    "previousReviewedSha": "33a6e5babad741fa8f711661aeabe4960033258d",
+    "status": "pending",
+    "reviewedSha": null,
+    "previousReviewedSha": "00bebcd23da0d35c07dd727cfd61fd979c4e20e1",
     "blockingFindings": [],
-    "resolvedFindings": [
-      "Independent exact-head review of 00bebcd23da0d35c07dd727cfd61fd979c4e20e1 returned GO without P0-P3 after confirming both stable patch IDs, byte-identical Android evidence, byte-identical iOS Register-owned method with only reviewed predecessor Profile deltas elsewhere in the shared file, historical Android/iOS 1/1 custody without reattribution, 29/29 contracts, Android instrumentation and iOS x64 compilation, hashes, validator, diff-check and clean tree."
-    ],
+    "resolvedFindings": [],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -188,13 +186,13 @@
         }
       }
     ],
-    "reviewedProductSha": "92cc2c0c9dbbb4d89586bd10d50afdc975bb5021"
+    "reviewedProductSha": "d54195c51aec2232e275940e8e43bbeab6ee6917"
   },
   "notes": [
-    "Common Register failure/retry remains bound to Product 396d5886 and its reviewed common evidence; the native composition carries applicability without reattributing that execution.",
+    "Common Register failure/retry remains bound to Product 396d5886 and its reviewed common evidence; the native composition carries applicability on merged Native Login squash bc855ba5 without reattributing that execution.",
     "The two native commits retain their stable patch IDs. The Android test blob is byte-identical to historical native Product 8fe252cc; the iOS Register-owned method is byte-identical while unrelated predecessor Profile fixes share its enclosing XCTest file.",
     "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
     "The iOS evidence is intentionally bounded to rejection, preserved visible inputs, one explicit exact-request retry and its success marker; it does not exclude later unseen callbacks.",
-    "Independent exact-head review of 00bebcd23 returned GO without P0-P3; the attestation-only review-record head requires final exact-head confirmation before publication."
+    "Independent exact-head review is pending for the recomposed candidate before publication."
   ]
 }
