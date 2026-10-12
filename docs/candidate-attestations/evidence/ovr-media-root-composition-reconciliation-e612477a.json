@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "e612477ad2b7947fccdb46cd680a5120a5180be7",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "ovr_media_root_composition_contract_4_of_4_passed",
+    "eleven_owner_receipts_catalog_and_historical_reconciliation_exact_hashes_preserved",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_overlay_residual_removed",
+    "thematic_and_external_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "OVR-MEDIA",
+    "ownerReceiptCount": 11,
+    "catalogReceiptCount": 1,
+    "historicalReconciliationReceiptCount": 1,
+    "logicalProducerCount": 5,
+    "internalResidualRemoved": true,
+    "externalBoundariesPreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false
+  }
+}

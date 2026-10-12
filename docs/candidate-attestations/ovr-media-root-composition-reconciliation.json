@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-MEDIA"
+  ],
+  "status": "passed",
+  "productSha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+  "certification": "media-overlay-composed-generic-residual-removed-thematic-boundaries-preserved-recomposed-after-ios-repair-gates-passed-independent-review-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+      "report": "docs/candidate-attestations/evidence/ovr-media-root-composition-reconciliation-e612477a.json",
+      "reportSha256": "f41b3545441ae89aa34b20ce3670f4d8cbd43584646bcaecb63e73572ebb66ba",
+      "reportStatus": "passed",
+      "reportGitHead": "e612477ad2b7947fccdb46cd680a5120a5180be7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "ovr_media_root_composition_contract_4_of_4_passed",
+        "eleven_owner_receipts_catalog_and_historical_reconciliation_exact_hashes_preserved",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_overlay_residual_removed",
+        "thematic_and_external_boundaries_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+      "report": "docs/candidate-attestations/evidence/ovr-media-root-composition-recomposition-6a0869f8.json",
+      "reportSha256": "0bf90b8c4ad5d70c8de852c05dd61b3432915a92c7304571828b6528744ddec6",
+      "reportStatus": "passed",
+      "reportGitHead": "6a0869f89d2b2de101cb3735f47b78408b1b7239",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "single_product_commit_patch_equivalent",
+        "ovr_media_root_composition_contract_4_of_4_passed",
+        "thirteen_receipts_and_exact_hashes_preserved",
+        "thematic_and_external_boundaries_preserved",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    },
+    "frozenAttachmentRecomposition": {
+      "status": "passed",
+      "sha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+      "report": "docs/candidate-attestations/evidence/ovr-media-root-composition-recomposition-de566469.json",
+      "reportSha256": "8d6a323cebb49d4f2952f7ee6bd679d8ff0dcce7c9ff2eccc93b89ae94a5070d",
+      "reportStatus": "passed",
+      "reportGitHead": "de5664699af85cbce69e437d2d3d638193af8297",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "single_product_commit_patch_equivalent",
+        "ovr_media_root_composition_contract_4_of_4_passed",
+        "thirteen_receipts_and_exact_hashes_preserved",
+        "thematic_and_external_boundaries_preserved",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    },
+    "postIosRepairRecomposition": {
+      "status": "passed",
+      "sha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+      "report": "docs/candidate-attestations/evidence/ovr-media-root-composition-recomposition-c525ef56.json",
+      "reportSha256": "9a53357bbee427a2e018e77abb8c8c336047eddf81a2553821d7e59a40bbd3bb",
+      "reportStatus": "passed",
+      "reportGitHead": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_preserved_over_ios_repair_squash",
+        "ovr_media_root_composition_contract_4_of_4_passed",
+        "thirteen_receipts_and_exact_hashes_preserved",
+        "thematic_and_external_boundaries_preserved",
+        "historical_platform_execution_not_reexecuted",
+        "package_aggregate_conflict_resolved_with_exact_once_ovr_wiring",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/ovr-media-root-composition-reconciliation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/ovr-media-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "689f6fe2aae4fa48d9d6d0b588d903c3084a0783",
+    "blockingFindings": [],
+    "reviewedProductSha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "resolvedFindings": [
+      "Independent exact-head review confirmed exact patch ID, thirteen receipts and hashes, thematic and external boundaries, report hashes, historical custody, 4/4 contract, validator, diff-check and clean tree.",
+      "Independent exact-head review of 46a69f8982c9b5827d3cba203620a21857a31cf2 returned GO without P0-P3 after verifying the exact patch, thirteen exact receipts and hashes, report hash 943c0286, thematic and external boundaries, exact-once wiring, historical custody, contract, validator, diff-check and clean tree.",
+      "Independent exact-head review of 83e387797 returned GO without P0-P3 after confirming the exact Product patch ID, thirteen receipts and hashes, three report hashes, thematic and external boundaries, historical-only execution attribution, 4/4 contract, validator, exact-once wiring, diff-check, privacy scan and a clean tree.",
+      "P2 resolved: the prior GO remains historical at 83e387797/c814fb7b, while independent exact-head review of 689f6fe2aae4fa48d9d6d0b588d903c3084a0783 returned GO without P0-P3 for Product de5664699af85cbce69e437d2d3d638193af8297.",
+      "Fresh independent exact-head review is pending for the recomposition over iOS repair squash 6a76130a0."
+    ],
+    "historicalReviews": [
+      {
+        "status": "GO",
+        "reviewedSha": "83e387797c6f8b974e4523f2528e3378f6187094",
+        "productSha": "c814fb7bd2dbf3edcb27c6e3dd41f09bed4458b3",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      },
+      {
+        "status": "GO",
+        "reviewedSha": "689f6fe2aae4fa48d9d6d0b588d903c3084a0783",
+        "productSha": "de5664699af85cbce69e437d2d3d638193af8297",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      }
+    ]
+  },
+  "notes": [
+    "Eleven owner receipts, the finite source-extracted catalog and its prior reconciliation compose the five logical fullscreen producers: Feed, Official, public profile, Chat attachments and Account avatar preview.",
+    "The reconciliation removes only the generic OVR-MEDIA residual. Exhaustive legacy or third-party codecs and transports, prolonged background playback, external receivers and future COEP activation remain explicit external or exhaustive boundaries; comments and deep scroll remain owned by their certified units.",
+    "No runtime, backend, CI workflow or platform evidence receipt changed. Historical Android, Web/Wasm and iOS executions remain bound to their original Product and evidence heads.",
+    "The focal contract binds all thirteen receipts to exact SHA-256 values, requires passed evidence, guards the inventory wording and wires the contract exactly once into each affected aggregate.",
+    "This unit is based on the reviewed CHAT-ATTACHMENTS Lane B head 683e2701d2c1214187ec0e8174c2fc08e4c50a77 and must be recomposed over its eventual squash before publication.",
+    "Independent review of exact head 5843de9a6efb2ada885fe2a3b975d7a7bdd0894a returned GO without P0-P3 after reproducing 4/4 contracts, validator, range diff-check, thirteen exact receipt and report hashes, exact-once aggregate wiring, preserved thematic boundaries and absence of newly attributed execution.",
+    "Current Product 6a0869f89d2b2de101cb3735f47b78408b1b7239 replays the OVR-MEDIA composition commit with identical stable patch ID over reviewed CHAT-ATTACHMENTS head 951a9fdd811fd97473565fdf9e208d6128d025d9. Contract 4/4, validator and diff-check pass; historical platform execution is not reattributed.",
+    "Independent exact-head review of 1c65031e7f0ca9a051c74946a490e55a709d5565 returned GO without P0-P3 after verifying patch-id 0d713824, thirteen receipts and hashes, thematic and external boundaries, report hash dd4a5183, historical custody, 4/4 contract, validator, diff-check and clean tree.",
+    "Current Product 6a0869f89d2b2de101cb3735f47b78408b1b7239 replays the OVR-MEDIA composition commit with identical stable patch ID over reviewed CHAT-ATTACHMENTS candidate db9b082ad32abad8020a2b455e932a50afe9e5b5. Contract 4/4 is renewed without reattributing historical platform execution.",
+    "Independent exact-head review of 6e4035e8dc2426db647b99558fa793158a84231c returned GO without P0-P3 after confirming the exact product patch, thirteen receipts and hashes, preserved thematic or external limits, historical custody, 4/4 contract, validator and diff-check.",
+    "Current Product c814fb7bd2dbf3edcb27c6e3dd41f09bed4458b3 replays the OVR-MEDIA composition commit with identical stable patch ID over frozen CHAT-ATTACHMENTS candidate 5c7970663cd88d149271a5c665f129549938dc64. Contract 4/4 is renewed without reattributing historical platform execution.",
+    "Independent exact-head review of 46a69f8982c9b5827d3cba203620a21857a31cf2 returned GO without P0-P3; owner contract, validator and diff-check remained green.",
+    "Current Product c814fb7bd2dbf3edcb27c6e3dd41f09bed4458b3 preserves the OVR-MEDIA composition delta with identical stable patch ID over frozen CHAT-ATTACHMENTS candidate 1a6e5dae2b9106a64dccc8cbfa25d39d5c242d60. Contract 4/4 is renewed without reattributing historical platform execution. Fresh independent exact-head review is required before publication.",
+    "Current Product de5664699af85cbce69e437d2d3d638193af8297 preserves the exact OVR-MEDIA composition patch over merged CHAT-ATTACHMENTS squash d5ac14e1aaf1cf2a8dc0299559e1075edf3e338c; its tree matches frozen candidate 1a6e5dae2b9106a64dccc8cbfa25d39d5c242d60. Contract 4/4 is renewed without reattributing historical platform execution. Fresh independent exact-head review is required before publication.",
+    "Current Product c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c recomposes OVR-MEDIA over iOS repair squash 6a76130a0bad7ce75a58e99df81361f4e22c14bb.",
+    "The three inventory documents and focal OVR contract remain byte-identical to Product de5664699af85cbce69e437d2d3d638193af8297; package.json preserves OVR wiring exactly once while retaining the iOS SOS contract from the new base.",
+    "No runtime or platform evidence was reexecuted for this SHA-only recomposition. Fresh independent exact-head review is required before publication."
+  ]
+}

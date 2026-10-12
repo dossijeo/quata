@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "c814fb7bd2dbf3edcb27c6e3dd41f09bed4458b3",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-MEDIA",
+  "productSha": "c814fb7bd2dbf3edcb27c6e3dd41f09bed4458b3",
+  "predecessorSha": "1a6e5dae2b9106a64dccc8cbfa25d39d5c242d60",
+  "historicalProductSha": "7f8a718f55ae617957369ae49a520c4647ad6610",
+  "recomposedFromProductSha": "7f8a718f55ae617957369ae49a520c4647ad6610",
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "ovr_media_root_composition_contract_4_of_4_passed",
+    "thirteen_receipts_and_exact_hashes_preserved",
+    "thematic_and_external_boundaries_preserved",
+    "historical_platform_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalPlatformExecutionReexecuted": false,
+    "productPatchIdPreserved": true
+  },
+  "notes": [
+    "The OVR-MEDIA composition commit replays with the exact stable patch ID over the frozen CHAT-ATTACHMENTS candidate head.",
+    "All thirteen receipts and thematic or external boundaries remain unchanged.",
+    "Only the affected 4/4 contract is renewed; historical platform execution remains historical custody."
+  ]
+}
