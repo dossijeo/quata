@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "unit": "FLOW-EMOJI",
+  "status": "passed",
+  "productSha": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
+  "recompositionHead": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
+  "predecessorSha": "75ebe906463f2f09713b3385c0315e0e6fd42138",
+  "historicalProductSha": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
+  "recomposedFromProductSha": "07ab721b47e25773b8343c70801114b34e2eca41",
+  "scope": "Recomposition of the reviewed finite emoji owner catalog over the final independently reviewed Post Composer head, with the exact Post Composer receipt hash rebound to its current reviewed bytes.",
+  "git": {
+    "head": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "historical_composition_delta_preserved_except_exact_receipt_hash_rebind",
+    "post_composer_receipt_hash_matches_reviewed_predecessor_bytes",
+    "emoji_root_composition_contract_6_of_6_passed",
+    "six_owner_receipts_exact_hashes_preserved",
+    "product_panel_callsites_source_extracted",
+    "android_web_ios_evidence_preserved_without_reattribution",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_emoji_residual_removed",
+    "owner_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformE2eRepeatedForAncestry": false,
+    "ownerReceiptCount": 6,
+    "sourceExtractedPanelCallsiteFiles": 6,
+    "postComposerReceiptSha256": "d4da5b2a42934bd15d34928b153494f9cfd8fb82a47ab0efb8d9bf8dd98fc42c"
+  },
+  "limits": [
+    "The composition removes only the generic FLOW-EMOJI residual. Provider, network, publication and comment failures remain owned by their respective units."
+  ],
+  "notes": [
+    "The composition delta is preserved except for the required Post Composer receipt hash rebind after its final independent review; historical platform execution is not reattributed."
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "unit": "FLOW-EMOJI",
+  "status": "passed",
+  "productSha": "066120f9087d1c39bceb4c1c03d709a3a641b93a",
+  "recompositionHead": "066120f9087d1c39bceb4c1c03d709a3a641b93a",
+  "predecessorSha": "b7b0285b361be9a5f051d95d962a32003283c072",
+  "historicalProductSha": "e7dfdf4c3524d3a25b288893ce8002a0913471af",
+  "recomposedFromProductSha": "e7dfdf4c3524d3a25b288893ce8002a0913471af",
+  "scope": "Recomposition of the reviewed finite emoji owner catalog over the integrated Post Composer squash, with its exact receipt hash preserved because the squash tree is identical to the reviewed candidate.",
+  "git": {
+    "head": "066120f9087d1c39bceb4c1c03d709a3a641b93a",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "historical_composition_delta_preserved_except_exact_receipt_hash_rebind",
+    "post_composer_receipt_hash_matches_reviewed_predecessor_bytes",
+    "emoji_root_composition_contract_6_of_6_passed",
+    "six_owner_receipts_exact_hashes_preserved",
+    "product_panel_callsites_source_extracted",
+    "android_web_ios_evidence_preserved_without_reattribution",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_emoji_residual_removed",
+    "owner_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformE2eRepeatedForAncestry": false,
+    "ownerReceiptCount": 6,
+    "sourceExtractedPanelCallsiteFiles": 6,
+    "postComposerReceiptSha256": "62d552695dbd5ea099eefd1137f8beb02d3df6c73a350d19d588b2f3004eb345"
+  },
+  "limits": [
+    "The composition removes only the generic FLOW-EMOJI residual. Provider, network, publication and comment failures remain owned by their respective units."
+  ],
+  "notes": [
+    "The reviewed FLOW-EMOJI composition is preserved over integrated Post Composer squash b7b0285b361be9a5f051d95d962a32003283c072; its tree equals candidate e89fba1c4aa0cb0fa5ba35888b55abf669c456fa and the exact receipt hash remains current.",
+    "Historical Android, Web/Wasm and iOS execution is not reattributed."
+  ]
+}

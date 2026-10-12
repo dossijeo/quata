@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "emoji_root_composition_contract_6_of_6_passed",
+    "six_owner_receipts_exact_hashes_preserved",
+    "product_panel_callsites_source_extracted",
+    "android_web_ios_evidence_passed_for_each_platform_receipt",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_emoji_residual_removed",
+    "owner_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "FLOW-EMOJI",
+    "ownerReceiptCount": 6,
+    "productConsumers": [
+      "Chat",
+      "Feed comments",
+      "Official comments",
+      "public profile comments",
+      "Post Composer"
+    ],
+    "internalResidualRemoved": true,
+    "transportBoundariesPreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "sourceExtractedPanelCallsiteFiles": 6
+  }
+}
