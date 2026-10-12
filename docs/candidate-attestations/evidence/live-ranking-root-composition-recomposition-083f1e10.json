@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "083f1e10535deceeb8d33353b92eda7bcdb90f13",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-LIVE-RANKING",
+  "productSha": "083f1e10535deceeb8d33353b92eda7bcdb90f13",
+  "predecessorSha": "e1d501a1d3f04afd82f3f3dbba2f82136fefc861",
+  "historicalProductSha": "7864014c575aa6b054c5d8c45c5deb40acaed9b0",
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "live_ranking_composition_contract_4_of_4_passed",
+    "native_contracts_and_result_verifier_10_of_10_passed",
+    "official_total_order_contract_8_of_8_passed",
+    "feed_total_order_contract_passed",
+    "exact_receipts_and_owner_boundaries_preserved",
+    "historical_platform_and_database_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalExecutionReexecuted": false,
+    "productPatchIdPreserved": true
+  },
+  "notes": [
+    "The OVR-LIVE-RANKING composition commit replays with the exact stable patch ID over the final independently reviewed OVR-MEDIA head.",
+    "The finite catalog, exact owner boundaries, media separation and superseded quota failure remain unchanged.",
+    "Affected contracts were renewed; historical native and database execution remains bound to its original heads.",
+    "This recomposition changes commit identity only: no runtime, backend, platform receipt or historical execution is reattributed."
+  ]
+}

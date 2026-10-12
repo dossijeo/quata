@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "25391e2af6f076c475f14e796e85eced6fa2d762",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-LIVE-RANKING",
+  "productSha": "25391e2af6f076c475f14e796e85eced6fa2d762",
+  "predecessorSha": "8cbe9e378e4f711b71b849366cca063d83bd807b",
+  "historicalProductSha": "6d40b98785d66e4cf124cbafd1c8234642c9a1cc",
+  "recomposedFromProductSha": "6d40b98785d66e4cf124cbafd1c8234642c9a1cc",
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "live_ranking_composition_contract_4_of_4_passed",
+    "native_contracts_and_result_verifier_10_of_10_passed",
+    "official_total_order_contract_8_of_8_passed",
+    "feed_total_order_contract_passed",
+    "exact_receipts_and_owner_boundaries_preserved",
+    "historical_platform_and_database_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalExecutionReexecuted": false,
+    "productPatchIdPreserved": true
+  },
+  "notes": [
+    "The OVR-LIVE-RANKING composition commit replays with the exact stable patch ID over the final reviewed OVR-MEDIA candidate head.",
+    "The finite catalog, exact owner boundaries, media separation and superseded quota failure remain unchanged.",
+    "Affected contracts are renewed; historical native and database execution remains bound to its original heads."
+  ]
+}
