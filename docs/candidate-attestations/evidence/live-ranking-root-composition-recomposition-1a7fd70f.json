@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-LIVE-RANKING",
+  "productSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+  "predecessorSha": "9f5daed3d8cb2247ac46b842d62d85c61bd6c92c",
+  "historicalProductSha": "1ab88d8c901d638a306f77dc81e5c4f4e46a890b",
+  "recomposedFromProductSha": "1ab88d8c901d638a306f77dc81e5c4f4e46a890b",
+  "steps": [
+    "product_delta_preserved_over_ovr_media_squash",
+    "live_ranking_composition_contract_4_of_4_passed",
+    "native_contracts_and_result_verifier_10_of_10_passed",
+    "official_total_order_contract_8_of_8_passed",
+    "feed_total_order_contract_passed",
+    "exact_receipts_and_owner_boundaries_preserved",
+    "historical_platform_and_database_execution_not_reexecuted",
+    "package_aggregate_conflict_resolved_with_exact_once_live_ranking_wiring",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalExecutionReexecuted": false,
+    "fourDecisiveProductBlobsByteIdentical": true,
+    "packageLiveRankingWiringPreservedExactlyOnce": true,
+    "ovrAndSosContractWiringPreserved": true
+  },
+  "notes": [
+    "The OVR-LIVE-RANKING delta was recomposed over merged OVR-MEDIA squash 9f5daed3d8cb2247ac46b842d62d85c61bd6c92c, whose tree was verified identical to candidate bc448e0a5bad27cca58c8c299888110426f80ad4.",
+    "The product commit preserves the stable patch ID of the reviewed pre-squash Product c3c2cfb2b3494cc21033565f682141ccb77304e9.",
+    "The three inventory documents and focal ranking contract remain byte-identical to historical Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b.",
+    "Only affected contracts were renewed; historical platform and database execution remains historical custody."
+  ]
+}

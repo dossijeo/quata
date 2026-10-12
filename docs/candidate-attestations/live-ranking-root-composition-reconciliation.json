@@ -4,12 +4,12 @@
     "OVR-LIVE-RANKING"
   ],
   "status": "passed",
-  "productSha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
-  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-gates-passed-independent-exact-head-review-go-final-ci-pending",
+  "productSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-over-merged-ovr-media-gates-passed-independent-exact-head-review-pending",
   "evidence": {
     "composition": {
       "status": "passed",
-      "sha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
       "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-reconciliation-7864014c.json",
       "reportSha256": "4923ecaf5abd3d59347df4353c89a0d90516eee5947ef8e22bfa60fa9790a368",
       "reportStatus": "passed",
@@ -34,7 +34,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
       "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-083f1e10.json",
       "reportSha256": "cff809bd9527295087be982d344066f7440107686cf8bf698421a58a2355b704",
       "reportStatus": "passed",
@@ -58,7 +58,7 @@
     },
     "finalMediaRecomposition": {
       "status": "passed",
-      "sha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
       "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-1ab88d8c.json",
       "reportSha256": "c6ca099ca62522789548e809d8c658b1f729842edcf4df2b36a8164155ef3434",
       "reportStatus": "passed",
@@ -82,7 +82,7 @@
     },
     "postOvrMediaRecomposition": {
       "status": "passed",
-      "sha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
       "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-c3c2cfb2.json",
       "reportSha256": "35b3bb29aaafc19ead4e46c16a48c82fc9d0f0f527e6b65b83e9050caa2e1975",
       "reportStatus": "passed",
@@ -104,6 +104,31 @@
         "verified": true,
         "mode": "documentation_and-contract-only-no-runtime-backend-or-platform-mutation"
       }
+    },
+    "postOvrMediaSquashRecomposition": {
+      "status": "passed",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-1a7fd70f.json",
+      "reportSha256": "8c375c94611a9ecbaeae1af6e7d07a13aaa0e907f5fcadbec23eda89872ad318",
+      "reportStatus": "passed",
+      "reportGitHead": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_preserved_over_ovr_media_squash",
+        "live_ranking_composition_contract_4_of_4_passed",
+        "native_contracts_and_result_verifier_10_of_10_passed",
+        "official_total_order_contract_8_of_8_passed",
+        "feed_total_order_contract_passed",
+        "exact_receipts_and_owner_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "package_aggregate_conflict_resolved_with_exact_once_live_ranking_wiring",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
     }
   },
   "preflight": [
@@ -114,11 +139,11 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "ec31fbf13d6e58a96736568849ef21a7d09da1e6",
-    "previousReviewedSha": "c83bc8714fa41d5f3a634ec480977bd805a5cbd6",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "ec31fbf13d6e58a96736568849ef21a7d09da1e6",
     "blockingFindings": [],
-    "reviewedProductSha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
+    "reviewedProductSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -174,6 +199,7 @@
     "Current Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b preserves the exact OVR-LIVE-RANKING composition patch over independently reviewed OVR-MEDIA candidate ec88e5a84dfa91b1a7b180f826a5802e0358aa4c; prior media head 8cbe9e378e4f711b71b849366cca063d83bd807b remains historical custody. Affected contracts are renewed without reattributing platform or database execution. Fresh independent exact-head review is required before publication.",
     "Current Product c3c2cfb2b3494cc21033565f682141ccb77304e9 recomposes OVR-LIVE-RANKING over reviewed OVR-MEDIA head bc448e0a5bad27cca58c8c299888110426f80ad4.",
     "The three inventory documents and focal ranking contract remain byte-identical to Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b; package.json preserves ranking wiring exactly once while retaining OVR-MEDIA and iOS SOS contracts.",
-    "No runtime, database or platform evidence was reexecuted. Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3."
+    "No runtime, database or platform evidence was reexecuted. Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3.",
+    "Current Product 1a7fd70f526b6f7beddf65724221f214cf711a5b preserves stable patch ID 252a1742db7aef0d924389983117f3b26caecc8c over merged OVR-MEDIA squash 9f5daed3d8cb2247ac46b842d62d85c61bd6c92c; the squash tree was verified identical to candidate bc448e0a5bad27cca58c8c299888110426f80ad4. Affected contracts were renewed without reattributing historical execution. Fresh independent exact-head review is required before publication."
   ]
 }
