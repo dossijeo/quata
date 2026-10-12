@@ -49,12 +49,17 @@
     "MockData remains available to explicitly opted-in debug fixtures.",
     "Release builds ignore quata.useMockBackend even if the property is accidentally present.",
     "The product patch and app/build.gradle.kts blob are unchanged from the reviewed historical Product; the affected joint generation gate passed again on the recomposed Product.",
-    "This attestation does not attribute an installation, backend mutation or E2E execution."
+    "This attestation does not attribute an installation, backend mutation or E2E execution.",
+    "Independent exact-head review of db7f13842 returned GO without P0-P3; this attestation-only review-record head requires final exact-head confirmation before publication."
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "db7f138428f13a9e4b91669b2aab7a74304387f1",
     "blockingFindings": [],
+    "resolvedFindings": [
+      "The initial P3 was resolved by removing shell-invalid backslashes around the quoted Gradle property so every manifest command matches the executed PowerShell command and evidence report.",
+      "Independent exact-head review of db7f138428f13a9e4b91669b2aab7a74304387f1 returned GO without P0-P3 after confirming the stable patch ID, byte-identical build script, fresh joint Debug/Release generation values and hashes, 17/17 contract, validator, diff-check and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -63,7 +68,7 @@
     },
     "reviewedProductSha": "4b5fcbae50fa271a4d0654ca3aba36be37e6ee43"
   },
-  "certification": "android-release-real-backend-recomposed-affected-gates-passed-independent-exact-head-review-pending",
+  "certification": "android-release-real-backend-recomposed-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "historicalEvidence": {
     "android": {
       "status": "passed",
