@@ -105,39 +105,48 @@ fun EmergencyContactsEditorContent(
     var isMessageFocused by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
     var keyboardOwner by remember { mutableStateOf<EmergencyContactsKeyboardOwner?>(null) }
+    val keyboardSessionActive = isImeVisible || keyboardOwner != null
     val selectedIdSet = selectedIds.toSet()
     val visibleUsers = filterEmergencyContactCandidates(candidates, selectedIdSet, query)
 
     SideEffect {
         onTabChanged(selectedTab)
     }
-    LaunchedEffect(isMessageFocused, isSearchFocused, isImeVisible, isLandscapeLayout) {
+    LaunchedEffect(
+        isMessageFocused,
+        isSearchFocused,
+        isImeVisible,
+        isLandscapeLayout,
+        messageScrollState.maxValue,
+    ) {
         if (isMessageFocused && isImeVisible) {
             withFrameNanos { }
             if (isLandscapeLayout) messageScrollState.scrollTo(messageScrollState.maxValue)
             messageBringIntoViewRequester.bringIntoView()
         }
-        if (!isMessageFocused && !isSearchFocused && !isImeVisible) keyboardOwner = null
+        if (!isMessageFocused && !isSearchFocused && !isImeVisible) {
+            // Responsive layout changes replace the focused field for one frame. Give the new
+            // field time to claim the same keyboard session before treating focus as dismissed.
+            withFrameNanos { }
+            withFrameNanos { }
+            if (!isMessageFocused && !isSearchFocused && !isImeVisible) keyboardOwner = null
+        }
     }
     val messageInputIsMounted = isLandscapeLayout || selectedTab == EmergencyContactsTab.Message
     val searchInputIsMounted = isLandscapeLayout || selectedTab == EmergencyContactsTab.Contacts
-    val restoreKeyboardOwnerAfterLayoutChange =
-        keyboardOwner != null && (isMessageFocused || isSearchFocused || isImeVisible)
     LaunchedEffect(isLandscapeLayout) {
-        if (restoreKeyboardOwnerAfterLayoutChange) {
-            val ownerToRestore = keyboardOwner ?: return@LaunchedEffect
-            withFrameNanos { }
-            when (ownerToRestore) {
-                EmergencyContactsKeyboardOwner.Search -> {
-                    if (searchInputIsMounted) searchFocusRequester.requestFocus()
-                }
-                EmergencyContactsKeyboardOwner.Message -> {
-                    if (messageInputIsMounted) {
-                        messageFocusRequester.requestFocus()
-                        withFrameNanos { }
-                        if (isLandscapeLayout) messageScrollState.scrollTo(messageScrollState.maxValue)
-                        messageBringIntoViewRequester.bringIntoView()
-                    }
+        val ownerToRestore = keyboardOwner ?: return@LaunchedEffect
+        withFrameNanos { }
+        when (ownerToRestore) {
+            EmergencyContactsKeyboardOwner.Search -> {
+                if (searchInputIsMounted) searchFocusRequester.requestFocus()
+            }
+            EmergencyContactsKeyboardOwner.Message -> {
+                if (messageInputIsMounted) {
+                    messageFocusRequester.requestFocus()
+                    withFrameNanos { }
+                    if (isLandscapeLayout) messageScrollState.scrollTo(messageScrollState.maxValue)
+                    messageBringIntoViewRequester.bringIntoView()
                 }
             }
         }
@@ -154,7 +163,7 @@ fun EmergencyContactsEditorContent(
     ) {
         if (isLandscapeLayout) {
             EmergencyContactsLandscapeEditorLayoutContent(
-                showTopBar = !isImeVisible,
+                showTopBar = !keyboardSessionActive,
                 topBar = {
                     EmergencyContactsLandscapeTopBarContent(
                         backLabel = strings.header.back,
@@ -211,15 +220,26 @@ fun EmergencyContactsEditorContent(
                     )
                 },
                 message = { modifier ->
-                    Column(modifier.verticalScroll(messageScrollState)) {
-                        EmergencyContactsLandscapeMessageIntroContent(
-                            tabLabel = strings.header.messageTab,
-                            description = strings.header.description,
-                        )
+                    val compactForIme = keyboardSessionActive &&
+                        keyboardOwner == EmergencyContactsKeyboardOwner.Message
+                    Column(
+                        modifier
+                            .verticalScroll(messageScrollState)
+                            // Apply the IME inset to the editor pane that owns the focused field.
+                            // Insetting the complete landscape split can consume both panes.
+                            .imePadding()
+                    ) {
+                        if (!compactForIme) {
+                            EmergencyContactsLandscapeMessageIntroContent(
+                                tabLabel = strings.header.messageTab,
+                                description = strings.header.description,
+                            )
+                        }
                         EmergencyContactsLandscapeMessagePanelContent(
                             title = strings.messageTitle,
                             hint = strings.messageHint,
                             errorMessage = errorMessage,
+                            compactForIme = compactForIme,
                             input = {
                                 messageInput(
                                     Modifier
@@ -236,7 +256,7 @@ fun EmergencyContactsEditorContent(
                                         },
                                     message,
                                     onMessageChange,
-                                    4,
+                                    if (compactForIme) 1 else 4,
                                     5,
                                 )
                             },

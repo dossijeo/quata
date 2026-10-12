@@ -250,6 +250,23 @@ final class QuataFeedFrameworkTests: XCTestCase {
         wait(for: [hidden], timeout: 1)
     }
 
+    func testKeyboardBackdropHidesAfterDismissWhenLayoutGuideHasNoKeyboardOverlap() throws {
+        let hostView = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let controller = IosKeyboardBackdropController(hostView: hostView)
+        controller.install()
+        controller.show(forKeyboardFrame: CGRect(x: 0, y: 590, width: 402, height: 284))
+        controller.finishKeyboardHide()
+
+        let backdrop = try XCTUnwrap(
+            hostView.subviews.first { $0.accessibilityIdentifier == "quata-ios-keyboard-opaque-backdrop" }
+        )
+        if #available(iOS 17.0, *) {
+            XCTAssertFalse(hostView.keyboardLayoutGuide.usesBottomSafeArea)
+        }
+        XCTAssertTrue(backdrop.isHidden)
+        XCTAssertEqual(backdrop.frame, .zero)
+    }
+
     func testAppRegistersTheStableQuataCustomUrlScheme() {
         let appBundle = Bundle(for: AppDelegate.self)
 
