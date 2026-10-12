@@ -55,7 +55,14 @@ fun LoginForm(
     Spacer(Modifier.height(compactSpace))
     passwordInputOverride?.invoke(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
         ?: QuataTextField(state.password, { onEvent(LoginUiEvent.PasswordChanged(it)) }, strings.password, isPassword = true, modifier = Modifier.fillMaxWidth().semantics { testTag = "auth.password" })
-    state.error?.let { Spacer(Modifier.height(compactSpace)); Text(it, color = MaterialTheme.colorScheme.error) }
+    state.error?.let {
+        Spacer(Modifier.height(compactSpace))
+        Text(
+            text = it,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.semantics { testTag = "auth.error" },
+        )
+    }
     Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
     submitButtonOverride?.invoke(if (state.isLoading) strings.signingIn else strings.signIn, !state.isBusy, { onEvent(LoginUiEvent.Submit) }, Modifier.semantics { testTag = "auth.submit" })
         ?: QuataPrimaryButton(if (state.isLoading) strings.signingIn else strings.signIn, modifier = Modifier.semantics { testTag = "auth.submit" }, enabled = !state.isBusy) { onEvent(LoginUiEvent.Submit) }

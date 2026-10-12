@@ -44,18 +44,20 @@ class LoginViewModel(
         }
     }
 
-    private fun login() = scope.launch {
-        if (_uiState.value.isBusy) return@launch
+    private fun login() {
+        if (_uiState.value.isBusy) return
         val state = _uiState.value
         _uiState.value = state.copy(isLoading = true, error = null)
-        repository.login(state.countryCode, state.phone, state.password)
-            .onSuccess { _effects.emit(LoginEffect.Success) }
-            .onFailure {
-                val message = it.message ?: "Error al iniciar sesión"
-                _uiState.value = _uiState.value.copy(error = message)
-                _effects.emit(LoginEffect.Failure(message))
-            }
-        _uiState.value = _uiState.value.copy(isLoading = false)
+        scope.launch {
+            repository.login(state.countryCode, state.phone, state.password)
+                .onSuccess { _effects.emit(LoginEffect.Success) }
+                .onFailure {
+                    val message = it.message ?: "Error al iniciar sesión"
+                    _uiState.value = _uiState.value.copy(error = message)
+                    _effects.emit(LoginEffect.Failure(message))
+                }
+            _uiState.value = _uiState.value.copy(isLoading = false)
+        }
     }
 
     private fun loginWithGoogle() {

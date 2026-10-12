@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "status": "passed",
+  "unit": "SCR-AUTH-LOGIN",
+  "git": {
+    "head": "a8a06e43691bdc251377caa1bd68ba3d1d6830a5",
+    "workingTreeDirty": false
+  },
+  "platform": "common-compose-rendered-in-chrome-headless",
+  "commands": [
+    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
+    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "git diff --check"
+  ],
+  "steps": [
+    "credentials_entered_in_real_shared_login_form",
+    "first_submit_disabled_while_transport_pending",
+    "duplicate_submit_before_dispatcher_advance_is_ignored",
+    "failure_visible_on_stable_auth_error_semantics",
+    "phone_and_password_preserved_after_failure",
+    "explicit_retry_reuses_exact_credentials_once",
+    "successful_retry_emits_single_authentication_effect"
+  ],
+  "result": {
+    "wasmJsBrowserTest": "passed",
+    "moduleTests": 29,
+    "focalTests": 1,
+    "failures": 0,
+    "androidCommonConsumerCompilation": "passed",
+    "iosX64CommonConsumerCompilation": "passed",
+    "backendMutations": 0,
+    "runtimeSha256": "bec70c10632a6ba0043645ce88440fabc943d096dc2130338646cde0866d1987",
+    "testSha256": "582060f4fa83ff358795c77ee9b6c9b21027fb873b501558ab6fdb7ae79c28c2"
+  },
+  "diagnostics": [
+    "The first focal assertion inspected the masked password semantics instead of ViewModel state; the assertion was corrected before the passing execution.",
+    "The aggregate wasmJsTest subsequently reached an unrelated Node dry-run failure because Compose Skiko cannot fetch skiko.wasm under that Node runner. The authoritative browser task passed and the native consumers compiled.",
+    "Independent exact-head review found that loading was reserved inside the coroutine; Product a8a06e436 reserves it synchronously before launch and the rendered test delivers a second Submit before dispatcher advance."
+  ],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_fixtures": 0,
+        "local_fixtures": 0
+      }
+    }
+  },
+  "scope": "Rendered common Login form failure and retry behavior. The test uses a hermetic synthetic LoginRepository around the real shared form and ViewModel; it does not claim a backend outage or native platform UI execution."
+}

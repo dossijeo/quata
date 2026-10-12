@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-LOGIN",
+  "productSha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+  "predecessorSha": "712dfb7ed7cb1036978491a388818cbd324f9554",
+  "historicalProductSha": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+  "historicalExecutionSha": "a8a06e43691bdc251377caa1bd68ba3d1d6830a5",
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "three_owned_runtime_and_test_blobs_byte_identical",
+    "synchronous_submission_reservation_and_duplicate_suppression_preserved",
+    "wasm_browser_rendered_gate_passed",
+    "android_common_compilation_passed",
+    "ios_x64_common_compilation_passed",
+    "historical_rendered_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchId": "exact",
+    "wasmJsBrowserTest": "passed",
+    "compileAndroidMain": "passed",
+    "compileKotlinIosX64": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeatedForAncestry": false,
+    "ownedProductBlobs": "3_of_3_byte_identical"
+  },
+  "notes": [
+    "The Login failure/retry Product commit replays with the exact stable patch ID over the reviewed FLOW-EMOJI root predecessor.",
+    "The two runtime files and rendered common test are byte-identical to the prior reviewed Product; affected gates were renewed without attributing new native UI or backend execution.",
+    "Recomposed over the final independently reviewed FLOW-EMOJI root; no native UI or backend execution is reattributed."
+  ]
+}

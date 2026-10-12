@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-LOGIN",
+  "productSha": "f56bd12efd344e219388d0ffe7957341b9b34f02",
+  "predecessorSha": "2680187459086dee4f273820d66c908e9b36c892",
+  "historicalHead": "1a4489fc4af31ee4c9b4872fc11198d63b45ff6c",
+  "steps": [
+    "three_owned_runtime_and_test_blobs_byte_identical",
+    "synchronous_submission_reservation_and_duplicate_suppression_preserved",
+    "historical_rendered_and_native_compile_evidence_not_reattributed",
+    "affected_gates_repeated",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "ownedProductBlobs": "3_of_3_byte_identical"
+  },
+  "notes": [
+    "The Login failure/retry product delta was applied over the corrected FLOW-EMOJI root composition predecessor.",
+    "The two runtime files and the rendered common test are byte-identical to historical head 1a4489fc4af31ee4c9b4872fc11198d63b45ff6c.",
+    "Historical Chrome rendered execution and Android/iOS common compilations remain bound to their original evidence and are not attributed to this ancestry-only recomposition."
+  ]
+}

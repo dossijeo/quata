@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "20c890b2bdd8a3660f5b4e06cff0087c756f4bae",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-LOGIN",
+  "productSha": "20c890b2bdd8a3660f5b4e06cff0087c756f4bae",
+  "predecessorSha": "0b3913346829eae4d535359e74a0d501e3ab38f7",
+  "historicalProductSha": "d562121955bff9f9f8826b1bfc71539e0a7b30ec",
+  "historicalExecutionSha": "a8a06e43691bdc251377caa1bd68ba3d1d6830a5",
+  "productPatchId": "4b8d43fc37452c96eec36a6b2315223d775caf7f",
+  "ownedBlobs": [
+    {
+      "path": "feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/login/LoginForm.kt",
+      "gitOid": "254f35facf07e5ac85229fe35675120481406add",
+      "sha256": "e7a3a0ed7a92e62231cec232494043ae18719fa7302488968e7b7e2ecff1c40f"
+    },
+    {
+      "path": "feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/login/LoginViewModel.kt",
+      "gitOid": "1d46b98f325ceed921f8c7a887d4894557302076",
+      "sha256": "bec70c10632a6ba0043645ce88440fabc943d096dc2130338646cde0866d1987"
+    },
+    {
+      "path": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/LoginFailureRetryUiTest.kt",
+      "gitOid": "7d3a36563f0b57e08ef83c6eab3581b5d6a8e06a",
+      "sha256": "582060f4fa83ff358795c77ee9b6c9b21027fb873b501558ab6fdb7ae79c28c2"
+    }
+  ],
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "three_owned_runtime_and_test_blobs_byte_identical",
+    "synchronous_submission_reservation_and_duplicate_suppression_preserved",
+    "wasm_browser_rendered_gate_passed",
+    "android_common_compilation_passed",
+    "ios_x64_common_compilation_passed",
+    "historical_rendered_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchId": "exact",
+    "wasmJsBrowserTest": "passed",
+    "compileAndroidMain": "passed",
+    "compileKotlinIosX64": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeatedForAncestry": false,
+    "ownedProductBlobs": "3_of_3_byte_identical"
+  },
+  "notes": [
+    "The Login failure/retry Product commit replays with the exact stable patch ID over final independently reviewed FLOW-EMOJI root 0b3913346829eae4d535359e74a0d501e3ab38f7.",
+    "The two runtime files and rendered common test are byte-identical to the prior reviewed Product.",
+    "Only the affected rendered Wasm test and Android/iOS common compilations are renewed; native UI, backend and unrelated E2E execution are not repeated or reattributed."
+  ]
+}
