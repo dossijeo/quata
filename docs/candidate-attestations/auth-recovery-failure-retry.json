@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
-  "certification": "rendered-common-recovery-failure-retry-recomposed-over-integrated-registration-affected-gates-passed-independent-exact-head-review-pending",
+  "certification": "rendered-common-recovery-failure-retry-recomposed-over-integrated-registration-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -89,13 +89,14 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "ea2025395d52f6932fab0226fcb4b51ec1e65a27",
     "previousReviewedSha": "ff8848e1bc832d0e538c361178de18d854859809",
     "blockingFindings": [],
     "resolvedFindings": [
       "Independent exact-head review confirmed exact Product patch-id, two byte-identical owned blobs, tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent reports and hashes, historical custody at 301e868e without native/backend/E2E reattribution, validator, diff-check and clean tree.",
-      "Independent exact-head review of ff8848e1bc832d0e538c361178de18d854859809 returned GO without P0-P3 after confirming Product f9ef7b0826d4a85adb5804830cb9f7190b41c843, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, report hashes, affected common gates, validator, diff-check, clean tree and custody at 301e868e without reattribution."
+      "Independent exact-head review of ff8848e1bc832d0e538c361178de18d854859809 returned GO without P0-P3 after confirming Product f9ef7b0826d4a85adb5804830cb9f7190b41c843, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, report hashes, affected common gates, validator, diff-check, clean tree and custody at 301e868e without reattribution.",
+      "Independent exact-head review of ea2025395d52f6932fab0226fcb4b51ec1e65a27 returned GO without P0-P3 after confirming Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent report hashes, Wasm 31/31 plus Android/iOS common gates, validator, diff-check, clean tree and custody at 301e868e without native/backend/E2E reattribution."
     ],
     "findingCounts": {
       "P0": 0,
@@ -113,6 +114,7 @@
     "Current Product 310c58f3fb622f866cabfe433595f62865b8172f replays the exact Recovery failure/retry patch over current independently reviewed Registration retry c6bfa5c17145d148384256e230b6b227a7f78999; both owned blobs are byte-identical, affected common gates passed, and no native/backend/E2E execution is reattributed.",
     "Current Product f9ef7b0826d4a85adb5804830cb9f7190b41c843 preserves stable patch ID 22b15467 over final independently reviewed Registration retry eb0066e0d185673b35a4c8efc1fd2ac93f1e23eb; both owned blobs remain byte-identical, affected common gates pass, and historical rendered execution remains bound to 301e868e7cc863813876e80636e0db19f348722b without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
     "Independent exact-head review of ff8848e1bc832d0e538c361178de18d854859809 returned GO without P0-P3 after confirming Product f9ef7b0826d4a85adb5804830cb9f7190b41c843, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, report hashes, affected common gates, validator, diff-check, clean tree and custody at 301e868e without reattribution.",
-    "Current Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5 preserves stable patch ID 22b15467 over integrated Common Register squash 1d078a262e765a1dc3a511eb7c147d6063fd3969; both owned blobs remain byte-identical, affected Wasm 31/31 plus Android/iOS common gates pass, and historical rendered execution remains bound to 301e868e7cc863813876e80636e0db19f348722b without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication."
+    "Current Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5 preserves stable patch ID 22b15467 over integrated Common Register squash 1d078a262e765a1dc3a511eb7c147d6063fd3969; both owned blobs remain byte-identical, affected Wasm 31/31 plus Android/iOS common gates pass, and historical rendered execution remains bound to 301e868e7cc863813876e80636e0db19f348722b without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
+    "Independent exact-head review of ea2025395d52f6932fab0226fcb4b51ec1e65a27 returned GO without P0-P3 after confirming Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent report hashes, Wasm 31/31 plus Android/iOS common gates, validator, diff-check, clean tree and custody at 301e868e without native/backend/E2E reattribution."
   ]
 }
