@@ -4,12 +4,12 @@
     "SCR-AUTH-REGISTER"
   ],
   "status": "passed",
-  "productSha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
-  "certification": "rendered-common-registration-failure-retry-complete-recomposed-over-current-login-gates-passed-independent-exact-head-review-go-final-CI-pending",
+  "productSha": "d2167675a20b804fea85aee81600672bf06aa598",
+  "certification": "rendered-common-registration-failure-retry-recomposed-over-current-login-affected-gates-passed-independent-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
+      "sha": "d2167675a20b804fea85aee81600672bf06aa598",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-334c43cf.json",
       "reportSha256": "65c4314a9df6de721d15a8f99ba83a09b38c2adf2ac250ab9ee7ee10bfb19ad4",
       "reportStatus": "passed",
@@ -32,7 +32,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
+      "sha": "d2167675a20b804fea85aee81600672bf06aa598",
       "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-396d5886.json",
       "reportSha256": "2be72f6243209204d735c3b56760cd3c6ffb030373427f7ba4bb0617661ec017",
       "reportStatus": "passed",
@@ -57,11 +57,11 @@
     },
     "postCurrentLoginRecomposition": {
       "status": "passed",
-      "sha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
-      "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-65be4f40.json",
-      "reportSha256": "a61bf847391cc36982e76c9a27fd6c7be65601da4a8cfea781800d6e5f2d1340",
+      "sha": "d2167675a20b804fea85aee81600672bf06aa598",
+      "report": "docs/candidate-attestations/evidence/auth-register-failure-retry-recomposition-d2167675.json",
+      "reportSha256": "850bd4ee6bae67d74115f6faca2bac956dfd98de36fd28cb487e50e198871979",
       "reportStatus": "passed",
-      "reportGitHead": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5",
+      "reportGitHead": "d2167675a20b804fea85aee81600672bf06aa598",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -88,8 +88,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2b6d765c7ce252d666a23634b1701e58cfc18fd2",
+    "status": "PENDING",
+    "reviewedSha": null,
     "previousReviewedSha": "a75c11c80ba0a0cd3daaa2fbc912563453c0c1df",
     "blockingFindings": [],
     "resolvedFindings": [
@@ -102,7 +102,7 @@
       "P2": 0,
       "P3": 0
     },
-    "reviewedProductSha": "65be4f4022eb96c56d9d587b9ca22e5a0534a4b5"
+    "reviewedProductSha": "d2167675a20b804fea85aee81600672bf06aa598"
   },
   "notes": [
     "The real common Register form renders pending, failure and retry while RegisterViewModel preserves all seven request fields after rejection.",
@@ -110,6 +110,7 @@
     "Historical rendered execution remains bound to 334c43cf9a3811e957e472ef1bd4593979098b3a; this recomposition does not claim native UI execution, an enabled production registration endpoint or a real backend outage.",
     "Current Product 396d5886b24e103e497402b09e6cfeab123bb743 replays the exact registration failure/retry patch over final independently reviewed Login retry a38c9cb0e09ecd1f49283c16bbacffbd1c05b1b6. Both owned blobs remain byte-identical; affected common gates and fresh independent exact-head review are required before publication.",
     "Current Product 65be4f4022eb96c56d9d587b9ca22e5a0534a4b5 preserves stable patch ID ee203e71 over reviewed Login failure/retry cbbd26a6beee2f44bfe277f4699f39c722413871; affected common gates pass without native/backend/E2E reattribution.",
-    "Independent exact-head review of 2b6d765c7ce252d666a23634b1701e58cfc18fd2 returned GO without P0-P3 after verifying patch-id ee203e71, two identical blobs, atomic tryLock with finally release, seven fields, exact retry and single success, report hashes, custody at 334c43cf without reattribution, Wasm 30/30 plus Android/iOS common gates, validator, diff-check and clean tree."
+    "Independent exact-head review of 2b6d765c7ce252d666a23634b1701e58cfc18fd2 returned GO without P0-P3 after verifying patch-id ee203e71, two identical blobs, atomic tryLock with finally release, seven fields, exact retry and single success, report hashes, custody at 334c43cf without reattribution, Wasm 30/30 plus Android/iOS common gates, validator, diff-check and clean tree.",
+    "Current Product d2167675a20b804fea85aee81600672bf06aa598 preserves stable patch ID ee203e71 over final independently reviewed Login failure/retry a6edf6e830364e421d8cb5670d0eedd11b7485ea; both owned blobs remain byte-identical, affected common gates pass, and historical rendered execution remains bound to 334c43cf9a3811e957e472ef1bd4593979098b3a without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication."
   ]
 }
