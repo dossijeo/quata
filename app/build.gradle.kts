@@ -65,6 +65,10 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword,
 ).all { !it.isNullOrBlank() }
 
+// Sample data is a local debug aid. A release artifact must always use the real backend even when
+// a caller accidentally carries the Gradle property used by hermetic development fixtures.
+val useMockBackendForDebug = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
+
 android {
     namespace = "com.quata"
     compileSdk {
@@ -88,9 +92,7 @@ android {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
 
-        // Backend real Supabase/WordPress. Activa mock con: ./gradlew assembleDebug -Pquata.useMockBackend=true
-        val useMockBackend = providers.gradleProperty("quata.useMockBackend").orElse("false").get()
-        buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackend)
+        buildConfigField("boolean", "USE_MOCK_BACKEND", "false")
         // Shadow-only boundary validation. It never changes the endpoint, request, or login result.
         val authBoundaryShadow = providers.gradleProperty("quata.authBoundaryShadow").orElse("false").get()
         buildConfigField("boolean", "AUTH_BOUNDARY_SHADOW", authBoundaryShadow)
@@ -149,6 +151,8 @@ android {
 
     buildTypes {
         debug {
+            // Hermetic fixtures may opt into sample data, but the release type cannot inherit it.
+            buildConfigField("boolean", "USE_MOCK_BACKEND", useMockBackendForDebug)
             if (evidenceBackendOverride) {
                 buildConfigField("boolean", "EVIDENCE_BACKEND_OVERRIDE_ENABLED", "true")
                 buildConfigField("String", "EVIDENCE_SUPABASE_URL", buildConfigString(evidenceSupabaseUrl))
