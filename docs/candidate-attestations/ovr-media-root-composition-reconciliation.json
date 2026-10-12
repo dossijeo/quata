@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
-  "certification": "media-overlay-composed-generic-residual-removed-thematic-boundaries-preserved-recomposed-after-ios-repair-gates-passed-independent-review-pending",
+  "certification": "media-overlay-composed-generic-residual-removed-thematic-boundaries-preserved-recomposed-after-ios-repair-gates-passed-independent-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -103,8 +103,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "b7ae4e0ff0d92548f47d8c4a4abcd6f226842ee9",
     "previousReviewedSha": "689f6fe2aae4fa48d9d6d0b588d903c3084a0783",
     "blockingFindings": [],
     "reviewedProductSha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
@@ -119,7 +119,7 @@
       "Independent exact-head review of 46a69f8982c9b5827d3cba203620a21857a31cf2 returned GO without P0-P3 after verifying the exact patch, thirteen exact receipts and hashes, report hash 943c0286, thematic and external boundaries, exact-once wiring, historical custody, contract, validator, diff-check and clean tree.",
       "Independent exact-head review of 83e387797 returned GO without P0-P3 after confirming the exact Product patch ID, thirteen receipts and hashes, three report hashes, thematic and external boundaries, historical-only execution attribution, 4/4 contract, validator, exact-once wiring, diff-check, privacy scan and a clean tree.",
       "P2 resolved: the prior GO remains historical at 83e387797/c814fb7b, while independent exact-head review of 689f6fe2aae4fa48d9d6d0b588d903c3084a0783 returned GO without P0-P3 for Product de5664699af85cbce69e437d2d3d638193af8297.",
-      "Fresh independent exact-head review is pending for the recomposition over iOS repair squash 6a76130a0."
+      "P3 resolved by normalizing the manifest to LF; independent exact-head review of b7ae4e0ff0d92548f47d8c4a4abcd6f226842ee9 returned GO without P0-P3 after reproducing full-range diff-check, contract 4/4, validator, blob and hash checks, package semantic merge and clean tree."
     ],
     "historicalReviews": [
       {
@@ -163,6 +163,6 @@
     "Current Product de5664699af85cbce69e437d2d3d638193af8297 preserves the exact OVR-MEDIA composition patch over merged CHAT-ATTACHMENTS squash d5ac14e1aaf1cf2a8dc0299559e1075edf3e338c; its tree matches frozen candidate 1a6e5dae2b9106a64dccc8cbfa25d39d5c242d60. Contract 4/4 is renewed without reattributing historical platform execution. Fresh independent exact-head review is required before publication.",
     "Current Product c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c recomposes OVR-MEDIA over iOS repair squash 6a76130a0bad7ce75a58e99df81361f4e22c14bb.",
     "The three inventory documents and focal OVR contract remain byte-identical to Product de5664699af85cbce69e437d2d3d638193af8297; package.json preserves OVR wiring exactly once while retaining the iOS SOS contract from the new base.",
-    "No runtime or platform evidence was reexecuted for this SHA-only recomposition. Fresh independent exact-head review is required before publication."
+    "No runtime or platform evidence was reexecuted for this SHA-only recomposition. Independent exact-head review of b7ae4e0ff0d92548f47d8c4a4abcd6f226842ee9 returned GO without P0-P3."
   ]
 }
