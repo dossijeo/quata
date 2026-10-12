@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "check": "POST-PUBLISH-ANDROID-REAL-001",
+  "status": "passed",
+  "productSha": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+  "git": {
+    "head": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "android_debug_and_test_apks_built",
+    "android_real_text_post_published_from_common_composer",
+    "post_publish_cleanup_verified_residue_absent"
+  ],
+  "cleanup": {
+    "verified": true,
+    "physicalResidue": 0
+  },
+  "artifacts": {
+    "android-post-publish-composer-emoji-after-cell-tap.png": "cfda31df16e50982b79ead52b336019d7da94d51035a2db976851875a7f0f1a6",
+    "android-post-publish-composer-filled.png": "903bf0ee4482a87c44bfbbeb1f0c4f8eb1af79582e171c4bb947a2cd0cabb143",
+    "android-post-publish-published.png": "2e9137bfa4dca78d0a6e08a374eea6711296302e9e7434c528af2aab00c1b16a"
+  },
+  "sourceReportSha256": "909051b41b12cf1fb26d000558a0d019f1dc9deb31e968a5d167427395513ba6",
+  "notes": [
+    "Sanitized durable projection; the raw local report and screenshots remain host-local.",
+    "The common picker is brought into the visible composer viewport without dismissing it, the exact catalog emoji is visible in the shared text field, the picker is closed through its trigger and one exact metadata-encoded post is published and physically cleaned.",
+    "The accepted Android run is bound directly to the exact product head after the shared fixture added fail-closed duplicate-marker and exact-body validation."
+  ]
+}

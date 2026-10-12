@@ -88,6 +88,7 @@ class PostPublishRealInstrumentedTest {
         val locationLabel = optionalArgument("quataPostPublishLocationLabel")
         val failOnce = optionalArgument("quataPostProgressRollbackFailOnce") == "1"
         val failAfterUpload = optionalArgument("quataPostStorageRollbackFailAfterUpload") == "1"
+        val useEmojiPicker = optionalArgument("quataPostPublishUseEmojiPicker") == "1"
         assumeTrue(
             "POST-PUBLISH-ANDROID-REAL-001 is opt-in and requires local credentials plus marker.",
             !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank() && !destinationWallId.isNullOrBlank(),
@@ -121,9 +122,14 @@ class PostPublishRealInstrumentedTest {
             saveScreenshot("android-post-publish-composer-opened")
 
             if (mode == "text") {
-                compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
-                    .performScrollTo()
-                    .performClick()
+                val restoredTextDraft = runCatching {
+                    compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                }.isSuccess
+                if (!restoredTextDraft) {
+                    compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                }
                 compose.waitUntil(20_000) {
                     runCatching { compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
                 }
@@ -148,6 +154,43 @@ class PostPublishRealInstrumentedTest {
                     .performTextReplacement(bodyText)
                 device.pressBack()
                 device.waitForIdle(1_000)
+                if (useEmojiPicker) {
+                    compose.onNodeWithTag(ComposerEmojiButtonTestTag, useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                        }.isSuccess
+                    }
+                    compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                    compose.waitForIdle()
+                    saveScreenshot("android-post-publish-composer-emoji-after-cell-tap")
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                                .config.getOrNull(SemanticsProperties.EditableText)
+                                ?.text
+                                ?.contains("😀") == true
+                        }.getOrDefault(false)
+                    }
+                    compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
+                        .assertTextContains(bodyText, substring = true)
+                        .assertTextContains("😀", substring = true)
+                    compose.onNodeWithTag(ComposerEmojiButtonTestTag, useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                    compose.waitUntil(10_000) {
+                        runCatching {
+                            compose.onNodeWithTag("community.emoji.panel", useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                        }.isFailure
+                    }
+                }
             } else {
                 compose.waitUntil(20_000) {
                     runCatching { compose.onNodeWithTag(ComposerLocationValueTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "check": "POST-PUBLISH-IOS-REAL-001",
+  "status": "passed",
+  "productSha": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+  "git": {
+    "head": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "mac_checkout_sha_matches_local_candidate",
+    "ios_xctest_real_text_post_published_from_common_composer",
+    "post_publish_cleanup_verified_residue_absent"
+  ],
+  "cleanup": {
+    "verified": true,
+    "physicalResidue": 0
+  },
+  "artifacts": {
+    "ui.log": "5a0c37c361107e1251dd83c28af2e16d6e2f92220cdca55f9e44cda1371cabd2"
+  },
+  "sourceReportSha256": "119e53daad6f702e167f8e7fefc0ade903f1b2fda37065da022dafcb4519f6ed",
+  "notes": [
+    "Sanitized durable projection; the raw local report, XCTest result bundle and attachments remain host-local.",
+    "The exact-head SimulatorSigned XCTest tapped composer-emoji and community.emoji.cell.frequent.0, attached ios-post-publish-composer-emoji-inserted, published one exact metadata-encoded marker plus catalog emoji, verified persistence and finished with physical residue zero.",
+    "An earlier attempt is retained locally as a failed environment run: installation could not create its staging directory because the macOS host volume was full. Clearing generated caches and erasing the dedicated simulator removed that environmental condition; the unchanged exact head then passed."
+  ]
+}

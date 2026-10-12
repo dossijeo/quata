@@ -179,6 +179,7 @@ try {
     report.steps.push("web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route");
   } else {
     const body = `Publicacion reversible POST-PUBLISH Web ${fixture.marker}`;
+    if (options.emojiPicker) fixture.expectedBody = `[CANAL:feed]\n[PATRON_TEXTO:midnight-blue]\n${body}😀`;
     await fillSemanticInput(page, "composer-text-input", body);
     await page.waitForFunction((expected) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
@@ -191,6 +192,27 @@ try {
       }, body);
       report.steps.push("web_text_written_by_localhost_opt_in_product_bridge_after_compose_keyboard_limit");
     });
+    if (options.emojiPicker) {
+      const emojiTrigger = await semanticLocator(page, "composer-emoji");
+      report.diagnostics.emojiTriggerBeforeClick = await emojiTrigger.evaluate((node) => ({
+        rect: node.getBoundingClientRect().toJSON(),
+        text: node.textContent,
+        ariaLabel: node.getAttribute("aria-label"),
+        role: node.getAttribute("role"),
+      }));
+      // Compose/Wasm exports a semantic DOM anchor over the canvas. Dispatch exactly one real
+      // pointer click at its bounds; invoking the DOM anchor and then reinforcing it would toggle
+      // the picker twice.
+      await clickSemanticElement(page, "composer-emoji", { physicalOnly: true });
+      report.evidence.emojiAfterTrigger = await screenshot(page, "web-post-publish-emoji-after-trigger");
+      await semanticLocator(page, "community.emoji.panel");
+      await clickSemanticElement(page, "community.emoji.cell.frequent.0", { physicalOnly: true });
+      await page.waitForFunction((expected) => {
+        const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+        return Number(state?.textLength ?? 0) > expected;
+      }, body.length, { timeout: 10_000 });
+      report.steps.push("web_post_composer_emoji_inserted_from_common_picker");
+    }
   }
   report.evidence.filled = await screenshot(page, "web-post-publish-composer-filled");
   await page.mouse.wheel(0, 900);
@@ -266,6 +288,9 @@ try {
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
+  if (options.emojiPicker && published.body !== fixture.expectedBody) {
+    throw new Error("post_composer_emoji_not_persisted");
+  }
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
@@ -343,6 +368,7 @@ function parseArgs(args) {
     mode: "text",
     failOnce: false,
     failAfterUpload: false,
+    emojiPicker: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -355,6 +381,10 @@ function parseArgs(args) {
       parsed.failAfterUpload = true;
       continue;
     }
+    if (key === "--emoji-picker") {
+      parsed.emojiPicker = true;
+      continue;
+    }
     if (!["--dist", "--chrome", "--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--dist") parsed.distribution = resolve(value);
@@ -365,6 +395,7 @@ function parseArgs(args) {
   }
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
   if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
+  if (parsed.emojiPicker && parsed.mode !== "text") throw new Error("emoji_picker_requires_text_mode");
   return parsed;
 }
 
@@ -546,11 +577,18 @@ function wordpressProxyHeaders(request) {
   return headers;
 }
 
-async function clickSemanticElement(page, id, { reinforcePhysical = false } = {}) {
+async function clickSemanticElement(page, id, { reinforcePhysical = false, physicalOnly = false } = {}) {
   const locator = await semanticLocator(page, id);
   await locator.waitFor({ state: "attached", timeout: 20_000 });
   await locator.scrollIntoViewIfNeeded().catch(() => null);
+  await locator.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" })).catch(() => null);
+  await delay(350);
   const box = await locator.boundingBox();
+  if (physicalOnly) {
+    if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    return;
+  }
   await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
     if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

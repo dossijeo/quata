@@ -68,6 +68,9 @@ try {
     destination,
     locationLabel: options.mode === "image-location" ? undefined : null,
   });
+  if (options.emojiPicker) {
+    fixture.expectedBody = `[CANAL:feed]\n[PATRON_TEXTO:midnight-blue]\n${fixture.marker} Publicacion reversible POST-PUBLISH Android😀`;
+  }
   if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
   localCredentials = join("build-reports", "android", `post-publish-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
@@ -104,6 +107,7 @@ try {
     ...(options.failOnce ? ["-e", "quataPostProgressRollbackFailOnce", "1"] : []),
     ...(options.failAfterUpload ? ["-e", "quataPostStorageRollbackFailAfterUpload", "1"] : []),
     ...(fixture.locationLabel ? ["-e", "quataPostPublishLocationLabel", fixture.locationLabel] : []),
+    ...(options.emojiPicker ? ["-e", "quataPostPublishUseEmojiPicker", "1"] : []),
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   report.instrumentationTail = redactedTail(instrumentationOutput);
@@ -116,11 +120,7 @@ try {
   const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  const evidenceFiles = options.failAfterUpload
-    ? [...baseEvidenceFiles.slice(0, 2), "android-post-storage-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
-    : options.failOnce
-    ? [...baseEvidenceFiles.slice(0, 2), "android-post-progress-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
-    : baseEvidenceFiles;
+  const evidenceFiles = expectedEvidenceFiles();
   for (const file of evidenceFiles) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
   }
@@ -131,6 +131,9 @@ try {
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
+  if (options.emojiPicker && published.body !== fixture.expectedBody) {
+    throw new Error("post_composer_emoji_not_persisted");
+  }
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
@@ -199,6 +202,7 @@ function parseArgs(args) {
     mode: "text",
     failOnce: false,
     failAfterUpload: false,
+    emojiPicker: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -211,6 +215,10 @@ function parseArgs(args) {
       parsed.failAfterUpload = true;
       continue;
     }
+    if (key === "--emoji-picker") {
+      parsed.emojiPicker = true;
+      continue;
+    }
     if (!["--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--out") parsed.output = value;
@@ -219,6 +227,7 @@ function parseArgs(args) {
   }
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
   if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
+  if (parsed.emojiPicker && parsed.mode !== "text") throw new Error("emoji_picker_requires_text_mode");
   return parsed;
 }
 
@@ -305,10 +314,20 @@ async function copyEvidenceIfPresent() {
   const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  for (const file of evidenceFiles) {
+  for (const file of expectedEvidenceFiles()) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
   }
   report.evidence.directory = resolve(evidenceDir);
+}
+
+function expectedEvidenceFiles() {
+  const files = options.failAfterUpload
+    ? [...baseEvidenceFiles.slice(0, 2), "android-post-storage-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
+    : options.failOnce
+    ? [...baseEvidenceFiles.slice(0, 2), "android-post-progress-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
+    : [...baseEvidenceFiles];
+  if (options.emojiPicker) files.splice(2, 0, "android-post-publish-composer-emoji-after-cell-tap.png");
+  return files;
 }
 
 async function adbRunAsCat(devicePath, localPath) {

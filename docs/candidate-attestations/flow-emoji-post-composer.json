@@ -1,0 +1,266 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "SCR-CREATE-POST",
+    "POST-PUBLISH"
+  ],
+  "status": "passed",
+  "productSha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+  "certification": "local-complete-historical-platform-evidence-preserved-recomposed-over-integrated-live-ranking-gates-passed-independent-exact-head-review-go-final-ci-pending",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-web-0a268ee1.json",
+      "reportSha256": "1ec90fd297297d5cd3764c83e4410ccdc1616579c868e3d8e30ae5fb77d5da46",
+      "reportStatus": "passed",
+      "reportGitHead": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "common_create_post_root_mounted_on_web",
+        "web_post_composer_emoji_inserted_from_common_picker",
+        "real_text_post_published_from_common_composer_and_verified_by_marker",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-android-0a268ee1.json",
+      "reportSha256": "1b50024f40b755585ff9241bb6fd07b78d2dcf56619d0ee87aef29f12c415278",
+      "reportStatus": "passed",
+      "reportGitHead": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_real_text_post_published_from_common_composer",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-ios-0a268ee1.json",
+      "reportSha256": "d3562feaf9930a16d1c9481bf1709314916d7e347f374d4dc27ee14b228b77bf",
+      "reportStatus": "passed",
+      "reportGitHead": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_xctest_real_text_post_published_from_common_composer",
+        "post_publish_cleanup_verified_residue_absent"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-8cc3b9ce.json",
+      "reportSha256": "6da65c60d13e8f5c44383d7dc9c58a6e4265c91cf0445b01f6b61dce4635aceb",
+      "reportStatus": "passed",
+      "reportGitHead": "8cc3b9ce2bc265d14500b3043c3da8f2d7b0f7bb",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_product_commits_patch_equivalent",
+        "runner_syntax_passed",
+        "post_publish_contract_28_of_28_passed",
+        "seven_isolated_decisive_blobs_byte_identical",
+        "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no_backend_or_platform_mutation_during_recomposition"
+      }
+    },
+    "finalLiveRankingRecomposition": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-873d3b13.json",
+      "reportSha256": "352e8f8054d773280db91bd0923c440f11bb7a828682fc257d3c2fd413309fbd",
+      "reportStatus": "passed",
+      "reportGitHead": "873d3b1389c513437488ed10a975be07ba05d1ff",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_product_commits_patch_equivalent",
+        "runner_syntax_passed",
+        "post_publish_contract_28_of_28_passed",
+        "seven_isolated_decisive_blobs_byte_identical",
+        "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no_backend_or_platform_mutation_during_recomposition"
+      }
+    },
+    "postLiveRankingRecomposition": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-576f02ad.json",
+      "reportSha256": "c4c3b3c72dca194783232831076568312e81270d45b40439f2a853615654388a",
+      "reportStatus": "passed",
+      "reportGitHead": "576f02ad81fa854e2a78c8e5e9bdafbda9b22623",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_product_commits_patch_equivalent",
+        "runner_syntax_passed",
+        "post_publish_contract_28_of_28_passed",
+        "seven_isolated_decisive_blobs_byte_identical",
+        "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "no_backend_or_platform_mutation_during_recomposition"
+      }
+    },
+    "postCandidateLiveRankingRecomposition": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-e5eaac04.json",
+      "reportSha256": "9629018f0b8a84e1bab09e7748df08a0d860aa0075800bd09acb17f392194732",
+      "reportStatus": "passed",
+      "reportGitHead": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_product_commits_patch_equivalent",
+        "runner_syntax_passed",
+        "post_publish_contract_28_of_28_passed",
+        "seven_isolated_decisive_blobs_byte_identical",
+        "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "reviewed-product-series-only-no-platform-e2e-rerun"
+      }
+    },
+    "postIntegratedLiveRankingRecomposition": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-83493c06.json",
+      "reportSha256": "a497cc7c9eb879b02b71f6bbc1c4335f88a752adf87a2f089f22ddea7f65a989",
+      "reportStatus": "passed",
+      "reportGitHead": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_product_commits_patch_equivalent",
+        "runner_syntax_passed",
+        "post_publish_contract_28_of_28_passed",
+        "seven_isolated_decisive_blobs_byte_identical",
+        "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "reviewed-product-series-only-no-platform-e2e-rerun"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/post-publish-web-evidence.mjs scripts/post-publish-android-evidence.mjs scripts/post-publish-ios-evidence.mjs",
+    "node --test scripts/post-publish-evidence-contract.test.mjs",
+    ".\\gradlew.bat :feature:postcomposer:compileKotlinWasmJs :feature:postcomposer:compileKotlinIosX64 :app:compileDebugAndroidTestKotlin --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/post-publish-web-evidence.mjs --emoji-picker",
+    "node scripts/post-publish-android-evidence.mjs --emoji-picker",
+    "node scripts/post-publish-ios-evidence.mjs --emoji-picker --build-first"
+  ],
+  "notes": [
+    "This unit closes the only product-owned CommunityEmojiPanelContent consumer that lacked its own authenticated publish evidence: the shared Post Composer.",
+    "Web/Wasm, Android and iOS open the common picker through composer-emoji, select community.emoji.cell.frequent.0, preserve the existing text marker, publish once through the real platform route, reject duplicate marker rows, verify the exact metadata-encoded persisted body including the catalog emoji and finish with physical backend residue zero.",
+    "The common composer clears text focus before opening the picker and brings the inline panel into view. This fixes the Android case where the panel opened below the viewport and an outer scroll dismissed it; it does not change the emoji catalog or publication semantics.",
+    "Web/Wasm uses one physical click at each visible semantic anchor. The localhost-only publish bridge remains limited to the existing evidence path for a Compose canvas control without a stable actionable DOM node.",
+    "The accepted Web/Wasm, Android and iOS reports remain bound to executed Product 0a268ee1f093f548def49e7ca5f59723d30fa7c6 after the shared fixture added fail-closed cardinality and exact metadata-encoded body validation.",
+    "The first exact-head iOS attempt failed before product execution because the simulator install staging directory ran out of host disk space. After generated-cache cleanup and a dedicated simulator erase, the unchanged exact head passed; the failed report remains host-local and is not counted as acceptance.",
+    "Existing Chat, Feed, Official and public-profile emoji receipts remain authoritative for their routes. Together with this Post Composer receipt they cover every registered product consumer of CommunityEmojiPanelContent without duplicating those matrices.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates affected evidence; attestation-only documentation remains subject to scripts/validate-candidate-attestation.mjs.",
+    "The Android and iOS shared UI test files are composed rather than byte-identical: both preserve the executed emoji-specific assertions while retaining predecessor destination-selection additions; iOS also retains the predecessor shared form-entry helper adjustment. Their non-emoji differences do not constitute renewed platform execution.",
+    "Product c5c3cfcf5f182ac7a1f2d298d5eceebd6229b5f1 replays the five functional commits with exact stable patch IDs over reviewed OVR-LIVE-RANKING predecessor 239d47db49ecd023e054941064394c98151f4a73. Seven isolated decisive blobs remain byte-identical and the shared Android/iOS files preserve the emoji-specific hunks together with predecessor additions; platform matrices were not repeated solely for ancestry.",
+    "Independent exact-head review of cca1fdd8bfb6d1c59cb0c01f797cf8fe2872bd38 returned GO with no P0-P3: stable patch IDs are 5/5, seven isolated blobs remain exact, three shared files preserve the emoji delta, custody remains bound to 0a268ee1, and all affected gates pass.",
+    "Product 8cc3b9ce2bc265d14500b3043c3da8f2d7b0f7bb replays the five functional commits with exact stable patch IDs over final independently reviewed OVR-LIVE-RANKING 7fee981f2067ff132cdf692b9a55b220d3e1a4d1. Affected gates are renewed without reattributing historical Web/Wasm, Android or iOS execution.",
+    "Independent exact-head review of b16346f97a9f1b0421ecf494079d8229a1a1cc8a returned GO without P0-P3 and reproduced all affected gates without reattributing platform E2E.",
+    "Product 2bc4d1ed080ab8a7d3dcebafefd3d00a275dd30d replays the five functional commits with exact stable patch IDs over final OVR-LIVE-RANKING candidate d3e2c0b8c3318c1021e2b7892320236ececc6aaa. Affected gates are renewed without reattributing historical Web/Wasm, Android or iOS execution.",
+    "Independent exact-head review of e33a19b90c4e8c0071a3740a55255afb44a9df56 returned GO without P0-P3; runner syntax, 28/28 contract, validator and diff-check remained green, while owner compilations were separately attributed.",
+    "Product ec57d409158b8f8431e34e2bff47d56f5737472b replays the five functional commits with exact stable patch IDs over final independently reviewed OVR-LIVE-RANKING 201a6a39820b0584d53c9e6e652e52331b470e9d. Affected gates are renewed without reattributing historical Web/Wasm, Android or iOS execution; fresh independent exact-head review is required before publication.",
+    "Current Product 873d3b1389c513437488ed10a975be07ba05d1ff replays the five functional commits with exact stable patch IDs over independently reviewed OVR-LIVE-RANKING candidate 17a3094d8be915e03e34fdc00a678684e3a37d85; prior ranking head 201a6a39820b0584d53c9e6e652e52331b470e9d remains historical custody. Affected gates are renewed without reattributing Web/Wasm, Android or iOS execution. Fresh independent exact-head review is required before publication.",
+    "Current Product 576f02ad81fa854e2a78c8e5e9bdafbda9b22623 replays the five functional commits with exact stable patch IDs over independently reviewed OVR-LIVE-RANKING head 6a93bac752dfc97895ac8e7d122bf5d4adfbb8f9.",
+    "Affected gates are renewed without reattributing historical Web/Wasm, Android or iOS execution. Independent exact-head review of 05feffc37e471ba00045eee9c053cda51739dda2 returned GO without P0-P3.",
+    "Current Product e5eaac04af734b839dde04a7eec1142ca15336af replays the five functional commits with exact stable patch IDs over OVR-LIVE-RANKING candidate-final head ef028d80eb37e626bb2a89835e7a62da727e6fc6; 28/28 contracts, runner syntax and diff-check pass without reattributing historical platform E2E.",
+    "Independent exact-head review of 2ae812b1c207edce686529e1fe342b83a8c03f19 returned GO without P0-P3 after verifying 5/5 stable patch IDs, preserved blobs and shared composition, seven report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree.",
+    "Current Product 83493c0684156887e3ab5943747b4e64dbd51ab7 replays the five functional commits with exact stable patch IDs over integrated OVR-LIVE-RANKING squash 0d1010dbec1c00911f7350f62484b79d03fe827a; affected gates are renewed without reattributing platform E2E."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "816a30aeebad81bb849b20e82fdd3211563a7a95",
+    "previousReviewedSha": "2ae812b1c207edce686529e1fe342b83a8c03f19",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "resolvedFindings": [
+      "Independent exact-head review confirmed 5/5 patch equivalence, seven identical blobs, composed shared files, actionable picker, exact body/cardinality, custody at 0a268ee1, 28/28 contract, runner syntax, affected compilations, validator, diff-check and clean tree.",
+      "Independent exact-head review of e33a19b90c4e8c0071a3740a55255afb44a9df56 returned GO without P0-P3 after verifying 5/5 exact patches, seven isolated blobs, three composed files, report hash af11fcf1, historical custody at 0a268ee1, no E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree; owner compilations remained separately attributed.",
+      "Independent exact-head review of 6e80acf3d2d922d8a53302ba8cb2679276b8ee49 returned GO without P0-P3 after verifying 5/5 exact patches, seven isolated blobs, three composed files, exact report hash, historical custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check, privacy scan and clean tree; owner compilations remained separately attributed.",
+      "Independent exact-head review of 8ad9c0361d9999285fca58a6f4aeb2d5a6f24914 returned GO without P0-P3 after confirming five exact patches, preserved blobs and shared composition, report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, Wasm/iOS x64/Android instrumentation compilations, validator, diff-check, privacy scan and clean tree.",
+      "Independent exact-head review of 05feffc37e471ba00045eee9c053cda51739dda2 returned GO without P0-P3 after verifying 5/5 patch IDs, seven byte-identical blobs, three composed shared files, report hashes, historical custody without E2E reattribution, 28/28 contracts, runner syntax, validator, diff-check and clean tree.",
+      "Independent exact-head review of 2ae812b1c207edce686529e1fe342b83a8c03f19 returned GO without P0-P3 after verifying 5/5 stable patch IDs, preserved blobs and shared composition, seven report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree.",
+      "Independent exact-head review confirmed 5/5 patch IDs, preserved blobs and composed files, eight report hashes, historical custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree."
+    ],
+    "historicalReviews": [
+      {
+        "status": "GO",
+        "reviewedSha": "6e80acf3d2d922d8a53302ba8cb2679276b8ee49",
+        "productSha": "ec57d409158b8f8431e34e2bff47d56f5737472b",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      },
+      {
+        "status": "GO",
+        "reviewedSha": "8ad9c0361d9999285fca58a6f4aeb2d5a6f24914",
+        "productSha": "873d3b1389c513437488ed10a975be07ba05d1ff",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      }
+    ],
+    "reviewedProductSha": "83493c0684156887e3ab5943747b4e64dbd51ab7"
+  }
+}

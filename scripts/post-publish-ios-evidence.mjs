@@ -64,6 +64,7 @@ try {
     destination,
     locationLabel: options.mode === "image-location" ? undefined : null,
   });
+  if (options.emojiPicker) fixture.expectedBody = `[CANAL:feed]\n[PATRON_TEXTO:midnight-blue]\n${fixture.marker}😀`;
   if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
 
   localCredentials = join(await mkdirTemp("quata-ios-post-publish-credentials-"), "credentials.json");
@@ -118,6 +119,7 @@ export QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_POST_PUBLISH_MARKER=${shellQuote(fixture.marker)}
 export QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID=${shellQuote(fixture.destination.wallId)}
 export QUATA_IOS_POST_PUBLISH_MODE=${shellQuote(options.mode)}
+${options.emojiPicker ? "export QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER=1" : "unset QUATA_IOS_POST_PUBLISH_USE_EMOJI_PICKER"}
 ${options.failOnce ? "export QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE=1" : "unset QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"}
 ${options.failAfterUpload ? "export QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD=1" : "unset QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD"}
 ${fixture.locationLabel ? `export QUATA_IOS_POST_PUBLISH_LOCATION_LABEL=${shellQuote(fixture.locationLabel)}` : "unset QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"}
@@ -135,6 +137,9 @@ bash scripts/run-ios-post-publish-ui-test.sh
     withDatabase: (callback) => withPg(config, callback),
     delay,
   });
+  if (options.emojiPicker && published.body !== fixture.expectedBody) {
+    throw new Error("post_composer_emoji_not_persisted");
+  }
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
@@ -240,6 +245,7 @@ function parseArgs(args) {
     mode: "text",
     failOnce: false,
     failAfterUpload: false,
+    emojiPicker: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -248,6 +254,8 @@ function parseArgs(args) {
       parsed.failOnce = true;
     } else if (key === "--fail-after-upload") {
       parsed.failAfterUpload = true;
+    } else if (key === "--emoji-picker") {
+      parsed.emojiPicker = true;
     } else if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--mode"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
@@ -268,6 +276,7 @@ function parseArgs(args) {
   if (!parsed.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error(`unsupported_mode:${parsed.mode}`);
   if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
+  if (parsed.emojiPicker && parsed.mode !== "text") throw new Error("emoji_picker_requires_text_mode");
   parsed.output = resolve(parsed.output);
   parsed.evidenceDir = resolve(parsed.evidenceDir);
   return parsed;

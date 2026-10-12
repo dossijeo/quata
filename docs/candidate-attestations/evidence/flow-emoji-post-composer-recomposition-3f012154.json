@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "unit": "FLOW-EMOJI / Post Composer",
+  "status": "passed",
+  "productSha": "3f012154f15f9b0041e60d34a38f9206186445e1",
+  "recompositionHead": "3f012154f15f9b0041e60d34a38f9206186445e1",
+  "predecessorSha": "49e01e18b67becbf0121f5ab76b7cd626b464e04",
+  "historicalExecutionSha": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+  "scope": "Recomposition of only the reviewed Post Composer emoji publish series over the reviewed OVR-LIVE-RANKING composition head without renewing platform E2E solely for ancestry.",
+  "git": {
+    "head": "3f012154f15f9b0041e60d34a38f9206186445e1",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "runner_syntax_passed",
+    "post_publish_contract_28_of_28_passed",
+    "affected_kotlin_compilations_passed",
+    "web_wasm_distribution_passed",
+    "seven_isolated_decisive_blobs_byte_identical",
+    "android_and_ios_shared_test_files_composed_with_predecessor_destination_additions",
+    "shared_contract_composition_verified",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "runnerSyntax": "passed",
+    "postPublishContract": "28/28 passed",
+    "compileKotlinWasmJs": "passed",
+    "compileKotlinIosX64": "passed",
+    "compileDebugAndroidTestKotlin": "passed",
+    "wasmJsBrowserDistribution": "passed",
+    "diffCheck": "passed"
+  },
+  "custody": {
+    "sharedContract": "The Post Composer emoji assertions remain patch-equivalent while the shared contract retains independent predecessor additions; the composed file passed 28/28.",
+    "platformReportsRemainBoundToHistoricalExecution": true,
+    "platformE2eRepeatedForAncestry": false,
+    "backendMutationPerformed": false,
+    "isolatedRuntimeTestRunnerBlobsByteIdentical": 7,
+    "composedSharedTestFiles": {
+      "app/src/androidTest/java/com/quata/feature/postcomposer/presentation/PostPublishRealInstrumentedTest.kt": "Retains the exact Post Composer emoji assertions while also containing predecessor destination-selection coverage.",
+      "iosApp/iosAppUITests/QuataIosAuthenticatedPostPublishUITests.swift": "Retains the exact Post Composer emoji assertions while also containing predecessor destination-selection coverage and its shared form-entry helper adjustment."
+    },
+    "emojiDeltaInComposedFiles": "The emoji-specific hunks are patch-equivalent to executed Product 0a268ee1; the byte differences are independently reviewed predecessor additions outside the emoji route."
+  },
+  "limits": [
+    "The receipts cover the registered product-owned CommunityEmojiPanelContent consumers and do not claim arbitrary third-party text surfaces.",
+    "Provider, network, publication and comment failures remain owned by their respective units."
+  ]
+}

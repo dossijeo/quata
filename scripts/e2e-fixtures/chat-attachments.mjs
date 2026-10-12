@@ -1354,6 +1354,7 @@ export function createPostPublishFixture({
     runId: cleanRunId,
     destination,
     locationLabel,
+    expectedBody: null,
     publishedPostId: null,
     publishedMediaUrls: [],
   };
@@ -1416,12 +1417,17 @@ export async function pollPostPublishFixture({
          from public.community_posts
         where profile_id = $1::uuid
           and body like $2
-        order by created_at desc
-        limit 1`,
+        order by created_at desc`,
       [fixture.actorSession.profileId, `%${fixture.marker}%`],
     ));
+    if (fixture.expectedBody && result.rows.length > 1) {
+      throw new Error(`post_publish_duplicate_marker:${result.rows.length}`);
+    }
     const row = result.rows[0];
     if (uuid.test(row?.id ?? "")) {
+      if (fixture.expectedBody && row.body !== fixture.expectedBody) {
+        throw new Error(`post_publish_exact_body_mismatch:${JSON.stringify({ expected: fixture.expectedBody, actual: row.body })}`);
+      }
       fixture.publishedPostId = row.id;
       fixture.publishedWallId = row.wall_id ?? null;
       fixture.publishedBody = row.body ?? null;

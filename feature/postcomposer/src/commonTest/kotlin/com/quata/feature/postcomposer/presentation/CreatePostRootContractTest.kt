@@ -36,6 +36,7 @@ class CreatePostRootContractTest {
         assertEquals("composer-location-value", ComposerLocationValueTestTag)
         assertEquals("composer-location-edit", ComposerLocationEditTestTag)
         assertEquals("composer-location-input", ComposerLocationInputTestTag)
+        assertEquals("composer-emoji", ComposerEmojiButtonTestTag)
         assertEquals("composer-type-text", "composer-type-${PostComposerType.Text.name.lowercase()}")
         assertEquals("composer-feedback-error", ComposerFeedbackErrorTestTag)
         assertEquals("composer-feedback-retry", ComposerFeedbackRetryTestTag)
