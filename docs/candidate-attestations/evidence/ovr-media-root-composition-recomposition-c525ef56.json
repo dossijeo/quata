@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+    "workingTreeDirty": false
+  },
+  "unit": "OVR-MEDIA",
+  "productSha": "c525ef569ce7b80e3929dd4d75d97ef7f3c53e6c",
+  "predecessorSha": "6a76130a0bad7ce75a58e99df81361f4e22c14bb",
+  "historicalProductSha": "de5664699af85cbce69e437d2d3d638193af8297",
+  "recomposedFromProductSha": "de5664699af85cbce69e437d2d3d638193af8297",
+  "steps": [
+    "product_delta_preserved_over_ios_repair_squash",
+    "ovr_media_root_composition_contract_4_of_4_passed",
+    "thirteen_receipts_and_exact_hashes_preserved",
+    "thematic_and_external_boundaries_preserved",
+    "historical_platform_execution_not_reexecuted",
+    "package_aggregate_conflict_resolved_with_exact_once_ovr_wiring",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "historicalPlatformExecutionReexecuted": false,
+    "fourDecisiveProductBlobsByteIdentical": true,
+    "packageOvrWiringPreservedExactlyOnce": true,
+    "iosSosContractWiringPreserved": true
+  },
+  "notes": [
+    "The OVR-MEDIA product delta was recomposed over iOS repair squash 6a76130a0bad7ce75a58e99df81361f4e22c14bb.",
+    "The three inventory documents and focal OVR contract are byte-identical to historical Product de5664699af85cbce69e437d2d3d638193af8297.",
+    "package.json preserves the OVR contract wiring exactly once while retaining the iOS SOS contract introduced by the new base.",
+    "Only affected documentation and contract gates were renewed; historical platform execution remains historical custody."
+  ]
+}
