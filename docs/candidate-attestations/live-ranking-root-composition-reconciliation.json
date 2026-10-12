@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
-  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-gates-passed-independent-exact-head-review-pending",
+  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-gates-passed-independent-exact-head-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -114,8 +114,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "ec31fbf13d6e58a96736568849ef21a7d09da1e6",
     "previousReviewedSha": "c83bc8714fa41d5f3a634ec480977bd805a5cbd6",
     "blockingFindings": [],
     "reviewedProductSha": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
@@ -130,7 +130,7 @@
       "Independent exact-head review of 3ded4d2fb3212ad5727744c6b0256979817e33a4 returned GO without P0-P3 after confirming exact patch equivalence, receipts and hashes, media ownership, historical quota failure custody, absence of execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
       "Independent exact-head review of 0a1a708abccfc70b6bfabeac7af84f26ba6ee154 returned GO without P0-P3 after verifying the exact patch, receipts and hashes, report hash 54472174, media separation, negative 402 custody, exact-once wiring, no execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
       "Independent exact-head review of c83bc8714fa41d5f3a634ec480977bd805a5cbd6 returned GO without P0-P3 after confirming patch-id d1cbd299, exact receipts and report c6ca099c, media separation, historical 402 custody, no execution reattribution, 23/23 affected checks, validator, diff-check, privacy scan and clean tree.",
-      "Fresh independent exact-head review is pending for recomposition over OVR-MEDIA candidate bc448e0a5."
+      "Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3 after verifying the four byte-identical blobs, exact-once package wiring with OVR and SOS preserved, report hashes, historical custody, 23/23 affected checks, validator, diff-check and clean tree."
     ],
     "historicalReviews": [
       {
@@ -174,6 +174,6 @@
     "Current Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b preserves the exact OVR-LIVE-RANKING composition patch over independently reviewed OVR-MEDIA candidate ec88e5a84dfa91b1a7b180f826a5802e0358aa4c; prior media head 8cbe9e378e4f711b71b849366cca063d83bd807b remains historical custody. Affected contracts are renewed without reattributing platform or database execution. Fresh independent exact-head review is required before publication.",
     "Current Product c3c2cfb2b3494cc21033565f682141ccb77304e9 recomposes OVR-LIVE-RANKING over reviewed OVR-MEDIA head bc448e0a5bad27cca58c8c299888110426f80ad4.",
     "The three inventory documents and focal ranking contract remain byte-identical to Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b; package.json preserves ranking wiring exactly once while retaining OVR-MEDIA and iOS SOS contracts.",
-    "No runtime, database or platform evidence was reexecuted. Fresh independent exact-head review is required before publication."
+    "No runtime, database or platform evidence was reexecuted. Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3."
   ]
 }
