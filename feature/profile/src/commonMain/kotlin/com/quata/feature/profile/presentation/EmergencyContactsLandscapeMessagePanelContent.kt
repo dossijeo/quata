@@ -25,34 +25,40 @@ fun EmergencyContactsLandscapeMessagePanelContent(
     hint: String,
     errorMessage: String?,
     input: @Composable () -> Unit,
+    compactForIme: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    QuataPanel(contentPadding = PaddingValues(12.dp), modifier = modifier) {
+    QuataPanel(
+        contentPadding = PaddingValues(if (compactForIme) 4.dp else 12.dp),
+        modifier = modifier,
+    ) {
         Column {
-            Text(title, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                hint,
-                color = template.colors.textSecondary,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-                Spacer(Modifier.height(8.dp))
+            if (!compactForIme) {
+                Text(title, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = message,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.semantics {
-                        testTag = ProfileSosErrorTestTag
-                        contentDescription = ProfileSosErrorTestTag
-                    },
+                    hint,
+                    color = template.colors.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+                errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics {
+                            testTag = ProfileSosErrorTestTag
+                            contentDescription = ProfileSosErrorTestTag
+                        },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(8.dp))
             input()
         }
     }

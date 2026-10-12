@@ -2681,6 +2681,12 @@ final class IosKeyboardBackdropController {
 
     init(hostView: UIView) {
         self.hostView = hostView
+        // Without this, UIKit keeps the guide pinned to the bottom safe area while the
+        // keyboard is hidden. That non-zero inset is not a keyboard and must never recreate
+        // the opaque backdrop after a real dismissal.
+        if #available(iOS 17.0, *) {
+            hostView.keyboardLayoutGuide.usesBottomSafeArea = false
+        }
     }
 
     private var backdropContainer: UIView? {
@@ -2732,8 +2738,15 @@ final class IosKeyboardBackdropController {
     }
 
     func refreshForCurrentKeyboardFrame() {
+        guard let container = backdropContainer else { return }
+        if let overlap = keyboardLayoutGuideOverlap(in: container) {
+            render(overlap: overlap, in: container, cancelPendingHide: false)
+            return
+        }
         guard let latestKeyboardFrame else { return }
-        show(forKeyboardFrame: latestKeyboardFrame, cancelPendingHide: false)
+        let overlap = container.bounds.intersection(container.convert(latestKeyboardFrame, from: nil))
+        guard !overlap.isNull, overlap.height > 0 else { return }
+        render(overlap: overlap, in: container, cancelPendingHide: false)
     }
 
     func show(
@@ -2745,13 +2758,19 @@ final class IosKeyboardBackdropController {
         if backdropView.superview !== container {
             container.addSubview(backdropView)
         }
+        // Keep the newest screen-space frame even when UIKit reports it while the host still has
+        // the previous orientation's bounds. The next layout pass can then project it correctly.
+        latestKeyboardFrame = keyboardFrame
         let convertedFrame = container.convert(keyboardFrame, from: nil)
         let overlap = container.bounds.intersection(convertedFrame)
         guard !overlap.isNull, overlap.height > 0 else {
             scheduleHide(after: hideDelay)
             return
         }
-        latestKeyboardFrame = keyboardFrame
+        render(overlap: overlap, in: container, cancelPendingHide: cancelPendingHide)
+    }
+
+    private func render(overlap: CGRect, in container: UIView, cancelPendingHide: Bool) {
         if cancelPendingHide {
             pendingHideWorkItem?.cancel()
             pendingHideWorkItem = nil
@@ -2799,7 +2818,35 @@ final class IosKeyboardBackdropController {
     }
 
     @objc private func keyboardDidHide(_ notification: Notification) {
+        finishKeyboardHide()
+    }
+
+    func finishKeyboardHide() {
+        guard let container = backdropContainer else {
+            hide()
+            return
+        }
+        if let overlap = keyboardLayoutGuideOverlap(in: container) {
+            render(overlap: overlap, in: container, cancelPendingHide: true)
+            return
+        }
+        // A replacement keyboard installed during rotation remains represented by the layout
+        // guide. If the guide has no overlap, this is a real dismissal; the last notification
+        // frame is historical and must not keep or recreate the backdrop.
         hide()
+    }
+
+    private func keyboardLayoutGuideOverlap(in container: UIView) -> CGRect? {
+        guard let hostView else { return nil }
+        hostView.layoutIfNeeded()
+        let layoutFrame = hostView.keyboardLayoutGuide.layoutFrame
+        let safeAreaOnly = abs(layoutFrame.maxY - hostView.bounds.maxY) < 1
+            && layoutFrame.height <= hostView.safeAreaInsets.bottom + 1
+        guard !safeAreaOnly else { return nil }
+        let frameInContainer = container.convert(layoutFrame, from: hostView)
+        let overlap = container.bounds.intersection(frameInContainer)
+        guard !overlap.isNull, overlap.height > 0 else { return nil }
+        return overlap
     }
 
     private func keyboardAnimationDuration(from notification: Notification) -> TimeInterval {

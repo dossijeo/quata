@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -23,7 +22,10 @@ fun EmergencyContactsLandscapeEditorLayoutContent(
     contacts: @Composable (Modifier) -> Unit,
     message: @Composable (Modifier) -> Unit
 ) {
-    Column(Modifier.fillMaxSize().imePadding()) {
+    // The authenticated platform shell already reserves the global IME. Applying imePadding a
+    // second time here can consume the complete landscape editor height and unmount its message
+    // column while the keyboard is visible.
+    Column(Modifier.fillMaxSize()) {
         if (showTopBar) {
             topBar()
             Spacer(Modifier.height(8.dp))

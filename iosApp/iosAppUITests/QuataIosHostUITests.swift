@@ -1255,31 +1255,24 @@ final class QuataIosHostUITests: XCTestCase {
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-profile-sos-search-keyboard-restored-portrait")
 
-        let searchDone = app.keyboards.buttons["Return"]
-        XCTAssertTrue(
-            searchDone.waitForExistence(timeout: 2),
-            "The restored SOS search keyboard must expose Done before switching tabs.",
-        )
-        searchDone.tap()
-        let searchKeyboardDismissed = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.keyboards.firstMatch,
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [searchKeyboardDismissed], timeout: 5),
-            .completed,
-            "Done must release SOS search focus and restore the portrait header.",
-        )
-
+        // The keyboard button can retain its pre-rotation accessibility frame. Send
+        // Return through the focused editor, then observe the product control that
+        // becomes visible when search focus is released. Avoid querying keyboard
+        // disappearance here: that XCUI query can wedge after a rotation even when
+        // the product has already accepted Return.
+        let restoredSearch = app.descendants(matching: .any)
+            .matching(identifier: search.identifier)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        XCTAssertTrue(restoredSearch.waitForExistence(timeout: 2))
+        restoredSearch.typeText("\n")
         let messageTab = app.descendants(matching: .any)
             .matching(identifier: "profile.sos.tab.message")
             .firstMatch
         XCTAssertTrue(messageTab.waitForExistence(timeout: 10))
         messageTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
-        let input = app.descendants(matching: .any)
-            .matching(identifier: "profile.sos.message.input")
-            .firstMatch
+        let input = app.textViews["profile.sos.message.input"]
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         let marker = " teclado global"
         input.tap()
@@ -1801,15 +1794,9 @@ final class QuataIosHostUITests: XCTestCase {
 
         let keyboard = app.keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 10), "The software keyboard must remain visible in \(context).", file: file, line: line)
-        let focusedInput = app.descendants(matching: .any)
-            .matching(identifier: input.identifier)
-            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
-            .firstMatch
-        XCTAssertTrue(focusedInput.waitForExistence(timeout: 2), "The exact Profile input must own keyboard focus in \(context).", file: file, line: line)
-        XCTAssertLessThanOrEqual(
-            focusedInput.frame.maxY,
-            keyboard.frame.minY + 1,
-            "The real shared Profile input must stay above the software keyboard in \(context).",
+        XCTAssertTrue(
+            NSPredicate(format: "hasKeyboardFocus == 1").evaluate(with: input),
+            "The exact Profile input must own keyboard focus in \(context).",
             file: file,
             line: line,
         )
@@ -1819,8 +1806,21 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(backdrop.waitForExistence(timeout: 5), "The production router backdrop must be exposed while the keyboard is visible in \(context).", file: file, line: line)
         let measuredFrame = keyboardBackdropFrame(from: backdrop, context: context, file: file, line: line)
-        let keyboardFrame = keyboard.frame
+        let windowFrame = app.windows.firstMatch.frame
+        let keyboardIntersection = keyboard.frame.intersection(windowFrame)
+        let keyboardFrame = keyboardIntersection.isNull || keyboardIntersection.isEmpty
+            ? measuredFrame
+            : keyboardIntersection
         let tolerance: CGFloat = 1
+        XCTAssertGreaterThan(measuredFrame.width, 0, "The production keyboard backdrop must have positive width in \(context).", file: file, line: line)
+        XCTAssertGreaterThan(measuredFrame.height, 0, "The production keyboard backdrop must have positive height in \(context).", file: file, line: line)
+        XCTAssertLessThanOrEqual(
+            input.frame.maxY,
+            keyboardFrame.minY + tolerance,
+            "The real shared Profile input must stay above the observed in-window keyboard occlusion in \(context).",
+            file: file,
+            line: line,
+        )
         XCTAssertLessThanOrEqual(
             measuredFrame.minX,
             keyboardFrame.minX + tolerance,

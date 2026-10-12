@@ -74,11 +74,15 @@ test("SOS contacts editor exposes shared semantic anchors from commonMain", () =
   assert.match(loaded.editor, /saveAction = \{\s*if \(!isImeVisible\) \{/);
   assert.match(loaded.editor, /keyboardOptions = KeyboardOptions\(imeAction = ImeAction\.Done\)/);
   assert.match(loaded.editor, /keyboardActions = KeyboardActions\(onDone = \{ focusManager\.clearFocus\(\) \}\)/);
-  assert.match(loaded.layout, /Column\(Modifier\.fillMaxSize\(\)\.imePadding\(\)\)/);
+  assert.match(loaded.layout, /Column\(Modifier\.fillMaxSize\(\)\)/);
+  assert.doesNotMatch(loaded.layout, /imePadding\(\)/);
+  assert.match(loaded.message, /\.verticalScroll\(scrollState\)[\s\S]*?\.imePadding\(\)/);
   assert.match(loaded.layout, /if \(showTopBar\) \{\s*topBar\(\)\s*Spacer\(Modifier\.height\(8\.dp\)\)/);
-  assert.match(loaded.editor, /showTopBar = !isImeVisible/);
-  assert.match(loaded.editor, /Column\(modifier\.verticalScroll\(messageScrollState\)\)/);
-  assert.doesNotMatch(loaded.editor, /Column\(modifier\.verticalScroll\(messageScrollState\)\.imePadding\(\)\)/);
+  assert.match(loaded.editor, /showTopBar = !keyboardSessionActive/);
+  assert.match(
+    loaded.editor,
+    /Column\(\s*modifier\s*\.verticalScroll\(messageScrollState\)[\s\S]*?\.imePadding\(\)/,
+  );
   assert.match(loaded.editor, /if \(isLandscapeLayout\) messageScrollState\.scrollTo\(messageScrollState\.maxValue\)/);
   assert.match(loaded.row, /this\.selected = selected/);
   assert.match(loaded.row, /stateDescription = if \(selected\) removeLabel else addLabel/);
@@ -185,7 +189,7 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.equal(loaded.iosEvidence.includes("SOS contact \\(index) must expose its selected state before the next interaction"), true);
   assert.match(loaded.iosEvidence, /The first SOS contact must be selected before the save gesture/);
   assert.match(loaded.iosEvidence, /Selecting a contact must not consume the forced save failure/);
-  assert.match(loaded.iosEvidence, /The restored SOS search keyboard must expose Done before switching tabs/);
+  assert.match(loaded.iosEvidence, /The focused SOS search field must expose its Done action before contact selection/);
   assert.match(loaded.iosEvidence, /The sixth SOS contact must remain visibly unselected when the shared limit is reached/);
   assert.match(loaded.iosEvidence, /The first five SOS contacts must remain visibly selected before save/);
   assert.match(loaded.iosEvidence, /The SOS search Done action must release focus/);
