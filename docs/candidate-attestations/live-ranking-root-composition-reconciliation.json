@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
-  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-over-merged-ovr-media-gates-passed-independent-exact-head-review-pending",
+  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-over-merged-ovr-media-gates-passed-independent-exact-head-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -139,8 +139,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "afee072f09affcb23cceee1fffbef9fdfdced2a0",
     "previousReviewedSha": "ec31fbf13d6e58a96736568849ef21a7d09da1e6",
     "blockingFindings": [],
     "reviewedProductSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
@@ -155,7 +155,8 @@
       "Independent exact-head review of 3ded4d2fb3212ad5727744c6b0256979817e33a4 returned GO without P0-P3 after confirming exact patch equivalence, receipts and hashes, media ownership, historical quota failure custody, absence of execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
       "Independent exact-head review of 0a1a708abccfc70b6bfabeac7af84f26ba6ee154 returned GO without P0-P3 after verifying the exact patch, receipts and hashes, report hash 54472174, media separation, negative 402 custody, exact-once wiring, no execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
       "Independent exact-head review of c83bc8714fa41d5f3a634ec480977bd805a5cbd6 returned GO without P0-P3 after confirming patch-id d1cbd299, exact receipts and report c6ca099c, media separation, historical 402 custody, no execution reattribution, 23/23 affected checks, validator, diff-check, privacy scan and clean tree.",
-      "Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3 after verifying the four byte-identical blobs, exact-once package wiring with OVR and SOS preserved, report hashes, historical custody, 23/23 affected checks, validator, diff-check and clean tree."
+      "Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3 after verifying the four byte-identical blobs, exact-once package wiring with OVR and SOS preserved, report hashes, historical custody, 23/23 affected checks, validator, diff-check and clean tree.",
+      "Independent exact-head review of afee072f09affcb23cceee1fffbef9fdfdced2a0 returned GO without P0-P3 after verifying stable patch-id 252a1742, identical base trees, byte-identical product blobs, exact-once Ranking/OVR-MEDIA/SOS wiring, 23 affected checks, validator, report hashes, historical custody, diff-check and clean tree."
     ],
     "historicalReviews": [
       {
@@ -200,6 +201,7 @@
     "Current Product c3c2cfb2b3494cc21033565f682141ccb77304e9 recomposes OVR-LIVE-RANKING over reviewed OVR-MEDIA head bc448e0a5bad27cca58c8c299888110426f80ad4.",
     "The three inventory documents and focal ranking contract remain byte-identical to Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b; package.json preserves ranking wiring exactly once while retaining OVR-MEDIA and iOS SOS contracts.",
     "No runtime, database or platform evidence was reexecuted. Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3.",
-    "Current Product 1a7fd70f526b6f7beddf65724221f214cf711a5b preserves stable patch ID 252a1742db7aef0d924389983117f3b26caecc8c over merged OVR-MEDIA squash 9f5daed3d8cb2247ac46b842d62d85c61bd6c92c; the squash tree was verified identical to candidate bc448e0a5bad27cca58c8c299888110426f80ad4. Affected contracts were renewed without reattributing historical execution. Fresh independent exact-head review is required before publication."
+    "Current Product 1a7fd70f526b6f7beddf65724221f214cf711a5b preserves stable patch ID 252a1742db7aef0d924389983117f3b26caecc8c over merged OVR-MEDIA squash 9f5daed3d8cb2247ac46b842d62d85c61bd6c92c; the squash tree was verified identical to candidate bc448e0a5bad27cca58c8c299888110426f80ad4. Affected contracts were renewed without reattributing historical execution. Fresh independent exact-head review is required before publication.",
+    "Independent exact-head review of afee072f09affcb23cceee1fffbef9fdfdced2a0 returned GO without P0-P3 after verifying stable patch-id 252a1742, identical base trees, byte-identical product blobs, exact-once Ranking/OVR-MEDIA/SOS wiring, 23 affected checks, validator, report hashes, historical custody, diff-check and clean tree."
   ]
 }
