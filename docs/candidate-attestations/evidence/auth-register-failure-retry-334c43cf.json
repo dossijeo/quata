@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "status": "passed",
+  "unit": "SCR-AUTH-REGISTER",
+  "git": {
+    "head": "334c43cf9a3811e957e472ef1bd4593979098b3a",
+    "workingTreeDirty": false
+  },
+  "platform": "common-compose-rendered-in-chrome-headless",
+  "commands": [
+    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
+    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "git diff --check"
+  ],
+  "steps": [
+    "all_registration_fields_prepared_in_real_shared_view_model",
+    "first_submit_disabled_while_transport_pending",
+    "concurrent_second_submit_rejected_before_transport",
+    "failure_visible_on_stable_registration_error_semantics",
+    "all_registration_fields_preserved_after_failure",
+    "explicit_retry_reuses_exact_registration_request_once",
+    "successful_retry_emits_single_authentication_effect"
+  ],
+  "result": {
+    "wasmJsBrowserTest": "passed",
+    "moduleTests": 30,
+    "focalTests": 1,
+    "failures": 0,
+    "androidCommonConsumerCompilation": "passed",
+    "iosX64CommonConsumerCompilation": "passed",
+    "backendMutations": 0,
+    "runtimeSha256": "ffdd07fb678fe514a5fccaa80c66dc9c189f496aba6c0c4574c33ae7dcab1b46",
+    "testSha256": "aa4207885cce07e14848366072477dc755692b9247d78617419f45524b29a978"
+  },
+  "diagnostics": [],
+  "cleanup": {
+    "state": "completed",
+    "hardCleanup": {
+      "residueCounts": {
+        "backend_fixtures": 0,
+        "local_fixtures": 0
+      }
+    }
+  },
+  "scope": "Rendered common registration form failure, duplicate-submit exclusion and explicit retry behavior. The test uses a hermetic synthetic RegisterRepository around the real shared form and ViewModel; it does not claim an enabled production registration endpoint, native platform UI execution or a real backend outage."
+}

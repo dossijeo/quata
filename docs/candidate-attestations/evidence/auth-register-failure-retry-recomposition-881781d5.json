@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "881781d5815c6a27981805d80271f065ac818ca5",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-REGISTER",
+  "productSha": "881781d5815c6a27981805d80271f065ac818ca5",
+  "predecessorSha": "1e98e372852203cec6bef902561cdc1ee7b59661",
+  "historicalProductSha": "d2167675a20b804fea85aee81600672bf06aa598",
+  "historicalExecutionSha": "334c43cf9a3811e957e472ef1bd4593979098b3a",
+  "productPatchId": "ee203e717b2cf9011c99100b4bee9aee0c5eb809",
+  "ownedBlobs": [
+    {
+      "path": "feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterViewModel.kt",
+      "gitOid": "da97474017aaca8bc7d2541d5ab0f57e04f543e9",
+      "sha256": "ffdd07fb678fe514a5fccaa80c66dc9c189f496aba6c0c4574c33ae7dcab1b46"
+    },
+    {
+      "path": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/RegisterFailureRetryUiTest.kt",
+      "gitOid": "bdab9eb65e178808fe08b70df7f0287e0190a600",
+      "sha256": "aa4207885cce07e14848366072477dc755692b9247d78617419f45524b29a978"
+    }
+  ],
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "two_owned_runtime_and_test_blobs_byte_identical",
+    "atomic_trylock_duplicate_exclusion_preserved",
+    "seven_fields_and_exact_retry_single_success_preserved",
+    "wasm_browser_rendered_gate_passed",
+    "android_common_compilation_passed",
+    "ios_x64_common_compilation_passed",
+    "historical_rendered_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchId": "exact",
+    "wasmJsBrowserTest": "passed_30_of_30",
+    "compileAndroidMain": "passed",
+    "compileKotlinIosX64": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeatedForAncestry": false,
+    "ownedProductBlobs": "2_of_2_byte_identical"
+  },
+  "notes": [
+    "The registration failure/retry Product replays with stable patch ID ee203e71 over integrated Common Login squash 1e98e372852203cec6bef902561cdc1ee7b59661.",
+    "RegisterViewModel and the rendered common test remain byte-identical to historical reviewed Product d2167675a20b804fea85aee81600672bf06aa598.",
+    "Affected Wasm browser, Android common and iOS x64 gates were renewed; native UI, backend and unrelated E2E execution were not repeated or reattributed."
+  ]
+}

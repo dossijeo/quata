@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 
 class RegisterViewModel(
     private val repository: RegisterRepository,
@@ -24,6 +25,7 @@ class RegisterViewModel(
 
     private val _effects = MutableSharedFlow<RegisterEffect>()
     val effects: SharedFlow<RegisterEffect> = _effects.asSharedFlow()
+    private val registrationMutex = Mutex()
 
     fun onEvent(event: RegisterUiEvent) {
         when (event) {
@@ -38,23 +40,30 @@ class RegisterViewModel(
         }
     }
 
-    private fun register() = scope.launch {
+    private fun register() {
+        if (!registrationMutex.tryLock()) return
         val state = _uiState.value
         _uiState.value = state.copy(isLoading = true, error = null)
-        repository.register(
-            RegisterAccountRequest(
-                displayName = state.displayName,
-                neighborhood = state.neighborhood,
-                countryCode = state.countryCode,
-                phone = state.phone,
-                password = state.password,
-                secretQuestion = state.secretQuestion,
-                secretAnswer = state.secretAnswer
-            )
-        )
-            .onSuccess { _effects.emit(RegisterEffect.Success) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "Error al registrar") }
-        _uiState.value = _uiState.value.copy(isLoading = false)
+        scope.launch {
+            try {
+                repository.register(
+                    RegisterAccountRequest(
+                        displayName = state.displayName,
+                        neighborhood = state.neighborhood,
+                        countryCode = state.countryCode,
+                        phone = state.phone,
+                        password = state.password,
+                        secretQuestion = state.secretQuestion,
+                        secretAnswer = state.secretAnswer
+                    )
+                )
+                    .onSuccess { _effects.emit(RegisterEffect.Success) }
+                    .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "Error al registrar") }
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                registrationMutex.unlock()
+            }
+        }
     }
 
     private fun update(transform: RegisterUiState.() -> RegisterUiState) {
