@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-RECOVERY",
+  "productSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+  "predecessorSha": "1d078a262e765a1dc3a511eb7c147d6063fd3969",
+  "historicalProductSha": "f9ef7b0826d4a85adb5804830cb9f7190b41c843",
+  "historicalExecutionSha": "301e868e7cc863813876e80636e0db19f348722b",
+  "productPatchId": "25584cc57c97a74153dd76185e9220e1f9a657d4",
+  "ownedBlobs": [
+    {
+      "path": "feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordViewModel.kt",
+      "gitOid": "f99c1e4c93968644f809f89b9eb9730bdfff17af",
+      "sha256": "63bf3d1ad8e131927e6225741e14cf699751192699f62f599b953e377086ad14"
+    },
+    {
+      "path": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/RecoveryFailureRetryUiTest.kt",
+      "gitOid": "00462d02f0b90b1c0505af7a1ddabade8bc9655a",
+      "sha256": "412203ebbdeea4dc81a72f0d543734e9cadcf020e667d282e8f013af0cfbdaf8"
+    },
+    {
+      "path": "feature/feed/karma.config.d/timeout.js",
+      "gitOid": "a19d1aa4bbe9296df8782995937f6db337135916",
+      "sha256": "4087f185ef8bb72c17a4de030e36a0eefedb8f5d3297e16f5c751e742c831d5e"
+    },
+    {
+      "path": "scripts/web-android-pr-workflow-contract.test.mjs",
+      "gitOid": "8a768212020ee3e825a57105ed51d6e90091468a",
+      "sha256": "cb0552ed2de9bdedac26af98d21e0f33b99c90d94277451c1686adaf74f5ccc2"
+    }
+  ],
+  "steps": [
+    "product_range_patch_recorded",
+    "two_recovery_runtime_and_test_blobs_byte_identical",
+    "atomic_trylock_duplicate_reset_exclusion_preserved",
+    "three_fields_and_exact_retry_single_password_updated_preserved",
+    "wasm_browser_rendered_gate_passed",
+    "android_common_compilation_passed",
+    "ios_x64_common_compilation_passed",
+    "feed_karma_reconnect_and_activity_budgets_bounded",
+    "feed_ci_chrome_launcher_uses_disable_dev_shm",
+    "web_android_workflow_contract_passed_45_of_45",
+    "feed_wasm_browser_test_passed",
+    "historical_rendered_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchId": "recorded_exact_range",
+    "wasmJsBrowserTest": "passed_31_of_31",
+    "compileAndroidMain": "passed",
+    "compileKotlinIosX64": "passed",
+    "diffCheck": "passed",
+    "webAndroidWorkflowContract": "passed_45_of_45",
+    "feedWasmJsBrowserTest": "passed"
+  },
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeatedForAncestry": false,
+    "ownedProductBlobs": "4_of_4_recorded;_2_recovery_blobs_byte_identical"
+  },
+  "notes": [
+    "Recovery remains byte-identical to the reviewed Product while the Product range also hardens the failing Feed Karma lane with bounded 120-second activity and 60-second reconnect budgets.",
+    "The Feed CI launcher uses --no-sandbox and --disable-dev-shm-usage; its contract passes 45/45 and the affected :feature:feed:wasmJsBrowserTest passes locally.",
+    "Historical rendered Recovery execution remains bound to 301e868e7cc863813876e80636e0db19f348722b; native UI, backend and unrelated E2E execution were not repeated or reattributed."
+  ]
+}

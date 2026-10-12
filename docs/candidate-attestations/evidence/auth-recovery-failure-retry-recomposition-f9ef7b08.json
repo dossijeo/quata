@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "f9ef7b0826d4a85adb5804830cb9f7190b41c843",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-RECOVERY",
+  "productSha": "f9ef7b0826d4a85adb5804830cb9f7190b41c843",
+  "predecessorSha": "eb0066e0d185673b35a4c8efc1fd2ac93f1e23eb",
+  "historicalProductSha": "310c58f3fb622f866cabfe433595f62865b8172f",
+  "historicalExecutionSha": "301e868e7cc863813876e80636e0db19f348722b",
+  "productPatchId": "22b15467198f379cd3270b531a4e9967bbf08169",
+  "ownedBlobs": [
+    {
+      "path": "feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordViewModel.kt",
+      "gitOid": "f99c1e4c93968644f809f89b9eb9730bdfff17af",
+      "sha256": "63bf3d1ad8e131927e6225741e14cf699751192699f62f599b953e377086ad14"
+    },
+    {
+      "path": "feature/auth/src/commonTest/kotlin/com/quata/feature/auth/presentation/RecoveryFailureRetryUiTest.kt",
+      "gitOid": "00462d02f0b90b1c0505af7a1ddabade8bc9655a",
+      "sha256": "412203ebbdeea4dc81a72f0d543734e9cadcf020e667d282e8f013af0cfbdaf8"
+    }
+  ],
+  "steps": [
+    "single_product_commit_patch_equivalent",
+    "two_owned_runtime_and_test_blobs_byte_identical",
+    "atomic_trylock_duplicate_reset_exclusion_preserved",
+    "three_fields_and_exact_retry_single_password_updated_preserved",
+    "wasm_browser_rendered_gate_passed",
+    "android_common_compilation_passed",
+    "ios_x64_common_compilation_passed",
+    "historical_rendered_execution_not_reattributed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchId": "exact",
+    "wasmJsBrowserTest": "passed_31_of_31",
+    "compileAndroidMain": "passed",
+    "compileKotlinIosX64": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "runtimeBlobsChangedByRecomposition": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeatedForAncestry": false,
+    "ownedProductBlobs": "2_of_2_byte_identical"
+  },
+  "notes": [
+    "The Recovery failure/retry Product replays with stable patch ID 22b15467 over final independently reviewed Registration retry eb0066e0d185673b35a4c8efc1fd2ac93f1e23eb.",
+    "ForgotPasswordViewModel and the rendered common test remain byte-identical to historical reviewed Product 310c58f3fb622f866cabfe433595f62865b8172f.",
+    "Affected Wasm browser, Android common and iOS x64 gates were renewed; native UI, backend and unrelated E2E execution were not repeated or reattributed."
+  ]
+}

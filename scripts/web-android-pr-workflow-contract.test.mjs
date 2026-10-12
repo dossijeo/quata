@@ -8,6 +8,7 @@ const workflow = resolve(import.meta.dirname, '..', '.github', 'workflows', 'web
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
 const finalGateScript = resolve(import.meta.dirname, '..', 'scripts', 'check-final-certification.sh');
 const jbrInstaller = resolve(import.meta.dirname, '..', 'scripts', 'install-ci-jbr-21.sh');
+const feedKarmaConfig = resolve(import.meta.dirname, '..', 'feature', 'feed', 'karma.config.d', 'timeout.js');
 
 function assertJetBrainsDaemonBootstrap(yaml, installer, expectedJobs) {
   const pairedSteps = /- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"\n\n\s+- name: Install pinned JetBrains Runtime 21 for Gradle daemon\n\s+shell: bash\n\s+run: bash scripts\/install-ci-jbr-21\.sh/g;
@@ -207,6 +208,14 @@ test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic 
   assertWorkflowContract(yaml, installer);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
+});
+
+test('feed browser tests keep transient runner ping loss within a bounded reconnect budget', async () => {
+  const config = await readFile(feedKarmaConfig, 'utf8');
+  assert.match(config, /browserNoActivityTimeout\s*=\s*120000/);
+  assert.match(config, /browserDisconnectTimeout\s*=\s*60000/);
+  assert.match(config, /browserDisconnectTolerance\s*=\s*2/);
+  assert.match(config, /--disable-dev-shm-usage/);
 });
 
 test('Web/Android final gate executes the shared fail-closed shell for every event/result combination', async () => {

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 
 class ForgotPasswordViewModel(
     private val repository: PasswordRecoveryRepository,
@@ -27,6 +28,7 @@ class ForgotPasswordViewModel(
     val effects: SharedFlow<ForgotPasswordEffect> = _effects.asSharedFlow()
 
     private var questionLookupJob: Job? = null
+    private val resetMutex = Mutex()
 
     fun onEvent(event: ForgotPasswordUiEvent) {
         when (event) {
@@ -68,22 +70,30 @@ class ForgotPasswordViewModel(
         }
     }
 
-    private fun resetPassword() = scope.launch {
+    private fun resetPassword() {
         val state = _uiState.value
+        if (!resetMutex.tryLock()) return
         if (state.secretQuestion.isBlank()) {
             _uiState.value = state.copy(error = "Introduce un teléfono registrado")
-            return@launch
+            resetMutex.unlock()
+            return
         }
         _uiState.value = state.copy(isUpdating = true, error = null)
-        repository.resetPassword(
-            countryCode = state.countryCode,
-            phone = state.phone,
-            secretAnswer = state.secretAnswer,
-            newPassword = state.newPassword
-        )
-            .onSuccess { _effects.emit(ForgotPasswordEffect.PasswordUpdated) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo actualizar la contraseña") }
-        _uiState.value = _uiState.value.copy(isUpdating = false)
+        scope.launch {
+            try {
+                repository.resetPassword(
+                    countryCode = state.countryCode,
+                    phone = state.phone,
+                    secretAnswer = state.secretAnswer,
+                    newPassword = state.newPassword
+                )
+                    .onSuccess { _effects.emit(ForgotPasswordEffect.PasswordUpdated) }
+                    .onFailure { _uiState.value = _uiState.value.copy(error = it.message ?: "No se pudo actualizar la contraseña") }
+            } finally {
+                _uiState.value = _uiState.value.copy(isUpdating = false)
+                resetMutex.unlock()
+            }
+        }
     }
 
     private fun update(transform: ForgotPasswordUiState.() -> ForgotPasswordUiState) {
