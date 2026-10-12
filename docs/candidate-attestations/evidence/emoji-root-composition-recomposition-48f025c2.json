@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "unit": "FLOW-EMOJI",
+  "status": "passed",
+  "productSha": "48f025c228d912230ec0d1e4663d39dca11592a1",
+  "recompositionHead": "48f025c228d912230ec0d1e4663d39dca11592a1",
+  "predecessorSha": "9e4c81a93be97e23671707644102d5ff7f265ce7",
+  "historicalProductSha": "4303e12bae87e5eb333ff5e8e808d542fa7ea91f",
+  "recomposedFromProductSha": "479c75d5b0429e601ebf218b3a58076c3f40b8d7",
+  "scope": "Recomposition of the reviewed finite emoji owner catalog over the current reviewed Post Composer candidate head, with the exact Post Composer receipt hash rebound to its current reviewed bytes.",
+  "git": {
+    "head": "48f025c228d912230ec0d1e4663d39dca11592a1",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "historical_composition_delta_preserved_except_exact_receipt_hash_rebind",
+    "post_composer_receipt_hash_matches_reviewed_predecessor_bytes",
+    "emoji_root_composition_contract_6_of_6_passed",
+    "six_owner_receipts_exact_hashes_preserved",
+    "product_panel_callsites_source_extracted",
+    "android_web_ios_evidence_preserved_without_reattribution",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_emoji_residual_removed",
+    "owner_boundaries_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformE2eRepeatedForAncestry": false,
+    "ownerReceiptCount": 6,
+    "sourceExtractedPanelCallsiteFiles": 6,
+    "postComposerReceiptSha256": "cceaef6f05a3ddf4457a905d217f2d0f9e9bcc8aab6471580881fb02d8dc007b"
+  },
+  "limits": [
+    "The composition removes only the generic FLOW-EMOJI residual. Provider, network, publication and comment failures remain owned by their respective units."
+  ],
+  "notes": [
+    "The reviewed FLOW-EMOJI composition is preserved over Post Composer exact head 9e4c81a93be97e23671707644102d5ff7f265ce7, with the required receipt hash rebound to the current reviewed bytes.",
+    "Historical Android, Web/Wasm and iOS execution is not reattributed."
+  ]
+}
