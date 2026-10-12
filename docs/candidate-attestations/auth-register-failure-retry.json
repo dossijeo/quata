@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "d54195c51aec2232e275940e8e43bbeab6ee6917",
-  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-affected-gates-pending-independent-exact-head-review-pending",
+  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -140,11 +140,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "0d48e16e8c53731c756e27de6dce17b7ece97389",
     "previousReviewedSha": "00bebcd23da0d35c07dd727cfd61fd979c4e20e1",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review of 0d48e16e8c53731c756e27de6dce17b7ece97389 returned GO without P0-P3 after confirming both stable patch IDs, owned blobs and hashes, historical Android/iOS custody without E2E reattribution, bounded iOS claim, 29/29 contracts, affected Android/iOS compilations, validator, diff-check and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -193,6 +195,6 @@
     "The two native commits retain their stable patch IDs. The Android test blob is byte-identical to historical native Product 8fe252cc; the iOS Register-owned method is byte-identical while unrelated predecessor Profile fixes share its enclosing XCTest file.",
     "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
     "The iOS evidence is intentionally bounded to rejection, preserved visible inputs, one explicit exact-request retry and its success marker; it does not exclude later unseen callbacks.",
-    "Independent exact-head review is pending for the recomposed candidate before publication."
+    "Independent exact-head review of 0d48e16e8 returned GO without P0-P3; this attestation-only review-record head requires final exact-head confirmation before publication."
   ]
 }
