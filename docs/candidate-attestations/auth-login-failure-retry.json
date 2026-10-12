@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
-  "certification": "rendered-login-failure-retry-common-android-ios-complete-recomposed-affected-gates-pending-independent-review",
+  "certification": "rendered-login-failure-retry-common-android-ios-complete-recomposed-affected-gates-passed-independent-exact-head-review-go-final-CI-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -138,11 +138,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "0a2d7bea20aa8de6e2f3dc9cef2ee169488204cf",
     "previousReviewedSha": "f177ea434b5f4d899317eabfee85857e75f65f2b",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review of 0a2d7bea20aa8de6e2f3dc9cef2ee169488204cf returned GO without P0-P3 after confirming three exact product patches, five byte-identical blobs, current common custody, bounded historical Android/iOS evidence, 29/29 contracts, Android instrumentation and iOS x64 compilation, validator, hashes, diff-check, privacy scan and clean tree without repeating native E2E."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -172,13 +174,14 @@
           "P3": 0
         }
       }
-    ]
+    ],
+    "reviewedProductSha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c"
   },
   "notes": [
     "Common Login failure/retry remains bound to Product 084eb2b8 and its reviewed common evidence; the native composition carries applicability without reattributing that execution.",
     "The three native commits are patch-equivalent and all five owned Product blobs are byte-identical to historical native Product dc915688.",
     "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
     "The iOS evidence is intentionally bounded to rejection, preserved input, one explicit retry and its success marker; common and Android retain stronger single-effect assertions.",
-    "Fresh independent exact-head review is required before publication."
+    "Independent exact-head review returned GO without P0-P3; final attestation-only head requires confirmation before publication."
   ]
 }
