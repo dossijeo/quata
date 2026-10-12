@@ -4,12 +4,12 @@
     "SCR-AUTH-RECOVERY"
   ],
   "status": "passed",
-  "productSha": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
-  "certification": "rendered-common-recovery-failure-retry-recomposed-over-integrated-registration-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
+  "productSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+  "certification": "rendered-common-recovery-failure-retry-recomposed-over-integrated-registration-feed-karma-deterministic-recovery-affected-gates-passed-independent-exact-head-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
+      "sha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-301e868e.json",
       "reportSha256": "1ba3a355939c8522afebf1bccab91e764ea2f38d491f0c52e8a24f71a6094349",
       "reportStatus": "passed",
@@ -33,21 +33,25 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
-      "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-955dff63.json",
-      "reportSha256": "a92c61c14220ae12eef18af32203bcb23672115e57ee4ba1b1ac6d56eaa1e593",
+      "sha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+      "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-086ea58e.json",
+      "reportSha256": "28ba0cf331416d803da9308d421e6ad630855cf33ec23f619641ceab988aa68d",
       "reportStatus": "passed",
-      "reportGitHead": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
+      "reportGitHead": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "single_product_commit_patch_equivalent",
-        "two_owned_runtime_and_test_blobs_byte_identical",
+        "product_range_patch_recorded",
+        "two_recovery_runtime_and_test_blobs_byte_identical",
         "atomic_trylock_duplicate_reset_exclusion_preserved",
         "three_fields_and_exact_retry_single_password_updated_preserved",
         "wasm_browser_rendered_gate_passed",
         "android_common_compilation_passed",
         "ios_x64_common_compilation_passed",
+        "feed_karma_reconnect_and_activity_budgets_bounded",
+        "feed_ci_chrome_launcher_uses_disable_dev_shm",
+        "web_android_workflow_contract_passed_45_of_45",
+        "feed_wasm_browser_test_passed",
         "historical_rendered_execution_not_reattributed",
         "diff_check_passed"
       ],
@@ -58,21 +62,25 @@
     },
     "postCurrentRegistrationRecomposition": {
       "status": "passed",
-      "sha": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
-      "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-955dff63.json",
-      "reportSha256": "a92c61c14220ae12eef18af32203bcb23672115e57ee4ba1b1ac6d56eaa1e593",
+      "sha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+      "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-086ea58e.json",
+      "reportSha256": "28ba0cf331416d803da9308d421e6ad630855cf33ec23f619641ceab988aa68d",
       "reportStatus": "passed",
-      "reportGitHead": "955dff632ea1a476d29cd3c079abdc3c2eec33e5",
+      "reportGitHead": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "single_product_commit_patch_equivalent",
-        "two_owned_runtime_and_test_blobs_byte_identical",
+        "product_range_patch_recorded",
+        "two_recovery_runtime_and_test_blobs_byte_identical",
         "atomic_trylock_duplicate_reset_exclusion_preserved",
         "three_fields_and_exact_retry_single_password_updated_preserved",
         "wasm_browser_rendered_gate_passed",
         "android_common_compilation_passed",
         "ios_x64_common_compilation_passed",
+        "feed_karma_reconnect_and_activity_budgets_bounded",
+        "feed_ci_chrome_launcher_uses_disable_dev_shm",
+        "web_android_workflow_contract_passed_45_of_45",
+        "feed_wasm_browser_test_passed",
         "historical_rendered_execution_not_reattributed",
         "diff_check_passed"
       ],
@@ -85,13 +93,15 @@
   "preflight": [
     ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
     ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "node --test scripts/web-android-pr-workflow-contract.test.mjs",
+    "$env:CI=true; .\\gradlew.bat :feature:feed:wasmJsBrowserTest --no-daemon",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-recovery-failure-retry.json --head HEAD",
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "ea2025395d52f6932fab0226fcb4b51ec1e65a27",
-    "previousReviewedSha": "ff8848e1bc832d0e538c361178de18d854859809",
+    "status": "PENDING",
+    "reviewedSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+    "previousReviewedSha": "ea2025395d52f6932fab0226fcb4b51ec1e65a27",
     "blockingFindings": [],
     "resolvedFindings": [
       "Independent exact-head review confirmed exact Product patch-id, two byte-identical owned blobs, tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent reports and hashes, historical custody at 301e868e without native/backend/E2E reattribution, validator, diff-check and clean tree.",
@@ -104,7 +114,7 @@
       "P2": 0,
       "P3": 0
     },
-    "reviewedProductSha": "955dff632ea1a476d29cd3c079abdc3c2eec33e5"
+    "reviewedProductSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99"
   },
   "notes": [
     "The real common Recovery form resolves the question, renders pending/failure/retry and preserves phone, answer and new password after rejection.",
@@ -115,6 +125,7 @@
     "Current Product f9ef7b0826d4a85adb5804830cb9f7190b41c843 preserves stable patch ID 22b15467 over final independently reviewed Registration retry eb0066e0d185673b35a4c8efc1fd2ac93f1e23eb; both owned blobs remain byte-identical, affected common gates pass, and historical rendered execution remains bound to 301e868e7cc863813876e80636e0db19f348722b without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
     "Independent exact-head review of ff8848e1bc832d0e538c361178de18d854859809 returned GO without P0-P3 after confirming Product f9ef7b0826d4a85adb5804830cb9f7190b41c843, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, report hashes, affected common gates, validator, diff-check, clean tree and custody at 301e868e without reattribution.",
     "Current Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5 preserves stable patch ID 22b15467 over integrated Common Register squash 1d078a262e765a1dc3a511eb7c147d6063fd3969; both owned blobs remain byte-identical, affected Wasm 31/31 plus Android/iOS common gates pass, and historical rendered execution remains bound to 301e868e7cc863813876e80636e0db19f348722b without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
-    "Independent exact-head review of ea2025395d52f6932fab0226fcb4b51ec1e65a27 returned GO without P0-P3 after confirming Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent report hashes, Wasm 31/31 plus Android/iOS common gates, validator, diff-check, clean tree and custody at 301e868e without native/backend/E2E reattribution."
+    "Independent exact-head review of ea2025395d52f6932fab0226fcb4b51ec1e65a27 returned GO without P0-P3 after confirming Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent report hashes, Wasm 31/31 plus Android/iOS common gates, validator, diff-check, clean tree and custody at 301e868e without native/backend/E2E reattribution.",
+    "Current Product 086ea58ef39b71a2b07219e7cbb0f7861a204f99 preserves the two Recovery blobs over integrated Common Register and adds deterministic bounded Feed Karma recovery after the same 2-second disconnect failure repeated in consecutive candidates. Contract 45/45 and the affected Feed Wasm browser test pass; fresh independent exact-head review is pending."
   ]
 }
