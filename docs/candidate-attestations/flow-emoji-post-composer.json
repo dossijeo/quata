@@ -6,12 +6,12 @@
     "POST-PUBLISH"
   ],
   "status": "passed",
-  "productSha": "e5eaac04af734b839dde04a7eec1142ca15336af",
-  "certification": "local-complete-historical-platform-evidence-preserved-recomposed-over-candidate-live-ranking-gates-passed-independent-exact-head-review-go-final-ci-pending",
+  "productSha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+  "certification": "local-complete-historical-platform-evidence-preserved-recomposed-over-integrated-live-ranking-gates-passed-independent-exact-head-review-pending",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-web-0a268ee1.json",
       "reportSha256": "1ec90fd297297d5cd3764c83e4410ccdc1616579c868e3d8e30ae5fb77d5da46",
       "reportStatus": "passed",
@@ -31,7 +31,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-android-0a268ee1.json",
       "reportSha256": "1b50024f40b755585ff9241bb6fd07b78d2dcf56619d0ee87aef29f12c415278",
       "reportStatus": "passed",
@@ -50,7 +50,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-ios-0a268ee1.json",
       "reportSha256": "d3562feaf9930a16d1c9481bf1709314916d7e347f374d4dc27ee14b228b77bf",
       "reportStatus": "passed",
@@ -69,7 +69,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-8cc3b9ce.json",
       "reportSha256": "6da65c60d13e8f5c44383d7dc9c58a6e4265c91cf0445b01f6b61dce4635aceb",
       "reportStatus": "passed",
@@ -92,7 +92,7 @@
     },
     "finalLiveRankingRecomposition": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-873d3b13.json",
       "reportSha256": "352e8f8054d773280db91bd0923c440f11bb7a828682fc257d3c2fd413309fbd",
       "reportStatus": "passed",
@@ -115,7 +115,7 @@
     },
     "postLiveRankingRecomposition": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-576f02ad.json",
       "reportSha256": "c4c3b3c72dca194783232831076568312e81270d45b40439f2a853615654388a",
       "reportStatus": "passed",
@@ -138,11 +138,34 @@
     },
     "postCandidateLiveRankingRecomposition": {
       "status": "passed",
-      "sha": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-e5eaac04.json",
       "reportSha256": "9629018f0b8a84e1bab09e7748df08a0d860aa0075800bd09acb17f392194732",
       "reportStatus": "passed",
       "reportGitHead": "e5eaac04af734b839dde04a7eec1142ca15336af",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "five_product_commits_patch_equivalent",
+        "runner_syntax_passed",
+        "post_publish_contract_28_of_28_passed",
+        "seven_isolated_decisive_blobs_byte_identical",
+        "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+        "historical_platform_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "reviewed-product-series-only-no-platform-e2e-rerun"
+      }
+    },
+    "postIntegratedLiveRankingRecomposition": {
+      "status": "passed",
+      "sha": "83493c0684156887e3ab5943747b4e64dbd51ab7",
+      "report": "docs/candidate-attestations/evidence/flow-emoji-post-composer-recomposition-83493c06.json",
+      "reportSha256": "a497cc7c9eb879b02b71f6bbc1c4335f88a752adf87a2f089f22ddea7f65a989",
+      "reportStatus": "passed",
+      "reportGitHead": "83493c0684156887e3ab5943747b4e64dbd51ab7",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -191,12 +214,13 @@
     "Current Product 576f02ad81fa854e2a78c8e5e9bdafbda9b22623 replays the five functional commits with exact stable patch IDs over independently reviewed OVR-LIVE-RANKING head 6a93bac752dfc97895ac8e7d122bf5d4adfbb8f9.",
     "Affected gates are renewed without reattributing historical Web/Wasm, Android or iOS execution. Independent exact-head review of 05feffc37e471ba00045eee9c053cda51739dda2 returned GO without P0-P3.",
     "Current Product e5eaac04af734b839dde04a7eec1142ca15336af replays the five functional commits with exact stable patch IDs over OVR-LIVE-RANKING candidate-final head ef028d80eb37e626bb2a89835e7a62da727e6fc6; 28/28 contracts, runner syntax and diff-check pass without reattributing historical platform E2E.",
-    "Independent exact-head review of 2ae812b1c207edce686529e1fe342b83a8c03f19 returned GO without P0-P3 after verifying 5/5 stable patch IDs, preserved blobs and shared composition, seven report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree."
+    "Independent exact-head review of 2ae812b1c207edce686529e1fe342b83a8c03f19 returned GO without P0-P3 after verifying 5/5 stable patch IDs, preserved blobs and shared composition, seven report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree.",
+    "Current Product 83493c0684156887e3ab5943747b4e64dbd51ab7 replays the five functional commits with exact stable patch IDs over integrated OVR-LIVE-RANKING squash 0d1010dbec1c00911f7350f62484b79d03fe827a; affected gates are renewed without reattributing platform E2E."
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2ae812b1c207edce686529e1fe342b83a8c03f19",
-    "previousReviewedSha": "05feffc37e471ba00045eee9c053cda51739dda2",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "2ae812b1c207edce686529e1fe342b83a8c03f19",
     "blockingFindings": [],
     "findingCounts": {
       "P0": 0,
@@ -236,6 +260,6 @@
         }
       }
     ],
-    "reviewedProductSha": "e5eaac04af734b839dde04a7eec1142ca15336af"
+    "reviewedProductSha": "83493c0684156887e3ab5943747b4e64dbd51ab7"
   }
 }
