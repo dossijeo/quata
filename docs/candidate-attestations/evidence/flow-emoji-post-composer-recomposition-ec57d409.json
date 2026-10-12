@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "unit": "FLOW-EMOJI / Post Composer",
+  "status": "passed",
+  "productSha": "ec57d409158b8f8431e34e2bff47d56f5737472b",
+  "recompositionHead": "ec57d409158b8f8431e34e2bff47d56f5737472b",
+  "predecessorSha": "201a6a39820b0584d53c9e6e652e52331b470e9d",
+  "historicalProductSha": "3f012154f15f9b0041e60d34a38f9206186445e1",
+  "historicalExecutionSha": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+  "recomposedFromProductSha": "2bc4d1ed080ab8a7d3dcebafefd3d00a275dd30d",
+  "scope": "Recomposition of only the reviewed Post Composer emoji publish series over the final independently reviewed OVR-LIVE-RANKING head without renewing platform E2E solely for ancestry.",
+  "git": {
+    "head": "ec57d409158b8f8431e34e2bff47d56f5737472b",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "five_product_commits_patch_equivalent",
+    "runner_syntax_passed",
+    "post_publish_contract_28_of_28_passed",
+    "seven_isolated_decisive_blobs_byte_identical",
+    "three_shared_contract_and_platform_test_files_composed_with_predecessor_additions",
+    "historical_platform_execution_not_reexecuted",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "productPatchIds": "5/5 exact",
+    "runnerSyntax": "passed",
+    "postPublishContract": "28/28 passed",
+    "diffCheck": "passed"
+  },
+  "custody": {
+    "platformReportsRemainBoundToHistoricalExecution": true,
+    "platformE2eRepeatedForAncestry": false,
+    "backendMutationPerformed": false,
+    "isolatedRuntimeTestRunnerBlobsByteIdentical": 7,
+    "emojiDeltaInComposedFiles": "The emoji-specific hunks remain patch-equivalent to the historical product; independent predecessor additions remain outside the emoji route."
+  },
+  "limits": [
+    "The receipts cover the registered product-owned CommunityEmojiPanelContent consumers and do not claim arbitrary third-party text surfaces.",
+    "Provider, network, publication and comment failures remain owned by their respective units."
+  ],
+  "notes": [
+    "The five product commits retain exact stable patch IDs over final independently reviewed OVR-LIVE-RANKING. Historical platform execution remains bound to 0a268ee1 and is not reattributed."
+  ]
+}

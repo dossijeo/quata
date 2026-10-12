@@ -207,8 +207,11 @@ en Feed, Official y perfil público (`comments-replies-pagination.json`); autor�
 (`flow-emoji-visual-comparison.json`); emoji de catálogo mezclado con enlace en Chat
 (`flow-emoji-mixed-links.json`); picker de perfil (`flow-emoji-profile-comments.json`); rollback
 forzado (`flow-emoji-error-rollback.json`); y vacío/error/retry del selector
-(`flow-emoji-selector-states.json`). Todas esas rutas tienen evidencia Web/Android/iOS y cleanup
-físico cero en sus Product/Evidence SHA respectivos.
+(`flow-emoji-selector-states.json`). Post Composer añade su recibo propio
+(`flow-emoji-post-composer.json`): abre `CommunityEmojiPanelContent`, inserta el emoji de catálogo,
+publica una sola fila con el body metadata-encoded exacto y termina con cleanup físico cero en
+Web/Wasm, Android e iOS. Todas esas rutas conservan evidencia ligada a sus Product/Evidence SHA
+respectivos; la composición de raíz debe enumerar por fuente el catálogo finito y los seis recibos.
 
 La unidad integrada por #513, Product SHA `f307addde73d9a9a52dfc63e9d46fd3cf39fde2d`
 y ejecución focal `265cdaf67c8ea11b3362c37ce9f04e29889ae557`, elimina el límite de transporte de la paginación

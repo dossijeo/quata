@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "check": "POST-PUBLISH-WEB-REAL-001",
+  "status": "passed",
+  "productSha": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+  "git": {
+    "head": "0a268ee1f093f548def49e7ca5f59723d30fa7c6",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "common_create_post_root_mounted_on_web",
+    "web_post_composer_emoji_inserted_from_common_picker",
+    "web_post_publish_submitted_by_localhost_opt_in_product_bridge_after_visual_route",
+    "real_text_post_published_from_common_composer_and_verified_by_marker",
+    "post_publish_cleanup_verified_residue_absent"
+  ],
+  "cleanup": {
+    "verified": true,
+    "physicalResidue": 0
+  },
+  "artifacts": {
+    "web-post-publish-emoji-after-trigger.png": "f0cf9a4b4e7b3131b08de585c55e09fbf7405add7a49b5730aa30e889caa6b60",
+    "web-post-publish-composer-filled.png": "3f7effa64d48b6b8d6ebeb06ce75dab8ad64cb3c31c5710ebcf98cddbd84c7e4",
+    "web-post-publish-after-publish.png": "1c5fe45daf34bb777b7100028714ebed1c9e157ff306ffacee08a5f26a6418bd"
+  },
+  "sourceReportSha256": "4eb4ce7f14f6dc4025e39992105226a1e7598e6919ee1e1edb04bbdb4e21650b",
+  "notes": [
+    "Sanitized durable projection; the raw local report and screenshots remain host-local.",
+    "The run used one physical semantic-anchor click per Compose/Wasm control, inserted the catalog emoji through CommunityEmojiPanelContent, verified the one exact metadata-encoded persisted body and finished with physical residue zero."
+  ]
+}
