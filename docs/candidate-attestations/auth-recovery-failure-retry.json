@@ -94,13 +94,13 @@
     ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
     ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
     "node --test scripts/web-android-pr-workflow-contract.test.mjs",
-    "$env:CI=true; .\\gradlew.bat :feature:feed:wasmJsBrowserTest --no-daemon",
+    "$env:CI='true'; .\\gradlew.bat :feature:feed:wasmJsBrowserTest --no-daemon",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-recovery-failure-retry.json --head HEAD",
     "git diff --check"
   ],
   "review": {
     "status": "PENDING",
-    "reviewedSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+    "reviewedSha": null,
     "previousReviewedSha": "ea2025395d52f6932fab0226fcb4b51ec1e65a27",
     "blockingFindings": [],
     "resolvedFindings": [
