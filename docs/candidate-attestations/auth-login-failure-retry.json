@@ -4,16 +4,16 @@
     "SCR-AUTH-LOGIN"
   ],
   "status": "passed",
-  "productSha": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
-  "certification": "rendered-common-login-failure-retry-recomposed-over-integrated-emoji-root-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
+  "productSha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+  "certification": "rendered-login-failure-retry-common-android-ios-complete-recomposed-affected-gates-pending-independent-review",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
-      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-76321704.json",
-      "reportSha256": "4acbe2aa09e45a3ff0fec6899c7bf743a0788eaaca6d8624a9b3ee5453de4efc",
+      "sha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-a8a06e43.json",
+      "reportSha256": "bbac6065136d338b11324912b310233f622615b482d217231620a796672f47fa",
       "reportStatus": "passed",
-      "reportGitHead": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
+      "reportGitHead": "a8a06e43691bdc251377caa1bd68ba3d1d6830a5",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -30,13 +30,13 @@
         "physicalResidue": 0
       }
     },
-    "recomposition": {
+    "commonRecomposition": {
       "status": "passed",
-      "sha": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
-      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-76321704.json",
-      "reportSha256": "1090d455883c2346e7fd9b8f6fc291b2663a14b71f2ad44e14c1759e923e79b9",
+      "sha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-084eb2b8.json",
+      "reportSha256": "3e5cc55bf89bb15dddd712088cf20af8e97e6d15bdd9e5f00500c0c99b95c080",
       "reportStatus": "passed",
-      "reportGitHead": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
+      "reportGitHead": "084eb2b8ef5e5ecc82ab69e88287cbef80a3a60f",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -51,53 +51,98 @@
       ],
       "cleanup": {
         "verified": true,
-        "mode": "product-commit-only-affected-common-gates-renewed"
+        "mode": "hermetic-no-backend-or-platform-mutation"
       }
     },
-    "postCurrentEmojiRootRecomposition": {
+    "android": {
       "status": "passed",
-      "sha": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
-      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-recomposition-76321704.json",
-      "reportSha256": "1090d455883c2346e7fd9b8f6fc291b2663a14b71f2ad44e14c1759e923e79b9",
+      "sha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-android-46840732.json",
+      "reportSha256": "369ad2e18a1a2b419b322f85c457d4d37f5e38644711eb4513ea91cb0c32beed",
       "reportStatus": "passed",
-      "reportGitHead": "76321704cc2d6aa23b2552f3f7acb53cc77ad090",
+      "reportGitHead": "46840732497eb97d1141779235f283eb0a4d8ca5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "real_shared_login_form_rendered",
+        "credentials_entered_through_native_ui",
+        "first_submit_reaches_fail_once_transport_once",
+        "failure_visible_on_auth_error_semantics",
+        "phone_and_password_preserved_after_failure",
+        "explicit_retry_reuses_exact_request_once",
+        "successful_retry_emits_single_authentication_effect"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+      "report": "docs/candidate-attestations/evidence/auth-login-failure-retry-ios-c06fc5be.json",
+      "reportSha256": "ccffb89aa390483bf705b34606f88e48e7720e5b5c22be3335314dadfcc20750",
+      "reportStatus": "passed",
+      "reportGitHead": "c06fc5be3bd84a487baec8c8dc2137c87e96808d",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "exact_product_tree_built_for_ios_x86_64_simulator",
+        "validated_hyperv_raster_runtime_loaded",
+        "real_shared_login_form_rendered",
+        "credentials_entered_through_native_ui",
+        "first_submit_reaches_fail_once_transport_once",
+        "failure_visible_on_auth_error_semantics",
+        "phone_and_password_preserved_after_failure",
+        "explicit_retry_with_exact_request_observed",
+        "successful_retry_marker_observed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    },
+    "nativeRecomposition": {
+      "status": "passed",
+      "sha": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
+      "report": "docs/candidate-attestations/evidence/auth-login-native-failure-retry-recomposition-cddaaa3e.json",
+      "reportSha256": "0bd9be6ae46f076bfe22b5ada27c00b9e7f52d36c03b98f8e127c79ba2f51051",
+      "reportStatus": "passed",
+      "reportGitHead": "cddaaa3e2987d58b27305f572cf1d5fc4cae785c",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "single_product_commit_patch_equivalent",
-        "three_owned_runtime_and_test_blobs_byte_identical",
-        "synchronous_submission_reservation_and_duplicate_suppression_preserved",
-        "wasm_browser_rendered_gate_passed",
-        "android_common_compilation_passed",
-        "ios_x64_common_compilation_passed",
-        "historical_rendered_execution_not_reattributed",
+        "three_native_runtime_and_test_commits_patch_equivalent",
+        "five_owned_product_blobs_byte_identical",
+        "four_ios_app_matrix_hashes_match_current_product_blob",
+        "common_login_custody_preserved",
+        "historical_android_and_ios_execution_not_reattributed",
+        "bounded_ios_success_claim_preserved",
+        "native_contracts_passed",
+        "android_instrumentation_compilation_passed",
+        "ios_x64_compilation_passed",
         "diff_check_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "product-commit-only-affected-common-gates-renewed"
+        "mode": "hermetic-recomposition-no-backend-or-platform-mutation"
       }
     }
   },
   "preflight": [
-    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
-    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
+    "node --test scripts/capability-matrix-contract.test.mjs scripts/ios-auth-launch-fixture-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :feature:auth:compileKotlinIosX64",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-login-failure-retry.json --head HEAD",
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "1166fc5ef530bbcde8c2b98e6611c8d0e9a7d81a",
-    "previousReviewedSha": "78bde34e56e367d09b5cb629f93bf1b2e49ad369",
+    "status": "PENDING",
+    "reviewedSha": null,
+    "previousReviewedSha": "f177ea434b5f4d899317eabfee85857e75f65f2b",
     "blockingFindings": [],
-    "resolvedFindings": [
-      "Independent exact-head review confirmed exact patch, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, custody at a8a06e43, affected Wasm/Android/iOS gates, hashes, validator, diff-check and clean tree.",
-      "Independent exact-head review of 37f4f77868f327681f369ea53e10a40211dbad67 returned GO without P0-P3 after confirming exact patch-id, three identical blobs, synchronous reservation, duplicate suppression, preserved credentials, exact retry and one success effect, report hash and custody at a8a06e43 without native/backend reattribution, Wasm browser plus Android/iOS common gates, validator, diff-check, privacy scan and clean tree.",
-      "Independent exact-head review of 68f7c235f6fb96bb32fae4757ce718772df1159f returned GO without P0-P3 after confirming patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, preserved credentials, exact retry and one success, report 3e5cc55b, custody at a8a06e43 without native/backend reattribution, Wasm browser and Android/iOS common gates, validator, diff-check, privacy scan and clean tree.",
-      "Independent exact-head review of 8e6add8129a4ed851b23947b31f418febaaf6a29 returned GO without P0-P3 after verifying patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, single success, report hashes, custody at a8a06e43 without reattribution, Wasm 29/29 plus Android/iOS common gates, validator, diff-check and clean tree.",
-      "Independent exact-head review of 78bde34e56e367d09b5cb629f93bf1b2e49ad369 returned GO without P0-P3 after confirming Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4, stable patch ID 4b8d43fc, three byte-identical owned blobs, report hashes, affected common gates, validator, diff-check, clean tree and custody at a8a06e43 without native/backend/E2E reattribution.",
-      "Independent exact-head review of 1166fc5ef530bbcde8c2b98e6611c8d0e9a7d81a returned GO without P0-P3 after confirming stable patch ID 4b8d43fc, three byte-identical owned blobs, synchronous reservation, duplicate suppression, preserved credentials, exact retry and one success effect, coherent report hashes, Wasm 29/29 plus Android/iOS common gates, validator, diff-check, clean tree and no native/backend/E2E reattribution."
-    ],
+    "resolvedFindings": [],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -107,8 +152,19 @@
     "historicalReviews": [
       {
         "status": "GO",
-        "reviewedSha": "37f4f77868f327681f369ea53e10a40211dbad67",
-        "productSha": "20c890b2bdd8a3660f5b4e06cff0087c756f4bae",
+        "reviewedSha": "68f7c235f6fb96bb32fae4757ce718772df1159f",
+        "productSha": "084eb2b8ef5e5ecc82ab69e88287cbef80a3a60f",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      },
+      {
+        "status": "GO",
+        "reviewedSha": "f177ea434b5f4d899317eabfee85857e75f65f2b",
+        "productSha": "dc9156881e790c9b7a29cd4440cbe3c4bd7de50b",
         "findingCounts": {
           "P0": 0,
           "P1": 0,
@@ -116,31 +172,13 @@
           "P3": 0
         }
       }
-    ],
-    "reviewedProductSha": "76321704cc2d6aa23b2552f3f7acb53cc77ad090"
+    ]
   },
   "notes": [
-    "The real common Login form exposes a stable auth.error semantic anchor and keeps both entered credentials after a failed phone/password submission.",
-    "While the first transport call is pending, the shared submit control is disabled. One explicit retry uses the exact same country code, phone and password and emits one success effect.",
-    "The evidence is hermetic and performs no backend mutation. It proves the common rendered component in Chrome Headless and compiles the same common source for Android and iOS x64; it does not claim native UI execution or a real backend outage.",
-    "The aggregate wasmJsTest Node dry-run remains a runner diagnostic because Skiko cannot load skiko.wasm there; wasmJsBrowserTest is the applicable rendered Compose gate and passed all 29 module tests.",
-    "Historical Product 9b54420711ce046f033bfdd0fb58bd11b0cd8f65 replays the eleven-commit Login retry historical series plus its squash reanchor patch-equivalent over reviewed Recovery-continuity head 387a7459a7a01c23a3623771f89cf903c5af13c0. All five Product blobs remain unchanged from the reviewed unit; historical Web/Wasm execution and Android/iOS common compilations are not attributed to ancestry.",
-    "Independent exact-head review of 50091af14eed0ae4bdb98918d18ea57f4a2493f4 returned GO without P0-P3: 11/11 patch-equivalent, five blobs identical, synchronous reservation and duplicate suppression verified, credentials/retry/single success preserved, validator/diff-check/secret scan clean, and no new matrix attributed.",
-    "Historical independent review returned GO with no P0-P3 on cddf40a28dd1b898d87c1c075d079c6f167e9498 and remains recorded only as prior custody.",
-    "Independent review of 0d2625c61f6ef61811064a668d8ffee1cef838cb returned GO without P0-P3; validator, diff-check, JSON and secret scan passed with a clean tree.",
-    "Independent exact-head review of e3bc23625965138adb1f14f223883881e914d3c4 returned GO without P0-P3 after confirming 16/16 patch equivalence, five byte-identical Product blobs, synchronous reservation, duplicate suppression, preserved credentials, single retry success, historical-only execution attribution, validator, hashes, diff-check and clean tree.",
-    "Current Product aff2fdb87d4113a8382f9c7f945a05a060ce8ac0 replays the exact Login failure/retry patch over reviewed FLOW-EMOJI root e77e0f4585235ffe3f7f8023bdbb3b87215768e6; all three owned blobs remain byte-identical, affected Web/Android/iOS common gates pass, and no native UI or backend execution is reattributed.",
-    "Independent exact-head review of fe674e09515806a38f3b3f3f19ec47df1f1bdbfd returned GO without P0-P3: Product patch-id is exact, all three owned blobs are byte-identical, affected gates pass, and historical evidence remains bound to a8a06e43.",
-    "Current Product d562121955bff9f9f8826b1bfc71539e0a7b30ec replays the exact Login failure/retry patch over final independently reviewed FLOW-EMOJI root 712dfb7ed7cb1036978491a388818cbd324f9554; three owned blobs remain byte-identical and historical execution remains bound to a8a06e43.",
-    "Independent exact-head review of 4c634ad8327ebc7e73b2af6b432ce0ad2100540b returned GO without P0-P3 and confirmed no native/backend execution reattribution.",
-    "Current Product 3ea7a79f49718af1d10f4adbeacd6852680c9e05 replays the exact Login failure/retry patch over final independently reviewed FLOW-EMOJI root 32ce6869a2d9e089454e7c4f0c17a7d54c5deb7d. The three owned blobs remain byte-identical, affected Web/Android/iOS common gates pass and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5.",
-    "Independent exact-head review of f73c38dfe12e6e721bc6754aaf8b7b79c4c8974c returned GO without P0-P3 after confirming the exact patch-id, three identical blobs, synchronous reservation, duplicate suppression, preserved credentials, exact retry and single success effect, report hash 8b97a7ff680607bc14b11ef2ec8a075b77de8627999ed550273ca894a5fbb7d4, affected gates, validator, diff-check and clean tree without native E2E reattribution.",
-    "Current Product 20c890b2bdd8a3660f5b4e06cff0087c756f4bae replays the exact Login failure/retry patch over final independently reviewed FLOW-EMOJI root 0b3913346829eae4d535359e74a0d501e3ab38f7. The three owned blobs remain byte-identical; affected Web/Android/iOS common gates require renewal and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5. Fresh independent exact-head review is required before publication.",
-    "Current Product 084eb2b8ef5e5ecc82ab69e88287cbef80a3a60f replays the exact Login failure/retry patch over independently reviewed FLOW-EMOJI root e00d9f6afbaa54481caad8e2ced832834e8084a2; prior Product 20c890b2bdd8a3660f5b4e06cff0087c756f4bae and root 0b3913346829eae4d535359e74a0d501e3ab38f7 remain historical custody. Three owned blobs remain byte-identical and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5. Fresh independent exact-head review is required before publication.",
-    "Current Product f3e99baf592dd7367d3f4358c02a4207f1448539 preserves stable patch ID 4b8d43fc over reviewed FLOW-EMOJI root 428e911cdd8fbd2142ee4b8ab25c76fe8f594e5a; affected common gates pass without native/backend/E2E reattribution.",
-    "Independent exact-head review of 8e6add8129a4ed851b23947b31f418febaaf6a29 returned GO without P0-P3 after verifying patch-id 4b8d43fc, three identical blobs, synchronous reservation, duplicate suppression, credential-preserving retry, single success, report hashes, custody at a8a06e43 without reattribution, Wasm 29/29 plus Android/iOS common gates, validator, diff-check and clean tree.",
-    "Current Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4 preserves stable patch ID 4b8d43fc over final independently reviewed FLOW-EMOJI root 6be615e5948819e942fd02c4c4f529749e811e60; all three owned blobs remain byte-identical, affected common gates pass, and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5 without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
-    "Independent exact-head review of 78bde34e56e367d09b5cb629f93bf1b2e49ad369 returned GO without P0-P3 after confirming Product 62c628bdf7c860ff1e1bfa6b5af6cc3a0dda9ff4, stable patch ID 4b8d43fc, three byte-identical owned blobs, report hashes, affected common gates, validator, diff-check, clean tree and custody at a8a06e43 without native/backend/E2E reattribution.",
-    "Current Product 76321704cc2d6aa23b2552f3f7acb53cc77ad090 preserves stable patch ID 4b8d43fc over integrated FLOW-EMOJI root squash 5f183ad346a09b67acdc5088a8c38e543e434d6b; all three owned blobs remain byte-identical, affected Web/Android/iOS common gates pass, and historical rendered execution remains bound to a8a06e43691bdc251377caa1bd68ba3d1d6830a5 without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication."
+    "Common Login failure/retry remains bound to Product 084eb2b8 and its reviewed common evidence; the native composition carries applicability without reattributing that execution.",
+    "The three native commits are patch-equivalent and all five owned Product blobs are byte-identical to historical native Product dc915688.",
+    "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
+    "The iOS evidence is intentionally bounded to rejection, preserved input, one explicit retry and its success marker; common and Android retain stronger single-effect assertions.",
+    "Fresh independent exact-head review is required before publication."
   ]
 }
