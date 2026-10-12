@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-LIVE-RANKING"
+  ],
+  "status": "passed",
+  "productSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+  "certification": "live-ranking-finite-functional-catalog-composed-media-separated-recomposed-over-merged-ovr-media-gates-passed-independent-exact-head-review-go-final-ci-pending",
+  "evidence": {
+    "composition": {
+      "status": "passed",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-reconciliation-7864014c.json",
+      "reportSha256": "4923ecaf5abd3d59347df4353c89a0d90516eee5947ef8e22bfa60fa9790a368",
+      "reportStatus": "passed",
+      "reportGitHead": "7864014c575aa6b054c5d8c45c5deb40acaed9b0",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "live_ranking_composition_contract_4_of_4_passed",
+        "four_owner_receipts_and_four_executable_contracts_exact_hashes_preserved",
+        "native_contracts_and_result_verifier_10_of_10_passed",
+        "official_total_order_contract_8_of_8_passed",
+        "feed_total_order_contract_passed",
+        "ci_fast_and_web_wave2_wiring_present",
+        "generic_live_ranking_residual_removed",
+        "media_boundary_and_superseded_public_quota_failure_preserved",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and_contract_only_no_runtime_backend_or_platform_mutation"
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-083f1e10.json",
+      "reportSha256": "cff809bd9527295087be982d344066f7440107686cf8bf698421a58a2355b704",
+      "reportStatus": "passed",
+      "reportGitHead": "083f1e10535deceeb8d33353b92eda7bcdb90f13",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "single_product_commit_patch_equivalent",
+        "live_ranking_composition_contract_4_of_4_passed",
+        "native_contracts_and_result_verifier_10_of_10_passed",
+        "official_total_order_contract_8_of_8_passed",
+        "feed_total_order_contract_passed",
+        "exact_receipts_and_owner_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    },
+    "finalMediaRecomposition": {
+      "status": "passed",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-1ab88d8c.json",
+      "reportSha256": "c6ca099ca62522789548e809d8c658b1f729842edcf4df2b36a8164155ef3434",
+      "reportStatus": "passed",
+      "reportGitHead": "1ab88d8c901d638a306f77dc81e5c4f4e46a890b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "single_product_commit_patch_equivalent",
+        "live_ranking_composition_contract_4_of_4_passed",
+        "native_contracts_and_result_verifier_10_of_10_passed",
+        "official_total_order_contract_8_of_8_passed",
+        "feed_total_order_contract_passed",
+        "exact_receipts_and_owner_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    },
+    "postOvrMediaRecomposition": {
+      "status": "passed",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-c3c2cfb2.json",
+      "reportSha256": "35b3bb29aaafc19ead4e46c16a48c82fc9d0f0f527e6b65b83e9050caa2e1975",
+      "reportStatus": "passed",
+      "reportGitHead": "c3c2cfb2b3494cc21033565f682141ccb77304e9",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_preserved_over_ovr_media_candidate",
+        "live_ranking_composition_contract_4_of_4_passed",
+        "native_contracts_and_result_verifier_10_of_10_passed",
+        "official_total_order_contract_8_of_8_passed",
+        "feed_total_order_contract_passed",
+        "exact_receipts_and_owner_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "package_aggregate_conflict_resolved_with_exact_once_live_ranking_wiring",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation_and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    },
+    "postOvrMediaSquashRecomposition": {
+      "status": "passed",
+      "sha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "report": "docs/candidate-attestations/evidence/live-ranking-root-composition-recomposition-1a7fd70f.json",
+      "reportSha256": "8c375c94611a9ecbaeae1af6e7d07a13aaa0e907f5fcadbec23eda89872ad318",
+      "reportStatus": "passed",
+      "reportGitHead": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_delta_preserved_over_ovr_media_squash",
+        "live_ranking_composition_contract_4_of_4_passed",
+        "native_contracts_and_result_verifier_10_of_10_passed",
+        "official_total_order_contract_8_of_8_passed",
+        "feed_total_order_contract_passed",
+        "exact_receipts_and_owner_boundaries_preserved",
+        "historical_platform_and_database_execution_not_reexecuted",
+        "package_aggregate_conflict_resolved_with_exact_once_live_ranking_wiring",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "documentation-and-contract-only-no-runtime-backend-or-platform-mutation"
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/live-ranking-root-composition-reconciliation-contract.test.mjs scripts/live-ranking-native-e2e-contract.test.mjs scripts/verify-live-ranking-android-results.test.mjs",
+    "node --test scripts/official-feed-total-order-contract.test.mjs",
+    "node scripts/community-feed-ranking-completeness-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/live-ranking-root-composition-reconciliation.json --head HEAD",
+    "git diff --check"
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "afee072f09affcb23cceee1fffbef9fdfdced2a0",
+    "previousReviewedSha": "ec31fbf13d6e58a96736568849ef21a7d09da1e6",
+    "blockingFindings": [],
+    "reviewedProductSha": "1a7fd70f526b6f7beddf65724221f214cf711a5b",
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "resolvedFindings": [
+      "Independent exact-head review of 7713492e470763fefd19a96e4edd40ff71f7a12c returned GO without P0-P3 after confirming exact patch equivalence against historical Product 6d40b987, exact receipts and report hashes, media ownership separation, historical 402 quota-failure custody without execution reattribution, 23/23 affected checks, validator, diff-check, privacy scan and clean tree.",
+      "Independent exact-head review of 3ded4d2fb3212ad5727744c6b0256979817e33a4 returned GO without P0-P3 after confirming exact patch equivalence, receipts and hashes, media ownership, historical quota failure custody, absence of execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
+      "Independent exact-head review of 0a1a708abccfc70b6bfabeac7af84f26ba6ee154 returned GO without P0-P3 after verifying the exact patch, receipts and hashes, report hash 54472174, media separation, negative 402 custody, exact-once wiring, no execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
+      "Independent exact-head review of c83bc8714fa41d5f3a634ec480977bd805a5cbd6 returned GO without P0-P3 after confirming patch-id d1cbd299, exact receipts and report c6ca099c, media separation, historical 402 custody, no execution reattribution, 23/23 affected checks, validator, diff-check, privacy scan and clean tree.",
+      "Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3 after verifying the four byte-identical blobs, exact-once package wiring with OVR and SOS preserved, report hashes, historical custody, 23/23 affected checks, validator, diff-check and clean tree.",
+      "Independent exact-head review of afee072f09affcb23cceee1fffbef9fdfdced2a0 returned GO without P0-P3 after verifying stable patch-id 252a1742, identical base trees, byte-identical product blobs, exact-once Ranking/OVR-MEDIA/SOS wiring, 23 affected checks, validator, report hashes, historical custody, diff-check and clean tree."
+    ],
+    "historicalReviews": [
+      {
+        "status": "GO",
+        "reviewedSha": "7713492e470763fefd19a96e4edd40ff71f7a12c",
+        "productSha": "25391e2af6f076c475f14e796e85eced6fa2d762",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      },
+      {
+        "status": "GO",
+        "reviewedSha": "c83bc8714fa41d5f3a634ec480977bd805a5cbd6",
+        "productSha": "1ab88d8c901d638a306f77dc81e5c4f4e46a890b",
+        "findingCounts": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        }
+      }
+    ]
+  },
+  "notes": [
+    "Four owner receipts plus four exact executable contracts compose focused identity and return, fail-closed remote completeness for Official and Feed, visible Retry, native panels and exact deep targets.",
+    "The reconciliation removes only the generic non-focal Live/Ranking residual. Media remains owned by OVR-MEDIA.",
+    "The public Feed probe limited by 402 exceed_egress_quota remains recorded as a failed non-authoritative attempt; it is not counted as positive evidence and does not replace the product migration, rollback/postflight and native receipts.",
+    "No runtime, backend, CI workflow or platform evidence receipt changed. Historical Android, Web/Wasm, iOS and database executions remain bound to their original Product and evidence heads.",
+    "This unit is based on the reviewed OVR-MEDIA Lane B head 413530a1304669ab9681a53748fe0e12cf6f0806 and must be recomposed over its eventual squash before publication.",
+    "Independent review of exact head 7e3f53eabc0f5971919f4a6ae55fd465aa099fbb returned GO without P0-P3 after reproducing composition 4/4, native/result 10/10, Official 8/8, Feed completeness, validator, range diff-check, exact hashes and preserved scope boundaries.",
+    "Current Product 875e074593364136e5bd6753f91dfa7107d39b30 replays the OVR-LIVE-RANKING composition commit with identical stable patch ID over reviewed OVR-MEDIA head df3eea54e9ae8545c5923723c09de93b6d8f5fbe. Composition 4/4, native/result 10/10, Official 8/8, Feed completeness, validator and diff-check pass; historical execution is not reattributed.",
+    "Independent exact-head review of fa6230207bc0d46f747e36c7fbc82dd6860887cd returned GO without P0-P3 after verifying patch-id d1cbd299, receipts and hashes, media separation, superseded quota failure custody, report hash 32c23003, 22/22 contracts plus Feed completeness, validator, diff-check and clean tree.",
+    "Current Product 083f1e10535deceeb8d33353b92eda7bcdb90f13 replays the OVR-LIVE-RANKING composition with its exact stable patch ID over final independently reviewed OVR-MEDIA head e1d501a1d3f04afd82f3f3dbba2f82136fefc861. Affected contracts are renewed without reattributing historical Android, Web/Wasm, iOS or database execution.",
+    "Independent exact-head review of 3ded4d2fb3212ad5727744c6b0256979817e33a4 returned GO without P0-P3 after confirming exact patch equivalence, receipts and hashes, media ownership, historical quota failure custody, absence of execution reattribution, 23/23 affected checks, validator, diff-check and clean tree.",
+    "Current Product 25391e2af6f076c475f14e796e85eced6fa2d762 replays the OVR-LIVE-RANKING composition with its exact stable patch ID over final OVR-MEDIA candidate 967fad0383f8d157e6c2123c23460ce40e04973b. Affected contracts are renewed without reattributing historical Android, Web/Wasm, iOS or database execution.",
+    "Independent exact-head review of 0a1a708abccfc70b6bfabeac7af84f26ba6ee154 returned GO without P0-P3; 23/23 affected checks, validator and diff-check remained green.",
+    "Current Product 25391e2af6f076c475f14e796e85eced6fa2d762 preserves the OVR-LIVE-RANKING composition delta with identical stable patch ID over final reviewed OVR-MEDIA 8cbe9e378e4f711b71b849366cca063d83bd807b. Affected contracts are renewed without reattributing historical platform or database execution. Fresh independent exact-head review is required before publication.",
+    "Current Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b preserves the exact OVR-LIVE-RANKING composition patch over independently reviewed OVR-MEDIA candidate ec88e5a84dfa91b1a7b180f826a5802e0358aa4c; prior media head 8cbe9e378e4f711b71b849366cca063d83bd807b remains historical custody. Affected contracts are renewed without reattributing platform or database execution. Fresh independent exact-head review is required before publication.",
+    "Current Product c3c2cfb2b3494cc21033565f682141ccb77304e9 recomposes OVR-LIVE-RANKING over reviewed OVR-MEDIA head bc448e0a5bad27cca58c8c299888110426f80ad4.",
+    "The three inventory documents and focal ranking contract remain byte-identical to Product 1ab88d8c901d638a306f77dc81e5c4f4e46a890b; package.json preserves ranking wiring exactly once while retaining OVR-MEDIA and iOS SOS contracts.",
+    "No runtime, database or platform evidence was reexecuted. Independent exact-head review of ec31fbf13d6e58a96736568849ef21a7d09da1e6 returned GO without P0-P3.",
+    "Current Product 1a7fd70f526b6f7beddf65724221f214cf711a5b preserves stable patch ID 252a1742db7aef0d924389983117f3b26caecc8c over merged OVR-MEDIA squash 9f5daed3d8cb2247ac46b842d62d85c61bd6c92c; the squash tree was verified identical to candidate bc448e0a5bad27cca58c8c299888110426f80ad4. Affected contracts were renewed without reattributing historical execution. Fresh independent exact-head review is required before publication.",
+    "Independent exact-head review of afee072f09affcb23cceee1fffbef9fdfdced2a0 returned GO without P0-P3 after verifying stable patch-id 252a1742, identical base trees, byte-identical product blobs, exact-once Ranking/OVR-MEDIA/SOS wiring, 23 affected checks, validator, report hashes, historical custody, diff-check and clean tree."
+  ]
+}

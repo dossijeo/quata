@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "git": {
+    "head": "7864014c575aa6b054c5d8c45c5deb40acaed9b0",
+    "workingTreeDirty": false
+  },
+  "steps": [
+    "live_ranking_composition_contract_4_of_4_passed",
+    "four_owner_receipts_and_four_executable_contracts_exact_hashes_preserved",
+    "native_contracts_and_result_verifier_10_of_10_passed",
+    "official_total_order_contract_8_of_8_passed",
+    "feed_total_order_contract_passed",
+    "ci_fast_and_web_wave2_wiring_present",
+    "generic_live_ranking_residual_removed",
+    "media_boundary_and_superseded_public_quota_failure_preserved",
+    "diff_check_passed"
+  ],
+  "observations": {
+    "unit": "OVR-LIVE-RANKING",
+    "ownerReceiptCount": 4,
+    "boundExecutableContractCount": 4,
+    "functionalCatalog": [
+      "focused_identity_and_return",
+      "official_remote_completeness",
+      "feed_remote_completeness",
+      "native_panels_and_deep_target"
+    ],
+    "internalResidualRemoved": true,
+    "mediaBoundaryPreserved": true,
+    "supersededPublicQuotaFailurePreserved": true,
+    "runtimeChanged": false,
+    "backendChanged": false,
+    "platformEvidenceChanged": false
+  }
+}
