@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "396d5886b24e103e497402b09e6cfeab123bb743",
-  "certification": "rendered-common-registration-failure-retry-complete-recomposed-gates-pending-independent-review",
+  "certification": "rendered-common-registration-failure-retry-complete-recomposed-gates-passed-independent-exact-head-review-go-final-CI-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -63,11 +63,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "a75c11c80ba0a0cd3daaa2fbc912563453c0c1df",
     "previousReviewedSha": "e2a9da81dd6c054d617624097fb91ad45cf4301c",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review confirmed exact patch-id, two byte-identical blobs, tryLock before launch with release in finally, seven preserved fields, exact retry and one success effect, historical custody at 334c43cf without native/backend reattribution, Wasm 30/30, Android/iOS common compilations, hashes, validator, diff-check, privacy scan and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
