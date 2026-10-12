@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "8585825c9a6b8c9cc9b11d146ba6eb9e96fd5020",
-  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-exact-head-review-pending-final-ci-pending",
+  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-independent-exact-head-review-passed-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -66,12 +66,10 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "passed",
+    "reviewedSha": "622aaae80495286426adc36eee4c8748cd700684",
     "previousReviewedSha": "eda13a6d305af852f1a7a76d7640d5eb9ff9bf7f",
-    "blockingFindings": [
-      "Fresh independent exact-head review is required for Product 8585825c9a6b8c9cc9b11d146ba6eb9e96fd5020."
-    ],
+    "blockingFindings": [],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -80,7 +78,8 @@
     },
     "resolvedFindings": [
       "Independent exact-head review confirmed the legitimate Post Composer receipt rebind, six exact receipts, repo-wide extraction, owner boundaries, historical custody, contract 6/6, report hash, validator, diff-check and clean tree.",
-      "Independent exact-head review of eda13a6d305af852f1a7a76d7640d5eb9ff9bf7f returned GO without P0-P3 after confirming the preserved historical delta, the sole intentional Post Composer receipt rebind to d4da5b2a, six exact receipts, repo-wide extraction, owner boundaries, historical custody without E2E reattribution, contract 6/6, exact hashes, validator, diff-check, privacy scan and clean tree."
+      "Independent exact-head review of eda13a6d305af852f1a7a76d7640d5eb9ff9bf7f returned GO without P0-P3 after confirming the preserved historical delta, the sole intentional Post Composer receipt rebind to d4da5b2a, six exact receipts, repo-wide extraction, owner boundaries, historical custody without E2E reattribution, contract 6/6, exact hashes, validator, diff-check, privacy scan and clean tree.",
+      "Independent exact-head review of 622aaae80495286426adc36eee4c8748cd700684 returned GO without P0-P3 after confirming the sole intentional Post Composer receipt rebind, six exact receipts, repo-wide extraction, exact-once wiring, owner boundaries, historical custody without E2E reattribution, report hash d707340b, contract 6/6, validator, diff-check, privacy scan and clean tree."
     ],
     "historicalReviews": [
       {
@@ -95,7 +94,7 @@
         }
       }
     ],
-    "reviewedProductSha": null
+    "reviewedProductSha": "8585825c9a6b8c9cc9b11d146ba6eb9e96fd5020"
   },
   "notes": [
     "Six exact owner receipts compose the finite product-consumer catalog: Chat, comments in Feed, Official and public profiles, and Post Composer, including full panel sections, mixed emoji and links, profile picker, rollback, empty/error/retry states and an exact authenticated post publish.",
