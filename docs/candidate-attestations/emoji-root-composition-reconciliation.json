@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "e7dfdf4c3524d3a25b288893ce8002a0913471af",
-  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-recomposed-over-integrated-composer-independent-exact-head-review-pending",
+  "certification": "emoji-finite-consumer-catalog-composed-owner-boundaries-preserved-recomposed-over-integrated-composer-independent-exact-head-review-go-final-ci-pending",
   "evidence": {
     "composition": {
       "status": "passed",
@@ -118,8 +118,8 @@
     "git diff --check"
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "2075c6b42abd7c460ca77bb658fbef532766be74",
     "previousReviewedSha": "e202cc4677219217d51081ef3fc83877f2d0a5ab",
     "blockingFindings": [],
     "findingCounts": {
@@ -132,7 +132,8 @@
       "Independent exact-head review confirmed the legitimate Post Composer receipt rebind, six exact receipts, repo-wide extraction, owner boundaries, historical custody, contract 6/6, report hash, validator, diff-check and clean tree.",
       "Independent exact-head review of eda13a6d305af852f1a7a76d7640d5eb9ff9bf7f returned GO without P0-P3 after confirming the preserved historical delta, the sole intentional Post Composer receipt rebind to d4da5b2a, six exact receipts, repo-wide extraction, owner boundaries, historical custody without E2E reattribution, contract 6/6, exact hashes, validator, diff-check, privacy scan and clean tree.",
       "Independent exact-head review of 622aaae80495286426adc36eee4c8748cd700684 returned GO without P0-P3 after confirming the sole intentional Post Composer receipt rebind, six exact receipts, repo-wide extraction, exact-once wiring, owner boundaries, historical custody without E2E reattribution, report hash d707340b, contract 6/6, validator, diff-check, privacy scan and clean tree.",
-      "Independent exact-head review of e202cc4677219217d51081ef3fc83877f2d0a5ab returned GO without P0-P3 after verifying Product 48f025c2, six receipts and extracted consumers, Post Composer receipt cceaef6f, report hashes, exact-once wiring, owner boundaries, historical custody without E2E reattribution, contract 6/6, validator, diff-check and clean tree."
+      "Independent exact-head review of e202cc4677219217d51081ef3fc83877f2d0a5ab returned GO without P0-P3 after verifying Product 48f025c2, six receipts and extracted consumers, Post Composer receipt cceaef6f, report hashes, exact-once wiring, owner boundaries, historical custody without E2E reattribution, contract 6/6, validator, diff-check and clean tree.",
+      "Independent exact-head review confirmed the sole exact Post Composer receipt rebind to 62d55269, six receipts and callsites, exact-once wiring, owner boundaries, historical custody without E2E reattribution, contract 6/6, hashes, validator, diff-check and clean tree."
     ],
     "historicalReviews": [
       {
