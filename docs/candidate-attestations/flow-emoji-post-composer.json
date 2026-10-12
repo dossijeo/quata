@@ -7,7 +7,7 @@
   ],
   "status": "passed",
   "productSha": "e5eaac04af734b839dde04a7eec1142ca15336af",
-  "certification": "local-complete-historical-platform-evidence-preserved-recomposed-over-candidate-live-ranking-gates-passed-independent-exact-head-review-pending",
+  "certification": "local-complete-historical-platform-evidence-preserved-recomposed-over-candidate-live-ranking-gates-passed-independent-exact-head-review-go-final-ci-pending",
   "evidence": {
     "web": {
       "status": "passed",
@@ -190,11 +190,12 @@
     "Current Product 873d3b1389c513437488ed10a975be07ba05d1ff replays the five functional commits with exact stable patch IDs over independently reviewed OVR-LIVE-RANKING candidate 17a3094d8be915e03e34fdc00a678684e3a37d85; prior ranking head 201a6a39820b0584d53c9e6e652e52331b470e9d remains historical custody. Affected gates are renewed without reattributing Web/Wasm, Android or iOS execution. Fresh independent exact-head review is required before publication.",
     "Current Product 576f02ad81fa854e2a78c8e5e9bdafbda9b22623 replays the five functional commits with exact stable patch IDs over independently reviewed OVR-LIVE-RANKING head 6a93bac752dfc97895ac8e7d122bf5d4adfbb8f9.",
     "Affected gates are renewed without reattributing historical Web/Wasm, Android or iOS execution. Independent exact-head review of 05feffc37e471ba00045eee9c053cda51739dda2 returned GO without P0-P3.",
-    "Current Product e5eaac04af734b839dde04a7eec1142ca15336af replays the five functional commits with exact stable patch IDs over OVR-LIVE-RANKING candidate-final head ef028d80eb37e626bb2a89835e7a62da727e6fc6; 28/28 contracts, runner syntax and diff-check pass without reattributing historical platform E2E."
+    "Current Product e5eaac04af734b839dde04a7eec1142ca15336af replays the five functional commits with exact stable patch IDs over OVR-LIVE-RANKING candidate-final head ef028d80eb37e626bb2a89835e7a62da727e6fc6; 28/28 contracts, runner syntax and diff-check pass without reattributing historical platform E2E.",
+    "Independent exact-head review of 2ae812b1c207edce686529e1fe342b83a8c03f19 returned GO without P0-P3 after verifying 5/5 stable patch IDs, preserved blobs and shared composition, seven report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree."
   ],
   "review": {
-    "status": "PENDING",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "2ae812b1c207edce686529e1fe342b83a8c03f19",
     "previousReviewedSha": "05feffc37e471ba00045eee9c053cda51739dda2",
     "blockingFindings": [],
     "findingCounts": {
@@ -208,7 +209,8 @@
       "Independent exact-head review of e33a19b90c4e8c0071a3740a55255afb44a9df56 returned GO without P0-P3 after verifying 5/5 exact patches, seven isolated blobs, three composed files, report hash af11fcf1, historical custody at 0a268ee1, no E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree; owner compilations remained separately attributed.",
       "Independent exact-head review of 6e80acf3d2d922d8a53302ba8cb2679276b8ee49 returned GO without P0-P3 after verifying 5/5 exact patches, seven isolated blobs, three composed files, exact report hash, historical custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check, privacy scan and clean tree; owner compilations remained separately attributed.",
       "Independent exact-head review of 8ad9c0361d9999285fca58a6f4aeb2d5a6f24914 returned GO without P0-P3 after confirming five exact patches, preserved blobs and shared composition, report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, Wasm/iOS x64/Android instrumentation compilations, validator, diff-check, privacy scan and clean tree.",
-      "Independent exact-head review of 05feffc37e471ba00045eee9c053cda51739dda2 returned GO without P0-P3 after verifying 5/5 patch IDs, seven byte-identical blobs, three composed shared files, report hashes, historical custody without E2E reattribution, 28/28 contracts, runner syntax, validator, diff-check and clean tree."
+      "Independent exact-head review of 05feffc37e471ba00045eee9c053cda51739dda2 returned GO without P0-P3 after verifying 5/5 patch IDs, seven byte-identical blobs, three composed shared files, report hashes, historical custody without E2E reattribution, 28/28 contracts, runner syntax, validator, diff-check and clean tree.",
+      "Independent exact-head review of 2ae812b1c207edce686529e1fe342b83a8c03f19 returned GO without P0-P3 after verifying 5/5 stable patch IDs, preserved blobs and shared composition, seven report hashes, custody at 0a268ee1 without E2E reattribution, runner syntax, 28/28 contract, validator, diff-check and clean tree."
     ],
     "historicalReviews": [
       {
