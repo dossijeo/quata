@@ -2,17 +2,19 @@
   "version": 1,
   "status": "passed",
   "git": {
-    "head": "176effdac2b265f6c7a9aeebdd10a4549d782d41",
+    "head": "43514208dabf591de36559a83267aef627cd2ba8",
     "workingTreeDirty": false
   },
   "unit": "AUTH-FAILURE-RETRY-RECONCILIATION",
-  "productSha": "176effdac2b265f6c7a9aeebdd10a4549d782d41",
+  "productSha": "43514208dabf591de36559a83267aef627cd2ba8",
   "predecessorSha": "103513cd823bd6f67840d47ac5b8c9656111d613",
   "ownedProductBlobs": {
     "docs/MULTIPLATFORM_INVENTORY.md": "b578d2cf508df993d6ebbbbe9649534f382fa199045102d724c636b303e66ca4",
     "docs/SCREEN_MIGRATION_INVENTORY_V2.md": "c13566feb685b38874fd2fd16fbf39f065910e027d5470b090739ef09b98ad21",
     "package.json": "64a8d2d1575cfae92323a4c92aa6ca12ce3fb61bdc7c97483a6b5fef12d61f3d",
-    "scripts/auth-return-scope-reconciliation-contract.test.mjs": "3225e3d47a46f96528ef2424725c06aebc42d0d1537ac1eafe255de6ab2021a7"
+    "scripts/auth-return-scope-reconciliation-contract.test.mjs": "3225e3d47a46f96528ef2424725c06aebc42d0d1537ac1eafe255de6ab2021a7",
+    ".github/workflows/ios-build.yml": "46961fcecb448155b6313b1faa13f0d25798b042beb0ef13e0a01b325b33a83d",
+    "iosApp/iosAppUITests/QuataIosHostUITests.swift": "57aaa7c5a29b0d2d1fa3a1c9ade6a86fb8e6f59e8f08aaf505015c37520df42f"
   },
   "boundManifests": {
     "docs/candidate-attestations/auth-login-failure-retry.json": "2343d4092a8773f56f6098593e35d2048177d1cc05d83e1ab5e559d34c997a7d",
@@ -35,26 +37,35 @@
     "external_and_non_return_auth_boundaries_preserved",
     "historical_platform_execution_not_reattributed",
     "return_scope_contract_passed_5_of_5",
+    "ios_workflow_contract_passed",
+    "ios_auth_launch_fixture_contract_passed",
+    "register_retry_method_and_workflow_ceilings_aligned_at_300",
     "diff_check_passed"
   ],
   "gates": {
     "returnScopeContract": "passed_5_of_5",
     "candidateAttestationContract": "passed_17_of_17",
     "validator": "passed",
-    "diffCheck": "passed"
+    "diffCheck": "passed",
+    "iosWorkflowContract": "passed",
+    "iosAuthLaunchFixtureContract": "passed",
+    "registerRetryExecutionAllowance": "method_and_workflow_aligned_at_300_seconds"
   },
   "observations": {
     "runtimeChanged": false,
     "backendChanged": false,
     "platformExecutionRepeated": false,
     "normalReturnRoutesRetired": true,
-    "remainingAuthBoundariesExplicit": true
+    "remainingAuthBoundariesExplicit": true,
+    "testWorkflowChanged": true,
+    "currentIosFailureCorrected": true
   },
   "notes": [
     "The reconciliation binds the final common/native Login, Register and Recovery manifests, the native refresh HTTP boundary and four immutable return receipts.",
     "Normal Login to Register to Login and Login to Recovery to Login routes are retired from the residual list only for their evidenced hosts.",
     "Google provider enablement, decrypted TLS capture, APNs device token and delivery, non-enumerated Auth routes and global recertification remain outside this unit.",
-    "No historical platform execution is reattributed to this documentation and contract change.",
-    "This report was recomposed over the integrated native HTTP boundary squash; current hashes were refreshed without reattributing historical platform execution."
+    "No historical platform execution is reattributed to this reconciliation; the current push will obtain fresh CI evidence for the test and workflow correction.",
+    "The current iOS run exceeded the former 180-second ceiling only in the deterministic Register failure/retry UI proof after Login and Recovery passed. The XCTest method and host-boundary workflow ceilings are aligned at 300 seconds so loaded hosted runners can finish accessibility traversal and snapshot collection.",
+    "This report was recomposed over integrated native HTTP boundary squash 103513cd823bd6f67840d47ac5b8c9656111d613; Product 43514208dabf591de36559a83267aef627cd2ba8 includes the deterministic iOS CI correction."
   ]
 }

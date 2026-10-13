@@ -6,16 +6,16 @@
     "SCR-AUTH-RECOVERY"
   ],
   "status": "passed",
-  "productSha": "176effdac2b265f6c7a9aeebdd10a4549d782d41",
-  "certification": "auth-failure-retry-common-native-and-return-scope-reconciled-independent-exact-head-review-go-final-CI-pending",
+  "productSha": "43514208dabf591de36559a83267aef627cd2ba8",
+  "certification": "auth-failure-retry-common-native-and-return-scope-reconciled-deterministic-ios-ci-correction-review-pending",
   "evidence": {
     "reconciliation": {
       "status": "passed",
-      "sha": "176effdac2b265f6c7a9aeebdd10a4549d782d41",
-      "report": "docs/candidate-attestations/evidence/auth-failure-retry-reconciliation-176effda.json",
-      "reportSha256": "5752a54822d328ee7b454a9f1c9638f73fb84c0f639cdface772631395ab5766",
+      "sha": "43514208dabf591de36559a83267aef627cd2ba8",
+      "report": "docs/candidate-attestations/evidence/auth-failure-retry-reconciliation-43514208.json",
+      "reportSha256": "fcefebc71ee726a2513320976d70f27ef4ef7285a2af7c688dd071ced9590283",
       "reportStatus": "passed",
-      "reportGitHead": "176effdac2b265f6c7a9aeebdd10a4549d782d41",
+      "reportGitHead": "43514208dabf591de36559a83267aef627cd2ba8",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
@@ -27,28 +27,30 @@
         "external_and_non_return_auth_boundaries_preserved",
         "historical_platform_execution_not_reattributed",
         "return_scope_contract_passed_5_of_5",
+        "ios_workflow_contract_passed",
+        "ios_auth_launch_fixture_contract_passed",
+        "register_retry_method_and_workflow_ceilings_aligned_at_300",
         "diff_check_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "documentation-only-no-runtime-backend-or-platform-mutation"
+        "mode": "test-and-workflow-only-no-runtime-or-backend-mutation"
       }
     }
   },
   "preflight": [
     "node --test scripts/auth-return-scope-reconciliation-contract.test.mjs",
     "node --test scripts/candidate-attestation-contract.test.mjs",
+    "node --test scripts/ios-build-workflow-contract.test.mjs scripts/ios-auth-launch-fixture-contract.test.mjs",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-failure-retry-reconciliation.json --head HEAD",
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "02cc123daf6c5eb0de3353f0fadc8f48bc6a6e22",
-    "previousReviewedSha": "a2817cc48923e442391c51551f50e06e5510cfd5",
+    "status": "pending",
+    "reviewedSha": null,
+    "previousReviewedSha": "02cc123daf6c5eb0de3353f0fadc8f48bc6a6e22",
     "blockingFindings": [],
-    "resolvedFindings": [
-      "Independent exact-head review confirmed Product 176effdac2b265f6c7a9aeebdd10a4549d782d41, current Login/Register/Recovery Products, semantic package composition, 12 report hashes, contracts 5/5 and 17/17, validator, diff-check and clean tree with no P0-P3."
-    ],
+    "resolvedFindings": [],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -57,11 +59,11 @@
     }
   },
   "notes": [
-    "Login, Register and Recovery retain their exact reviewed common and native Products, manifests and immutable evidence receipts.",
+    "Login, Register and Recovery retain their reviewed common and native Products, manifests and immutable evidence receipts.",
     "The reconciliation retires only the evidenced normal Register and Recovery return routes and preserves later unrelated closures.",
-    "The native refresh HTTP boundary is bound to its reviewed focal Android unit and iOS hermetic NSURLRequest capture before URLSession execution; decrypted TLS capture remains external.",
+    "The native refresh HTTP boundary remains bound to its reviewed focal Android unit and iOS hermetic NSURLRequest capture before URLSession execution; decrypted TLS capture remains external.",
     "Google provider enablement, APNs device-token delivery, non-enumerated Auth routes and global recertification remain explicit boundaries; no historical platform execution is reattributed.",
-    "Current Product 176effdac2b265f6c7a9aeebdd10a4549d782d41 was recomposed over native HTTP boundary squash 103513cd823bd6f67840d47ac5b8c9656111d613; current receipt hashes were refreshed and no historical platform execution is reattributed.",
-    "Independent exact-head review of 02cc123daf6c5eb0de3353f0fadc8f48bc6a6e22 returned GO with no P0-P3; this annotation records that result without changing Product or evidence."
+    "Current Product 43514208dabf591de36559a83267aef627cd2ba8 is based on native HTTP boundary squash 103513cd823bd6f67840d47ac5b8c9656111d613 and adds only the deterministic iOS Register retry test/workflow ceiling correction after the current hosted run exceeded 180 seconds.",
+    "Independent exact-head review is pending for the corrected Product; the failed run is not treated as platform evidence and no blind rerun was requested."
   ]
 }
