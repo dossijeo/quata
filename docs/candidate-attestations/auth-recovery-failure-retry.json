@@ -4,12 +4,12 @@
     "SCR-AUTH-RECOVERY"
   ],
   "status": "passed",
-  "productSha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
-  "certification": "rendered-recovery-failure-retry-common-android-ios-complete-recomposed-over-merged-native-register-deterministic-ios-timeout-prevention-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
+  "productSha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
+  "certification": "rendered-recovery-failure-retry-common-android-ios-complete-recomposed-over-merged-native-register-deterministic-ios-timeout-prevention-register-offscreen-value-proof-affected-gates-pending-independent-exact-head-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "sha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-301e868e.json",
       "reportSha256": "1ba3a355939c8522afebf1bccab91e764ea2f38d491f0c52e8a24f71a6094349",
       "reportStatus": "passed",
@@ -33,7 +33,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "sha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-086ea58e.json",
       "reportSha256": "28ba0cf331416d803da9308d421e6ad630855cf33ec23f619641ceab988aa68d",
       "reportStatus": "passed",
@@ -62,7 +62,7 @@
     },
     "postCurrentRegistrationRecomposition": {
       "status": "passed",
-      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "sha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-086ea58e.json",
       "reportSha256": "28ba0cf331416d803da9308d421e6ad630855cf33ec23f619641ceab988aa68d",
       "reportStatus": "passed",
@@ -91,7 +91,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "sha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-android-1a1680e7.json",
       "reportSha256": "f075849a2afd2b81d97e9dfc2bdde14d0c308779cb6401ae7dadae4e1de61e07",
       "reportStatus": "passed",
@@ -116,7 +116,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "sha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-ios-aa4087ca.json",
       "reportSha256": "0a6d13e33778358d3aedd6aadce0115dc8ddd254c5fdef7eb75bec05199fab36",
       "reportStatus": "passed",
@@ -143,7 +143,7 @@
     },
     "nativeRecomposition": {
       "status": "passed",
-      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "sha": "68ddefdf7bc8132e731fd141f906dbf314dafacb",
       "report": "docs/candidate-attestations/evidence/auth-recovery-native-failure-retry-recomposition-5fa95c73.json",
       "reportSha256": "0b06fd0a04f7e8bb6e4d5c6580020c188f9d17aa139ef900178279bf60df0eda",
       "reportStatus": "passed",
@@ -177,7 +177,7 @@
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
+    "status": "PENDING",
     "reviewedSha": "5de4bba54e7065581ed0a9159f1fe629b9675587",
     "previousReviewedSha": "2f5fdb23c263355c75c6a7acb23ef3fb6c775e86",
     "blockingFindings": [],
@@ -208,6 +208,7 @@
     "The iOS fixture still compares the complete first and second Recovery requests, preserving phone, secret answer and new password plus the exact explicit retry and return to the real Login form.",
     "Historical Android/iOS 1/1 execution remains bound to 1a1680e72dfa1de595f1bf41b269e85625d4fd75 and aa4087ca255efb3125052c6684564788b3f0ddb5; no E2E matrix is reattributed or repeated solely for ancestry.",
     "Affected gates pass on Product 5fa95c73: native contracts 29/29, Android instrumentation compilation, iOS x64 compilation and diff-check. Independent exact-head review is pending.",
-    "Independent exact-head review of 5de4bba54 returned GO without P0-P3; this attestation-only review-record head requires final exact-head confirmation before publication."
+    "Independent exact-head review of 5de4bba54 returned GO without P0-P3; this attestation-only review-record head requires final exact-head confirmation before publication.",
+    "CI run 38338053918 exposed a deterministic XCTest defect: the preserved Register display-name and neighborhood fields existed with retained state but were offscreen after submit, so isHittable incorrectly failed. Product 68ddefdf7 replaces viewport assertions with exact retained-value assertions for all four sampled fields; affected iOS gates and fresh independent exact-head review are required."
   ]
 }
