@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "b41d3374a63ce654b9aa4dcddaf7c61878483ce3",
-  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-deterministic-ios-timeout-fix-affected-gates-pending-independent-exact-head-review-pending",
+  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-deterministic-ios-timeout-fix-affected-gates-passed-independent-exact-head-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
