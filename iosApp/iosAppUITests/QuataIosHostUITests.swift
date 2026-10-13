@@ -133,6 +133,10 @@ final class QuataIosHostUITests: XCTestCase {
     }
 
     func testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates() {
+        // Seven private-keyboard fields take about 150 seconds on the hosted Xcode 26.3 runner.
+        // Keep this explicit and below the workflow's 180-second maximum instead of inheriting
+        // XCTest's two-minute method allowance, which aborts the runner during final cleanup.
+        executionTimeAllowance = 180
         let app = fixtureApp("auth-failure-retry", authDestination: "register", spanishLocale: true)
         app.launch()
 
