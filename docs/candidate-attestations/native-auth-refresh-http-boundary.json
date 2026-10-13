@@ -69,5 +69,18 @@
     "Android uses the production OkHttp refreshAuthSession path with an intercepting synthetic response. iOS captures the fully materialized NSURLRequest immediately before the normal URLSession executor, so method, URL, headers and body are asserted on the native request object.",
     "Current Product cea1a3cf8a792d9cef27fbe162368e566b5ff24f replays the three unit commits with exact stable patch IDs over merged predecessor 4c4b1876aac8172092f430d2a72081bc3e41bcbb. All six unit-owned blobs remain byte-identical to historical Product 4904a392aff7ba7ac049a51986ca2b76665ac5fe. The Android focal unit passed locally and the iOS x64 test sources compiled; historical iOS execution remains bound to cd9f75b8acf386ef9b2fcd523428cbbc1f327198 and is not attributed to this ancestry-only recomposition.",
     "Google OAuth, APNs, physical iOS hardware and unrelated Auth routes remain separate units."
-  ]
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4d2c716235fc14c471d6b8b8c772163204c447f3",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "summary": "Independent review confirmed 3/3 patch IDs, 6/6 owned blobs, native request and replacement-session semantics, historical iOS custody, retained external limits, hashes, validator, diff-check, secret scan and clean tree."
+  },
+  "certification": "native-refresh-http-boundary-recomposed-gates-passed-independent-review-go-final-ci-pending"
 }
