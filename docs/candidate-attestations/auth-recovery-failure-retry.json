@@ -186,7 +186,7 @@
       "P2 from review ed3ab525f resolved: the Register preservation proof now compares the editable accessibility value for exact equality and cannot pass through label substrings.",
       "P2 from review ed3ab525f resolved: stale current-review anchors were cleared while the prior GO remains historical.",
       "Independent exact-head review of 89019ef2b0fb3fce6f6071a3d1713ea1c9b70a4d returned GO without P0-P3 after confirming both prior P2 fixes, exact accessibility-value equality, historical review custody, 7/7 iOS contracts, iOS x64 compilation, validator, diff-check and clean tree.",
-      "Independent exact-head review of 88b51f4822bfddffcfa30c6e3391cde7beb67079 returned GO without P0-P3 after confirming complete seven-field request equality, removal of redundant accessibility walks, explicit fixture termination, historical custody, 7/7 contract, iOS x64 compilation, validator, diff-check and clean tree; CI iOS remains the execution proof for runner-restart prevention."
+      "Independent exact-head review of 88b51f4822bfddffcfa30c6e3391cde7beb67079 returned GO without P0-P3 after confirming complete seven-field request equality, removal of redundant accessibility walks, explicit fixture termination, historical custody, recorded affected-gate results, validator, diff-check and clean tree; CI iOS remains the execution proof for runner-restart prevention."
     ],
     "findingCounts": {
       "P0": 0,
