@@ -163,17 +163,20 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 10))
         XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-registration-rejected", timeout: 5))
-        for identifier in [
-            "auth.register.display-name",
-            "auth.register.neighborhood",
-            "auth.register.phone.input",
-            "auth.register.secret-answer",
+        for (identifier, expectedValue) in [
+            ("auth.register.display-name", "a"),
+            ("auth.register.neighborhood", "b"),
+            ("auth.register.phone.input", "7"),
+            ("auth.register.secret-answer", "c"),
         ] {
             let preservedInput = app.descendants(matching: .any)
                 .matching(identifier: identifier)
                 .firstMatch
             XCTAssertTrue(preservedInput.waitForExistence(timeout: 5))
-            XCTAssertTrue(preservedInput.isHittable, "Expected preserved Register input \(identifier) to remain visible.")
+            XCTAssertTrue(
+                preservedInput.waitForLabelOrValue(containing: expectedValue, timeout: 5),
+                "Expected Register input \(identifier) to preserve its value after failure.",
+            )
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-register-failure-preserved")
 
