@@ -51,7 +51,11 @@ test("CHAT-AUDIO composition uses the six exact passed owner receipts", () => {
 
 test("CHAT-AUDIO inventories remove the generic internal residual only", () => {
   const row = screenInventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-AUDIO` |"));
+  const platformRow = platformInventory
+    .split(/\r?\n/)
+    .find((line) => line.startsWith("| Audio (grabación, reproducción y adjuntos) |"));
   assert.ok(row);
+  assert.ok(platformRow);
   assert.match(row, /GO compuesto focal con límites externos explícitos/);
   assert.match(row, /No queda un límite interno residual/);
   assert.match(row, /permiso\/grabación física/);
@@ -59,8 +63,15 @@ test("CHAT-AUDIO inventories remove the generic internal residual only", () => {
   assert.match(row, /reproducción prolongada en segundo plano/);
   assert.match(row, /topologías OS reales/);
   assert.match(row, /audio fuera de Chat/);
-  assert.match(platformInventory, /`CHAT-AUDIO` queda en GO compuesto focal/);
-  assert.match(platformInventory, /fronteras físicas y externas permanecen explícitas/);
+  assert.match(platformRow, /`CHAT-AUDIO` en GO compuesto focal con límites físicos y externos explícitos/);
+  assert.match(platformRow, /#570\/#571 integraron/);
+  assert.match(platformRow, /composición de seis recibos propietarios elimina el residual interno genérico/);
+  assert.match(platformRow, /permisos y la grabación físicos/);
+  assert.match(platformRow, /routing Bluetooth\/cableado/);
+  assert.match(platformRow, /reproducción prolongada en segundo plano/);
+  assert.match(platformRow, /topologías OS reales/);
+  assert.match(platformRow, /audio fuera de Chat/);
+  assert.doesNotMatch(platformRow, /recuperación candidata/);
 });
 
 test("migration board records composition without claiming new platform execution", () => {
