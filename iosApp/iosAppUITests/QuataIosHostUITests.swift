@@ -133,14 +133,15 @@ final class QuataIosHostUITests: XCTestCase {
     }
 
     func testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates() {
-        // Seven private-keyboard fields take about 150 seconds on the hosted Xcode 26.3 runner.
-        // Keep this explicit and below the workflow's 180-second maximum instead of inheriting
-        // XCTest's two-minute method allowance, which aborts the runner during final cleanup.
-        executionTimeAllowance = 180
+        // Private-keyboard accessibility traversal can exceed three minutes on a loaded hosted
+        // Xcode runner even though the deterministic transport completes normally. Keep the
+        // method allowance aligned with the workflow ceiling so XCTest does not kill a valid
+        // retry proof while it is collecting accessibility snapshots.
+        executionTimeAllowance = 300
         let app = fixtureApp("auth-failure-retry", authDestination: "register", spanishLocale: true)
         app.launch()
 
-        // Keep this seven-field native proof comfortably below the suite's per-test allowance.
+        // Keep this seven-field native proof within the explicit per-test allowance.
         // Exact retry semantics come from comparing the complete first and second requests, so
         // long synthetic strings only add private-keyboard traversal time without adding coverage.
         typePrivateText("a", into: "auth.register.display-name", in: app)
