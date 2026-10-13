@@ -39,9 +39,21 @@ data class IosSupabaseAuthRuntimeConfiguration(
  * session and never manufactures an identity.
  */
 @OptIn(ExperimentalForeignApi::class)
-class IosSupabaseAuthSessionRefresher(
+class IosSupabaseAuthSessionRefresher private constructor(
     private val configuration: IosSupabaseAuthRuntimeConfiguration,
+    private val executeRequest: suspend (NSURLRequest) -> NSData,
 ) : IosAuthSessionRefresher {
+    constructor(configuration: IosSupabaseAuthRuntimeConfiguration) : this(
+        configuration = configuration,
+        executeRequest = { request -> request.iosData() },
+    )
+
+    internal constructor(
+        configuration: IosSupabaseAuthRuntimeConfiguration,
+        executeRequest: suspend (NSURLRequest) -> NSData,
+        @Suppress("UNUSED_PARAMETER") testBoundary: Unit,
+    ) : this(configuration, executeRequest)
+
     override suspend fun refresh(session: AuthSession): AuthSession? = try {
         val refreshToken = session.refreshToken?.takeIf(String::isNotBlank)
             ?: error("ios_auth_refresh_token_missing")
@@ -51,8 +63,6 @@ class IosSupabaseAuthSessionRefresher(
             ?: error("ios_auth_supabase_publishable_key_missing")
         val endpoint = NSURL(string = "$baseUrl/auth/v1/token?grant_type=refresh_token")
             ?: error("ios_auth_refresh_url_invalid")
-        // Kotlin/Native's Foundation binding exposes the mutable request through this factory
-        // (rather than the Objective-C initializer), with positional header arguments.
         val request = NSMutableURLRequest.requestWithURL(endpoint).apply {
             setHTTPMethod("POST")
             setHTTPBody("{\"refresh_token\":${refreshToken.toIosJsonString()}}".toIosData())
@@ -61,7 +71,7 @@ class IosSupabaseAuthSessionRefresher(
             setValue("application/json", "Accept")
             setValue("application/json", "Content-Type")
         }
-        request.iosData().toRefreshedAuthSession(session)
+        executeRequest(request).toRefreshedAuthSession(session)
     } catch (_: IosAuthRefreshHttpRejectedException) {
         throw IosAuthSessionRejectedException(session)
     } catch (_: Throwable) {

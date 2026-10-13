@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-AUTH-LOGIN",
+    "FLOW-DEEP-LINKS"
+  ],
+  "status": "passed",
+  "productSha": "cea1a3cf8a792d9cef27fbe162368e566b5ff24f",
+  "scope": "exact native refresh request and replacement-session HTTP boundary on Android and iOS",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "cea1a3cf8a792d9cef27fbe162368e566b5ff24f",
+      "report": "docs/candidate-attestations/evidence/native-auth-refresh-http-boundary-cd9f75b8.json",
+      "reportSha256": "709c78f1254537411c7271ef1610d6c0aa12afa49eca4ae7ce54135d6d375ca6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "nativeTestPassed": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_synthetic_http_response_no_backend_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "cea1a3cf8a792d9cef27fbe162368e566b5ff24f",
+      "report": "docs/candidate-attestations/evidence/native-auth-refresh-http-boundary-cd9f75b8.json",
+      "reportSha256": "709c78f1254537411c7271ef1610d6c0aa12afa49eca4ae7ce54135d6d375ca6",
+      "reportStatus": "passed",
+      "requireReportArtifact": true,
+      "nativeTestPassed": true,
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_synthetic_http_response_no_backend_mutation"
+      }
+    },
+    "recomposition": {
+      "status": "passed",
+      "sha": "cea1a3cf8a792d9cef27fbe162368e566b5ff24f",
+      "report": "docs/candidate-attestations/evidence/native-auth-refresh-http-boundary-recomposition-cea1a3cf.json",
+      "reportSha256": "166390f6a11ebf6e6f90604c6dbf92629592fea9eb7e4507dfb6277dd77837d4",
+      "reportStatus": "passed",
+      "reportGitHead": "cea1a3cf8a792d9cef27fbe162368e566b5ff24f",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "three_product_commits_patch_equivalent",
+        "six_unit_owned_blobs_byte_identical",
+        "android_focal_unit_passed_on_recomposed_tree",
+        "ios_x64_test_sources_compiled_on_recomposed_tree",
+        "historical_ios_execution_not_reattributed",
+        "tls_packet_capture_boundary_retained"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-synthetic-http-no-backend-or-platform-mutation"
+      }
+    }
+  },
+  "validation": [
+    "Android production SupabaseHttpClient refresh boundary test passed",
+    "iOS x64 production IosSupabaseAuthSessionRefresher boundary suite passed",
+    "both platforms assert POST, exact endpoint and query, required publishable headers, refresh-only JSON body and replacement-session parsing",
+    "no credential value, packet payload or backend object was recorded"
+  ],
+  "notes": [
+    "This evidence closes the actionable native refresh request-boundary gap without claiming decrypted TLS packet capture.",
+    "Existing real-device-host evidence remains authoritative for terminal HTTP 400/401 rejection, exact-session retirement and server-side refresh-token rotation.",
+    "Android uses the production OkHttp refreshAuthSession path with an intercepting synthetic response. iOS captures the fully materialized NSURLRequest immediately before the normal URLSession executor, so method, URL, headers and body are asserted on the native request object.",
+    "Current Product cea1a3cf8a792d9cef27fbe162368e566b5ff24f replays the three unit commits with exact stable patch IDs over merged predecessor 4c4b1876aac8172092f430d2a72081bc3e41bcbb. All six unit-owned blobs remain byte-identical to historical Product 4904a392aff7ba7ac049a51986ca2b76665ac5fe. The Android focal unit passed locally and the iOS x64 test sources compiled; historical iOS execution remains bound to cd9f75b8acf386ef9b2fcd523428cbbc1f327198 and is not attributed to this ancestry-only recomposition.",
+    "Google OAuth, APNs, physical iOS hardware and unrelated Auth routes remain separate units."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "4d2c716235fc14c471d6b8b8c772163204c447f3",
+    "blockingFindings": [],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "summary": "Independent review confirmed 3/3 patch IDs, 6/6 owned blobs, native request and replacement-session semantics, historical iOS custody, retained external limits, hashes, validator, diff-check, secret scan and clean tree."
+  },
+  "certification": "native-refresh-http-boundary-recomposed-gates-passed-independent-review-go-final-ci-pending"
+}
