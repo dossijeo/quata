@@ -2,12 +2,12 @@
   "version": 1,
   "check": "ANDROID-RELEASE-REAL-BACKEND-RECOMPOSITION-001",
   "status": "passed",
-  "productSha": "4b5fcbae50fa271a4d0654ca3aba36be37e6ee43",
-  "predecessorSha": "8ee92559a2cd443742ce61ad635bbababf35c70a",
+  "productSha": "a978ad089944f8a582d0c16586f0f54755054d47",
+  "predecessorSha": "da6886bf1f55280a0e39480518eac966b94c001f",
   "historicalProductSha": "e928b197cfe7a8457ffc1ea9cb76d0d38ca532e2",
   "productPatchId": "d7612e8aea6748dec56cf4e3dc14eb57670adc29",
   "git": {
-    "head": "4b5fcbae50fa271a4d0654ca3aba36be37e6ee43",
+    "head": "a978ad089944f8a582d0c16586f0f54755054d47",
     "workingTreeDirty": false
   },
   "platform": "android",
@@ -48,8 +48,8 @@
     "generatedOutputsIgnored": true
   },
   "notes": [
-    "The product commit retains the exact stable patch ID and byte-identical build script from the reviewed historical Product.",
-    "The affected joint generation gate was repeated on the recomposed Product: explicit Debug opt-in remains true while Release remains false in the same Gradle invocation.",
+    "The Product retains the exact stable patch ID d7612e8aea6748dec56cf4e3dc14eb57670adc29 and byte-identical app/build.gradle.kts blob from the reviewed historical Product.",
+    "The affected joint generation gate was repeated on Product a978ad089944f8a582d0c16586f0f54755054d47: explicit Debug opt-in remains true while Release remains false in the same Gradle invocation.",
     "No platform E2E matrix, backend mutation, installation or credential use is attributed."
   ]
 }
