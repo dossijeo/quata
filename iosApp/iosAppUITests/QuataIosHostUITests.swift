@@ -174,7 +174,7 @@ final class QuataIosHostUITests: XCTestCase {
                 .firstMatch
             XCTAssertTrue(preservedInput.waitForExistence(timeout: 5))
             XCTAssertTrue(
-                preservedInput.waitForLabelOrValue(containing: expectedValue, timeout: 5),
+                preservedInput.waitForValue(equalTo: expectedValue, timeout: 5),
                 "Expected Register input \(identifier) to preserve its value after failure.",
             )
         }
@@ -2645,6 +2645,17 @@ private enum AuthRecoveryUiConfigurationError: LocalizedError {
 }
 
 private extension XCUIElement {
+    func waitForValue(equalTo expected: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if (value as? String) == expected {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date() < deadline
+        return false
+    }
+
     func waitForLabelOrValue(containing expected: String, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
