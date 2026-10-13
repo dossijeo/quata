@@ -6,88 +6,66 @@
     "SCR-AUTH-RECOVERY"
   ],
   "status": "passed",
-  "productSha": "0f3238734f9b965de46b2126e0e7bdfc197ff071",
-  "certification": "auth-failure-retry-scope-reconciled-over-integrated-common-recovery-current-three-receipts-verified-owner-boundaries-preserved-independent-exact-head-review-go-final-review-pending",
+  "productSha": "43514208dabf591de36559a83267aef627cd2ba8",
+  "certification": "auth-failure-retry-common-native-and-return-scope-reconciled-deterministic-ios-ci-correction-independent-exact-head-review-go-CI-pending",
   "evidence": {
     "reconciliation": {
       "status": "passed",
-      "sha": "0f3238734f9b965de46b2126e0e7bdfc197ff071",
-      "report": "docs/candidate-attestations/evidence/auth-failure-retry-reconciliation-f600d2df.json",
-      "reportSha256": "2d4c7a658ae913f87f2a5c4ddabd43350b686a39763bca74103c557dd3dedfe7",
+      "sha": "43514208dabf591de36559a83267aef627cd2ba8",
+      "report": "docs/candidate-attestations/evidence/auth-failure-retry-reconciliation-43514208.json",
+      "reportSha256": "fcefebc71ee726a2513320976d70f27ef4ef7285a2af7c688dd071ced9590283",
       "reportStatus": "passed",
-      "reportGitHead": "f600d2df644f600dc03f6c2fc6ef16eed1397b7b",
+      "reportGitHead": "43514208dabf591de36559a83267aef627cd2ba8",
       "reportWorkingTreeDirty": false,
       "requireReportArtifact": true,
       "requiredSteps": [
-        "scoped_inventory_result_blobs_match_reviewed_reconciliation",
-        "three_failure_retry_manifests_verified",
-        "login_register_recovery_retry_scope_reconciled",
-        "native_packet_http_trace_boundary_preserved",
-        "continuity_claims_remain_owned_by_continuity_units",
+        "three_native_failure_retry_manifests_verified",
+        "native_refresh_http_boundary_manifest_verified",
+        "four_return_receipts_and_report_hashes_verified",
+        "login_register_recovery_retry_products_reconciled",
+        "normal_register_and_recovery_return_routes_reconciled",
+        "external_and_non_return_auth_boundaries_preserved",
         "historical_platform_execution_not_reattributed",
+        "return_scope_contract_passed_5_of_5",
+        "ios_workflow_contract_passed",
+        "ios_auth_launch_fixture_contract_passed",
+        "register_retry_method_and_workflow_ceilings_aligned_at_300",
         "diff_check_passed"
       ],
       "cleanup": {
         "verified": true,
-        "mode": "documentation-only-no-runtime-backend-or-platform-mutation"
-      }
-    },
-    "postCurrentRecoveryRecomposition": {
-      "status": "passed",
-      "sha": "0f3238734f9b965de46b2126e0e7bdfc197ff071",
-      "report": "docs/candidate-attestations/evidence/auth-failure-retry-reconciliation-0f323873.json",
-      "reportSha256": "696aa285837a65e7c99a601fe79e87110168c87754783c1e6a8ea8140bd7ca57",
-      "reportStatus": "passed",
-      "reportGitHead": "0f3238734f9b965de46b2126e0e7bdfc197ff071",
-      "reportWorkingTreeDirty": false,
-      "requireReportArtifact": true,
-      "requiredSteps": [
-        "scoped_inventory_result_blobs_match_reviewed_reconciliation",
-        "three_failure_retry_manifests_verified",
-        "login_register_recovery_retry_scope_reconciled",
-        "native_packet_http_trace_boundary_preserved",
-        "continuity_claims_remain_owned_by_continuity_units",
-        "historical_platform_execution_not_reattributed",
-        "diff_check_passed"
-      ],
-      "cleanup": {
-        "verified": true,
-        "mode": "documentation-only-current-receipts-verified-no-runtime-backend-or-platform-mutation"
+        "mode": "test-and-workflow-only-no-runtime-or-backend-mutation"
       }
     }
   },
   "preflight": [
+    "node --test scripts/auth-return-scope-reconciliation-contract.test.mjs",
     "node --test scripts/candidate-attestation-contract.test.mjs",
+    "node --test scripts/ios-build-workflow-contract.test.mjs scripts/ios-auth-launch-fixture-contract.test.mjs",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-failure-retry-reconciliation.json --head HEAD",
     "git diff --check"
   ],
   "review": {
     "status": "GO",
-    "reviewedSha": "24c8614df195856c8379856fcfa704d7182e393c",
-    "previousReviewedSha": "e9383945dc425cc379c4b22ed8d75df6a2072502",
+    "reviewedSha": "aca764df006517c5b76cf18d09bf5d64ce50c617",
+    "previousReviewedSha": "02cc123daf6c5eb0de3353f0fadc8f48bc6a6e22",
     "blockingFindings": [],
     "resolvedFindings": [
-      "Independent exact-head review confirmed only two inventories, byte-identical historical reviewed result blobs, current hashes for all three manifests and reports, common retry scope, preserved owner boundaries and historical attribution, contract 17/17, validator, diff-check and clean tree.",
-      "Independent exact-head review of e9383945dc425cc379c4b22ed8d75df6a2072502 returned GO without P0-P3 after confirming Product 6b4044abdfad8143caa6c1ebc4bd2f7989434945, exact patch ID 03fe13d0, two byte-identical inventory blobs, current Login/Register/Recovery receipt hashes, owner boundaries, contract 17/17, validator, diff-check and clean tree without reattribution.",
-      "Independent exact-head review of 24c8614df195856c8379856fcfa704d7182e393c returned GO without P0-P3 after confirming Product limited to two inventories, stable patch ID 03fe13d0, exact historical OIDs and hashes, current Login/Register/Recovery receipts, owner boundaries, zero execution reattribution, contract 17/17, validator, diff-check and clean tree."
+      "Independent exact-head review confirmed Product 43514208dabf591de36559a83267aef627cd2ba8, the deterministic Register retry 300-second method/workflow alignment, Feed 180 and Live Ranking 300, contracts 5/5, 17/17 and iOS 71/71, validator, diff-check and clean tree with no P0-P3."
     ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
       "P2": 0,
       "P3": 0
-    },
-    "reviewedProductSha": "0f3238734f9b965de46b2126e0e7bdfc197ff071"
+    }
   },
   "notes": [
-    "Login, Register and Recovery retain their exact reviewed Product and evidence receipts.",
-    "This unit changes only inventory claims that compose those three reviewed units and preserves later unrelated closures.",
-    "The two resulting inventory blobs are byte-identical to the final reviewed historical reconciliation; the new patch-id differs because the predecessor already contains later integrated inventory state.",
-    "Native HTTP trace, native UI execution, real backend outage and continuity remain with their owner units; no platform execution is reattributed.",
-    "Current Product 869e1a264cf5e7286f390b9fcf7b6071a66b8f06 preserves the reviewed inventory blobs and verifies current Login, Register and Recovery receipts over Recovery final e3036367b6b3c994f1916862883afc73e3705939; no platform execution is reattributed.",
-    "Current Product 6b4044abdfad8143caa6c1ebc4bd2f7989434945 preserves the reviewed inventory blobs and verifies current Login, Register and Recovery receipts over Recovery final 559b650a81cdb6e34f7cb8af5a5d1d653a4dd092; no platform execution is reattributed. Fresh independent exact-head review is required before publication.",
-    "Independent exact-head review of e9383945dc425cc379c4b22ed8d75df6a2072502 returned GO without P0-P3 after confirming Product 6b4044abdfad8143caa6c1ebc4bd2f7989434945, exact patch ID 03fe13d0, two byte-identical inventory blobs, current Login/Register/Recovery receipt hashes, owner boundaries, contract 17/17, validator, diff-check and clean tree without reattribution.",
-    "Current Product 0f3238734f9b965de46b2126e0e7bdfc197ff071 preserves patch ID 03fe13d0 and the two reviewed inventory blobs over integrated Common Recovery squash 3374977ac7c133c47e8f7fe2e5872bfc05e339dc; current Login/Register/Recovery receipt hashes are recorded, no platform execution is reattributed, and fresh independent exact-head review is pending.",
-    "Independent exact-head review of 24c8614df195856c8379856fcfa704d7182e393c returned GO without P0-P3; final annotation-only exact-head review remains required before publication."
+    "Login, Register and Recovery retain their reviewed common and native Products, manifests and immutable evidence receipts.",
+    "The reconciliation retires only the evidenced normal Register and Recovery return routes and preserves later unrelated closures.",
+    "The native refresh HTTP boundary remains bound to its reviewed focal Android unit and iOS hermetic NSURLRequest capture before URLSession execution; decrypted TLS capture remains external.",
+    "Google provider enablement, APNs device-token delivery, non-enumerated Auth routes and global recertification remain explicit boundaries; no historical platform execution is reattributed.",
+    "Current Product 43514208dabf591de36559a83267aef627cd2ba8 is based on native HTTP boundary squash 103513cd823bd6f67840d47ac5b8c9656111d613 and adds only the deterministic iOS Register retry test/workflow ceiling correction after the current hosted run exceeded 180 seconds.",
+    "Independent exact-head review of aca764df006517c5b76cf18d09bf5d64ce50c617 returned GO with no P0-P3; this annotation records that result without changing Product or evidence. Effectiveness against the hosted timeout remains pending the next iOS CI run."
   ]
 }
