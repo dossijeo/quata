@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "check": "SCR-AUTH-REGISTER-ANDROID-FAILURE-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "47d68ae31c469891579f3c16884e618d8b52cd0f",
+    "workingTreeDirty": false
+  },
+  "platform": "android-native-compose",
+  "commands": [
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.auth.presentation.AuthRegisterFailureRetryInstrumentedTest"
+  ],
+  "steps": [
+    "real_shared_register_form_rendered",
+    "all_seven_registration_fields_entered_through_native_ui",
+    "first_submit_reaches_fail_once_transport_once",
+    "failure_visible_on_registration_error_semantics",
+    "all_registration_fields_preserved_after_failure",
+    "explicit_retry_reuses_exact_complete_request_once",
+    "successful_retry_emits_single_authentication_effect"
+  ],
+  "instrumentation": {
+    "test": "com.quata.feature.auth.presentation.AuthRegisterFailureRetryInstrumentedTest.nativeRegisterFailurePreservesAllFieldsAndExplicitRetryAuthenticates",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 21.804,
+    "device": {
+      "name": "QuataLivePr336Api35",
+      "api": 35
+    }
+  },
+  "integrity": {
+    "instrumentedTestSha256": "03527363356b88f0aed079345cd29e7311153cb106c2e801b98648ce2d1fec47",
+    "resultXml": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml"
+  },
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "scope": "Hermetic fail-once repository around the real shared Register surface, executed through Android instrumentation. It proves all seven native inputs, rejection, exact complete-request preservation and one explicit retry; it does not claim a real backend outage or an enabled production registration endpoint."
+}

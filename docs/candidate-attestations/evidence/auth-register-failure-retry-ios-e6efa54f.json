@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "check": "SCR-AUTH-REGISTER-IOS-FAILURE-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "e6efa54f37d71fb73dc45362434a201606d38637",
+    "workingTreeDirty": false
+  },
+  "platform": "ios-simulator-native-compose",
+  "commands": [
+    "GRADLE_USER_HOME=<private-build-volume>/gradle-native-direct ./scripts/build-ios-intel-simulator-signed.sh",
+    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates"
+  ],
+  "steps": [
+    "exact_product_tree_built_for_ios_x86_64_simulator",
+    "validated_hyperv_raster_runtime_loaded",
+    "real_shared_register_form_rendered",
+    "all_seven_registration_fields_entered_through_native_ui",
+    "first_submit_reaches_fail_once_transport_once",
+    "failure_visible_on_registration_error_semantics",
+    "all_registration_inputs_remain_visible_after_failure",
+    "explicit_retry_reuses_exact_complete_request",
+    "successful_retry_reaches_authentication_effect"
+  ],
+  "build": {
+    "host": "private-macos-validation-vm",
+    "macOS": "26.5.2",
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "architecture": "x86_64",
+    "configuration": "SimulatorSigned",
+    "result": "passed"
+  },
+  "xctest": {
+    "test": "QuataIosHostUITests.testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 277.102,
+    "resultBundleLocalPath": "<private-build-volume>/build-reports/migration/raw/auth-register-native-failure-retry-final.xcresult",
+    "resultBundleTarSha256": "2539db541fb5e07232b84d5c402eef8956139e43e20e228b56df8b50e47660a1",
+    "simulator": {
+      "name": "private-ios-simulator",
+      "model": "iPhone 16 Pro",
+      "os": "iOS 18.3.1 (22D8075)",
+      "architecture": "x86_64"
+    }
+  },
+  "integrity": {
+    "iosFixtureSha256": "72d5129a46cee859c8033cb31525e538d2da80fe30e35ff4f55c3228cfec4baf",
+    "swiftRouteSha256": "d877e230e7ec5bcdafa8004aeadea4928548b5b8f253e07010319b6aeba953f2",
+    "xctestSha256": "eb38c1da48381baf0598801fc072d02b4d409e3646149418e8aaca0a34dc0c7a"
+  },
+  "attempts": [
+    {
+      "result": "test_harness_failed",
+      "reason": "The first completed run reached both fail-once transport attempts and the success marker, but the helper used one unsupported synthetic punctuation character and tried to read Compose input text through an accessibility value that the native host does not expose."
+    },
+    {
+      "result": "environment_blocked",
+      "reason": "The corrected build first exhausted the dedicated build volume and then the Simulator staging volume; only regenerable Gradle/build cache data was removed before retrying."
+    },
+    {
+      "result": "passed",
+      "productSha": "e6efa54f37d71fb73dc45362434a201606d38637",
+      "reason": "The real native Register form kept all controls visible after rejection, and the fail-once repository accepted the second submit only because the complete seven-field request was exactly equal to the first. The focal XCTest passed 1/1."
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "scope": "Local fail-once product fixture and real iOS Simulator UI interaction. It proves native Register rejection, visible preserved controls, exact complete-request preservation, one explicit user retry reaching a success effect, and no credentials, backend or remote mutation. It does not exclude additional unseen callbacks after the observed success, and it does not claim a real backend outage or production registration availability."
+}
