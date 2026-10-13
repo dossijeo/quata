@@ -7,7 +7,7 @@
   ],
   "status": "passed",
   "productSha": "43514208dabf591de36559a83267aef627cd2ba8",
-  "certification": "auth-failure-retry-common-native-and-return-scope-reconciled-deterministic-ios-ci-correction-review-pending",
+  "certification": "auth-failure-retry-common-native-and-return-scope-reconciled-deterministic-ios-ci-correction-independent-exact-head-review-go-CI-pending",
   "evidence": {
     "reconciliation": {
       "status": "passed",
@@ -46,11 +46,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "aca764df006517c5b76cf18d09bf5d64ce50c617",
     "previousReviewedSha": "02cc123daf6c5eb0de3353f0fadc8f48bc6a6e22",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review confirmed Product 43514208dabf591de36559a83267aef627cd2ba8, the deterministic Register retry 300-second method/workflow alignment, Feed 180 and Live Ranking 300, contracts 5/5, 17/17 and iOS 71/71, validator, diff-check and clean tree with no P0-P3."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -64,6 +66,6 @@
     "The native refresh HTTP boundary remains bound to its reviewed focal Android unit and iOS hermetic NSURLRequest capture before URLSession execution; decrypted TLS capture remains external.",
     "Google provider enablement, APNs device-token delivery, non-enumerated Auth routes and global recertification remain explicit boundaries; no historical platform execution is reattributed.",
     "Current Product 43514208dabf591de36559a83267aef627cd2ba8 is based on native HTTP boundary squash 103513cd823bd6f67840d47ac5b8c9656111d613 and adds only the deterministic iOS Register retry test/workflow ceiling correction after the current hosted run exceeded 180 seconds.",
-    "Independent exact-head review is pending for the corrected Product; the failed run is not treated as platform evidence and no blind rerun was requested."
+    "Independent exact-head review of aca764df006517c5b76cf18d09bf5d64ce50c617 returned GO with no P0-P3; this annotation records that result without changing Product or evidence. Effectiveness against the hosted timeout remains pending the next iOS CI run."
   ]
 }
