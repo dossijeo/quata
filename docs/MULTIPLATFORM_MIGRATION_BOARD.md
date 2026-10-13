@@ -104,7 +104,7 @@ acredita reproducción posterior en los bridges AVFoundation de Feed y Official.
 Permanecen fuera el catálogo exhaustivo de codecs, reproducción prolongada en segundo plano,
 comentarios integrados y productores de media distintos de Feed y Official.
 
-## POST-VIDEO-EDITOR / formato Web reproducible en Android e iOS — candidata
+## POST-VIDEO-EDITOR / formato Web reproducible en Android e iOS — integrado por #610
 
 Runtime SHA `d484e5b56c9f81fa639548705f15db833677c40c`; Product SHA `5395f680113fca56e3c4ca1278eed0e8b507707d`. El productor activo del editor
 Web publica sólo MP4/H.264: Chrome usa Opus y los navegadores que lo anuncien pueden usar AAC como
