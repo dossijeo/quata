@@ -51,23 +51,26 @@
     "Product a978ad089944f8a582d0c16586f0f54755054d47 is patch-equivalent to the reviewed historical Product and keeps app/build.gradle.kts byte-identical.",
     "The affected joint Debug/Release generation gate passed on the current Product with Debug=true and Release=false.",
     "This attestation does not attribute an installation, backend mutation or E2E execution.",
-    "Independent exact-head review found one P3: the receipt omitted one character from the owned app/build.gradle.kts SHA256. The receipt and manifest hash are corrected; renewed exact-head review is pending."
+    "Independent exact-head review of 9e6be8cdbeee2a3665a2b8bdc56c7fffda6a6899 returned GO with no remaining P0-P3; this annotation records that result without changing Product or evidence."
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "9e6be8cdbeee2a3665a2b8bdc56c7fffda6a6899",
     "previousReviewedSha": "824ed560b6c44d8fd6b96f2a8941230a43e4f081",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "The exact-head review P3 was resolved by correcting the owned app/build.gradle.kts SHA256 to the full 64-hex value and renewing the receipt hash.",
+      "Independent exact-head review confirmed stable patch ID d7612e8aea6748dec56cf4e3dc14eb57670adc29, byte-identical build script, fresh joint Debug=true/Release=false generation, 17/17 contract, validator and diff-check with no remaining P0-P3."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
       "P2": 0,
       "P3": 0
     },
-    "reviewedProductSha": null
+    "reviewedProductSha": "a978ad089944f8a582d0c16586f0f54755054d47"
   },
-  "certification": "android-release-real-backend-recomposed-affected-gates-passed-independent-exact-head-review-pending",
+  "certification": "android-release-real-backend-recomposed-affected-gates-passed-independent-exact-head-review-go-final-confirmation-pending",
   "historicalEvidence": {
     "android": {
       "status": "passed",
