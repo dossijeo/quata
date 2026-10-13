@@ -14,7 +14,7 @@
   "ownedProductBlob": {
     "path": "app/build.gradle.kts",
     "gitOid": "b349e75e9b25396d92fc0f2093ee1d6208925257",
-    "sha256": "40773dc35b80f3657123aa11b1bf4cbdd3f4580c1219ec66d49ee13042efbb9",
+    "sha256": "40773dc35b80f3657123aa11b1bf4cbbdd3f4580c1219ec66d49ee13042efbb9",
     "historicalByteIdentity": true
   },
   "command": ".\\gradlew.bat :app:generateDebugBuildConfig :app:generateReleaseBuildConfig '-Pquata.useMockBackend=true' --no-daemon --console=plain",

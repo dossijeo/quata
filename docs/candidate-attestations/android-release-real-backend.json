@@ -11,7 +11,7 @@
       "status": "passed",
       "sha": "a978ad089944f8a582d0c16586f0f54755054d47",
       "report": "docs/candidate-attestations/evidence/android-release-real-backend-recomposition-a978ad08.json",
-      "reportSha256": "c6d59144450049b9c00fcbe64c9ded44b11745da03f514447999e0b2ad4ec4ef",
+      "reportSha256": "0f047a85d1ecc44d19f3f4b75e39986bd9b5a74a0f11d41520aeedeea1b384f5",
       "reportStatus": "passed",
       "reportGitHead": "a978ad089944f8a582d0c16586f0f54755054d47",
       "reportWorkingTreeDirty": false,
