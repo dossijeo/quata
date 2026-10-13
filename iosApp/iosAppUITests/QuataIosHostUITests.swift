@@ -163,21 +163,9 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 10))
         XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-registration-rejected", timeout: 5))
-        for (identifier, expectedValue) in [
-            ("auth.register.display-name", "a"),
-            ("auth.register.neighborhood", "b"),
-            ("auth.register.phone.input", "7"),
-            ("auth.register.secret-answer", "c"),
-        ] {
-            let preservedInput = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            XCTAssertTrue(preservedInput.waitForExistence(timeout: 5))
-            XCTAssertTrue(
-                preservedInput.waitForValue(equalTo: expectedValue, timeout: 5),
-                "Expected Register input \(identifier) to preserve its value after failure.",
-            )
-        }
+        // The fixture accepts attempt two only when the complete seven-field request is exactly
+        // equal to attempt one. Retrying through the unchanged form is therefore the preservation
+        // assertion without four extra accessibility-tree walks near the 180-second allowance.
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-register-failure-preserved")
 
         tapAfterDismissingKeyboard("auth.register.submit", in: app)
@@ -193,6 +181,9 @@ final class QuataIosHostUITests: XCTestCase {
                 .firstMatch.waitForExistence(timeout: 10),
             "The retry succeeds only when all seven Register fields match the first request.",
         )
+        // Leave the simulator idle before the next cold-launch policy test. Xcode 26.3 otherwise
+        // has to terminate this long-running fixture during launch and can restart the UI runner.
+        app.terminate()
     }
 
     func testAuthRecoveryFailurePreservesInputAndExplicitRetryReturnsToLogin() {
@@ -2645,17 +2636,6 @@ private enum AuthRecoveryUiConfigurationError: LocalizedError {
 }
 
 private extension XCUIElement {
-    func waitForValue(equalTo expected: String, timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        repeat {
-            if (value as? String) == expected {
-                return true
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
-        } while Date() < deadline
-        return false
-    }
-
     func waitForLabelOrValue(containing expected: String, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
