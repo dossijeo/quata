@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "b41d3374a63ce654b9aa4dcddaf7c61878483ce3",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-REGISTER",
+  "productSha": "b41d3374a63ce654b9aa4dcddaf7c61878483ce3",
+  "predecessorSha": "bc855ba515fbef45fc1bf921c8212843fa13a03b",
+  "historicalProductSha": "8fe252ccdaea3439f1c76c4a5260be784c06a63d",
+  "productPatchIds": [
+    "175e16caa354f41cb624ad17a727f6b671eef0cf",
+    "c1619f6d19eb609a34dc49aa8e28ce0836c04d53"
+  ],
+  "ownedEvidence": [
+    {
+      "path": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRegisterFailureRetryInstrumentedTest.kt",
+      "gitOid": "e858e4cc6e089c0c228ef764adb90d1d684d1c9a",
+      "sha256": "03527363356b88f0aed079345cd29e7311153cb106c2e801b98648ce2d1fec47",
+      "historicalByteIdentity": true
+    },
+    {
+      "path": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+      "gitOid": "926820170712266239718047ab9347d3a075af70",
+      "sha256": "27cdab7fddbc377b2073db50deede666110d4f219d9b61856d4c282b68f82993",
+      "historicalByteIdentity": false,
+      "ownedMethod": "testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates",
+      "ownedMethodSha256": "edfbba5e42ded51e6280cb636db542e3eb85510ded4413e1c03d027c14be8fff",
+      "historicalOwnedMethodSha256": "136ef4533696222809dec843d1cc388bc4ad6aba89deadf01b540cc7eb2addf8",
+      "ownedMethodByteIdentity": false,
+      "reason": "The Register-owned XCTest method deterministically shortens synthetic field values after CI proved the prior long private-keyboard traversal could exceed the per-test allowance; it preserves all seven fields and exact complete-request retry semantics."
+    }
+  ],
+  "steps": [
+    "two_native_runtime_and_test_commits_patch_equivalent",
+    "android_owned_test_blob_byte_identical",
+    "ios_register_owned_method_deterministically_shortened_after_timeout",
+    "seven_field_atomic_failure_and_exact_retry_contract_preserved",
+    "common_register_custody_preserved",
+    "historical_android_and_ios_execution_not_reattributed",
+    "bounded_ios_success_marker_claim_preserved",
+    "native_contracts_passed",
+    "android_instrumentation_compilation_passed",
+    "ios_x64_compilation_passed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "nativeContracts": "passed_29_of_29",
+    "compileDebugAndroidTestKotlin": "passed",
+    "compileKotlinIosX64": "passed",
+    "validator": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "androidOwnedTestBlob": "byte_identical",
+    "iosRegisterOwnedMethod": "deterministically_shortened_after_ci_timeout",
+    "iosSharedFileDelta": "register_timeout_fix_plus_reviewed_predecessor_deltas",
+    "androidEvidence": "historical_1_of_1",
+    "iosEvidence": "historical_1_of_1_bounded_success_marker",
+    "nativeLoginPredecessor": "bc855ba515fbef45fc1bf921c8212843fa13a03b"
+  },
+  "notes": [
+    "The Android native Register commit retains its stable patch ID; the iOS test commit has a reviewed deterministic timeout correction over merged Native Login squash bc855ba5.",
+    "The Android Register test blob remains byte-identical. The iOS Register method now uses minimal nonblank synthetic values so private-keyboard traversal stays below the XCTest allowance while the fixture still compares all seven fields across the exact retry.",
+    "Android remains bound to historical 1/1 evidence and iOS remains bound to historical SimulatorSigned 1/1 evidence; no platform matrix was repeated solely for ancestry.",
+    "The iOS evidence proves rejection, preserved visible inputs, one explicit exact-request retry and a success marker; it does not exclude later unseen callbacks."
+  ]
+}
