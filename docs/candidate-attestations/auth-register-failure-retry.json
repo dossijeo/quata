@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "b41d3374a63ce654b9aa4dcddaf7c61878483ce3",
-  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-deterministic-ios-timeout-fix-affected-gates-passed-independent-exact-head-review-pending",
+  "certification": "rendered-register-failure-retry-common-android-ios-complete-recomposed-over-merged-native-login-deterministic-ios-timeout-fix-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -140,11 +140,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "5779e8b4f8894ee72c035ad54706ae56363099dd",
     "previousReviewedSha": "0d48e16e8c53731c756e27de6dce17b7ece97389",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review of 5779e8b4f8894ee72c035ad54706ae56363099dd returned GO without P0-P3 after confirming the deterministic iOS timeout correction preserves all seven fields and exact complete-request retry semantics, patch IDs and hashes, historical E2E custody without reattribution, 29/29 contracts, affected compilations, validator, diff-check and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -193,6 +195,6 @@
     "The Android product commit retains its stable patch ID. The iOS product commit deterministically shortens synthetic values after CI timed out during private-keyboard traversal; the fixture still compares all seven fields across the exact retry.",
     "Android remains bound to historical native 1/1 evidence and iOS to historical SimulatorSigned 1/1 evidence; no E2E matrix is repeated solely for ancestry.",
     "The iOS evidence is intentionally bounded to rejection, preserved visible inputs, one explicit exact-request retry and its success marker; it does not exclude later unseen callbacks.",
-    "Independent exact-head review is pending for the deterministic iOS timeout correction before publication."
+    "Independent exact-head review of 5779e8b4f returned GO without P0-P3; this attestation-only review-record head requires final exact-head confirmation before publication."
   ]
 }
