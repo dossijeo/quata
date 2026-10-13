@@ -72,4 +72,12 @@ test("cross-platform codec attestation preserves exact evidence and residual bou
     assert.match(document, /post-video-web-cross-platform-codec\.json/);
     assert.match(document, /codecs heredados|codecs heredados\/terceros/);
   }
+  assert.match(
+    board,
+    /^## POST-VIDEO-EDITOR \/ formato Web reproducible en Android e iOS — integrado por #610$/m,
+  );
+  assert.doesNotMatch(
+    board,
+    /^## POST-VIDEO-EDITOR \/ formato Web reproducible en Android e iOS — candidata$/m,
+  );
 });
