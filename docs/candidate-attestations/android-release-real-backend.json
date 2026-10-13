@@ -51,7 +51,7 @@
     "Product a978ad089944f8a582d0c16586f0f54755054d47 is patch-equivalent to the reviewed historical Product and keeps app/build.gradle.kts byte-identical.",
     "The affected joint Debug/Release generation gate passed on the current Product with Debug=true and Release=false.",
     "This attestation does not attribute an installation, backend mutation or E2E execution.",
-    "Independent exact-head review is pending for the recomposed Product over squash da6886bf1f55280a0e39480518eac966b94c001f."
+    "Independent exact-head review found one P3: the receipt omitted one character from the owned app/build.gradle.kts SHA256. The receipt and manifest hash are corrected; renewed exact-head review is pending."
   ],
   "review": {
     "status": "pending",
