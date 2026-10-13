@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "status": "passed",
+  "git": {
+    "head": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+    "workingTreeDirty": false
+  },
+  "unit": "SCR-AUTH-RECOVERY",
+  "productSha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+  "predecessorSha": "f2abc103859a58ddbe7724122dbc337015033451",
+  "historicalProductSha": "ff92e795a3dca0fd10e7676748477a588bf1e91d",
+  "productPatchIds": [
+    "45aabf01c384aec542999dc97a6eba309356ff18",
+    "3f94b7505f19ee9d9a202226de3744543787445f"
+  ],
+  "ownedEvidence": [
+    {
+      "path": "app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRecoveryFailureRetryInstrumentedTest.kt",
+      "gitOid": "e61ef458f456b1e378e9afc5ebb74447dca61063",
+      "sha256": "85728c3155dec7f3b7642fdc8aa93fdc3baafe64deda44eca01d31102e6cd7b6",
+      "historicalByteIdentity": true
+    },
+    {
+      "path": "iosApp/iosAppUITests/QuataIosHostUITests.swift",
+      "gitOid": "160e0bb2ad9e8da8d23630a46acdbc5ea257ec1c",
+      "sha256": "320554ed3e8907927f7ee50b554dd143592e1c7ddf336eb8d4c5ee8ad58acc29",
+      "historicalByteIdentity": false,
+      "ownedMethod": "testAuthRecoveryFailurePreservesInputAndExplicitRetryReturnsToLogin",
+      "ownedMethodSha256": "f7eb5a4464eb524f76ef4f385b96b560bf8de544c460605a8c8285d042c4206e",
+      "historicalOwnedMethodSha256": "3348b1f8db790e128808f341f31141c536d22b71cd2ab217fc70c20e003d124b",
+      "ownedMethodByteIdentity": false,
+      "reason": "The Recovery-owned XCTest method uses minimal nonblank values after the predecessor Register CI exposed private-keyboard traversal as a deterministic timeout risk; the fixture still compares the complete first and second Recovery requests."
+    }
+  ],
+  "steps": [
+    "two_native_runtime_and_test_commits_patch_equivalent",
+    "android_owned_test_blob_byte_identical",
+    "ios_recovery_owned_method_deterministically_shortened_after_predecessor_timeout",
+    "lock_and_both_release_paths_preserved",
+    "phone_answer_password_preserved_after_failure",
+    "exact_retry_and_return_to_real_login_preserved",
+    "common_recovery_custody_preserved",
+    "historical_android_and_ios_execution_not_reattributed",
+    "native_contracts_passed",
+    "android_instrumentation_compilation_passed",
+    "ios_x64_compilation_passed",
+    "diff_check_passed"
+  ],
+  "gates": {
+    "nativeContracts": "passed_29_of_29",
+    "compileDebugAndroidTestKotlin": "passed",
+    "compileKotlinIosX64": "passed",
+    "validator": "passed",
+    "diffCheck": "passed"
+  },
+  "observations": {
+    "backendChanged": false,
+    "platformEvidenceChanged": false,
+    "platformExecutionRepeated": false,
+    "androidOwnedTestBlob": "byte_identical",
+    "iosRecoveryOwnedMethod": "deterministically_shortened_after_predecessor_timeout",
+    "iosSharedFileDelta": "recovery_timeout_prevention_plus_reviewed_predecessor_deltas",
+    "androidEvidence": "historical_1_of_1",
+    "iosEvidence": "historical_1_of_1_bounded_success_marker",
+    "nativeRegisterPredecessor": "f2abc103859a58ddbe7724122dbc337015033451"
+  },
+  "notes": [
+    "The Android native Recovery commit retains its stable patch ID; the iOS test commit carries only a deterministic timeout-prevention adjustment over the merged native Register squash.",
+    "The Android Recovery test blob remains byte-identical. The iOS Recovery method uses minimal synthetic values so private-keyboard traversal stays bounded while the fixture still compares phone, answer and new password across the exact retry.",
+    "Android and iOS remain bound to historical 1/1 evidence; no platform matrix was repeated solely for ancestry.",
+    "The native closure preserves tryLock before validation and launch, both release paths, all three fields, the exact retry and return to the real shared Login surface."
+  ]
+}

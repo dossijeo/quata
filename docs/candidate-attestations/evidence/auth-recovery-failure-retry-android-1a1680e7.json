@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "check": "SCR-AUTH-RECOVERY-ANDROID-FAILURE-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "1a1680e72dfa1de595f1bf41b269e85625d4fd75",
+    "workingTreeDirty": false
+  },
+  "platform": "android-native-compose",
+  "commands": [
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest \"-Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.auth.presentation.AuthRecoveryFailureRetryInstrumentedTest\""
+  ],
+  "steps": [
+    "real_shared_recovery_form_rendered",
+    "registered_phone_resolves_real_shared_recovery_question",
+    "answer_and_new_password_entered_through_native_ui",
+    "first_submit_reaches_fail_once_transport_once",
+    "failure_visible_on_stable_recovery_error_semantics",
+    "phone_answer_and_new_password_preserved_after_failure",
+    "explicit_retry_reuses_exact_reset_request_once",
+    "successful_retry_returns_to_real_shared_login_form"
+  ],
+  "instrumentation": {
+    "test": "com.quata.feature.auth.presentation.AuthRecoveryFailureRetryInstrumentedTest.nativeRecoveryFailurePreservesInputsAndExplicitRetryReturnsToLogin",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 15.48,
+    "device": {
+      "name": "QuataLivePr336Api35",
+      "api": 35
+    }
+  },
+  "integrity": {
+    "instrumentedTestSha256": "85728c3155dec7f3b7642fdc8aa93fdc3baafe64deda44eca01d31102e6cd7b6",
+    "resultXml": "app/build/outputs/androidTest-results/connected/debug/TEST-QuataLivePr336Api35(AVD) - 15-_app-.xml"
+  },
+  "attempts": [
+    {
+      "result": "command_line_rejected",
+      "reason": "The first invocation left the dotted Gradle project property unquoted, so PowerShell parsed part of it as a task path and Gradle did not execute the test. Quoting the complete project property resolved the shell-only error without changing product or test code."
+    },
+    {
+      "result": "passed",
+      "productSha": "1a1680e72dfa1de595f1bf41b269e85625d4fd75",
+      "reason": "The real native Recovery form resolved the deterministic question, preserved all three inputs after rejection and returned to the real Login form only after the fail-once repository accepted one exact explicit retry."
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "scope": "Hermetic fail-once repository around the real shared Recovery surface, executed through Android instrumentation. It proves native question resolution, rejection, preservation of the phone, answer and new password, exact request reuse and one explicit retry; it does not claim a real backend outage or current production endpoint availability."
+}

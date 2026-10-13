@@ -4,12 +4,12 @@
     "SCR-AUTH-RECOVERY"
   ],
   "status": "passed",
-  "productSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
-  "certification": "rendered-common-recovery-failure-retry-recomposed-over-integrated-registration-feed-karma-deterministic-recovery-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
+  "productSha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+  "certification": "rendered-recovery-failure-retry-common-android-ios-complete-recomposed-over-merged-native-register-deterministic-ios-timeout-prevention-affected-gates-passed-independent-exact-head-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
-      "sha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-301e868e.json",
       "reportSha256": "1ba3a355939c8522afebf1bccab91e764ea2f38d491f0c52e8a24f71a6094349",
       "reportStatus": "passed",
@@ -33,7 +33,7 @@
     },
     "recomposition": {
       "status": "passed",
-      "sha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-086ea58e.json",
       "reportSha256": "28ba0cf331416d803da9308d421e6ad630855cf33ec23f619641ceab988aa68d",
       "reportStatus": "passed",
@@ -62,7 +62,7 @@
     },
     "postCurrentRegistrationRecomposition": {
       "status": "passed",
-      "sha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99",
+      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
       "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-recomposition-086ea58e.json",
       "reportSha256": "28ba0cf331416d803da9308d421e6ad630855cf33ec23f619641ceab988aa68d",
       "reportStatus": "passed",
@@ -88,34 +88,107 @@
         "verified": true,
         "mode": "product-commit-only-affected-common-gates-renewed"
       }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-android-1a1680e7.json",
+      "reportSha256": "f075849a2afd2b81d97e9dfc2bdde14d0c308779cb6401ae7dadae4e1de61e07",
+      "reportStatus": "passed",
+      "reportGitHead": "1a1680e72dfa1de595f1bf41b269e85625d4fd75",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "real_shared_recovery_form_rendered",
+        "registered_phone_resolves_real_shared_recovery_question",
+        "answer_and_new_password_entered_through_native_ui",
+        "first_submit_reaches_fail_once_transport_once",
+        "failure_visible_on_stable_recovery_error_semantics",
+        "phone_answer_and_new_password_preserved_after_failure",
+        "explicit_retry_reuses_exact_reset_request_once",
+        "successful_retry_returns_to_real_shared_login_form"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "report": "docs/candidate-attestations/evidence/auth-recovery-failure-retry-ios-aa4087ca.json",
+      "reportSha256": "0a6d13e33778358d3aedd6aadce0115dc8ddd254c5fdef7eb75bec05199fab36",
+      "reportStatus": "passed",
+      "reportGitHead": "aa4087ca255efb3125052c6684564788b3f0ddb5",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requireCleanupState": "completed",
+      "requiredSteps": [
+        "exact_product_tree_built_for_ios_x86_64_simulator",
+        "validated_hyperv_raster_runtime_loaded",
+        "real_shared_recovery_form_rendered",
+        "registered_phone_resolves_real_shared_recovery_question",
+        "answer_and_new_password_entered_through_native_ui",
+        "first_submit_reaches_fail_once_transport_once",
+        "failure_visible_on_stable_recovery_error_semantics",
+        "phone_answer_and_new_password_preserved_after_failure",
+        "explicit_retry_reuses_exact_reset_request",
+        "successful_retry_returns_to_real_shared_login_form"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture_no_backend_no_credentials_no_remote_mutation"
+      }
+    },
+    "nativeRecomposition": {
+      "status": "passed",
+      "sha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "report": "docs/candidate-attestations/evidence/auth-recovery-native-failure-retry-recomposition-5fa95c73.json",
+      "reportSha256": "0b06fd0a04f7e8bb6e4d5c6580020c188f9d17aa139ef900178279bf60df0eda",
+      "reportStatus": "passed",
+      "reportGitHead": "5fa95c7391710265eaaa102b76ff4365623b14aa",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "two_native_runtime_and_test_commits_patch_equivalent",
+        "android_owned_test_blob_byte_identical",
+        "ios_recovery_owned_method_deterministically_shortened_after_predecessor_timeout",
+        "lock_and_both_release_paths_preserved",
+        "phone_answer_password_preserved_after_failure",
+        "exact_retry_and_return_to_real_login_preserved",
+        "common_recovery_custody_preserved",
+        "historical_android_and_ios_execution_not_reattributed",
+        "native_contracts_passed",
+        "android_instrumentation_compilation_passed",
+        "ios_x64_compilation_passed",
+        "diff_check_passed"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic-recomposition-no-backend-or-platform-mutation"
+      }
     }
   },
   "preflight": [
-    ".\\gradlew.bat :feature:auth:wasmJsBrowserTest",
-    ".\\gradlew.bat :feature:auth:compileAndroidMain :feature:auth:compileKotlinIosX64",
-    "node --test scripts/web-android-pr-workflow-contract.test.mjs",
-    "$env:CI='true'; .\\gradlew.bat :feature:feed:wasmJsBrowserTest --no-daemon",
+    "node --test scripts/capability-matrix-contract.test.mjs scripts/ios-auth-launch-fixture-contract.test.mjs",
+    ".\\gradlew.bat :app:compileDebugAndroidTestKotlin :feature:auth:compileKotlinIosX64",
     "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/auth-recovery-failure-retry.json --head HEAD",
     "git diff --check"
   ],
   "review": {
-    "status": "GO",
-    "reviewedSha": "2f5fdb23c263355c75c6a7acb23ef3fb6c775e86",
-    "previousReviewedSha": "ea2025395d52f6932fab0226fcb4b51ec1e65a27",
+    "status": "pending",
+    "reviewedSha": null,
+    "previousReviewedSha": "2f5fdb23c263355c75c6a7acb23ef3fb6c775e86",
     "blockingFindings": [],
-    "resolvedFindings": [
-      "Independent exact-head review confirmed exact Product patch-id, two byte-identical owned blobs, tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent reports and hashes, historical custody at 301e868e without native/backend/E2E reattribution, validator, diff-check and clean tree.",
-      "Independent exact-head review of ff8848e1bc832d0e538c361178de18d854859809 returned GO without P0-P3 after confirming Product f9ef7b0826d4a85adb5804830cb9f7190b41c843, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, report hashes, affected common gates, validator, diff-check, clean tree and custody at 301e868e without reattribution.",
-      "Independent exact-head review of ea2025395d52f6932fab0226fcb4b51ec1e65a27 returned GO without P0-P3 after confirming Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent report hashes, Wasm 31/31 plus Android/iOS common gates, validator, diff-check, clean tree and custody at 301e868e without native/backend/E2E reattribution.",
-      "Independent exact-head review of 2f5fdb23c263355c75c6a7acb23ef3fb6c775e86 returned GO without P0-P3 after confirming Product 086ea58ef39b71a2b07219e7cbb0f7861a204f99, byte-identical Recovery blobs, bounded Feed Karma activity/reconnect policy and CI launcher flags, contract 45/45, Feed XML 104/104, coherent hashes, validator, diff-check and clean tree without new native/backend/E2E attribution."
-    ],
+    "resolvedFindings": [],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
       "P2": 0,
       "P3": 0
     },
-    "reviewedProductSha": "086ea58ef39b71a2b07219e7cbb0f7861a204f99"
+    "reviewedProductSha": "5fa95c7391710265eaaa102b76ff4365623b14aa"
   },
   "notes": [
     "The real common Recovery form resolves the question, renders pending/failure/retry and preserves phone, answer and new password after rejection.",
@@ -128,6 +201,10 @@
     "Current Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5 preserves stable patch ID 22b15467 over integrated Common Register squash 1d078a262e765a1dc3a511eb7c147d6063fd3969; both owned blobs remain byte-identical, affected Wasm 31/31 plus Android/iOS common gates pass, and historical rendered execution remains bound to 301e868e7cc863813876e80636e0db19f348722b without native/backend/E2E reattribution. Fresh independent exact-head review is required before publication.",
     "Independent exact-head review of ea2025395d52f6932fab0226fcb4b51ec1e65a27 returned GO without P0-P3 after confirming Product 955dff632ea1a476d29cd3c079abdc3c2eec33e5, stable patch ID 22b15467, two byte-identical blobs, atomic tryLock and both release paths, three preserved fields, exact retry and one PasswordUpdated effect, coherent report hashes, Wasm 31/31 plus Android/iOS common gates, validator, diff-check, clean tree and custody at 301e868e without native/backend/E2E reattribution.",
     "Current Product 086ea58ef39b71a2b07219e7cbb0f7861a204f99 preserves the two Recovery blobs over integrated Common Register and adds deterministic bounded Feed Karma recovery after the same 2-second disconnect failure repeated in consecutive candidates. Contract 45/45 and the affected Feed Wasm browser test pass; fresh independent exact-head review is pending.",
-    "Independent exact-head review of 2f5fdb23c263355c75c6a7acb23ef3fb6c775e86 returned GO without P0-P3; final annotation-only exact-head review remains required before force-pushing the repaired candidate."
+    "Independent exact-head review of 2f5fdb23c263355c75c6a7acb23ef3fb6c775e86 returned GO without P0-P3; final annotation-only exact-head review remains required before force-pushing the repaired candidate.",
+    "Native Recovery Product 5fa95c7391710265eaaa102b76ff4365623b14aa replays its two owned commits over merged Native Register squash f2abc103859a58ddbe7724122dbc337015033451; Android remains byte-identical and iOS uses minimal synthetic values to prevent the private-keyboard timeout exposed by the predecessor.",
+    "The iOS fixture still compares the complete first and second Recovery requests, preserving phone, secret answer and new password plus the exact explicit retry and return to the real Login form.",
+    "Historical Android/iOS 1/1 execution remains bound to 1a1680e72dfa1de595f1bf41b269e85625d4fd75 and aa4087ca255efb3125052c6684564788b3f0ddb5; no E2E matrix is reattributed or repeated solely for ancestry.",
+    "Affected gates pass on Product 5fa95c73: native contracts 29/29, Android instrumentation compilation, iOS x64 compilation and diff-check. Independent exact-head review is pending."
   ]
 }
