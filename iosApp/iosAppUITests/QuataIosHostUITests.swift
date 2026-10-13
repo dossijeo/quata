@@ -133,6 +133,10 @@ final class QuataIosHostUITests: XCTestCase {
     }
 
     func testAuthRegisterFailurePreservesInputAndExplicitRetryAuthenticates() {
+        // Seven private-keyboard fields take about 150 seconds on the hosted Xcode 26.3 runner.
+        // Keep this explicit and below the workflow's 180-second maximum instead of inheriting
+        // XCTest's two-minute method allowance, which aborts the runner during final cleanup.
+        executionTimeAllowance = 180
         let app = fixtureApp("auth-failure-retry", authDestination: "register", spanishLocale: true)
         app.launch()
 
@@ -163,18 +167,9 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 10))
         XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-registration-rejected", timeout: 5))
-        for identifier in [
-            "auth.register.display-name",
-            "auth.register.neighborhood",
-            "auth.register.phone.input",
-            "auth.register.secret-answer",
-        ] {
-            let preservedInput = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            XCTAssertTrue(preservedInput.waitForExistence(timeout: 5))
-            XCTAssertTrue(preservedInput.isHittable, "Expected preserved Register input \(identifier) to remain visible.")
-        }
+        // The fixture accepts attempt two only when the complete seven-field request is exactly
+        // equal to attempt one. Retrying through the unchanged form is therefore the preservation
+        // assertion without four extra accessibility-tree walks near the 180-second allowance.
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-register-failure-preserved")
 
         tapAfterDismissingKeyboard("auth.register.submit", in: app)
@@ -189,6 +184,69 @@ final class QuataIosHostUITests: XCTestCase {
                 .matching(identifier: "quata-ios-auth-register-success")
                 .firstMatch.waitForExistence(timeout: 10),
             "The retry succeeds only when all seven Register fields match the first request.",
+        )
+        // Leave the simulator idle before the next cold-launch policy test. Xcode 26.3 otherwise
+        // has to terminate this long-running fixture during launch and can restart the UI runner.
+        app.terminate()
+    }
+
+    func testAuthRecoveryFailurePreservesInputAndExplicitRetryReturnsToLogin() {
+        let app = fixtureApp("auth-failure-retry", authDestination: "recovery", spanishLocale: true)
+        app.launch()
+
+        // The fixture compares the complete first and second requests; minimal values keep
+        // private-keyboard traversal deterministic without weakening exact-retry coverage.
+        enterText("12345", into: "auth.recovery.phone", in: app)
+        let question = app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.question")
+            .firstMatch
+        XCTAssertTrue(question.waitForLabelOrValue(containing: "primer barrio", timeout: 25))
+        typePrivateText("a", into: "auth.recovery.secret-answer", in: app)
+        typePrivateText("p", into: "auth.recovery.new-password", in: app)
+        tapAfterDismissingKeyboard("auth.recovery.submit", in: app)
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-recovery-attempt-1")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The first native Recovery submit must reach the deterministic transport once.",
+        )
+        let error = app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.error")
+            .firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 10))
+        XCTAssertTrue(error.waitForLabelOrValue(containing: "synthetic-recovery-rejected", timeout: 5))
+        for identifier in [
+            "auth.recovery.phone",
+            "auth.recovery.secret-answer",
+            "auth.recovery.new-password",
+        ] {
+            let preservedInput = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            XCTAssertTrue(preservedInput.waitForExistence(timeout: 5))
+            XCTAssertTrue(preservedInput.isHittable, "Expected preserved Recovery input \(identifier) to remain visible.")
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-auth-recovery-failure-preserved")
+
+        tapAfterDismissingKeyboard("auth.recovery.submit", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-recovery-attempt-2")
+                .firstMatch.waitForExistence(timeout: 10),
+            "One explicit native retry must issue the second Recovery transport attempt.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-auth-recovery-success")
+                .firstMatch.waitForExistence(timeout: 10),
+            "The retry succeeds only when the complete Recovery request matches the first attempt.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.submit")
+                .firstMatch.waitForExistence(timeout: 10),
+            "A successful Recovery retry must return to the real shared Login form.",
         )
     }
 

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "check": "SCR-AUTH-RECOVERY-IOS-FAILURE-RETRY-001",
+  "status": "passed",
+  "git": {
+    "head": "aa4087ca255efb3125052c6684564788b3f0ddb5",
+    "workingTreeDirty": false
+  },
+  "platform": "ios-simulator-native-compose",
+  "commands": [
+    "GRADLE_USER_HOME=<private-gradle-home> ./gradlew :ios-shared:linkDebugFrameworkIosX64 --rerun-tasks",
+    "xcodebuild test -only-testing:QuataIosUITests/QuataIosHostUITests/testAuthRecoveryFailurePreservesInputAndExplicitRetryReturnsToLogin"
+  ],
+  "steps": [
+    "exact_product_tree_built_for_ios_x86_64_simulator",
+    "validated_hyperv_raster_runtime_loaded",
+    "real_shared_recovery_form_rendered",
+    "registered_phone_resolves_real_shared_recovery_question",
+    "answer_and_new_password_entered_through_native_ui",
+    "first_submit_reaches_fail_once_transport_once",
+    "failure_visible_on_stable_recovery_error_semantics",
+    "phone_answer_and_new_password_preserved_after_failure",
+    "explicit_retry_reuses_exact_reset_request",
+    "successful_retry_returns_to_real_shared_login_form"
+  ],
+  "build": {
+    "host": "private-macos-validation-vm",
+    "macOS": "26.5.2",
+    "xcode": "26.6 (17F113)",
+    "sdk": "iPhoneSimulator 26.5",
+    "architecture": "x86_64",
+    "configuration": "SimulatorSigned",
+    "result": "passed"
+  },
+  "xctest": {
+    "test": "QuataIosHostUITests.testAuthRecoveryFailurePreservesInputAndExplicitRetryReturnsToLogin",
+    "selected": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 135.03008496761322,
+    "resultBundleLocalPath": "<private-build-volume>/Logs/Test/auth-recovery-native-failure-retry.xcresult",
+    "resultBundleTarSha256": "48cefb53800fa286cda2718b1e47235ee8ba3c22d824bfff13be6b40402bfc59",
+    "simulator": {
+      "name": "private-ios-simulator",
+      "model": "iPhone 16 Pro",
+      "os": "iOS 18.3.1 (22D8075)",
+      "architecture": "x86_64"
+    }
+  },
+  "integrity": {
+    "iosFixtureSha256": "72d5129a46cee859c8033cb31525e538d2da80fe30e35ff4f55c3228cfec4baf",
+    "swiftRouteSha256": "d877e230e7ec5bcdafa8004aeadea4928548b5b8f253e07010319b6aeba953f2",
+    "xctestSha256": "a33309baacc8d168a377a7517f4f46e93ac04614d1e4444f4215f753a647e502"
+  },
+  "attempts": [
+    {
+      "result": "environment_blocked",
+      "reason": "The first framework build exhausted the macOS root volume. Only user-owned regenerable SpeechModelCache and failed current-worktree Gradle/build outputs were removed before retrying."
+    },
+    {
+      "result": "environment_failed",
+      "reason": "The first executable app used stock Skiko Metal because the dedicated Gradle home lacked the already validated Hyper-V raster init script. Installing the same local init script in that Gradle home and verifying dependency resolution restored the supported raster runtime."
+    },
+    {
+      "result": "test_harness_failed",
+      "reason": "The first interactive run used an unsupported synthetic punctuation character. The next run proved the remaining failure was caused by the private keypad helper not committing the phone value, so the deterministic question lookup never started. The final test enters the synthetic phone through XCUIElement.typeText and keeps private-key interaction for the answer and password."
+    },
+    {
+      "result": "passed",
+      "productSha": "aa4087ca255efb3125052c6684564788b3f0ddb5",
+      "reason": "The real native Recovery form resolved the deterministic question, rejected the first reset, retained all three inputs and returned to the real Login form after the fail-once repository accepted the observed exact explicit retry. The focal XCTest passed 1/1."
+    }
+  ],
+  "cleanup": {
+    "state": "completed",
+    "backendUsed": false,
+    "credentialsUsed": false,
+    "remoteMutation": false
+  },
+  "scope": "Local fail-once product fixture and real iOS Simulator UI interaction. It proves native Recovery question resolution, rejection, preserved phone/answer/password, exact request reuse and one observed explicit retry returning to Login without credentials, backend or remote mutation. It does not exclude additional unseen callbacks after the observed transition, and it does not claim a real backend outage or current production endpoint availability."
+}
