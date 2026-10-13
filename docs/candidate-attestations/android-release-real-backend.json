@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "units": [
+    "ANDROID-RELEASE-BACKEND"
+  ],
+  "status": "passed",
+  "productSha": "a978ad089944f8a582d0c16586f0f54755054d47",
+  "scope": "release Android artifacts cannot inherit the opt-in sample-data backend used by local debug fixtures",
+  "evidence": {
+    "android": {
+      "status": "passed",
+      "sha": "a978ad089944f8a582d0c16586f0f54755054d47",
+      "report": "docs/candidate-attestations/evidence/android-release-real-backend-recomposition-a978ad08.json",
+      "reportSha256": "0f047a85d1ecc44d19f3f4b75e39986bd9b5a74a0f11d41520aeedeea1b384f5",
+      "reportStatus": "passed",
+      "reportGitHead": "a978ad089944f8a582d0c16586f0f54755054d47",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "product_commit_patch_equivalent",
+        "owned_build_script_blob_byte_identical",
+        "generated_debug_and_release_build_config_in_one_invocation",
+        "debug_fixture_opt_in_preserved",
+        "release_real_backend_enforced",
+        "candidate_attestation_contract_passed_17_of_17",
+        "validator_passed",
+        "diff_check_passed"
+      ],
+      "command": ".\\gradlew.bat :app:generateDebugBuildConfig :app:generateReleaseBuildConfig '-Pquata.useMockBackend=true' --no-daemon --console=plain",
+      "result": "BUILD SUCCESSFUL",
+      "assertions": [
+        "debug BuildConfig exposes USE_MOCK_BACKEND=true when the explicit fixture property is supplied",
+        "release BuildConfig exposes USE_MOCK_BACKEND=false under the same invocation",
+        "the default configuration remains real-backend and the override exists only in the debug build type"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "generated build outputs only; no backend, device or user state changed"
+      }
+    }
+  },
+  "validation": [
+    "git diff --check",
+    "generated debug and release BuildConfig values inspected after one shared Gradle invocation",
+    "candidate attestation contract passed 17/17",
+    "no runtime repository, backend schema, credential or platform evidence changed"
+  ],
+  "notes": [
+    "MockData remains available to explicitly opted-in debug fixtures.",
+    "Release builds ignore quata.useMockBackend even if the property is accidentally present.",
+    "Product a978ad089944f8a582d0c16586f0f54755054d47 is patch-equivalent to the reviewed historical Product and keeps app/build.gradle.kts byte-identical.",
+    "The affected joint Debug/Release generation gate passed on the current Product with Debug=true and Release=false.",
+    "This attestation does not attribute an installation, backend mutation or E2E execution.",
+    "Independent exact-head review of 9e6be8cdbeee2a3665a2b8bdc56c7fffda6a6899 returned GO with no remaining P0-P3; this annotation records that result without changing Product or evidence."
+  ],
+  "review": {
+    "status": "GO",
+    "reviewedSha": "9e6be8cdbeee2a3665a2b8bdc56c7fffda6a6899",
+    "previousReviewedSha": "824ed560b6c44d8fd6b96f2a8941230a43e4f081",
+    "blockingFindings": [],
+    "resolvedFindings": [
+      "The exact-head review P3 was resolved by correcting the owned app/build.gradle.kts SHA256 to the full 64-hex value and renewing the receipt hash.",
+      "Independent exact-head review confirmed stable patch ID d7612e8aea6748dec56cf4e3dc14eb57670adc29, byte-identical build script, fresh joint Debug=true/Release=false generation, 17/17 contract, validator and diff-check with no remaining P0-P3."
+    ],
+    "findingCounts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
+      "P3": 0
+    },
+    "reviewedProductSha": "a978ad089944f8a582d0c16586f0f54755054d47"
+  },
+  "certification": "android-release-real-backend-recomposed-affected-gates-passed-independent-exact-head-review-go-final-confirmation-pending",
+  "historicalEvidence": {
+    "android": {
+      "status": "passed",
+      "sha": "e928b197cfe7a8457ffc1ea9cb76d0d38ca532e2",
+      "report": "docs/candidate-attestations/evidence/android-release-real-backend-e928b197.json",
+      "reportSha256": "c01e5484c76da0c87388acb21e880824caf5ea7b8c149fdd8b6377b0f07027b0",
+      "reportStatus": "passed",
+      "reportGitHead": "635433ae2cc6e153ec7c501278dad018adf8e204",
+      "reportWorkingTreeDirty": false,
+      "requireReportArtifact": true,
+      "requiredSteps": [
+        "generated_debug_and_release_build_config_in_one_invocation",
+        "debug_fixture_opt_in_preserved",
+        "release_real_backend_enforced"
+      ],
+      "command": ".\\gradlew.bat :app:generateDebugBuildConfig :app:generateReleaseBuildConfig '-Pquata.useMockBackend=true' --no-daemon --console=plain",
+      "result": "BUILD SUCCESSFUL",
+      "assertions": [
+        "debug BuildConfig exposes USE_MOCK_BACKEND=true when the explicit fixture property is supplied",
+        "release BuildConfig exposes USE_MOCK_BACKEND=false under the same invocation",
+        "the default configuration remains real-backend and the override exists only in the debug build type"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "generated build outputs only; no backend, device or user state changed"
+      }
+    }
+  },
+  "preflight": [
+    ".\\gradlew.bat :app:generateDebugBuildConfig :app:generateReleaseBuildConfig '-Pquata.useMockBackend=true' --no-daemon --console=plain",
+    "node --test scripts/candidate-attestation-contract.test.mjs",
+    "node scripts/validate-candidate-attestation.mjs --manifest docs/candidate-attestations/android-release-real-backend.json --head HEAD",
+    "git diff --check"
+  ]
+}
