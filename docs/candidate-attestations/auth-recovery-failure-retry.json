@@ -5,7 +5,7 @@
   ],
   "status": "passed",
   "productSha": "5fa95c7391710265eaaa102b76ff4365623b14aa",
-  "certification": "rendered-recovery-failure-retry-common-android-ios-complete-recomposed-over-merged-native-register-deterministic-ios-timeout-prevention-affected-gates-passed-independent-exact-head-review-pending",
+  "certification": "rendered-recovery-failure-retry-common-android-ios-complete-recomposed-over-merged-native-register-deterministic-ios-timeout-prevention-affected-gates-passed-independent-exact-head-review-go-final-review-pending",
   "evidence": {
     "commonCompose": {
       "status": "passed",
@@ -177,11 +177,13 @@
     "git diff --check"
   ],
   "review": {
-    "status": "pending",
-    "reviewedSha": null,
+    "status": "GO",
+    "reviewedSha": "5de4bba54e7065581ed0a9159f1fe629b9675587",
     "previousReviewedSha": "2f5fdb23c263355c75c6a7acb23ef3fb6c775e86",
     "blockingFindings": [],
-    "resolvedFindings": [],
+    "resolvedFindings": [
+      "Independent exact-head review of 5de4bba54e7065581ed0a9159f1fe629b9675587 returned GO without P0-P3 after confirming both patch IDs, byte-identical Android evidence, deterministic iOS timeout prevention with all three fields and exact complete-request retry preserved, tryLock and both release paths, return to Login, historical Android/iOS custody without E2E reattribution, 29/29 contracts, affected compilations, hashes, validator, diff-check and clean tree."
+    ],
     "findingCounts": {
       "P0": 0,
       "P1": 0,
@@ -205,6 +207,7 @@
     "Native Recovery Product 5fa95c7391710265eaaa102b76ff4365623b14aa replays its two owned commits over merged Native Register squash f2abc103859a58ddbe7724122dbc337015033451; Android remains byte-identical and iOS uses minimal synthetic values to prevent the private-keyboard timeout exposed by the predecessor.",
     "The iOS fixture still compares the complete first and second Recovery requests, preserving phone, secret answer and new password plus the exact explicit retry and return to the real Login form.",
     "Historical Android/iOS 1/1 execution remains bound to 1a1680e72dfa1de595f1bf41b269e85625d4fd75 and aa4087ca255efb3125052c6684564788b3f0ddb5; no E2E matrix is reattributed or repeated solely for ancestry.",
-    "Affected gates pass on Product 5fa95c73: native contracts 29/29, Android instrumentation compilation, iOS x64 compilation and diff-check. Independent exact-head review is pending."
+    "Affected gates pass on Product 5fa95c73: native contracts 29/29, Android instrumentation compilation, iOS x64 compilation and diff-check. Independent exact-head review is pending.",
+    "Independent exact-head review of 5de4bba54 returned GO without P0-P3; this attestation-only review-record head requires final exact-head confirmation before publication."
   ]
 }
