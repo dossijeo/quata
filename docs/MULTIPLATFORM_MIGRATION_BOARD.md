@@ -446,8 +446,11 @@ PR #247 reduce `CHAT-GROUP` y
 `contentDescription`/roles accesibles, contratos focales, compilación Chat Android/Wasm/iOS,
 evidencia backend real `CHAT-GROUP-BACKEND-001` con mutaciones reversibles y evidencia visual/
 operativa Web, Android e iOS `--group-sos-only`, todo con residuo físico cero. No eleva esos
-subflujos a GO completo: faltan administración UI profunda de grupo y retorno/errores/permisos de
-mapa SOS.
+subflujos a GO completo en ese corte. Los cierres posteriores de administración, moderación y
+guardas/rollback elevan `CHAT-GROUP` a GO focal; la apertura y el fallo portable del mapa, el retorno
+visible y `permission_denied` elevan `CHAT-LOCATION-SOS` a GO focal de recepción. Permanecen fuera
+únicamente las matrices físicas exhaustivas de permisos y el comportamiento de proveedores externos,
+tal como recoge la fila autoritativa de Chat grupo/SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
 **Integrado en [#319](https://github.com/dossijeo/quata/pull/319):** Product/Evidence SHA
